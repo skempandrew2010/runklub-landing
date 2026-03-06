@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RunKlub — Find Your Run Anywhere | runklub.fit</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Epilogue:ital,wght@0,300;0,400;0,500;1,300&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0d0d0d;
+    --chalk: #f0ede8;
+    --lime: #c8f23c;
+    --lime-dark: #a8d420;
+    --muted: #2a2a2a;
+    --gray: #6b6b6b;
+    --light-gray: #1e1e1e;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--ink);
+    color: var(--chalk);
+    font-family: 'Epilogue', sans-serif;
+    overflow-x: hidden;
+    cursor: none;
+  }
+
+  /* CUSTOM CURSOR */
+  .cursor {
+    width: 12px; height: 12px;
+    background: var(--lime);
+    border-radius: 50%;
+    position: fixed;
+    top: 0; left: 0;
+    pointer-events: none;
+    z-index: 9999;
+    transition: transform 0.15s ease, width 0.2s, height 0.2s;
+    mix-blend-mode: difference;
+  }
+  .cursor.grow { width: 40px; height: 40px; transform: translate(-14px, -14px); }
+
+  /* NAV */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.4rem 3rem;
+    mix-blend-mode: normal;
+  }
+
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 1.5rem;
+    letter-spacing: -0.02em;
+    color: var(--chalk);
+  }
+
+  .logo span { color: var(--lime); }
+
+  .nav-right { display: flex; align-items: center; gap: 2rem; }
+
+  .nav-link {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(240,237,232,0.45);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+  .nav-link:hover { color: var(--chalk); }
+
+  .nav-cta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    background: var(--lime);
+    color: var(--ink);
+    padding: 0.6rem 1.4rem;
+    border: none;
+    cursor: none;
+    font-weight: 500;
+    text-decoration: none;
+    transition: background 0.2s, transform 0.2s;
+    display: inline-block;
+  }
+  .nav-cta:hover { background: var(--lime-dark); transform: translateY(-1px); }
+
+  /* HERO */
+  .hero {
+    min-height: 100vh;
+    padding: 10rem 3rem 5rem;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  /* Animated bg circles */
+  .bg-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    pointer-events: none;
+    opacity: 0.12;
+  }
+  .orb1 {
+    width: 600px; height: 600px;
+    background: var(--lime);
+    top: -200px; right: -100px;
+    animation: drift1 8s ease-in-out infinite;
+  }
+  .orb2 {
+    width: 400px; height: 400px;
+    background: #39ff14;
+    bottom: -100px; left: 20%;
+    animation: drift2 10s ease-in-out infinite;
+    opacity: 0.07;
+  }
+
+  @keyframes drift1 {
+    0%, 100% { transform: translate(0, 0); }
+    50% { transform: translate(-30px, 40px); }
+  }
+  @keyframes drift2 {
+    0%, 100% { transform: translate(0, 0); }
+    50% { transform: translate(20px, -30px); }
+  }
+
+  /* Grain overlay */
+  .hero::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0.4;
+  }
+
+  .hero-content { position: relative; z-index: 2; max-width: 1100px; }
+
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border: 1px solid rgba(200,242,60,0.3);
+    padding: 0.4rem 1rem;
+    margin-bottom: 2.5rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--lime);
+    opacity: 0;
+    animation: slideIn 0.7s 0.2s forwards;
+  }
+
+  .badge-dot {
+    width: 6px; height: 6px;
+    background: var(--lime);
+    border-radius: 50%;
+    animation: blink 1.5s infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.2; }
+  }
+
+  .hero h1 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: clamp(4.5rem, 9vw, 9rem);
+    line-height: 0.92;
+    letter-spacing: -0.03em;
+    margin-bottom: 2rem;
+    opacity: 0;
+    animation: slideIn 0.8s 0.4s forwards;
+  }
+
+  .hero h1 em {
+    font-style: italic;
+    font-family: 'Epilogue', sans-serif;
+    font-weight: 300;
+    color: var(--lime);
+  }
+
+  .hero-bottom {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 3rem;
+    opacity: 0;
+    animation: slideIn 0.8s 0.6s forwards;
+  }
+
+  .hero-sub {
+    font-size: 1.05rem;
+    font-weight: 300;
+    line-height: 1.75;
+    color: rgba(240,237,232,0.6);
+    max-width: 380px;
+  }
+
+  .hero-form-wrap { flex-shrink: 0; }
+
+  .hero-form {
+    display: flex;
+    gap: 0;
+    width: 380px;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+
+  .hero-form input {
+    flex: 1;
+    background: rgba(255,255,255,0.05);
+    border: none;
+    color: var(--chalk);
+    font-family: 'Epilogue', sans-serif;
+    font-size: 0.9rem;
+    padding: 0.9rem 1.2rem;
+    outline: none;
+    transition: background 0.2s;
+  }
+  .hero-form input::placeholder { color: rgba(240,237,232,0.3); }
+  .hero-form input:focus { background: rgba(255,255,255,0.08); }
+
+  .hero-form button {
+    background: var(--lime);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.9rem 1.3rem;
+    border: none;
+    cursor: none;
+    transition: background 0.2s;
+    white-space: nowrap;
+  }
+  .hero-form button:hover { background: var(--lime-dark); }
+
+  .form-note {
+    margin-top: 0.7rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.62rem;
+    color: rgba(240,237,232,0.28);
+    letter-spacing: 0.05em;
+  }
+
+  .success-msg {
+    display: none;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--lime);
+    margin-top: 0.8rem;
+    letter-spacing: 0.05em;
+  }
+
+  /* SCROLL TICKER */
+  .ticker-wrap {
+    overflow: hidden;
+    border-top: 1px solid rgba(255,255,255,0.07);
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+    padding: 0.9rem 0;
+    position: relative;
+    z-index: 2;
+  }
+
+  .ticker {
+    display: flex;
+    gap: 0;
+    animation: ticker 25s linear infinite;
+    white-space: nowrap;
+  }
+
+  .ticker-item {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 0.75rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: rgba(240,237,232,0.25);
+    padding: 0 2.5rem;
+    flex-shrink: 0;
+  }
+
+  .ticker-item span { color: var(--lime); margin-right: 2.5rem; }
+
+  @keyframes ticker {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+
+  /* STATS */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+  }
+
+  .stat {
+    padding: 3rem 2.5rem;
+    border-right: 1px solid rgba(255,255,255,0.07);
+    transition: background 0.3s;
+  }
+  .stat:last-child { border-right: none; }
+  .stat:hover { background: rgba(200,242,60,0.03); }
+
+  .stat-num {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 3.2rem;
+    color: var(--lime);
+    line-height: 1;
+    letter-spacing: -0.03em;
+    margin-bottom: 0.5rem;
+  }
+
+  .stat-label {
+    font-size: 0.8rem;
+    font-weight: 300;
+    color: rgba(240,237,232,0.45);
+    line-height: 1.4;
+    max-width: 120px;
+  }
+
+  /* SECTIONS */
+  .section {
+    padding: 7rem 3rem;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .section-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--lime);
+    margin-bottom: 1.2rem;
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+  }
+  .section-tag::before {
+    content: '';
+    width: 24px; height: 1px;
+    background: var(--lime);
+    display: inline-block;
+  }
+
+  .section h2 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: clamp(2.5rem, 4vw, 4.5rem);
+    line-height: 0.95;
+    letter-spacing: -0.03em;
+    margin-bottom: 4rem;
+  }
+
+  /* HOW IT WORKS */
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: rgba(255,255,255,0.07);
+  }
+
+  .step {
+    background: var(--ink);
+    padding: 2.5rem;
+    transition: background 0.3s;
+  }
+  .step:hover { background: var(--light-gray); }
+
+  .step-num {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 5rem;
+    line-height: 1;
+    color: rgba(200,242,60,0.12);
+    margin-bottom: 1.5rem;
+    letter-spacing: -0.05em;
+  }
+
+  .step-icon {
+    font-size: 1.8rem;
+    margin-bottom: 1rem;
+  }
+
+  .step h3 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 1.2rem;
+    margin-bottom: 0.8rem;
+    letter-spacing: -0.01em;
+  }
+
+  .step p {
+    font-size: 0.88rem;
+    font-weight: 300;
+    line-height: 1.75;
+    color: rgba(240,237,232,0.5);
+  }
+
+  /* FOR CLUBS SECTION */
+  .clubs-section {
+    background: var(--light-gray);
+    border-top: 1px solid rgba(255,255,255,0.07);
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+  }
+
+  .clubs-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 7rem 3rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 5rem;
+    align-items: start;
+  }
+
+  .clubs-inner h2 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: clamp(2.5rem, 4vw, 4rem);
+    line-height: 0.95;
+    letter-spacing: -0.03em;
+    margin-bottom: 1.5rem;
+  }
+
+  .clubs-inner p {
+    font-size: 0.95rem;
+    font-weight: 300;
+    line-height: 1.8;
+    color: rgba(240,237,232,0.55);
+    margin-bottom: 2.5rem;
+  }
+
+  .perks {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    border: 1px solid rgba(255,255,255,0.07);
+  }
+
+  .perk {
+    display: flex;
+    align-items: flex-start;
+    gap: 1.2rem;
+    padding: 1.5rem;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+    transition: background 0.2s;
+  }
+  .perk:last-child { border-bottom: none; }
+  .perk:hover { background: rgba(200,242,60,0.04); }
+
+  .perk-icon {
+    font-size: 1.3rem;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .perk h4 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 0.9rem;
+    margin-bottom: 0.3rem;
+  }
+  .perk p {
+    font-size: 0.8rem;
+    color: rgba(240,237,232,0.45);
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  .list-btn {
+    display: inline-block;
+    background: transparent;
+    border: 1px solid var(--lime);
+    color: var(--lime);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 0.85rem 2rem;
+    cursor: none;
+    text-decoration: none;
+    transition: background 0.2s, color 0.2s;
+  }
+  .list-btn:hover { background: var(--lime); color: var(--ink); }
+
+  /* PRICING */
+  .pricing-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: rgba(255,255,255,0.07);
+    margin-top: 4rem;
+  }
+
+  .price-card {
+    background: var(--ink);
+    padding: 2.5rem;
+    position: relative;
+    transition: background 0.3s;
+  }
+  .price-card:hover { background: var(--light-gray); }
+
+  .price-card.featured {
+    background: var(--lime);
+  }
+  .price-card.featured:hover { background: var(--lime-dark); }
+  .price-card.featured * { color: var(--ink) !important; }
+  .price-card.featured .price-feature::before { color: var(--ink) !important; }
+  .price-card.featured .price-btn-inner {
+    border-color: var(--ink) !important;
+    color: var(--ink) !important;
+  }
+  .price-card.featured .price-btn-inner:hover {
+    background: var(--ink) !important;
+    color: var(--lime) !important;
+  }
+
+  .price-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--lime);
+    margin-bottom: 1.5rem;
+  }
+
+  .price-amount {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 3.5rem;
+    line-height: 1;
+    letter-spacing: -0.04em;
+    margin-bottom: 0.3rem;
+  }
+
+  .price-period {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    color: rgba(240,237,232,0.35);
+    margin-bottom: 2rem;
+    letter-spacing: 0.05em;
+  }
+
+  .price-features {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    margin-bottom: 2rem;
+  }
+
+  .price-feature {
+    font-size: 0.85rem;
+    font-weight: 300;
+    color: rgba(240,237,232,0.6);
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+  .price-feature::before {
+    content: '→';
+    color: var(--lime);
+    font-size: 0.75rem;
+    flex-shrink: 0;
+  }
+
+  .price-btn-inner {
+    width: 100%;
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.15);
+    color: var(--chalk);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 0.85rem;
+    cursor: none;
+    transition: all 0.2s;
+  }
+  .price-btn-inner:hover { border-color: var(--lime); color: var(--lime); }
+
+  /* CITIES */
+  .cities-section {
+    padding: 5rem 3rem;
+    border-top: 1px solid rgba(255,255,255,0.07);
+    overflow: hidden;
+  }
+
+  .cities-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(240,237,232,0.3);
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+
+  .cities-scroll {
+    display: flex;
+    gap: 0;
+    animation: ticker 30s linear infinite;
+    white-space: nowrap;
+  }
+
+  .city-pill {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: rgba(240,237,232,0.15);
+    padding: 0 2rem;
+    flex-shrink: 0;
+    transition: color 0.3s;
+    letter-spacing: -0.01em;
+  }
+  .city-pill:hover { color: var(--lime); }
+  .city-pill.active { color: rgba(240,237,232,0.5); }
+
+  /* CTA */
+  .cta-section {
+    padding: 9rem 3rem;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    border-top: 1px solid rgba(255,255,255,0.07);
+  }
+
+  .cta-bg {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center, rgba(200,242,60,0.08) 0%, transparent 65%);
+    pointer-events: none;
+  }
+
+  .cta-section h2 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: clamp(3rem, 7vw, 7rem);
+    line-height: 0.92;
+    letter-spacing: -0.04em;
+    margin-bottom: 1.5rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  .cta-section h2 em {
+    font-style: italic;
+    font-family: 'Epilogue', sans-serif;
+    font-weight: 300;
+    color: var(--lime);
+  }
+
+  .cta-section p {
+    font-size: 1rem;
+    font-weight: 300;
+    color: rgba(240,237,232,0.5);
+    max-width: 380px;
+    margin: 0 auto 3rem;
+    line-height: 1.75;
+    position: relative;
+    z-index: 1;
+  }
+
+  .cta-form {
+    display: flex;
+    gap: 0;
+    max-width: 400px;
+    margin: 0 auto;
+    border: 1px solid rgba(255,255,255,0.1);
+    position: relative;
+    z-index: 1;
+  }
+
+  .cta-form input {
+    flex: 1;
+    background: rgba(255,255,255,0.05);
+    border: none;
+    color: var(--chalk);
+    font-family: 'Epilogue', sans-serif;
+    font-size: 0.9rem;
+    padding: 1rem 1.2rem;
+    outline: none;
+    transition: background 0.2s;
+  }
+  .cta-form input::placeholder { color: rgba(240,237,232,0.3); }
+  .cta-form input:focus { background: rgba(255,255,255,0.08); }
+
+  .cta-form button {
+    background: var(--lime);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 1rem 1.4rem;
+    border: none;
+    cursor: none;
+    transition: background 0.2s;
+    white-space: nowrap;
+  }
+  .cta-form button:hover { background: var(--lime-dark); }
+
+  /* FOOTER */
+  footer {
+    border-top: 1px solid rgba(255,255,255,0.07);
+    padding: 2rem 3rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .footer-logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 1.2rem;
+    letter-spacing: -0.02em;
+  }
+  .footer-logo span { color: var(--lime); }
+
+  footer p {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.62rem;
+    color: rgba(240,237,232,0.2);
+    letter-spacing: 0.05em;
+  }
+
+  /* ANIMATIONS */
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(24px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* RESPONSIVE */
+  @media (max-width: 900px) {
+    nav { padding: 1.2rem 1.5rem; }
+    .hero { padding: 8rem 1.5rem 4rem; }
+    .hero h1 { font-size: clamp(3.5rem, 12vw, 6rem); }
+    .hero-bottom { flex-direction: column; align-items: flex-start; }
+    .hero-form { width: 100%; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .stat { border-right: none; border-bottom: 1px solid rgba(255,255,255,0.07); }
+    .steps { grid-template-columns: 1fr; }
+    .clubs-inner { grid-template-columns: 1fr; gap: 3rem; padding: 4rem 1.5rem; }
+    .pricing-grid { grid-template-columns: 1fr; }
+    .section { padding: 5rem 1.5rem; }
+    .cta-section { padding: 6rem 1.5rem; }
+    footer { flex-direction: column; gap: 1rem; text-align: center; }
+    .nav-link { display: none; }
+    body { cursor: auto; }
+    .cursor { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- CURSOR -->
+<div class="cursor" id="cursor"></div>
+
+<!-- NAV -->
+<nav>
+  <div class="logo">Run<span>Klub</span></div>
+  <div class="nav-right">
+    <a href="https://instagram.com/runklubapp" class="nav-link" target="_blank">@runklubapp</a>
+    <a href="#clubs" class="nav-link">For clubs</a>
+    <a href="#waitlist" class="nav-cta">Join Waitlist</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="bg-orb orb1"></div>
+  <div class="bg-orb orb2"></div>
+
+  <div class="hero-content">
+    <div class="hero-badge">
+      <div class="badge-dot"></div>
+      Early access · Now open
+    </div>
+
+    <h1>Run with<br>anyone,<br><em>anywhere.</em></h1>
+
+    <div class="hero-bottom">
+      <p class="hero-sub">Find verified run clubs in any city you travel to. Drop in as a visitor, keep your streak alive, and never run alone again.</p>
+
+      <div class="hero-form-wrap">
+        <div class="hero-form">
+          <input type="email" id="hero-email" placeholder="your@email.com" />
+          <button onclick="handleSignup('hero')">Get Access →</button>
+        </div>
+        <p class="form-note">Free for runners · No spam · Ever.</p>
+        <div class="success-msg" id="hero-success">✓ You're on the list. We'll be in touch.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TICKER -->
+<div class="ticker-wrap">
+  <div class="ticker">
+    <div class="ticker-item"><span>✦</span> New York City</div>
+    <div class="ticker-item"><span>✦</span> London</div>
+    <div class="ticker-item"><span>✦</span> Tokyo</div>
+    <div class="ticker-item"><span>✦</span> Austin</div>
+    <div class="ticker-item"><span>✦</span> Amsterdam</div>
+    <div class="ticker-item"><span>✦</span> Los Angeles</div>
+    <div class="ticker-item"><span>✦</span> Copenhagen</div>
+    <div class="ticker-item"><span>✦</span> Chicago</div>
+    <div class="ticker-item"><span>✦</span> Berlin</div>
+    <div class="ticker-item"><span>✦</span> Miami</div>
+    <div class="ticker-item"><span>✦</span> Sydney</div>
+    <div class="ticker-item"><span>✦</span> Seoul</div>
+    <div class="ticker-item"><span>✦</span> New York City</div>
+    <div class="ticker-item"><span>✦</span> London</div>
+    <div class="ticker-item"><span>✦</span> Tokyo</div>
+    <div class="ticker-item"><span>✦</span> Austin</div>
+    <div class="ticker-item"><span>✦</span> Amsterdam</div>
+    <div class="ticker-item"><span>✦</span> Los Angeles</div>
+    <div class="ticker-item"><span>✦</span> Copenhagen</div>
+    <div class="ticker-item"><span>✦</span> Chicago</div>
+    <div class="ticker-item"><span>✦</span> Berlin</div>
+    <div class="ticker-item"><span>✦</span> Miami</div>
+    <div class="ticker-item"><span>✦</span> Sydney</div>
+    <div class="ticker-item"><span>✦</span> Seoul</div>
+  </div>
+</div>
+
+<!-- STATS -->
+<div class="stats">
+  <div class="stat">
+    <div class="stat-num">5K+</div>
+    <div class="stat-label">Run clubs ready to list</div>
+  </div>
+  <div class="stat">
+    <div class="stat-num">200+</div>
+    <div class="stat-label">Cities at launch</div>
+  </div>
+  <div class="stat">
+    <div class="stat-num">100%</div>
+    <div class="stat-label">Verified clubs only</div>
+  </div>
+  <div class="stat">
+    <div class="stat-num">$0</div>
+    <div class="stat-label">Always free for runners</div>
+  </div>
+</div>
+
+<!-- HOW IT WORKS -->
+<div id="how">
+  <div class="section">
+    <div class="section-tag">How it works</div>
+    <h2>Three steps to<br>your next run.</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">01</div>
+        <div class="step-icon">🗺️</div>
+        <h3>Search your city</h3>
+        <p>Browse verified run clubs on a map. Filter by pace, vibe, schedule, and where they grab coffee after. Works anywhere in the world.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">02</div>
+        <div class="step-icon">👋</div>
+        <h3>Drop in as a visitor</h3>
+        <p>RSVP so the club knows you're coming. No awkward cold shows — they'll be expecting you and know you're visiting.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">03</div>
+        <div class="step-icon">🏃</div>
+        <h3>Run. Connect. Repeat.</h3>
+        <p>Show up, run with locals, grab coffee after. The best way to actually experience a city — on foot, with people who live there.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FOR CLUBS -->
+<div class="clubs-section" id="clubs">
+  <div class="clubs-inner">
+    <div>
+      <div class="section-tag">For club organizers</div>
+      <h2>Grow your Klub.<br>Get verified.</h2>
+      <p>RunKlub gives your club global visibility. Traveling runners are actively searching for you — we make sure they find you, and trust you enough to show up.</p>
+      <a href="#waitlist" class="list-btn">List Your Club →</a>
+    </div>
+    <div class="perks">
+      <div class="perk">
+        <div class="perk-icon">✓</div>
+        <div>
+          <h4>Verified badge</h4>
+          <p>One-time verification proves you're legit to visiting runners worldwide.</p>
+        </div>
+      </div>
+      <div class="perk">
+        <div class="perk-icon">📍</div>
+        <div>
+          <h4>Map placement</h4>
+          <p>Show up the moment a traveler searches your city. Free for basic listings.</p>
+        </div>
+      </div>
+      <div class="perk">
+        <div class="perk-icon">📊</div>
+        <div>
+          <h4>Drop-in analytics</h4>
+          <p>See who's planning to visit and grow your community with incoming runners.</p>
+        </div>
+      </div>
+      <div class="perk">
+        <div class="perk-icon">🤝</div>
+        <div>
+          <h4>Brand partnerships</h4>
+          <p>Verified clubs get first access to gear deals and sponsorship opportunities.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PRICING -->
+<div class="section">
+  <div class="section-tag">Pricing</div>
+  <h2>Simple pricing<br>for clubs.</h2>
+  <div class="pricing-grid">
+    <div class="price-card">
+      <div class="price-tag">Free</div>
+      <div class="price-amount">$0</div>
+      <div class="price-period">forever</div>
+      <ul class="price-features">
+        <li class="price-feature">Basic club listing</li>
+        <li class="price-feature">City & schedule info</li>
+        <li class="price-feature">Map placement</li>
+        <li class="price-feature">Drop-in RSVPs</li>
+      </ul>
+      <button class="price-btn-inner">Get Listed Free</button>
+    </div>
+    <div class="price-card featured">
+      <div class="price-tag">Verified</div>
+      <div class="price-amount">$49</div>
+      <div class="price-period">one-time · lifetime</div>
+      <ul class="price-features">
+        <li class="price-feature">Everything in Free</li>
+        <li class="price-feature">Verified badge on listing</li>
+        <li class="price-feature">Priority map placement</li>
+        <li class="price-feature">Visitor messaging</li>
+        <li class="price-feature">Drop-in analytics</li>
+      </ul>
+      <button class="price-btn-inner">Get Verified</button>
+    </div>
+    <div class="price-card">
+      <div class="price-tag">Pro</div>
+      <div class="price-amount">$99</div>
+      <div class="price-period">per year</div>
+      <ul class="price-features">
+        <li class="price-feature">Everything in Verified</li>
+        <li class="price-feature">Featured city placement</li>
+        <li class="price-feature">Brand partnership access</li>
+        <li class="price-feature">Custom club profile</li>
+        <li class="price-feature">Social media kit</li>
+      </ul>
+      <button class="price-btn-inner">Go Pro</button>
+    </div>
+  </div>
+</div>
+
+<!-- CTA -->
+<div class="cta-section" id="waitlist">
+  <div class="cta-bg"></div>
+  <h2>Your next city.<br><em>Your next run.</em></h2>
+  <p>Join the waitlist and be first when RunKlub launches. Free for runners, always.</p>
+  <div class="cta-form">
+    <input type="email" id="cta-email" placeholder="your@email.com" />
+    <button onclick="handleSignup('cta')">Join Waitlist →</button>
+  </div>
+  <div class="success-msg" id="cta-success" style="text-align:center; margin-top:1rem;">✓ You're on the list. We'll be in touch.</div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">Run<span>Klub</span></div>
+  <p>© 2026 RunKlub · runklub.fit · @runklubapp</p>
+</footer>
+
+<script>
+  // Custom cursor
+  const cursor = document.getElementById('cursor');
+  let mouseX = 0, mouseY = 0;
+
+  document.addEventListener('mousemove', (e) => {
+    mouseX = e.clientX;
+    mouseY = e.clientY;
+    cursor.style.transform = `translate(${mouseX - 6}px, ${mouseY - 6}px)`;
+  });
+
+  document.querySelectorAll('a, button, input').forEach(el => {
+    el.addEventListener('mouseenter', () => cursor.classList.add('grow'));
+    el.addEventListener('mouseleave', () => cursor.classList.remove('grow'));
+  });
+
+  // Signup handler
+  function handleSignup(source) {
+    const inputId = source === 'hero' ? 'hero-email' : 'cta-email';
+    const successId = source + '-success';
+    const email = document.getElementById(inputId).value;
+
+    if (!email || !email.includes('@')) {
+      document.getElementById(inputId).style.borderBottom = '1px solid red';
+      return;
+    }
+
+    document.getElementById(successId).style.display = 'block';
+    document.getElementById(inputId).value = '';
+    // Hook up Mailchimp/Beehiiv here in production
+    console.log('Waitlist signup:', email);
+  }
+
+  // Enter key
+  document.querySelectorAll('input[type="email"]').forEach(input => {
+    input.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        const source = input.id.includes('hero') ? 'hero' : 'cta';
+        handleSignup(source);
+      }
+    });
+  });
+</script>
+</body>
+</html>
