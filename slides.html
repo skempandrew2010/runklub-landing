@@ -1,0 +1,1223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RunKlub — Post 1: The Problem/Solution</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Epilogue:ital,wght@0,300;0,400;0,500;1,300;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --lime: #C8F23C;
+  --black: #0D0D0D;
+  --off-white: #F0EDE8;
+  --gray: #888;
+  --dark-card: #1A1A1A;
+  --dark-2: #222;
+}
+
+body {
+  background: #060606;
+  font-family: 'Epilogue', sans-serif;
+  color: var(--off-white);
+  min-height: 100vh;
+}
+
+/* ── CONTROLS ── */
+.controls {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 1000;
+  background: rgba(6,6,6,0.95);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid #1a1a1a;
+  padding: 14px 30px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.controls-brand {
+  font-family: 'Syne', sans-serif;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--lime);
+  letter-spacing: 0.1em;
+  margin-right: 8px;
+}
+
+.size-btn {
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  color: #666;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  padding: 7px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+  letter-spacing: 0.05em;
+}
+.size-btn:hover { color: var(--off-white); border-color: #444; }
+.size-btn.active { background: var(--lime); color: var(--black); border-color: var(--lime); font-weight: 600; }
+
+.slide-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.nav-btn {
+  width: 32px; height: 32px;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  color: var(--off-white);
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+  transition: all 0.15s;
+}
+.nav-btn:hover { background: #2a2a2a; }
+.slide-counter {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: #555;
+  min-width: 50px;
+  text-align: center;
+}
+
+.tip {
+  font-size: 11px;
+  color: #444;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* ── STAGE ── */
+.stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 100px 30px 60px;
+}
+
+/* ── SLIDE WRAPPER ── */
+.slide-wrapper {
+  position: relative;
+  display: none;
+}
+.slide-wrapper.active { display: block; }
+
+/* ── BASE SLIDE ── */
+.slide {
+  position: relative;
+  overflow: hidden;
+  background: var(--black);
+  display: flex;
+  flex-direction: column;
+  /* sizes set by JS */
+}
+
+/* Size variants */
+.slide.sq  { width: 540px; height: 540px; border-radius: 4px; }
+.slide.pt  { width: 432px; height: 540px; border-radius: 4px; }
+.slide.tk  { width: 304px; height: 540px; border-radius: 4px; }
+
+/* ── NOISE TEXTURE ── */
+.slide::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  opacity: 0.4;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* ── SLIDE CONTENT LAYERS ── */
+.slide-inner {
+  position: relative;
+  z-index: 2;
+  width: 100%; height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── SLIDE 1: HOOK ── */
+.s1 { background: var(--black); }
+.s1 .bg-lines {
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 59px,
+      rgba(255,255,255,0.025) 59px,
+      rgba(255,255,255,0.025) 60px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 59px,
+      rgba(255,255,255,0.025) 59px,
+      rgba(255,255,255,0.025) 60px
+    );
+}
+.s1 .corner-tag {
+  position: absolute;
+  top: 0; right: 0;
+  background: var(--lime);
+  color: var(--black);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 6px 12px;
+  letter-spacing: 0.1em;
+}
+.s1 .slide-num {
+  position: absolute;
+  bottom: 18px; right: 20px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: #333;
+}
+.s1 .main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 40px;
+}
+.s1 .eyebrow {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--lime);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 20px;
+  opacity: 0.8;
+}
+.s1 .headline {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  color: var(--off-white);
+  line-height: 1.05;
+}
+.s1.sq .headline  { font-size: 52px; }
+.s1.pt .headline  { font-size: 48px; }
+.s1.tk .headline  { font-size: 34px; }
+
+.s1 .headline em {
+  font-style: normal;
+  color: var(--lime);
+}
+.s1 .subline {
+  font-size: 14px;
+  color: #555;
+  margin-top: 16px;
+  font-weight: 300;
+  line-height: 1.5;
+}
+.s1.tk .subline { font-size: 12px; }
+
+.s1 .bottom-bar {
+  border-top: 1px solid #1a1a1a;
+  padding: 14px 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.s1 .brand-mark {
+  font-family: 'Syne', sans-serif;
+  font-size: 13px;
+  font-weight: 800;
+  color: #333;
+  letter-spacing: 0.05em;
+}
+.s1 .brand-mark span { color: var(--lime); }
+.s1 .swipe-hint {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: #333;
+  letter-spacing: 0.1em;
+}
+
+/* ── SLIDE 2: PROBLEM ── */
+.s2 { background: #0a0a0a; }
+.s2 .glow {
+  position: absolute;
+  width: 300px; height: 300px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(200,242,60,0.06) 0%, transparent 70%);
+  top: -80px; left: -80px;
+}
+.s2 .main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 40px;
+  gap: 16px;
+}
+.s2 .problem-item {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 14px 16px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 12px;
+}
+.s2 .problem-icon {
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  background: rgba(255,80,80,0.1);
+  border: 1px solid rgba(255,80,80,0.2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.s2 .problem-text {
+  flex: 1;
+}
+.s2 .problem-title {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  color: var(--off-white);
+  margin-bottom: 3px;
+}
+.s2.sq .problem-title { font-size: 16px; }
+.s2.pt .problem-title { font-size: 15px; }
+.s2.tk .problem-title { font-size: 13px; }
+.s2 .problem-sub {
+  color: #555;
+  line-height: 1.4;
+}
+.s2.sq .problem-sub { font-size: 13px; }
+.s2.pt .problem-sub { font-size: 12px; }
+.s2.tk .problem-sub { font-size: 11px; }
+
+.s2 .section-header {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  color: var(--off-white);
+  margin-bottom: 4px;
+}
+.s2.sq .section-header { font-size: 28px; }
+.s2.pt .section-header { font-size: 26px; }
+.s2.tk .section-header { font-size: 20px; }
+
+.s2 .bottom-bar {
+  border-top: 1px solid #1a1a1a;
+  padding: 12px 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.s2 .brand-mark {
+  font-family: 'Syne', sans-serif;
+  font-size: 12px;
+  font-weight: 800;
+  color: #2a2a2a;
+}
+.s2 .brand-mark span { color: #3a3a3a; }
+.s2 .slide-num {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: #2a2a2a;
+}
+
+/* ── SLIDE 3: INSIGHT ── */
+.s3 { background: var(--black); }
+.s3 .accent-line {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: linear-gradient(to bottom, transparent, var(--lime), transparent);
+}
+.s3 .big-stat {
+  position: absolute;
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  color: rgba(200,242,60,0.04);
+  line-height: 1;
+  right: -20px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.s3.sq .big-stat { font-size: 180px; }
+.s3.pt .big-stat { font-size: 160px; }
+.s3.tk .big-stat { font-size: 110px; }
+
+.s3 .main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 50px 44px;
+}
+.s3 .tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--lime);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.s3 .tag::before {
+  content: '';
+  width: 20px; height: 1px;
+  background: var(--lime);
+}
+.s3 .insight-text {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  color: var(--off-white);
+  line-height: 1.1;
+  margin-bottom: 20px;
+}
+.s3.sq .insight-text { font-size: 38px; }
+.s3.pt .insight-text { font-size: 34px; }
+.s3.tk .insight-text { font-size: 24px; }
+
+.s3 .insight-text .lime { color: var(--lime); }
+.s3 .insight-sub {
+  color: #555;
+  font-size: 14px;
+  line-height: 1.6;
+  font-weight: 300;
+}
+.s3.tk .insight-sub { font-size: 12px; }
+
+.s3 .stats-row {
+  display: flex;
+  gap: 12px;
+  margin-top: 28px;
+}
+.s3 .stat-chip {
+  flex: 1;
+  background: rgba(200,242,60,0.06);
+  border: 1px solid rgba(200,242,60,0.15);
+  border-radius: 10px;
+  padding: 10px 8px;
+  text-align: center;
+}
+.s3 .stat-val {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  color: var(--lime);
+  display: block;
+}
+.s3.sq .stat-val { font-size: 20px; }
+.s3.pt .stat-val { font-size: 18px; }
+.s3.tk .stat-val { font-size: 15px; }
+.s3 .stat-lbl {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: #555;
+  margin-top: 3px;
+  display: block;
+  letter-spacing: 0.05em;
+}
+
+.s3 .bottom-bar {
+  border-top: 1px solid #1a1a1a;
+  padding: 12px 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.s3 .brand-mark {
+  font-family: 'Syne', sans-serif;
+  font-size: 12px;
+  font-weight: 800;
+  color: #2a2a2a;
+}
+.s3 .slide-num {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: #2a2a2a;
+}
+
+/* ── SLIDE 4: APP SCREEN ── */
+.s4 { background: #080808; }
+.s4 .glow-center {
+  position: absolute;
+  width: 400px; height: 400px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(200,242,60,0.08) 0%, transparent 65%);
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+}
+.s4 .main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 30px 30px 20px;
+  gap: 20px;
+}
+.s4 .intro-text {
+  text-align: center;
+}
+.s4 .intro-eyebrow {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--lime);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.s4 .intro-headline {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  color: var(--off-white);
+  line-height: 1.1;
+}
+.s4.sq .intro-headline { font-size: 28px; }
+.s4.pt .intro-headline { font-size: 26px; }
+.s4.tk .intro-headline { font-size: 20px; }
+
+/* Mini phone mockup */
+.s4 .phone-wrap {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: -10px;
+}
+.s4 .mini-phone {
+  border-radius: 22px;
+  border: 1.5px solid #2a2a2a;
+  overflow: hidden;
+  background: var(--black);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.8), 0 0 30px rgba(200,242,60,0.05);
+  position: relative;
+  flex-shrink: 0;
+}
+.s4 .mini-phone::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 50%;
+  transform: translateX(-50%);
+  width: 50px; height: 14px;
+  background: var(--black);
+  border-radius: 0 0 10px 10px;
+  z-index: 10;
+}
+.s4.sq .mini-phone { width: 140px; height: 280px; }
+.s4.pt .mini-phone { width: 130px; height: 260px; }
+.s4.tk .mini-phone { width: 100px; height: 200px; }
+
+.s4 .mini-phone.secondary {
+  opacity: 0.6;
+  transform: scale(0.88) translateY(10px);
+}
+.s4 .mini-phone.left  { transform: rotate(-6deg) translateX(15px) scale(0.85); opacity: 0.5; z-index: 1; }
+.s4 .mini-phone.right { transform: rotate(6deg) translateX(-15px) scale(0.85); opacity: 0.5; z-index: 1; }
+.s4 .mini-phone.center { z-index: 2; }
+
+/* Mini screen content */
+.mini-screen {
+  width: 100%; height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #0d0d0d;
+}
+.mini-status {
+  display: flex;
+  justify-content: space-between;
+  padding: 18px 10px 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 7px;
+  color: #aaa;
+}
+.mini-header {
+  padding: 4px 10px 8px;
+}
+.mini-header .mini-greeting { font-family: 'JetBrains Mono', monospace; font-size: 6px; color: #555; letter-spacing: 0.1em; }
+.mini-header .mini-title { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 13px; color: var(--off-white); line-height: 1.1; }
+.mini-header .mini-title span { color: var(--lime); }
+
+.mini-search {
+  margin: 0 10px 8px;
+  background: #1a1a1a;
+  border-radius: 6px;
+  padding: 5px 8px;
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+.mini-search-dot { width: 6px; height: 6px; border-radius: 50%; background: #333; }
+.mini-search-bar { flex: 1; height: 4px; background: #222; border-radius: 2px; }
+.mini-gps {
+  width: 14px; height: 14px;
+  background: var(--lime);
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.mini-cities {
+  display: flex;
+  gap: 4px;
+  padding: 0 10px 8px;
+  overflow: hidden;
+}
+.mini-city {
+  flex: 1;
+  height: 30px;
+  border-radius: 5px;
+  position: relative;
+  overflow: hidden;
+}
+.mini-city.c1 { background: linear-gradient(135deg, #1a2a0e, #2d4a1a); }
+.mini-city.c2 { background: linear-gradient(135deg, #0e1a2a, #1a2d4a); }
+.mini-city.c3 { background: linear-gradient(135deg, #1a0e2a, #2d1a4a); }
+.mini-city-label { position: absolute; bottom: 3px; left: 4px; font-family: 'Syne', sans-serif; font-size: 5px; font-weight: 700; color: var(--off-white); }
+
+.mini-clubs {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 10px;
+}
+.mini-club {
+  background: #1a1a1a;
+  border-radius: 6px;
+  padding: 5px 6px;
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+.mini-avatar { width: 16px; height: 16px; border-radius: 4px; flex-shrink: 0; }
+.mini-avatar.g { background: linear-gradient(135deg, #2d4a1a, #4a7a2a); }
+.mini-avatar.b { background: linear-gradient(135deg, #0e1a3a, #1a2d5a); }
+.mini-club-info { flex: 1; }
+.mini-club-name { font-family: 'Syne', sans-serif; font-size: 6px; font-weight: 700; color: var(--off-white); }
+.mini-club-meta { font-size: 5px; color: #555; }
+.mini-tag { background: rgba(200,242,60,0.15); color: var(--lime); font-size: 5px; padding: 2px 4px; border-radius: 3px; font-family: 'JetBrains Mono', monospace; white-space: nowrap; }
+
+.mini-bottom-nav {
+  margin-top: auto;
+  border-top: 1px solid #1a1a1a;
+  display: flex;
+  padding: 5px 6px 8px;
+  justify-content: space-around;
+}
+.mini-nav-dot { width: 16px; height: 16px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.mini-nav-icon { width: 10px; height: 10px; border-radius: 2px; background: #222; }
+.mini-nav-icon.active { background: rgba(200,242,60,0.2); }
+.mini-nav-label { width: 12px; height: 2px; background: #222; border-radius: 1px; }
+.mini-nav-label.active { background: var(--lime); }
+
+/* Map screen mini */
+.mini-map-bg {
+  flex: 1;
+  background: #111;
+  position: relative;
+  overflow: hidden;
+}
+.mini-map-grid {
+  position: absolute; inset: 0;
+  background-image: linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+  background-size: 12px 12px;
+}
+.mini-map-road { position: absolute; background: rgba(255,255,255,0.08); }
+.mini-map-road.h { height: 1px; left: 0; right: 0; }
+.mini-map-road.v { width: 1px; top: 0; bottom: 0; }
+.mini-pin {
+  position: absolute;
+  background: var(--lime);
+  color: var(--black);
+  font-family: 'Syne', sans-serif;
+  font-size: 4px;
+  font-weight: 800;
+  padding: 2px 4px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.mini-pin::after {
+  content: '';
+  position: absolute;
+  bottom: -3px; left: 50%;
+  transform: translateX(-50%);
+  border-left: 3px solid transparent;
+  border-right: 3px solid transparent;
+  border-top: 3px solid var(--lime);
+}
+.mini-pin.s { background: #2a2a2a; color: var(--off-white); }
+.mini-pin.s::after { border-top-color: #2a2a2a; }
+.mini-map-overlay {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  background: #1a1a1a;
+  border-radius: 8px 8px 0 0;
+  padding: 6px 8px;
+}
+.mini-sheet-handle { width: 16px; height: 2px; background: #333; border-radius: 1px; margin: 0 auto 5px; }
+.mini-card { background: #222; border-radius: 4px; padding: 4px 5px; display: flex; gap: 4px; align-items: center; margin-bottom: 3px; }
+.mini-card-av { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
+.mini-card-av.g { background: linear-gradient(135deg, #1a2d0a, #2d4a15); }
+.mini-card-info { flex: 1; }
+.mini-card-name { font-family: 'Syne', sans-serif; font-size: 5px; font-weight: 700; color: var(--off-white); }
+.mini-card-sub { font-size: 4px; color: #555; }
+.mini-card-dist { font-family: 'JetBrains Mono', monospace; font-size: 5px; color: var(--lime); }
+
+.s4 .bottom-bar {
+  border-top: 1px solid #1a1a1a;
+  padding: 12px 30px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.s4 .brand-mark { font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 800; color: #2a2a2a; }
+.s4 .slide-num { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #2a2a2a; }
+
+/* ── SLIDE 5: SOLUTION ── */
+.s5 { background: var(--lime); }
+.s5 .noise {
+  position: absolute; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.08'/%3E%3C/svg%3E");
+}
+.s5 .cross {
+  position: absolute;
+  top: 30px; right: 30px;
+  width: 40px; height: 40px;
+  opacity: 0.15;
+}
+.s5 .cross::before, .s5 .cross::after {
+  content: '';
+  position: absolute;
+  background: var(--black);
+  border-radius: 1px;
+}
+.s5 .cross::before { width: 2px; height: 100%; left: 50%; transform: translateX(-50%); }
+.s5 .cross::after { height: 2px; width: 100%; top: 50%; transform: translateY(-50%); }
+
+.s5 .main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 50px 44px;
+}
+.s5 .solution-tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: rgba(13,13,13,0.5);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+.s5 .solution-headline {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  color: var(--black);
+  line-height: 1.05;
+  margin-bottom: 24px;
+}
+.s5.sq .solution-headline { font-size: 48px; }
+.s5.pt .solution-headline { font-size: 42px; }
+.s5.tk .solution-headline { font-size: 30px; }
+
+.s5 .solution-points {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.s5 .solution-point {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.s5 .point-dot {
+  width: 6px; height: 6px;
+  background: var(--black);
+  border-radius: 50%;
+  flex-shrink: 0;
+  opacity: 0.4;
+}
+.s5 .point-text {
+  font-family: 'Epilogue', sans-serif;
+  color: rgba(13,13,13,0.7);
+  font-weight: 400;
+}
+.s5.sq .point-text { font-size: 15px; }
+.s5.pt .point-text { font-size: 14px; }
+.s5.tk .point-text { font-size: 12px; }
+
+.s5 .bottom-bar {
+  border-top: 1px solid rgba(13,13,13,0.1);
+  padding: 14px 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.s5 .brand-mark {
+  font-family: 'Syne', sans-serif;
+  font-size: 13px;
+  font-weight: 800;
+  color: rgba(13,13,13,0.4);
+}
+.s5 .slide-num {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: rgba(13,13,13,0.3);
+}
+
+/* ── SLIDE 6: CTA ── */
+.s6 { background: var(--black); }
+.s6 .grid-bg {
+  position: absolute; inset: 0;
+  background:
+    repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(200,242,60,0.03) 39px, rgba(200,242,60,0.03) 40px),
+    repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(200,242,60,0.03) 39px, rgba(200,242,60,0.03) 40px);
+}
+.s6 .corner-accent {
+  position: absolute;
+  bottom: 0; right: 0;
+  width: 200px; height: 200px;
+  background: radial-gradient(circle at bottom right, rgba(200,242,60,0.08) 0%, transparent 70%);
+}
+.s6 .main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 40px;
+}
+.s6 .cta-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(200,242,60,0.1);
+  border: 1px solid rgba(200,242,60,0.2);
+  border-radius: 100px;
+  padding: 6px 14px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--lime);
+  letter-spacing: 0.1em;
+  margin-bottom: 24px;
+}
+.s6 .cta-pill-dot { width: 5px; height: 5px; background: var(--lime); border-radius: 50%; }
+.s6 .cta-headline {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  color: var(--off-white);
+  line-height: 1.05;
+  margin-bottom: 12px;
+}
+.s6.sq .cta-headline { font-size: 44px; }
+.s6.pt .cta-headline { font-size: 38px; }
+.s6.tk .cta-headline { font-size: 28px; }
+.s6 .cta-sub {
+  color: #555;
+  font-size: 14px;
+  font-weight: 300;
+  line-height: 1.5;
+  max-width: 300px;
+  margin: 0 auto 28px;
+}
+.s6.tk .cta-sub { font-size: 12px; }
+.s6 .cta-url {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  font-size: 20px;
+  color: var(--lime);
+  letter-spacing: 0.02em;
+  margin-bottom: 8px;
+}
+.s6.tk .cta-url { font-size: 16px; }
+.s6 .cta-handle {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: #333;
+  letter-spacing: 0.05em;
+}
+.s6.tk .cta-handle { font-size: 10px; }
+.s6 .bottom-bar {
+  border-top: 1px solid #1a1a1a;
+  padding: 12px 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.s6 .brand-mark { font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 800; color: #2a2a2a; }
+.s6 .slide-num { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #2a2a2a; }
+
+/* Shadow on slides */
+.phone-frame-outer {
+  box-shadow: 0 30px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04);
+}
+
+</style>
+</head>
+<body>
+
+<!-- CONTROLS -->
+<div class="controls">
+  <span class="controls-brand">RUNKLUB</span>
+  <span style="color:#2a2a2a;font-size:12px;">|</span>
+  <button class="size-btn active" onclick="setSize('sq')">Instagram Square 1:1</button>
+  <button class="size-btn" onclick="setSize('pt')">Instagram Portrait 4:5</button>
+  <button class="size-btn" onclick="setSize('tk')">TikTok 9:16</button>
+  <span style="color:#2a2a2a;font-size:12px;margin-left:8px;">|</span>
+  <span class="tip">Screenshot each slide individually</span>
+  <div class="slide-nav">
+    <button class="nav-btn" onclick="prevSlide()">←</button>
+    <span class="slide-counter" id="counter">1 / 6</span>
+    <button class="nav-btn" onclick="nextSlide()">→</button>
+  </div>
+</div>
+
+<!-- STAGE -->
+<div class="stage">
+
+  <!-- SLIDE 1: HOOK -->
+  <div class="slide-wrapper active" id="sw-1">
+    <div class="slide sq s1 phone-frame-outer" id="slide-1">
+      <div class="bg-lines"></div>
+      <div class="corner-tag">POST 1 · SLIDE 1</div>
+      <div class="slide-inner">
+        <div class="main-content">
+          <div class="eyebrow">RunKlub · The Problem</div>
+          <div class="headline">You're traveling<br>to a new city.<br>You want to <em>run.</em><br>Now what?</div>
+          <div class="subline">Swipe to see what happens next →</div>
+        </div>
+        <div class="bottom-bar">
+          <div class="brand-mark">Run<span>Klub</span></div>
+          <div class="swipe-hint">SWIPE →</div>
+        </div>
+      </div>
+      <div class="slide-num">1 / 6</div>
+    </div>
+  </div>
+
+  <!-- SLIDE 2: PROBLEM -->
+  <div class="slide-wrapper" id="sw-2">
+    <div class="slide sq s2 phone-frame-outer" id="slide-2">
+      <div class="glow"></div>
+      <div class="slide-inner">
+        <div class="main-content">
+          <div class="section-header">Here's what you do.</div>
+          <div class="problem-item">
+            <div class="problem-icon">🔍</div>
+            <div class="problem-text">
+              <div class="problem-title">Google "run clubs near me"</div>
+              <div class="problem-sub">Get a Yelp page from 2019 and a Reddit thread with no answers.</div>
+            </div>
+          </div>
+          <div class="problem-item">
+            <div class="problem-icon">📱</div>
+            <div class="problem-text">
+              <div class="problem-title">Check Strava</div>
+              <div class="problem-sub">Shows you routes and segments. Not people. Not clubs. Not when they meet.</div>
+            </div>
+          </div>
+          <div class="problem-item">
+            <div class="problem-icon">🏃</div>
+            <div class="problem-text">
+              <div class="problem-title">End up running alone. Again.</div>
+              <div class="problem-sub">In a city full of incredible run clubs you had no way to find.</div>
+            </div>
+          </div>
+        </div>
+        <div class="bottom-bar">
+          <div class="brand-mark">RunKlub</div>
+          <div class="slide-num">2 / 6</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 3: INSIGHT -->
+  <div class="slide-wrapper" id="sw-3">
+    <div class="slide sq s3 phone-frame-outer" id="slide-3">
+      <div class="accent-line"></div>
+      <div class="big-stat">1.5K</div>
+      <div class="slide-inner">
+        <div class="main-content">
+          <div class="tag">The reality</div>
+          <div class="insight-text">There are <span class="lime">1,500+</span> run clubs across the US. You just have no way to find them.</div>
+          <div class="insight-sub">Millions of traveling runners. Thousands of welcoming local clubs. Zero good way to connect them.</div>
+          <div class="stats-row">
+            <div class="stat-chip">
+              <span class="stat-val">1,500+</span>
+              <span class="stat-lbl">US Run Clubs</span>
+            </div>
+            <div class="stat-chip">
+              <span class="stat-val">200K+</span>
+              <span class="stat-lbl">Club Members</span>
+            </div>
+            <div class="stat-chip">
+              <span class="stat-val">0</span>
+              <span class="stat-lbl">Good Apps</span>
+            </div>
+          </div>
+        </div>
+        <div class="bottom-bar">
+          <div class="brand-mark">RunKlub</div>
+          <div class="slide-num">3 / 6</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 4: APP SCREEN -->
+  <div class="slide-wrapper" id="sw-4">
+    <div class="slide sq s4 phone-frame-outer" id="slide-4">
+      <div class="glow-center"></div>
+      <div class="slide-inner">
+        <div class="main-content">
+          <div class="intro-text">
+            <div class="intro-eyebrow">Introducing</div>
+            <div class="intro-headline">Find your run club<br>in any city.</div>
+          </div>
+          <div class="phone-wrap">
+            <!-- Left phone: Map -->
+            <div class="mini-phone left">
+              <div class="mini-screen">
+                <div class="mini-status"><span>9:41</span><span>●●●</span></div>
+                <div class="mini-map-bg">
+                  <div class="mini-map-grid"></div>
+                  <div class="mini-map-road h" style="top:35%"></div>
+                  <div class="mini-map-road h" style="top:60%"></div>
+                  <div class="mini-map-road v" style="left:40%"></div>
+                  <div class="mini-map-road v" style="left:70%"></div>
+                  <div class="mini-pin" style="top:20%;left:25%">Good Boys</div>
+                  <div class="mini-pin s" style="top:40%;left:50%">Cooldown</div>
+                  <div class="mini-map-overlay">
+                    <div class="mini-sheet-handle"></div>
+                    <div class="mini-card">
+                      <div class="mini-card-av g"></div>
+                      <div class="mini-card-info">
+                        <div class="mini-card-name">Good Boys RC</div>
+                        <div class="mini-card-sub">Wash Park · Tonight</div>
+                      </div>
+                      <div class="mini-card-dist">0.3mi</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="mini-bottom-nav">
+                  <div class="mini-nav-dot"><div class="mini-nav-icon"></div><div class="mini-nav-label"></div></div>
+                  <div class="mini-nav-dot"><div class="mini-nav-icon active"></div><div class="mini-nav-label active"></div></div>
+                  <div class="mini-nav-dot"><div class="mini-nav-icon"></div><div class="mini-nav-label"></div></div>
+                  <div class="mini-nav-dot"><div class="mini-nav-icon"></div><div class="mini-nav-label"></div></div>
+                </div>
+              </div>
+            </div>
+            <!-- Center phone: Explore -->
+            <div class="mini-phone center">
+              <div class="mini-screen">
+                <div class="mini-status"><span>9:41</span><span>●●●</span></div>
+                <div class="mini-header">
+                  <div class="mini-greeting">GOOD MORNING</div>
+                  <div class="mini-title">Find your<br>run <span>club.</span></div>
+                </div>
+                <div class="mini-search">
+                  <div class="mini-search-dot"></div>
+                  <div class="mini-search-bar"></div>
+                  <div class="mini-gps"></div>
+                </div>
+                <div class="mini-cities">
+                  <div class="mini-city c1"><div class="mini-city-label">Boulder</div></div>
+                  <div class="mini-city c2"><div class="mini-city-label">Denver</div></div>
+                  <div class="mini-city c3"><div class="mini-city-label">NYC</div></div>
+                </div>
+                <div class="mini-clubs">
+                  <div class="mini-club">
+                    <div class="mini-avatar g"></div>
+                    <div class="mini-club-info">
+                      <div class="mini-club-name">Atomic Track Club</div>
+                      <div class="mini-club-meta">0.4 mi · Tues & Sat</div>
+                    </div>
+                    <div class="mini-tag">Tonight</div>
+                  </div>
+                  <div class="mini-club">
+                    <div class="mini-avatar b"></div>
+                    <div class="mini-club-info">
+                      <div class="mini-club-name">RUNBoulder</div>
+                      <div class="mini-club-meta">0.8 mi · Tuesdays</div>
+                    </div>
+                    <div class="mini-tag" style="background:rgba(100,100,100,0.2);color:#555;">Tomorrow</div>
+                  </div>
+                </div>
+                <div class="mini-bottom-nav">
+                  <div class="mini-nav-dot"><div class="mini-nav-icon active"></div><div class="mini-nav-label active"></div></div>
+                  <div class="mini-nav-dot"><div class="mini-nav-icon"></div><div class="mini-nav-label"></div></div>
+                  <div class="mini-nav-dot"><div class="mini-nav-icon"></div><div class="mini-nav-label"></div></div>
+                  <div class="mini-nav-dot"><div class="mini-nav-icon"></div><div class="mini-nav-label"></div></div>
+                </div>
+              </div>
+            </div>
+            <!-- Right phone: Detail -->
+            <div class="mini-phone right">
+              <div class="mini-screen">
+                <div class="mini-status"><span>9:41</span><span>●●●</span></div>
+                <div style="padding:8px 10px 6px;">
+                  <div style="display:inline-flex;align-items:center;gap:3px;background:rgba(200,242,60,0.15);border:1px solid rgba(200,242,60,0.3);border-radius:6px;padding:2px 6px;font-family:'JetBrains Mono',monospace;font-size:5px;color:var(--lime);margin-bottom:5px;">
+                    <div style="width:4px;height:4px;background:var(--lime);border-radius:50%;"></div>
+                    Verified
+                  </div>
+                  <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:11px;color:var(--off-white);line-height:1.1;">Good Boys<br>Running Club</div>
+                  <div style="font-size:5px;color:#555;margin-top:2px;">Washington Park, Denver</div>
+                </div>
+                <div style="display:flex;gap:4px;padding:0 10px 6px;">
+                  <div style="flex:1;background:#1a1a1a;border-radius:4px;padding:4px;text-align:center;">
+                    <div style="font-family:'Syne',sans-serif;font-size:8px;font-weight:800;color:var(--lime);">347</div>
+                    <div style="font-size:4px;color:#555;font-family:'JetBrains Mono',monospace;">Members</div>
+                  </div>
+                  <div style="flex:1;background:#1a1a1a;border-radius:4px;padding:4px;text-align:center;">
+                    <div style="font-family:'Syne',sans-serif;font-size:8px;font-weight:800;color:var(--off-white);">4.9</div>
+                    <div style="font-size:4px;color:#555;font-family:'JetBrains Mono',monospace;">Rating</div>
+                  </div>
+                  <div style="flex:1;background:#1a1a1a;border-radius:4px;padding:4px;text-align:center;">
+                    <div style="font-family:'Syne',sans-serif;font-size:8px;font-weight:800;color:var(--lime);">Mon</div>
+                    <div style="font-size:4px;color:#555;font-family:'JetBrains Mono',monospace;">Next Run</div>
+                  </div>
+                </div>
+                <div style="margin:0 10px;background:var(--lime);border-radius:6px;padding:6px;text-align:center;">
+                  <div style="font-family:'Syne',sans-serif;font-size:7px;font-weight:800;color:var(--black);">Drop In Tonight →</div>
+                </div>
+                <div class="mini-bottom-nav" style="margin-top:8px;">
+                  <div class="mini-nav-dot"><div class="mini-nav-icon"></div><div class="mini-nav-label"></div></div>
+                  <div class="mini-nav-dot"><div class="mini-nav-icon"></div><div class="mini-nav-label"></div></div>
+                  <div class="mini-nav-dot"><div class="mini-nav-icon"></div><div class="mini-nav-label"></div></div>
+                  <div class="mini-nav-dot"><div class="mini-nav-icon active"></div><div class="mini-nav-label active"></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="bottom-bar">
+          <div class="brand-mark">RunKlub</div>
+          <div class="slide-num">4 / 6</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 5: SOLUTION -->
+  <div class="slide-wrapper" id="sw-5">
+    <div class="slide sq s5 phone-frame-outer" id="slide-5">
+      <div class="noise"></div>
+      <div class="cross"></div>
+      <div class="slide-inner">
+        <div class="main-content">
+          <div class="solution-tag">The fix</div>
+          <div class="solution-headline">That's what<br>RunKlub<br>is for.</div>
+          <div class="solution-points">
+            <div class="solution-point">
+              <div class="point-dot"></div>
+              <div class="point-text">Find verified run clubs in any city you travel to</div>
+            </div>
+            <div class="solution-point">
+              <div class="point-dot"></div>
+              <div class="point-text">See when they meet, where they start, what pace</div>
+            </div>
+            <div class="solution-point">
+              <div class="point-dot"></div>
+              <div class="point-text">Drop in as a visitor — no membership needed</div>
+            </div>
+            <div class="solution-point">
+              <div class="point-dot"></div>
+              <div class="point-text">Free for runners. Always.</div>
+            </div>
+          </div>
+        </div>
+        <div class="bottom-bar">
+          <div class="brand-mark">RunKlub</div>
+          <div class="slide-num">5 / 6</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 6: CTA -->
+  <div class="slide-wrapper" id="sw-6">
+    <div class="slide sq s6 phone-frame-outer" id="slide-6">
+      <div class="grid-bg"></div>
+      <div class="corner-accent"></div>
+      <div class="slide-inner">
+        <div class="main-content">
+          <div class="cta-pill"><div class="cta-pill-dot"></div>Early Access Open</div>
+          <div class="cta-headline">Run with<br>anyone,<br>anywhere.</div>
+          <div class="cta-sub">Join the waitlist. Launching at BolderBOULDER, Boulder CO — May 26, 2026.</div>
+          <div class="cta-url">runklub.fit</div>
+          <div class="cta-handle">@runklubapp</div>
+        </div>
+        <div class="bottom-bar">
+          <div class="brand-mark">RunKlub</div>
+          <div class="slide-num">6 / 6</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let currentSlide = 1;
+const totalSlides = 6;
+let currentSize = 'sq';
+
+const sizes = {
+  sq: { w: 540, h: 540 },
+  pt: { w: 432, h: 540 },
+  tk: { w: 304, h: 540 },
+};
+
+function setSize(size) {
+  currentSize = size;
+  document.querySelectorAll('.size-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  applySize();
+}
+
+function applySize() {
+  const { w, h } = sizes[currentSize];
+  document.querySelectorAll('.slide').forEach(s => {
+    s.style.width = w + 'px';
+    s.style.height = h + 'px';
+    s.className = s.className.replace(/\bsq\b|\bpt\b|\btk\b/g, '').trim() + ' ' + currentSize;
+  });
+}
+
+function showSlide(n) {
+  document.querySelectorAll('.slide-wrapper').forEach(sw => sw.classList.remove('active'));
+  document.getElementById('sw-' + n).classList.add('active');
+  document.getElementById('counter').textContent = n + ' / ' + totalSlides;
+  currentSlide = n;
+}
+
+function nextSlide() {
+  const next = currentSlide < totalSlides ? currentSlide + 1 : 1;
+  showSlide(next);
+}
+
+function prevSlide() {
+  const prev = currentSlide > 1 ? currentSlide - 1 : totalSlides;
+  showSlide(prev);
+}
+
+// Keyboard nav
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight') nextSlide();
+  if (e.key === 'ArrowLeft') prevSlide();
+});
+
+applySize();
+</script>
+</body>
+</html>
