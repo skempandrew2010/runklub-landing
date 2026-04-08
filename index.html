@@ -24,22 +24,7 @@
     color: var(--chalk);
     font-family: 'Epilogue', sans-serif;
     overflow-x: hidden;
-    cursor: none;
   }
-
-  /* CUSTOM CURSOR */
-  .cursor {
-    width: 12px; height: 12px;
-    background: var(--lime);
-    border-radius: 50%;
-    position: fixed;
-    top: 0; left: 0;
-    pointer-events: none;
-    z-index: 9999;
-    transition: transform 0.15s ease, width 0.2s, height 0.2s;
-    mix-blend-mode: difference;
-  }
-  .cursor.grow { width: 40px; height: 40px; transform: translate(-14px, -14px); }
 
   /* NAV */
   nav {
@@ -767,15 +752,11 @@
     .cta-section { padding: 6rem 1.5rem; }
     footer { flex-direction: column; gap: 1rem; text-align: center; }
     .nav-link { display: none; }
-    body { cursor: auto; }
-    .cursor { display: none; }
   }
 </style>
 </head>
 <body>
 
-<!-- CURSOR -->
-<div class="cursor" id="cursor"></div>
 
 <!-- NAV -->
 <nav>
@@ -999,15 +980,6 @@
 </footer>
 
 <script>
-  // Custom cursor
-  const cursor = document.getElementById('cursor');
-  let mouseX = 0, mouseY = 0;
-
-  document.addEventListener('mousemove', (e) => {
-    mouseX = e.clientX;
-    mouseY = e.clientY;
-    cursor.style.transform = `translate(${mouseX - 6}px, ${mouseY - 6}px)`;
-  });
 
   document.querySelectorAll('a, button, input').forEach(el => {
     el.addEventListener('mouseenter', () => cursor.classList.add('grow'));
