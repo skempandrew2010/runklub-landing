@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from "next/server"
 import Stripe from "stripe"
 import { createClient } from "@supabase/supabase-js"
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
+function getStripe() { return new Stripe(process.env.STRIPE_SECRET_KEY!); }
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+function getSupabaseAdmin() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+}
 
 // Must read raw body before any parsing — required for Stripe signature verification
 export async function POST(req: NextRequest) {
@@ -20,7 +22,7 @@ export async function POST(req: NextRequest) {
 
   let event: Stripe.Event
   try {
-    event = stripe.webhooks.constructEvent(
+    event = getStripe().webhooks.constructEvent(
       rawBody,
       signature,
       process.env.STRIPE_WEBHOOK_SECRET!
@@ -46,7 +48,7 @@ export async function POST(req: NextRequest) {
           updates.stripe_subscription_status = "active"
         }
 
-        await supabaseAdmin.from("clubs").update(updates).eq("id", clubId)
+        await getSupabaseAdmin().from("clubs").update(updates).eq("id", clubId)
         break
       }
 
@@ -54,7 +56,7 @@ export async function POST(req: NextRequest) {
       case "customer.subscription.updated": {
         const sub = event.data.object as Stripe.Subscription
 
-        const { data: club } = await supabaseAdmin
+        const { data: club } = await getSupabaseAdmin()
           .from("clubs")
           .select("id")
           .eq("stripe_subscription_id", sub.id)
@@ -63,7 +65,7 @@ export async function POST(req: NextRequest) {
         if (!club) break
 
         const isActive = ["active", "trialing"].includes(sub.status)
-        await supabaseAdmin.from("clubs").update({
+        await getSupabaseAdmin().from("clubs").update({
           tier: isActive ? "pro" : "free",
           stripe_subscription_status: sub.status,
           tier_expires_at: (sub as any).current_period_end
@@ -77,7 +79,7 @@ export async function POST(req: NextRequest) {
       case "customer.subscription.deleted": {
         const sub = event.data.object as Stripe.Subscription
 
-        const { data: club } = await supabaseAdmin
+        const { data: club } = await getSupabaseAdmin()
           .from("clubs")
           .select("id")
           .eq("stripe_subscription_id", sub.id)
@@ -85,7 +87,7 @@ export async function POST(req: NextRequest) {
 
         if (!club) break
 
-        await supabaseAdmin.from("clubs").update({
+        await getSupabaseAdmin().from("clubs").update({
           tier: "free",
           stripe_subscription_status: "canceled",
           stripe_subscription_id: null,

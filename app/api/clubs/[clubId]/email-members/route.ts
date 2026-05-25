@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { Resend } from "resend"
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+function getSupabaseAdmin() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+}
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+function getResend() { return new Resend(process.env.RESEND_API_KEY); }
 
 const FROM = process.env.RESEND_FROM_EMAIL ?? "RunKlub <onboarding@resend.dev>"
 
@@ -76,11 +78,11 @@ export async function POST(
     const token = req.headers.get("authorization")?.replace("Bearer ", "")
     if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
+    const { data: { user }, error: authError } = await getSupabaseAdmin().auth.getUser(token)
     if (authError || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
     // Fetch club, then verify ownership
-    const { data: club, error: clubError } = await supabaseAdmin
+    const { data: club, error: clubError } = await getSupabaseAdmin()
       .from("clubs")
       .select("id, name, user_id")
       .eq("id", clubId)
@@ -96,7 +98,7 @@ export async function POST(
 
     // For legacy clubs with null user_id, require the manager role
     if (club.user_id === null) {
-      const { data: profile } = await supabaseAdmin
+      const { data: profile } = await getSupabaseAdmin()
         .from("profiles")
         .select("role")
         .eq("id", user.id)
@@ -118,7 +120,7 @@ export async function POST(
     }
 
     // Get subscriber user IDs
-    const { data: subs } = await supabaseAdmin
+    const { data: subs } = await getSupabaseAdmin()
       .from("subscriptions")
       .select("user_id")
       .eq("club_id", clubId)
@@ -130,7 +132,7 @@ export async function POST(
     const subscriberIdSet = new Set(subs.map((s) => s.user_id))
 
     // Filter to members who have notifications enabled
-    const { data: profiles } = await supabaseAdmin
+    const { data: profiles } = await getSupabaseAdmin()
       .from("profiles")
       .select("id")
       .in("id", Array.from(subscriberIdSet))
@@ -139,10 +141,10 @@ export async function POST(
     const optedInIds = new Set((profiles ?? []).map((p) => p.id))
 
     // Get all auth users via pagination
-    let allUsers: Awaited<ReturnType<typeof supabaseAdmin.auth.admin.listUsers>>["data"]["users"] = []
+    let allUsers: { id: string; email?: string }[] = []
     let page = 1
     while (true) {
-      const { data: { users }, error: listErr } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 1000 })
+      const { data: { users }, error: listErr } = await getSupabaseAdmin().auth.admin.listUsers({ page, perPage: 1000 })
       if (listErr || !users.length) break
       allUsers = [...allUsers, ...users]
       if (users.length < 1000) break
@@ -166,7 +168,7 @@ export async function POST(
 
     for (let i = 0; i < emails.length; i += chunkSize) {
       const chunk = emails.slice(i, i + chunkSize)
-      const { error: sendError } = await resend.batch.send(
+      const { error: sendError } = await getResend().batch.send(
         chunk.map((to) => ({
           from: FROM,
           to,

@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from "next/server"
 import Stripe from "stripe"
 import { createClient } from "@supabase/supabase-js"
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
+function getStripe() { return new Stripe(process.env.STRIPE_SECRET_KEY!); }
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+function getSupabaseAdmin() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -22,11 +24,11 @@ export async function POST(req: NextRequest) {
     const token = req.headers.get("authorization")?.replace("Bearer ", "")
     if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
+    const { data: { user }, error: authError } = await getSupabaseAdmin().auth.getUser(token)
     if (authError || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
     // Verify the user owns this club
-    const { data: club } = await supabaseAdmin
+    const { data: club } = await getSupabaseAdmin()
       .from("clubs")
       .select("id, name, tier")
       .eq("id", clubId)
@@ -44,7 +46,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Get or create a Stripe Customer for this user
-    const { data: profile } = await supabaseAdmin
+    const { data: profile } = await getSupabaseAdmin()
       .from("profiles")
       .select("stripe_customer_id, display_name")
       .eq("id", user.id)
@@ -53,13 +55,13 @@ export async function POST(req: NextRequest) {
     let customerId = profile?.stripe_customer_id
 
     if (!customerId) {
-      const customer = await stripe.customers.create({
+      const customer = await getStripe().customers.create({
         email: user.email,
         name: profile?.display_name ?? undefined,
         metadata: { user_id: user.id },
       })
       customerId = customer.id
-      await supabaseAdmin
+      await getSupabaseAdmin()
         .from("profiles")
         .update({ stripe_customer_id: customerId })
         .eq("id", user.id)
@@ -71,7 +73,7 @@ export async function POST(req: NextRequest) {
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
 
-    const session = await stripe.checkout.sessions.create({
+    const session = await getStripe().checkout.sessions.create({
       customer: customerId,
       mode: "subscription",
       line_items: [{ price: priceId, quantity: 1 }],

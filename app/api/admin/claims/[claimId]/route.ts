@@ -1,11 +1,13 @@
 import { createClient } from "@supabase/supabase-js"
 import { NextRequest, NextResponse } from "next/server"
 
-const adminSupabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { autoRefreshToken: false, persistSession: false } }
-)
+function getAdminSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  )
+}
 
 export async function PATCH(
   req: NextRequest,
@@ -16,10 +18,10 @@ export async function PATCH(
   if (!authHeader) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const token = authHeader.replace("Bearer ", "")
-  const { data: { user }, error: authError } = await adminSupabase.auth.getUser(token)
+  const { data: { user }, error: authError } = await getAdminSupabase().auth.getUser(token)
   if (authError || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const { data: profile } = await adminSupabase
+  const { data: profile } = await getAdminSupabase()
     .from("profiles")
     .select("role")
     .eq("id", user.id)
@@ -39,7 +41,7 @@ export async function PATCH(
   }
 
   // Fetch claim and verify it is still pending
-  const { data: claim } = await adminSupabase
+  const { data: claim } = await getAdminSupabase()
     .from("club_claims")
     .select("club_id, user_id, status")
     .eq("id", claimId)
@@ -49,15 +51,15 @@ export async function PATCH(
   if (claim.status !== "pending") return NextResponse.json({ error: "Claim already resolved" }, { status: 409 })
 
   if (action === "reject") {
-    await adminSupabase.from("club_claims").update({ status: "rejected" }).eq("id", claimId)
+    await getAdminSupabase().from("club_claims").update({ status: "rejected" }).eq("id", claimId)
     return NextResponse.json({ ok: true })
   }
 
   // approve — assign club ownership, upgrade role, mark claim approved
   await Promise.all([
-    adminSupabase.from("clubs").update({ user_id: claim.user_id }).eq("id", claim.club_id),
-    adminSupabase.from("profiles").update({ role: "manager" }).eq("id", claim.user_id),
-    adminSupabase.from("club_claims").update({ status: "approved" }).eq("id", claimId),
+    getAdminSupabase().from("clubs").update({ user_id: claim.user_id }).eq("id", claim.club_id),
+    getAdminSupabase().from("profiles").update({ role: "manager" }).eq("id", claim.user_id),
+    getAdminSupabase().from("club_claims").update({ status: "approved" }).eq("id", claimId),
   ])
 
   return NextResponse.json({ ok: true })
