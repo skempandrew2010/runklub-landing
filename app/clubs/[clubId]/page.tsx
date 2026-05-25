@@ -5,16 +5,18 @@ import ClubPageClient from "./ClubPageClient"
 
 export const revalidate = 60
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+}
 
 type Props = { params: Promise<{ clubId: string }> }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { clubId } = await params
-  const { data: club } = await supabase
+  const { data: club } = await getSupabase()
     .from("clubs")
     .select("name, city, description, image_url")
     .eq("id", clubId)
@@ -55,12 +57,12 @@ export default async function ClubPage({ params }: Props) {
   const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
 
   const [{ data: club }, { data: runs }, { count: memberCount }] = await Promise.all([
-    supabase
+    getSupabase()
       .from("clubs")
       .select("id, name, city, location, description, instagram_handle, image_url, tier, is_public, user_id")
       .eq("id", clubId)
       .maybeSingle(),
-    supabase
+    getSupabase()
       .from("runs")
       .select("id, title, date, time, distance, meeting_point, tags")
       .eq("club_id", clubId)
@@ -69,7 +71,7 @@ export default async function ClubPage({ params }: Props) {
       .order("date", { ascending: true })
       .order("time", { ascending: true })
       .limit(10),
-    supabase
+    getSupabase()
       .from("subscriptions")
       .select("id", { count: "exact", head: true })
       .eq("club_id", clubId),
