@@ -18,6 +18,13 @@ export default function LoginPage() {
   const [resetSent, setResetSent] = useState(false)
   const [splashVisible, setSplashVisible] = useState(true)
 
+  // If already logged in, skip straight to the app
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) router.replace("/explore")
+    })
+  }, [router])
+
   // 1.5s splash → landing
   useEffect(() => {
     const t1 = setTimeout(() => setSplashVisible(false), 1200)
@@ -64,7 +71,7 @@ export default function LoginPage() {
   const inputClass = "w-full bg-white/8 border border-white/15 rounded-2xl px-5 py-4 text-white placeholder-white/30 focus:outline-none focus:border-[#c5f135]/60 transition text-base"
 
   return (
-    <div className="fixed inset-0 bg-[#111a0a] flex flex-col items-center justify-center overflow-hidden">
+    <div className="fixed inset-0 bg-[#111a0a] flex flex-col items-center justify-center overflow-hidden" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
 
       {/* ── SPLASH ── */}
       {(mode === "splash") && (
