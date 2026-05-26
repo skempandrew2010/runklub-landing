@@ -75,13 +75,12 @@ export default function Navbar() {
   const isManager = role === "manager"
 
   const tabs = [
-    { href: "/",         label: "Discover",                               Icon: Compass,        badge: false },
+    { href: "/explore",  label: "Discover",                               Icon: Compass,        badge: false },
     { href: "/today",    label: "Hub",                                    Icon: CalendarCheck,  badge: false },
     { href: "/director", label: isManager ? "Director" : "Messages",     Icon: isManager ? Trophy : MessageSquare, badge: hasUnread },
   ]
 
-  const isActive = (href: string) =>
-    href === "/" ? pathname === "/" : pathname.startsWith(href)
+  const isActive = (href: string) => pathname.startsWith(href)
 
   const profileActive = pathname.startsWith("/profile")
   const initials = user?.email ? user.email[0].toUpperCase() : null
@@ -92,7 +91,7 @@ export default function Navbar() {
 
         {/* Logo — left */}
         <div className="flex-1">
-          <Link href="/" className="text-2xl font-black tracking-tight">
+          <Link href="/explore" className="text-2xl font-black tracking-tight">
             <span className="text-white">Run</span><span className="text-[#c5f135]">Klub</span>
           </Link>
         </div>

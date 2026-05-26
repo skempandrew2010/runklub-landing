@@ -36,7 +36,7 @@ export default function LoginPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
       const { data: profile } = await supabase.from("profiles").select("onboarding_complete").eq("id", user.id).single()
-      router.push(profile?.onboarding_complete ? "/" : "/onboarding")
+      router.push(profile?.onboarding_complete ? "/explore" : "/onboarding")
     }
   }
 
