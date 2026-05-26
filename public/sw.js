@@ -1,4 +1,4 @@
-const CACHE = 'runkub-shell-v1'
+const CACHE = 'runkub-shell-v2'
 
 // External hostnames we never want to cache
 const BYPASS = [
