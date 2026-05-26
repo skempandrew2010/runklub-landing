@@ -18,19 +18,19 @@ export default function LoginPage() {
   const [resetSent, setResetSent] = useState(false)
   const [splashVisible, setSplashVisible] = useState(true)
 
-  // If already logged in, skip straight to the app
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) router.replace("/explore")
-    })
-  }, [router])
-
-  // 1.5s splash → landing
+  // Splash → then either redirect (logged in) or show landing
   useEffect(() => {
     const t1 = setTimeout(() => setSplashVisible(false), 1200)
-    const t2 = setTimeout(() => setMode("landing"), 1600)
+    const t2 = setTimeout(async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        router.replace("/explore")
+      } else {
+        setMode("landing")
+      }
+    }, 1600)
     return () => { clearTimeout(t1); clearTimeout(t2) }
-  }, [])
+  }, [router])
 
   const handleLogin = async () => {
     if (!email || !password) return
