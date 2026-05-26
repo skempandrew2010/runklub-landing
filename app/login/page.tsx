@@ -37,7 +37,15 @@ export default function LoginPage() {
     setLoading(true)
     setError("")
     const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) { setError(error.message); setLoading(false); return }
+    if (error) {
+      if (error.message === "Invalid login credentials") {
+        setError("Account doesn't exist. Go back and tap 'Get Started' to create one.")
+      } else {
+        setError(error.message)
+      }
+      setLoading(false)
+      return
+    }
 
     // Returning user — skip onboarding if already done
     const { data: { user } } = await supabase.auth.getUser()
