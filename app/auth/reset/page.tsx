@@ -28,7 +28,7 @@ export default function ResetPasswordPage() {
     setError("")
     const { error } = await supabase.auth.updateUser({ password })
     if (error) { setError(error.message); setLoading(false); return }
-    router.push("/")
+    router.push("/explore")
   }
 
   const inputClass = "w-full bg-white/8 border border-white/15 rounded-2xl px-5 py-4 text-white placeholder-white/30 focus:outline-none focus:border-[#c5f135]/60 transition text-base"
