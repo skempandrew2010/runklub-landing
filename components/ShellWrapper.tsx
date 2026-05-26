@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabase"
 
 const NavBar = dynamic(() => import("./navBar"), {
   ssr: false,
-  loading: () => <nav className="sticky top-0 z-50 bg-[#1a2110] border-b border-[#2e3d1a] h-[68px]" />,
+  loading: () => <nav className="sticky top-0 z-50 bg-[#1a2110] border-b border-[#2e3d1a]" style={{ height: 'var(--navbar-h)' }} />,
 })
 
 const SHELL_HIDDEN_ROUTES = ["/login", "/onboarding"]

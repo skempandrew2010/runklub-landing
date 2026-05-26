@@ -473,10 +473,10 @@ export default function ExplorePage() {
       {/* ── MOBILE ── */}
       <div className="md:hidden bg-[#1a2110]">
         {!showMobileMap && heroSection}
-        <div className="sticky top-[65px] z-40">{filterBar}</div>
+        <div className="sticky z-40" style={{ top: 'var(--navbar-h)' }}>{filterBar}</div>
         {showMobileMap ? (
           <>
-            <div className="fixed left-0 right-0 z-10" style={{ top: "65px", bottom: "0" }}>
+            <div className="fixed left-0 right-0 z-10" style={{ top: 'var(--navbar-h)', bottom: "0" }}>
               <MapView city={city} runs={weekRuns} onCityCoords={setCityCoords} />
             </div>
             <button onClick={() => setShowMobileMap(false)}
@@ -502,15 +502,15 @@ export default function ExplorePage() {
       {/* ── DESKTOP ── */}
       <div className="hidden md:block bg-[#1a2110]">
         {heroSection}
-        <div className="sticky top-[65px] z-40">{filterBar}</div>
+        <div className="sticky z-40" style={{ top: 'var(--navbar-h)' }}>{filterBar}</div>
         <div className="flex">
-          <div className="w-[58%] min-h-[calc(100vh-65px)] border-r border-[#2e3d1a]">
+          <div className="w-[58%] border-r border-[#2e3d1a]" style={{ minHeight: 'calc(100vh - var(--navbar-h))' }}>
             {countRow}
             {clubListSection}
             <div className="h-8" />
           </div>
           <div className="w-[42%] shrink-0">
-            <div className="sticky top-[65px]" style={{ height: "calc(100vh - 65px)" }}>
+            <div className="sticky" style={{ top: 'var(--navbar-h)', height: 'calc(100vh - var(--navbar-h))' }}>
               <MapView city={city} runs={weekRuns} onCityCoords={setCityCoords} />
             </div>
           </div>

@@ -3,6 +3,9 @@
 :root {
   --background: #1a2110;
   --foreground: #ffffff;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --nav-extra: 8px;
+  --navbar-h: calc(68px + var(--safe-top) + var(--nav-extra));
 }
 
 @theme inline {

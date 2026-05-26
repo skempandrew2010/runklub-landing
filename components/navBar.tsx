@@ -86,7 +86,7 @@ export default function Navbar() {
   const initials = user?.email ? user.email[0].toUpperCase() : null
 
   return (
-    <nav className="sticky top-0 z-50 bg-[#1a2110] border-b border-[#2e3d1a]">
+    <nav className="sticky top-0 z-50 bg-[#1a2110] border-b border-[#2e3d1a]" style={{ paddingTop: 'calc(var(--safe-top) + var(--nav-extra))' }}>
       <div className="max-w-6xl mx-auto flex items-center px-6 h-[68px]">
 
         {/* Logo — left */}
