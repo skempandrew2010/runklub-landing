@@ -12,7 +12,7 @@ const SHELL_HIDDEN_ROUTES = ["/login", "/onboarding"]
 
 export default function ShellWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  const hideShell = pathname === "/" || SHELL_HIDDEN_ROUTES.some((r) => pathname.startsWith(r))
+  const hideShell = SHELL_HIDDEN_ROUTES.some((r) => pathname.startsWith(r))
 
   return (
     <>
