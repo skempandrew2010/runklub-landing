@@ -11,6 +11,8 @@
   "dependencies": {
     "@mapbox/mapbox-sdk": "^0.16.2",
     "@supabase/supabase-js": "^2.99.1",
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.38.0",
     "lucide-react": "^0.577.0",
     "mapbox-gl": "^3.20.0",
     "next": "16.1.6",
