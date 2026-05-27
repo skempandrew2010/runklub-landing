@@ -316,22 +316,28 @@ export default function MapView({ city, runs, onCityCoords }: MapViewProps) {
       {mapReady && displayClusters.map((item) => {
         if (item.isCluster) {
           return (
-            <Marker key={item.key} longitude={item.lng} latitude={item.lat} anchor="center">
+            <Marker key={item.key} longitude={item.lng} latitude={item.lat} anchor="bottom">
               <button
                 onClick={(e) => {
                   e.stopPropagation()
                   const map = mapRef.current?.getMap()
                   map?.easeTo({ center: [item.lng, item.lat], zoom: viewState.zoom + 2, duration: 500 })
                 }}
-                style={{
-                  width: 36, height: 36, borderRadius: "50%",
-                  background: "#1a2110", border: "2.5px solid #c5f135",
-                  color: "#c5f135", fontWeight: 900, fontSize: 13,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  cursor: "pointer",
-                }}
+                className="relative focus:outline-none"
+                style={{ transform: "scale(1)", transition: "transform 0.15s ease" }}
               >
-                {item.totalRuns}
+                <svg width="22" height="30" viewBox="0 0 22 30" fill="none" xmlns="http://www.w3.org/2000/svg"
+                  style={{ filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.5))" }}
+                >
+                  <path
+                    d="M11 0C4.925 0 0 4.925 0 11c0 7.667 11 19 11 19S22 18.667 22 11C22 4.925 17.075 0 11 0z"
+                    fill="#1a2110" stroke="#c5f135" strokeWidth="1.5"
+                  />
+                  <circle cx="11" cy="10.5" r="4" fill="#c5f135" />
+                </svg>
+                <span className="absolute -top-1 -right-1.5 min-w-[16px] h-4 px-0.5 rounded-full bg-[#c5f135] text-[#1a2110] text-[9px] font-black flex items-center justify-center leading-none shadow-sm">
+                  {item.totalRuns}
+                </span>
               </button>
             </Marker>
           )
