@@ -477,7 +477,7 @@ export default function ExplorePage() {
         {showMobileMap ? (
           <>
             <div className="fixed left-0 right-0 z-10" style={{ top: 'var(--navbar-h)', bottom: "0" }}>
-              <MapView city={city} runs={weekRuns} onCityCoords={setCityCoords} />
+              <MapView city={city} runs={allWeekRuns} onCityCoords={setCityCoords} />
             </div>
             <button onClick={() => setShowMobileMap(false)}
               className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-5 py-2.5 bg-[#1a2110] border border-[#3d5220] rounded-full text-white font-semibold text-sm shadow-xl shadow-black/60">
@@ -511,7 +511,7 @@ export default function ExplorePage() {
           </div>
           <div className="w-[42%] shrink-0">
             <div className="sticky" style={{ top: 'var(--navbar-h)', height: 'calc(100vh - var(--navbar-h))' }}>
-              <MapView city={city} runs={weekRuns} onCityCoords={setCityCoords} />
+              <MapView city={city} runs={allWeekRuns} onCityCoords={setCityCoords} />
             </div>
           </div>
         </div>
