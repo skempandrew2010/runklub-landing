@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import Map, { Marker, Popup, NavigationControl, Source, Layer } from "react-map-gl/mapbox"
 import "mapbox-gl/dist/mapbox-gl.css"
 import mapboxSdk from "@mapbox/mapbox-sdk/services/geocoding"
@@ -151,32 +151,86 @@ export default function MapView({ city, runs, onCityCoords }: MapViewProps) {
   }, [city])
 
   // Group runs by their effective location — run coords → club coords → geocoded city
-  const locationGroups: LocationGroup[] = []
-  const seen: Record<string, LocationGroup> = {}
-  runs.forEach((run) => {
-    let lat = run.run_lat ?? run.club_lat
-    let lng = run.run_lng ?? run.club_lng
-    if ((lat == null || lng == null) && run.city && geocodedCities[run.city]) {
-      lat = geocodedCities[run.city].lat
-      lng = geocodedCities[run.city].lng
+  const locationGroups = useMemo(() => {
+    const groups: LocationGroup[] = []
+    const seen: Record<string, LocationGroup> = {}
+    runs.forEach((run) => {
+      let lat = run.run_lat ?? run.club_lat
+      let lng = run.run_lng ?? run.club_lng
+      if ((lat == null || lng == null) && run.city && geocodedCities[run.city]) {
+        lat = geocodedCities[run.city].lat
+        lng = geocodedCities[run.city].lng
+      }
+      if (lat == null || lng == null) return
+      const key = locationKey(lat, lng)
+      if (seen[key]) {
+        seen[key].runs.push(run)
+      } else {
+        const g: LocationGroup = { key, lat, lng, runs: [run] }
+        seen[key] = g
+        groups.push(g)
+      }
+    })
+    return groups
+  }, [runs, geocodedCities])
+
+  const geojson = useMemo(() => ({
+    type: "FeatureCollection" as const,
+    features: locationGroups.map((g) => ({
+      type: "Feature" as const,
+      geometry: { type: "Point" as const, coordinates: [g.lng, g.lat] },
+      properties: { groupKey: g.key, runCount: g.runs.length },
+    })),
+  }), [locationGroups])
+
+  const groupLookup = useMemo(() => {
+    const m: Record<string, LocationGroup> = {}
+    locationGroups.forEach((g) => { m[g.key] = g })
+    return m
+  }, [locationGroups])
+
+  const handleMapClick = useCallback((e: any) => {
+    const map = mapRef.current?.getMap()
+    if (!map) { setSelectedGroup(null); return }
+
+    const clusterFeatures = map.queryRenderedFeatures(e.point, { layers: ["rk-clusters"] })
+    if (clusterFeatures.length > 0) {
+      const clusterId = clusterFeatures[0].properties.cluster_id
+      const source = map.getSource("rk-runs") as any
+      source.getClusterExpansionZoom(clusterId, (err: any, zoom: number) => {
+        if (err) return
+        map.easeTo({ center: (clusterFeatures[0].geometry as any).coordinates, zoom, duration: 500 })
+      })
+      return
     }
-    if (lat == null || lng == null) return
-    const key = locationKey(lat, lng)
-    if (seen[key]) {
-      seen[key].runs.push(run)
-    } else {
-      const g: LocationGroup = { key, lat, lng, runs: [run] }
-      seen[key] = g
-      locationGroups.push(g)
+
+    const pinFeatures = map.queryRenderedFeatures(e.point, { layers: ["rk-pins"] })
+    if (pinFeatures.length > 0) {
+      const groupKey = pinFeatures[0].properties?.groupKey
+      const group = groupLookup[groupKey]
+      if (group) {
+        setSelectedGroup((prev) => prev?.key === groupKey ? null : group)
+        return
+      }
     }
-  })
+
+    setSelectedGroup(null)
+  }, [groupLookup])
+
+  const handleMouseMove = useCallback((e: any) => {
+    const map = mapRef.current?.getMap()
+    if (!map) return
+    const features = map.queryRenderedFeatures(e.point, { layers: ["rk-clusters", "rk-pins"] })
+    map.getCanvas().style.cursor = features.length > 0 ? "pointer" : ""
+  }, [])
 
   return (
     <Map
       ref={mapRef}
       {...viewState}
       onMove={(evt: any) => setViewState(evt.viewState)}
-      onClick={() => setSelectedGroup(null)}
+      onClick={handleMapClick}
+      onMouseMove={handleMouseMove}
       style={{ width: "100%", height: "100%", minHeight: "180px" }}
       mapStyle="mapbox://styles/mapbox/streets-v11"
       mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
@@ -252,40 +306,59 @@ export default function MapView({ city, runs, onCityCoords }: MapViewProps) {
         </Marker>
       )}
 
-      {/* Run pins — one per unique location */}
-      {mapReady && locationGroups.map((group) => {
-        const active = selectedGroup?.key === group.key
-        const count = group.runs.length
-        return (
-          <Marker key={group.key} longitude={group.lng} latitude={group.lat} anchor="bottom">
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                setSelectedGroup(active ? null : group)
-              }}
-              className="relative focus:outline-none"
-              style={{ transform: active ? "scale(1.2)" : "scale(1)", transition: "transform 0.15s ease" }}
-            >
-              <svg width="22" height="30" viewBox="0 0 22 30" fill="none" xmlns="http://www.w3.org/2000/svg"
-                style={{ filter: active ? "drop-shadow(0 4px 12px rgba(197,241,53,0.55))" : "drop-shadow(0 2px 6px rgba(0,0,0,0.5))" }}
-              >
-                <path
-                  d="M11 0C4.925 0 0 4.925 0 11c0 7.667 11 19 11 19S22 18.667 22 11C22 4.925 17.075 0 11 0z"
-                  fill={active ? "#c5f135" : "#1a2110"}
-                  stroke="#c5f135"
-                  strokeWidth={active ? "0" : "1.5"}
-                />
-                <circle cx="11" cy="10.5" r="4" fill={active ? "#1a2110" : "#c5f135"} />
-              </svg>
-              {count > 1 && (
-                <span className="absolute -top-1 -right-1.5 min-w-[16px] h-4 px-0.5 rounded-full bg-[#c5f135] text-[#1a2110] text-[9px] font-black flex items-center justify-center leading-none shadow-sm">
-                  {count}
-                </span>
-              )}
-            </button>
-          </Marker>
-        )
-      })}
+      {/* Clustered run pins */}
+      {mapReady && (
+        <Source
+          id="rk-runs"
+          type="geojson"
+          data={geojson}
+          cluster={true}
+          clusterMaxZoom={11}
+          clusterRadius={50}
+        >
+          {/* Cluster bubble */}
+          <Layer
+            id="rk-clusters"
+            type="circle"
+            filter={["has", "point_count"]}
+            paint={{
+              "circle-color": "#1a2110",
+              "circle-radius": ["step", ["get", "point_count"], 20, 10, 26, 30, 32],
+              "circle-stroke-width": 2.5,
+              "circle-stroke-color": "#c5f135",
+            }}
+          />
+          {/* Cluster count label */}
+          <Layer
+            id="rk-cluster-count"
+            type="symbol"
+            filter={["has", "point_count"]}
+            layout={{
+              "text-field": "{point_count_abbreviated}",
+              "text-font": ["DIN Offc Pro Medium", "Arial Unicode MS Bold"],
+              "text-size": 13,
+            }}
+            paint={{ "text-color": "#c5f135" }}
+          />
+          {/* Individual pin */}
+          <Layer
+            id="rk-pins"
+            type="circle"
+            filter={["!", ["has", "point_count"]]}
+            paint={{
+              "circle-color": [
+                "case",
+                ["==", ["get", "groupKey"], selectedGroup?.key ?? ""],
+                "#c5f135",
+                "#1a2110",
+              ],
+              "circle-radius": 9,
+              "circle-stroke-width": 2,
+              "circle-stroke-color": "#c5f135",
+            }}
+          />
+        </Source>
+      )}
 
       {/* Popup */}
       {mapReady && selectedGroup && (() => {
