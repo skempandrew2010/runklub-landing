@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# stray files
+Run-Klub-main/
+.claude/
+New Text Document.txt
