@@ -32,10 +32,13 @@ type LocationGroup = {
   runs: RunPin[]
 }
 
+export type MapBounds = { north: number; south: number; east: number; west: number }
+
 type MapViewProps = {
   city: string
   runs: RunPin[]
   onCityCoords?: (coords: { lat: number; lng: number } | null) => void
+  onBoundsChange?: (bounds: MapBounds) => void
 }
 
 const geocodingClient = mapboxSdk({ accessToken: process.env.NEXT_PUBLIC_MAPBOX_TOKEN })
@@ -114,7 +117,7 @@ function clusterGroups(groups: LocationGroup[], zoom: number, radiusPx: number):
   return result
 }
 
-export default function MapView({ city, runs, onCityCoords }: MapViewProps) {
+export default function MapView({ city, runs, onCityCoords, onBoundsChange }: MapViewProps) {
   const [viewState, setViewState] = useState({ latitude: 40.015, longitude: -105.2705, zoom: 11 })
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null)
   const [selectedGroup, setSelectedGroup] = useState<LocationGroup | null>(null)
@@ -235,13 +238,27 @@ export default function MapView({ city, runs, onCityCoords }: MapViewProps) {
     <Map
       ref={mapRef}
       {...viewState}
-      onMove={(evt: any) => setViewState(evt.viewState)}
+      onMove={(evt: any) => {
+        setViewState(evt.viewState)
+        const map = mapRef.current?.getMap()
+        if (map && onBoundsChange) {
+          const b = map.getBounds()
+          onBoundsChange({ north: b.getNorth(), south: b.getSouth(), east: b.getEast(), west: b.getWest() })
+        }
+      }}
       onClick={() => setSelectedGroup(null)}
       style={{ width: "100%", height: "100%", minHeight: "180px" }}
       mapStyle="mapbox://styles/mapbox/streets-v11"
       mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
       reuseMaps
-      onLoad={() => setMapReady(true)}
+      onLoad={() => {
+        setMapReady(true)
+        const map = mapRef.current?.getMap()
+        if (map && onBoundsChange) {
+          const b = map.getBounds()
+          onBoundsChange({ north: b.getNorth(), south: b.getSouth(), east: b.getEast(), west: b.getWest() })
+        }
+      }}
       onRemove={() => setMapReady(false)}
     >
       {mapReady && (
