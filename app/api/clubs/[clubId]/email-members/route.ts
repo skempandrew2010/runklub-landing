@@ -82,14 +82,13 @@ export async function POST(
     if (authError || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
     // Fetch club, then verify ownership
-    const { data: club, error: clubError } = await getSupabaseAdmin()
+    const { data: club } = await getSupabaseAdmin()
       .from("clubs")
       .select("id, name, user_id")
       .eq("id", clubId)
       .single()
 
-    if (clubError) console.error("Club fetch error:", clubError)
-    if (!club) return NextResponse.json({ error: "Club not found", detail: clubError?.message }, { status: 404 })
+    if (!club) return NextResponse.json({ error: "Club not found" }, { status: 404 })
 
     // For clubs with user_id set, enforce strict ownership
     if (club.user_id !== null && club.user_id !== user.id) {
@@ -119,41 +118,11 @@ export async function POST(
       return NextResponse.json({ error: `Message must be ${MESSAGE_MAX} characters or fewer` }, { status: 400 })
     }
 
-    // Get subscriber user IDs
-    const { data: subs } = await getSupabaseAdmin()
-      .from("subscriptions")
-      .select("user_id")
-      .eq("club_id", clubId)
+    // Single query: subscribers who have notifications enabled, with their emails
+    const { data: emailRows } = await getSupabaseAdmin()
+      .rpc("get_club_subscriber_emails", { p_club_id: clubId })
 
-    if (!subs || subs.length === 0) {
-      return NextResponse.json({ sent: 0, message: "No members to email." })
-    }
-
-    const subscriberIdSet = new Set(subs.map((s) => s.user_id))
-
-    // Filter to members who have notifications enabled
-    const { data: profiles } = await getSupabaseAdmin()
-      .from("profiles")
-      .select("id")
-      .in("id", Array.from(subscriberIdSet))
-      .eq("notifications_enabled", true)
-
-    const optedInIds = new Set((profiles ?? []).map((p) => p.id))
-
-    // Get all auth users via pagination
-    let allUsers: { id: string; email?: string }[] = []
-    let page = 1
-    while (true) {
-      const { data: { users }, error: listErr } = await getSupabaseAdmin().auth.admin.listUsers({ page, perPage: 1000 })
-      if (listErr || !users.length) break
-      allUsers = [...allUsers, ...users]
-      if (users.length < 1000) break
-      page++
-    }
-
-    const emails = allUsers
-      .filter((u) => optedInIds.has(u.id) && u.email)
-      .map((u) => u.email!)
+    const emails: string[] = (emailRows ?? []).map((r: { email: string }) => r.email)
 
     if (emails.length === 0) {
       return NextResponse.json({ sent: 0, message: "No members with email notifications enabled." })

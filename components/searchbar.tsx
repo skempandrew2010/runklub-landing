@@ -2,10 +2,6 @@
 
 import { useState, useEffect, useRef } from "react"
 import { Search, X } from "lucide-react"
-import mapboxSdk from "@mapbox/mapbox-sdk/services/geocoding"
-
-const geocodingClient = mapboxSdk({ accessToken: process.env.NEXT_PUBLIC_MAPBOX_TOKEN! })
-
 type Suggestion = { place_name: string; text: string }
 
 type SearchBarProps = {
@@ -20,6 +16,7 @@ export default function SearchBar({ city, setCity, onSearch }: SearchBarProps) {
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const geocoderRef = useRef<any>(null)
 
   // Sync if parent clears the city externally
   useEffect(() => {
@@ -33,7 +30,11 @@ export default function SearchBar({ city, setCity, onSearch }: SearchBarProps) {
 
     debounceRef.current = setTimeout(async () => {
       try {
-        const res = await geocodingClient
+        if (!geocoderRef.current) {
+          const sdk = (await import("@mapbox/mapbox-sdk/services/geocoding")).default
+          geocoderRef.current = sdk({ accessToken: process.env.NEXT_PUBLIC_MAPBOX_TOKEN! })
+        }
+        const res = await geocoderRef.current
           .forwardGeocode({ query: inputValue, limit: 5, types: ["place", "district", "region"] as any })
           .send()
         const features: Suggestion[] = res.body.features.map((f: any) => ({

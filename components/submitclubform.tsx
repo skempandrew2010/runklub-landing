@@ -2,13 +2,8 @@
 
 import { useState, useRef } from "react"
 import { supabase } from "@/lib/supabase"
-import mapboxSdk from "@mapbox/mapbox-sdk/services/geocoding"
 import { useRouter } from "next/navigation"
 import { ImagePlus, X, MapPin, Instagram } from "lucide-react"
-
-const geocodingClient = mapboxSdk({
-  accessToken: process.env.NEXT_PUBLIC_MAPBOX_TOKEN
-})
 
 export default function SubmitClubForm() {
   const [name, setName] = useState("")
@@ -53,6 +48,8 @@ export default function SubmitClubForm() {
 
       // Geocode using meeting address + city, or just city if no address given
       const query = meetingAddress ? `${meetingAddress}, ${city}` : city
+      const sdk = (await import("@mapbox/mapbox-sdk/services/geocoding")).default
+      const geocodingClient = sdk({ accessToken: process.env.NEXT_PUBLIC_MAPBOX_TOKEN })
       const geo = await geocodingClient.forwardGeocode({ query, limit: 1 }).send()
       const location = geo.body.features?.[0]
 
