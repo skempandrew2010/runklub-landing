@@ -32,11 +32,12 @@ export default function AdminClaimsPage() {
         .from("profiles").select("role").eq("id", user.id).single()
       if (profile?.role !== "admin") { router.push("/"); return }
 
-      const { data } = await supabase
+      const { data, error: claimsError } = await supabase
         .from("club_claims")
-        .select("*, clubs(name, city, instagram_handle), profiles(display_name)")
+        .select("*, clubs(name, city, instagram_handle), profiles!club_claims_user_id_profiles_fkey(display_name)")
         .order("created_at", { ascending: false })
 
+      if (claimsError) console.error("club_claims query error:", claimsError)
       setClaims((data as Claim[]) ?? [])
       setLoading(false)
     }
