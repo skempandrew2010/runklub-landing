@@ -19,15 +19,18 @@ const PUBLIC_ROUTES = [
   "/privacy",
   "/community",
   "/auth",
+  "/explore",
+  "/clubs",
 ]
 
 export default function ShellWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
-  const [authed, setAuthed] = useState<boolean | null>(null)
 
   const isPublic = PUBLIC_ROUTES.some((r) => pathname.startsWith(r))
   const hideShell = SHELL_HIDDEN_ROUTES.some((r) => pathname.startsWith(r))
+
+  const [authed, setAuthed] = useState<boolean | null>(isPublic ? true : null)
 
   useEffect(() => {
     if (isPublic) {
