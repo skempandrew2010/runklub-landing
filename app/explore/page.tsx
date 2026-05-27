@@ -133,12 +133,16 @@ export default function ExplorePage() {
       setWeekRunsLoading(true)
 
       const todayStr = localDateStr()
+      const weekAhead = new Date()
+      weekAhead.setDate(weekAhead.getDate() + 7)
+      const weekStr = localDateStr(weekAhead)
 
       const { data } = await supabase
         .from("runs")
         .select("id, title, date, time, distance, meeting_point, city, run_lat, run_lng, tags, club_id")
         .in("club_id", clubs.map((c) => c.id))
         .gte("date", todayStr)
+        .lte("date", weekStr)
         .eq("is_public", true)
         .order("date", { ascending: true })
         .order("time", { ascending: true })
@@ -222,9 +226,7 @@ export default function ExplorePage() {
   ].filter(Boolean).length
 
   const nearbyClubIds = new Set(baseClubs.map((c) => c.id))
-  const weekAheadStr = localDateStr(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000))
-
-  const mapRuns = center
+  const weekRuns = center
     ? allWeekRuns.filter((r) => {
         const lat = r.run_lat ?? r.club_lat
         const lng = r.run_lng ?? r.club_lng
@@ -234,8 +236,6 @@ export default function ExplorePage() {
         return nearbyClubIds.has(r.club_id)
       })
     : allWeekRuns
-
-  const weekRuns = mapRuns.filter((r) => r.date <= weekAheadStr)
 
   const groupedWeekRuns: Record<string, WeekRun[]> = {}
   weekRuns.forEach((r) => {
@@ -477,7 +477,7 @@ export default function ExplorePage() {
         {showMobileMap ? (
           <>
             <div className="fixed left-0 right-0 z-10" style={{ top: 'var(--navbar-h)', bottom: "0" }}>
-              <MapView city={city} runs={mapRuns} onCityCoords={setCityCoords} />
+              <MapView city={city} runs={weekRuns} onCityCoords={setCityCoords} />
             </div>
             <button onClick={() => setShowMobileMap(false)}
               className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-5 py-2.5 bg-[#1a2110] border border-[#3d5220] rounded-full text-white font-semibold text-sm shadow-xl shadow-black/60">
@@ -511,7 +511,7 @@ export default function ExplorePage() {
           </div>
           <div className="w-[42%] shrink-0">
             <div className="sticky" style={{ top: 'var(--navbar-h)', height: 'calc(100vh - var(--navbar-h))' }}>
-              <MapView city={city} runs={mapRuns} onCityCoords={setCityCoords} />
+              <MapView city={city} runs={weekRuns} onCityCoords={setCityCoords} />
             </div>
           </div>
         </div>
