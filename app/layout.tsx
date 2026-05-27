@@ -4,6 +4,7 @@ import "./globals.css";
 import ShellWrapper from "@/components/ShellWrapper"
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister"
 import IOSInstallPrompt from "@/components/IOSInstallPrompt"
+import { GlobalErrorHandler, ErrorBoundary } from "@/components/GlobalErrorHandler"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -53,9 +54,12 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#1a2110] text-white min-h-screen`}
       >
-        <ShellWrapper>
-          {children}
-        </ShellWrapper>
+        <ErrorBoundary>
+          <ShellWrapper>
+            {children}
+          </ShellWrapper>
+        </ErrorBoundary>
+        <GlobalErrorHandler />
         <ServiceWorkerRegister />
         <IOSInstallPrompt />
       </body>
