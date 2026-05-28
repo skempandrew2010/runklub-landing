@@ -161,9 +161,9 @@ export default function ClubCard({
         </div>
 
         {/* Members */}
-        {club.memberCount != null && (
+        {club.memberCount != null && club.memberCount >= 2 && (
           <p className="text-xs text-white/40 mt-1">
-            👟 {club.memberCount} {club.memberCount === 1 ? "member" : "members"}
+            👟 {club.memberCount} members
           </p>
         )}
 

@@ -38,9 +38,10 @@ export default function ShellWrapper({ children }: { children: React.ReactNode }
       return
     }
 
-    supabase.auth.getUser().then(({ data }) => {
-      if (!data.user) {
-        router.replace("/login")
+    supabase.auth.getUser().then(({ data, error }) => {
+      if (error || !data.user) {
+        // Invalid / expired refresh token — clear stale session and redirect
+        supabase.auth.signOut().finally(() => router.replace("/login"))
       } else {
         setAuthed(true)
       }

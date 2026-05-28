@@ -169,9 +169,11 @@ export default function ClubPageClient({
                     <MapPin className="w-3 h-3" />{club.city}
                   </p>
                 )}
-                <p className="text-sm text-white/50 flex items-center gap-1">
-                  <Users className="w-3 h-3" />{memberCount} {memberCount === 1 ? "member" : "members"}
-                </p>
+                {memberCount >= 2 && (
+                  <p className="text-sm text-white/50 flex items-center gap-1">
+                    <Users className="w-3 h-3" />{memberCount} members
+                  </p>
+                )}
               </div>
             </div>
           </div>

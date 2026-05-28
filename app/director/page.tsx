@@ -518,10 +518,12 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
                     <MapPin className="w-3 h-3" />{selectedClub.city}
                   </p>
                 )}
-                <p className="text-sm text-white/50 flex items-center gap-1">
-                  <Users className="w-3 h-3" />
-                  {selectedClub.member_count} {selectedClub.member_count === 1 ? "member" : "members"}
-                </p>
+                {selectedClub.member_count >= 2 && (
+                  <p className="text-sm text-white/50 flex items-center gap-1">
+                    <Users className="w-3 h-3" />
+                    {selectedClub.member_count} members
+                  </p>
+                )}
               </div>
             </div>
           </div>

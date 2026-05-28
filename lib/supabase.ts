@@ -8,7 +8,11 @@ export const supabase = createClient(
 // Clear stale sessions when a refresh token becomes invalid (e.g. after account deletion/recreation)
 if (typeof window !== "undefined") {
   supabase.auth.onAuthStateChange((event, session) => {
-    if (event === "TOKEN_REFRESHED" && !session) {
+    // Stale / revoked refresh token — clear it and send to login
+    if (
+      event === "TOKEN_REFRESH_FAILED" ||
+      (event === "TOKEN_REFRESHED" && !session)
+    ) {
       supabase.auth.signOut()
     }
   })

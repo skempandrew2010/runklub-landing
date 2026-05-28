@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server"
 
 // ── Only run when Upstash env vars are present ─────────────────────────────
 // Set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN in Vercel (Storage →
-// Upstash KV) or locally in .env.local.  When absent the middleware is a no-op
+// Upstash KV) or locally in .env.local.  When absent the proxy is a no-op
 // so local dev is unaffected.
 const UPSTASH_CONFIGURED =
   !!process.env.UPSTASH_REDIS_REST_URL && !!process.env.UPSTASH_REDIS_REST_TOKEN
@@ -59,8 +59,8 @@ function rateLimitResponse(remaining: number, reset: number) {
   )
 }
 
-// ── Middleware ──────────────────────────────────────────────────────────────
-export async function middleware(req: NextRequest) {
+// ── Proxy ───────────────────────────────────────────────────────────────────
+export default async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl
 
   // Only apply to API routes
