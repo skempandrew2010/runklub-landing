@@ -5,6 +5,7 @@ import ShellWrapper from "@/components/ShellWrapper"
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister"
 import IOSInstallPrompt from "@/components/IOSInstallPrompt"
 import { GlobalErrorHandler, ErrorBoundary } from "@/components/GlobalErrorHandler"
+import { Analytics } from "@vercel/analytics/next"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -62,6 +63,7 @@ export default function RootLayout({
         <GlobalErrorHandler />
         <ServiceWorkerRegister />
         <IOSInstallPrompt />
+        <Analytics />
       </body>
     </html>
   );
