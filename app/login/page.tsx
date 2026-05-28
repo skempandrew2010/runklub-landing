@@ -89,7 +89,7 @@ export default function LoginPage() {
               <span className="text-white">Run</span><span className="text-[#c5f135]">Klub</span>
             </span>
           </div>
-          <p className="text-white/30 text-sm mt-3 tracking-widest uppercase">Run with anyone, anywhere.</p>
+          <p className="text-white/30 text-sm mt-3 tracking-widest uppercase">Find people you actually want to run with.</p>
         </div>
       )}
 
@@ -98,14 +98,33 @@ export default function LoginPage() {
         <div className="w-full max-w-sm px-6 flex flex-col items-center animate-[fadeUp_0.45s_ease-out_forwards]">
 
           {/* Logo */}
-          <div className="mb-10 text-center">
+          <div className={`text-center ${mode === "landing" ? "mb-6" : "mb-10"}`}>
             <span className="text-4xl font-black tracking-tight">
               <span className="text-white">Run</span><span className="text-[#c5f135]">Klub</span>
             </span>
             <p className="text-white/40 text-sm mt-2">
-              {mode === "login" ? "Welcome back." : mode === "signup" ? "Create your account." : "Run with anyone, anywhere."}
+              {mode === "login" ? "Welcome back." : mode === "signup" ? "Create your account." : "Find people you actually want to run with."}
             </p>
           </div>
+
+          {/* ── Landing benefits ── */}
+          {mode === "landing" && (
+            <div className="w-full space-y-2.5 mb-8">
+              {[
+                { emoji: "👟", title: "Running is easier with others", sub: "Stay consistent, push harder, and actually show up." },
+                { emoji: "🗺️", title: "Explore your city through clubs", sub: "Discover routes and neighborhoods you'd never find alone." },
+                { emoji: "🤝", title: "Meet people through movement", sub: "The best friendships start at mile one." },
+              ].map(({ emoji, title, sub }) => (
+                <div key={title} className="flex items-start gap-3.5 bg-white/4 rounded-2xl px-4 py-3.5">
+                  <span className="text-xl mt-0.5 shrink-0">{emoji}</span>
+                  <div>
+                    <p className="text-sm font-bold text-white leading-snug">{title}</p>
+                    <p className="text-xs text-white/40 mt-0.5 leading-relaxed">{sub}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* ── Login form ── */}
           {mode === "login" && (
