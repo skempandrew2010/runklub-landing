@@ -9,8 +9,9 @@ export const supabase = createClient(
 if (typeof window !== "undefined") {
   supabase.auth.onAuthStateChange((event, session) => {
     // Stale / revoked refresh token — clear it and send to login
+    // Cast to string to handle TOKEN_REFRESH_FAILED which may not be in older type defs
     if (
-      event === "TOKEN_REFRESH_FAILED" ||
+      (event as string) === "TOKEN_REFRESH_FAILED" ||
       (event === "TOKEN_REFRESHED" && !session)
     ) {
       supabase.auth.signOut()
