@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { supabase } from "@/lib/supabase"
 import { useRouter } from "next/navigation"
 import { MapPin, ArrowRight, Check, ChevronRight, Trophy, Users } from "lucide-react"
+import { track } from "@vercel/analytics"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type Loc = { lat: number; lng: number }
@@ -68,6 +69,12 @@ export default function OnboardingPage() {
     })
   }, [router])
 
+  // Track each step as users reach it — shows funnel drop-off
+  const STEP_NAMES = ["location", "role", "profile", "strava", "finish"]
+  useEffect(() => {
+    track("onboarding_step", { step, name: STEP_NAMES[step] })
+  }, [step]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Step 0 helpers ──
   const requestLocation = () => {
     setLocLoading(true)
@@ -96,6 +103,7 @@ export default function OnboardingPage() {
   // ── Save profile + finish ──
   const saveAndFinish = async () => {
     if (!userId) return
+    track("onboarding_completed", { role: role ?? "member", pace: pace ?? "none", run_type: runType ?? "none" })
     await supabase.from("profiles").update({
       pace_range: pace,
       run_type: runType,

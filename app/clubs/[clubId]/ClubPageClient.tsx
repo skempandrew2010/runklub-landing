@@ -1,11 +1,12 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { Heart, MapPin, Clock, Users, ArrowLeft, Zap, ShieldCheck } from "lucide-react"
 import { getTagStyle } from "@/utils/tagStyle"
 import { localDateStr } from "@/utils/dates"
+import { track } from "@vercel/analytics"
 
 export type Club = {
   id: string
@@ -69,6 +70,36 @@ export default function ClubPageClient({
   const [claimSubmitting, setClaimSubmitting] = useState(false)
   const [claimStatus, setClaimStatus] = useState<"idle" | "pending" | "submitted">("idle")
 
+  // Refs for section-visibility tracking
+  const runsRef = useRef<HTMLDivElement>(null)
+  const descRef = useRef<HTMLParagraphElement>(null)
+
+  // Track page view on mount
+  useEffect(() => {
+    track("club_viewed", { clubId: club.id, clubName: club.name, city: club.city ?? "unknown" })
+  }, [club.id, club.name, club.city])
+
+  // Track section visibility via IntersectionObserver
+  useEffect(() => {
+    const options = { threshold: 0.4 }
+    const observers: IntersectionObserver[] = []
+    const observe = (ref: React.RefObject<HTMLElement | null>, eventName: string, extra: Record<string, string>) => {
+      if (!ref.current) return
+      let fired = false
+      const obs = new IntersectionObserver(([entry]) => {
+        if (entry.isIntersecting && !fired) {
+          fired = true
+          track(eventName, { clubId: club.id, clubName: club.name, ...extra })
+        }
+      }, options)
+      obs.observe(ref.current)
+      observers.push(obs)
+    }
+    observe(runsRef, "club_section_viewed", { section: "runs" })
+    observe(descRef, "club_section_viewed", { section: "description" })
+    return () => observers.forEach((o) => o.disconnect())
+  }, [club.id, club.name])
+
   useEffect(() => {
     const load = async () => {
       const { data: authData } = await supabase.auth.getUser()
@@ -93,10 +124,12 @@ export default function ClubPageClient({
       await supabase.from("subscriptions").delete().eq("user_id", userId).eq("club_id", club.id)
       setIsSubscribed(false)
       setMemberCount((p) => Math.max(0, p - 1))
+      track("club_unfollowed", { clubId: club.id, clubName: club.name })
     } else {
       await supabase.from("subscriptions").upsert({ user_id: userId, club_id: club.id }, { onConflict: "user_id,club_id" })
       setIsSubscribed(true)
       setMemberCount((p) => p + 1)
+      track("club_followed", { clubId: club.id, clubName: club.name })
     }
     setSubscribing(false)
   }
@@ -114,6 +147,7 @@ export default function ClubPageClient({
     if (!error) {
       setClaimStatus("submitted")
       setShowClaimForm(false)
+      track("club_claim_submitted", { clubId: club.id, clubName: club.name })
     }
   }
 
@@ -202,6 +236,7 @@ export default function ClubPageClient({
               href={`https://instagram.com/${club.instagram_handle}`}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => track("club_instagram_clicked", { clubId: club.id, handle: club.instagram_handle ?? "" })}
               className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-[#1e2d12] border border-[#2e3d1a] text-white/60 hover:text-white hover:border-white/30 transition text-sm font-semibold"
             >
               <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -230,11 +265,11 @@ export default function ClubPageClient({
 
         {/* Description */}
         {club.description && (
-          <p className="text-sm text-white/60 leading-relaxed">{club.description}</p>
+          <p ref={descRef} className="text-sm text-white/60 leading-relaxed">{club.description}</p>
         )}
 
         {/* ── UPCOMING RUNS ── */}
-        <div>
+        <div ref={runsRef}>
           <h2 className="text-xs font-bold text-white/40 uppercase tracking-widest px-1 mb-3">Upcoming Runs</h2>
 
           {upcomingRuns.length === 0 ? (
@@ -300,7 +335,7 @@ export default function ClubPageClient({
               <p className="text-xs text-white/40 mt-0.5">Claim it to manage runs and connect with members.</p>
             </div>
             <button
-              onClick={() => setShowClaimForm(true)}
+              onClick={() => { setShowClaimForm(true); track("club_claim_opened", { clubId: club.id, clubName: club.name }) }}
               className="shrink-0 px-4 py-2 rounded-full border border-[#c5f135]/40 text-[#c5f135] text-xs font-black hover:bg-[#c5f135]/10 transition"
             >
               Claim Club
