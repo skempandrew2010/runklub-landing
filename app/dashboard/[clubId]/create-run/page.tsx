@@ -15,11 +15,11 @@ const TAG_GROUPS = [
   },
   {
     label: "Type",
-    tags: ["Social Run", "Long Run", "Speed Work", "Trail Run", "Race Prep", "Fun Run"],
+    tags: ["Social Run", "Long Run", "Speed Work", "Trail Run", "Race Prep", "Fun Run", "Night Run"],
   },
   {
     label: "Vibe",
-    tags: ["Beer After", "Coffee After", "Dog Friendly", "Beginner Friendly", "No Drop"],
+    tags: ["Beer After", "Coffee After", "Dog Friendly", "Beginner Friendly", "No Drop", "First Timers Welcome", "Traveler Friendly", "Rain or Shine", "Stroller Friendly"],
   },
 ]
 

@@ -10,8 +10,8 @@ const geocodingClient = mapboxSdk({ accessToken: process.env.NEXT_PUBLIC_MAPBOX_
 
 const TAG_GROUPS = [
   { label: "Pace",  tags: ["Easy", "Moderate", "Fast", "All Paces"] },
-  { label: "Type",  tags: ["Social Run", "Long Run", "Speed Work", "Trail Run", "Race Prep", "Fun Run"] },
-  { label: "Vibe",  tags: ["Beer After", "Coffee After", "Dog Friendly", "Beginner Friendly", "No Drop"] },
+  { label: "Type",  tags: ["Social Run", "Long Run", "Speed Work", "Trail Run", "Race Prep", "Fun Run", "Night Run"] },
+  { label: "Vibe",  tags: ["Beer After", "Coffee After", "Dog Friendly", "Beginner Friendly", "No Drop", "First Timers Welcome", "Traveler Friendly", "Rain or Shine", "Stroller Friendly"] },
 ]
 
 export default function EditRunPage() {
