@@ -87,10 +87,10 @@ export default function Navbar() {
 
   return (
     <nav className="sticky top-0 z-50 bg-[#1a2110] border-b border-[#2e3d1a]" style={{ paddingTop: 'calc(var(--safe-top) + var(--nav-extra))' }}>
-      <div className="max-w-6xl mx-auto flex items-center px-5 sm:px-6 h-[68px]">
+      <div className="max-w-6xl mx-auto flex items-center justify-between sm:justify-start px-5 sm:px-6 h-[68px]">
 
         {/* Logo — left */}
-        <div className="flex-1">
+        <div className="sm:flex-1">
           <Link href="/explore" className="text-2xl font-black tracking-tight">
             <span className="text-white">Run</span><span className="text-[#c5f135]">Klub</span>
           </Link>
@@ -124,7 +124,7 @@ export default function Navbar() {
         </div>
 
         {/* Profile / Log In — right corner */}
-        <div className="flex-1 flex justify-end">
+        <div className="flex justify-end sm:flex-1">
           {loaded && !user ? (
             <Link
               href="/login"
