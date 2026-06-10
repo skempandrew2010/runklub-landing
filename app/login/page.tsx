@@ -195,6 +195,12 @@ export default function LoginPage() {
               <button onClick={handleSignup} disabled={loading || !email || password.length < 6} className="w-full bg-[#c5f135] text-[#1a2110] font-black text-base py-4 rounded-2xl flex items-center justify-center gap-2 hover:bg-[#d4ff45] transition disabled:opacity-40 mt-1">
                 {loading ? "Creating account…" : <><span>Get Started</span><ArrowRight className="w-4 h-4" /></>}
               </button>
+              <p className="text-[11px] text-white/30 text-center leading-relaxed px-2">
+                By signing up, you agree to our{" "}
+                <a href="/terms" className="text-white/50 underline hover:text-white/70 transition">Terms of Service</a>
+                {" "}and{" "}
+                <a href="/privacy" className="text-white/50 underline hover:text-white/70 transition">Privacy Policy</a>.
+              </p>
 
               {/* Social placeholders */}
               <div className="flex items-center gap-3 my-2">
