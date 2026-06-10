@@ -104,18 +104,18 @@ export default function Navbar() {
               <Link
                 key={href}
                 href={href}
-                className={`flex flex-col items-center justify-center gap-1 px-2.5 sm:px-4 py-2 rounded-xl transition ${active ? "bg-[#c5f135]/10" : "hover:bg-[#2e3d1a]"}`}
+                className={`flex flex-col items-center justify-center gap-1 px-2 sm:px-4 py-2 rounded-xl transition ${active ? "bg-[#c5f135]/10" : "hover:bg-[#2e3d1a]"}`}
               >
                 <div className="relative">
                   <Icon
-                    className={`w-5 h-5 transition-colors ${active ? "text-[#c5f135]" : "text-white/35"}`}
+                    className={`w-4 h-4 sm:w-5 sm:h-5 transition-colors ${active ? "text-[#c5f135]" : "text-white/35"}`}
                     strokeWidth={active ? 2.5 : 1.75}
                   />
                   {badge && (
                     <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-[#c5f135] ring-2 ring-[#1a2110]" />
                   )}
                 </div>
-                <span className={`text-[10px] font-semibold tracking-wide transition-colors ${active ? "text-[#c5f135]" : "text-white/30"}`}>
+                <span className={`hidden sm:block text-[10px] font-semibold tracking-wide transition-colors ${active ? "text-[#c5f135]" : "text-white/30"}`}>
                   {label}
                 </span>
               </Link>
@@ -128,26 +128,26 @@ export default function Navbar() {
           {loaded && !user ? (
             <Link
               href="/login"
-              className="px-4 py-2 bg-[#c5f135] text-[#1a2110] text-sm font-black rounded-full hover:bg-[#d4ff45] transition"
+              className="px-3 sm:px-4 py-1.5 sm:py-2 bg-[#c5f135] text-[#1a2110] text-xs sm:text-sm font-black rounded-full hover:bg-[#d4ff45] transition"
             >
               Log In
             </Link>
           ) : (
             <Link
               href="/profile"
-              className={`flex flex-col items-center justify-center gap-1 px-4 py-2 rounded-xl transition ${profileActive ? "bg-[#c5f135]/10" : "hover:bg-[#2e3d1a]"}`}
+              className={`flex flex-col items-center justify-center gap-1 px-2 sm:px-4 py-2 rounded-xl transition ${profileActive ? "bg-[#c5f135]/10" : "hover:bg-[#2e3d1a]"}`}
             >
               {initials ? (
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black ${profileActive ? "bg-[#c5f135] text-[#1a2110]" : "bg-[#2e3d1a] border border-[#3d5220] text-[#c5f135]"}`}>
+                <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-xs font-black ${profileActive ? "bg-[#c5f135] text-[#1a2110]" : "bg-[#2e3d1a] border border-[#3d5220] text-[#c5f135]"}`}>
                   {initials}
                 </div>
               ) : (
                 <UserCircle
-                  className={`w-5 h-5 transition-colors ${profileActive ? "text-[#c5f135]" : "text-white/35"}`}
+                  className={`w-4 h-4 sm:w-5 sm:h-5 transition-colors ${profileActive ? "text-[#c5f135]" : "text-white/35"}`}
                   strokeWidth={profileActive ? 2.5 : 1.75}
                 />
               )}
-              <span className={`text-[10px] font-semibold tracking-wide transition-colors ${profileActive ? "text-[#c5f135]" : "text-white/30"}`}>
+              <span className={`hidden sm:block text-[10px] font-semibold tracking-wide transition-colors ${profileActive ? "text-[#c5f135]" : "text-white/30"}`}>
                 Profile
               </span>
             </Link>
