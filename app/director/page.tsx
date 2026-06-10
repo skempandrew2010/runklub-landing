@@ -282,6 +282,9 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState({ name: "", city: "", location: "", day: "", time: "", instagram: "", website: "", membership: "free" as MembershipType })
   const [savingEdit, setSavingEdit] = useState(false)
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const imageInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -369,7 +372,19 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
     if (!selectedClubId) return
     setSavingEdit(true)
     const rawHandle = editForm.instagram.trim().replace(/^@/, "")
-    await supabase.from("clubs").update({
+
+    let image_url: string | undefined
+    if (imageFile) {
+      const ext = imageFile.name.split(".").pop()
+      const path = `${userId}/clubs/${selectedClubId}.${ext}`
+      const { error: uploadError } = await supabase.storage.from("club-images").upload(path, imageFile, { upsert: true })
+      if (!uploadError) {
+        const { data: { publicUrl } } = supabase.storage.from("club-images").getPublicUrl(path)
+        image_url = publicUrl
+      }
+    }
+
+    const updates: Record<string, unknown> = {
       name: editForm.name,
       city: editForm.city,
       location: editForm.location,
@@ -378,18 +393,17 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
       instagram_handle: rawHandle || null,
       website: editForm.website.trim() || null,
       membership_type: editForm.membership,
-    }).eq("id", selectedClubId)
+    }
+    if (image_url) updates.image_url = image_url
+
+    await supabase.from("clubs").update(updates).eq("id", selectedClubId)
     setMyClubs((prev) => prev.map((c) => c.id === selectedClubId ? {
       ...c,
-      name: editForm.name,
-      city: editForm.city,
-      location: editForm.location,
-      meeting_day: editForm.day || null,
-      meeting_time: editForm.time || null,
-      instagram_handle: rawHandle || null,
-      website: editForm.website.trim() || null,
-      membership_type: editForm.membership,
+      ...(updates as Partial<ClubWithCount>),
+      ...(image_url ? { image_url } : {}),
     } : c))
+    setImageFile(null)
+    setImagePreview(null)
     setSavingEdit(false)
     setEditing(false)
   }
@@ -759,6 +773,31 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
 
                 {editing && (
                   <div className="px-4 py-4 space-y-3 border-b border-[#2e3d1a]">
+                    {/* Club Photo */}
+                    <div>
+                      <label className="block text-xs font-semibold text-white/50 mb-1.5">Club Photo</label>
+                      <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (!file) return
+                        if (file.size > 5 * 1024 * 1024) { alert("Image must be under 5MB"); return }
+                        setImageFile(file)
+                        setImagePreview(URL.createObjectURL(file))
+                      }} />
+                      {imagePreview ? (
+                        <div className="relative w-full h-36 rounded-xl overflow-hidden group">
+                          <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                          <button type="button" onClick={() => { setImageFile(null); setImagePreview(null); if (imageInputRef.current) imageInputRef.current.value = "" }}
+                            className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/70 flex items-center justify-center text-white hover:bg-red-500/80 transition">
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button type="button" onClick={() => imageInputRef.current?.click()}
+                          className="w-full h-20 rounded-xl border-2 border-dashed border-[#2e3d1a] hover:border-[#c5f135]/40 flex items-center justify-center gap-2 text-white/30 hover:text-white/60 transition text-xs font-medium">
+                          Upload new photo
+                        </button>
+                      )}
+                    </div>
                     {([
                       { label: "Club Name", field: "name", placeholder: "e.g. Boulder Trail Runners" },
                       { label: "City", field: "city", placeholder: "e.g. Boulder, CO" },
