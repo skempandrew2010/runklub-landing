@@ -115,6 +115,12 @@ export default function ClubCard({
   const gradient = getGradient(club.name)
   const initials = club.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
 
+  const isRunSoon = nextRun != null && (() => {
+    const runAt = new Date(`${nextRun.date}T${nextRun.time}`)
+    const now = new Date()
+    return runAt >= now && runAt <= new Date(now.getTime() + 24 * 60 * 60 * 1000)
+  })()
+
   return (
     <div
       id={`club-${club.id}`}
@@ -122,7 +128,8 @@ export default function ClubCard({
       onMouseLeave={() => onHover?.(null)}
       onClick={() => router.push(`/clubs/${club.id}`)}
       className={`group cursor-pointer flex items-start gap-4 px-5 py-5 transition-colors duration-150 hover:bg-[#1e2d12]
-        ${isSelected ? "border-l-2 border-[#c5f135] !pl-[18px] bg-[#1e2d12]" : "border-l-2 border-transparent"}`}
+        ${isSelected ? "border-l-2 border-[#c5f135] !pl-[18px] bg-[#1e2d12]" : "border-l-2 border-transparent"}
+        ${isRunSoon ? "animate-run-soon" : ""}`}
     >
       {/* Club image */}
       <div className={`relative w-16 h-16 rounded-2xl overflow-hidden shrink-0 bg-gradient-to-br ${gradient} flex items-center justify-center`}>

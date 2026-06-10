@@ -46,3 +46,13 @@ body {
 .run-popup.mapboxgl-popup-anchor-right .mapboxgl-popup-tip {
   border-left-color: #1e2d12;
 }
+
+/* Club card glow pulse — fires when a run is within the next 24 hours */
+@keyframes run-soon-pulse {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(197, 241, 53, 0); }
+  50%       { box-shadow: 0 0 0 1px rgba(197, 241, 53, 0.22), 0 2px 18px rgba(197, 241, 53, 0.07); }
+}
+
+.animate-run-soon {
+  animation: run-soon-pulse 2.5s ease-in-out infinite;
+}
