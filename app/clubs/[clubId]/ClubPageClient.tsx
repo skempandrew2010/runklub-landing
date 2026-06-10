@@ -18,6 +18,7 @@ export type Club = {
   image_url: string | null
   tier: string | null
   is_public: boolean
+  membership_type?: "free" | "optional_paid" | "paid_required" | null
 }
 
 export type Run = {
@@ -197,7 +198,7 @@ export default function ClubPageClient({
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
                 {club.city && (
                   <p className="text-sm text-white/50 flex items-center gap-1">
                     <MapPin className="w-3 h-3" />{club.city}
@@ -208,6 +209,12 @@ export default function ClubPageClient({
                     <Users className="w-3 h-3" />{memberCount} members
                   </p>
                 )}
+                {(() => {
+                  const m = club.membership_type
+                  const label = m === "optional_paid" ? "Free + Paid Options" : m === "paid_required" ? "Membership Required" : "Free to Join"
+                  const cls = m === "optional_paid" ? "bg-amber-400/10 text-amber-400 border-amber-400/25" : m === "paid_required" ? "bg-orange-400/10 text-orange-400 border-orange-400/25" : "bg-[#c5f135]/10 text-[#c5f135] border-[#c5f135]/25"
+                  return <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${cls}`}>{label}</span>
+                })()}
               </div>
             </div>
           </div>

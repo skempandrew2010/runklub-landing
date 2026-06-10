@@ -50,6 +50,8 @@ type RunChatPreview = RunWithClub & {
   last_message: ChatMessage | null
 }
 
+type MembershipType = "free" | "optional_paid" | "paid_required"
+
 type ClubWithCount = {
   id: string
   name: string
@@ -62,6 +64,7 @@ type ClubWithCount = {
   member_count: number
   is_public: boolean
   instagram_handle: string | null
+  membership_type: MembershipType
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -276,14 +279,14 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
   const [loading, setLoading] = useState(true)
   const [selectedRun, setSelectedRun] = useState<RunWithClub | null>(null)
   const [editing, setEditing] = useState(false)
-  const [editForm, setEditForm] = useState({ name: "", city: "", location: "", day: "", time: "", instagram: "" })
+  const [editForm, setEditForm] = useState({ name: "", city: "", location: "", day: "", time: "", instagram: "", membership: "free" as MembershipType })
   const [savingEdit, setSavingEdit] = useState(false)
 
   useEffect(() => {
     const load = async () => {
       const { data: clubs } = await supabase
         .from("clubs")
-        .select("id, name, city, location, meeting_day, meeting_time, image_url, tier, is_public, instagram_handle")
+        .select("id, name, city, location, meeting_day, meeting_time, image_url, tier, is_public, instagram_handle, membership_type")
         .eq("user_id", userId)
 
       const rawClubs = clubs || []
@@ -355,6 +358,7 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
       day: club.meeting_day ?? "",
       time: club.meeting_time ?? "",
       instagram: club.instagram_handle ?? "",
+      membership: club.membership_type ?? "free",
     })
     setEditing(false)
   }, [selectedClubId]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -370,6 +374,7 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
       meeting_day: editForm.day || null,
       meeting_time: editForm.time || null,
       instagram_handle: rawHandle || null,
+      membership_type: editForm.membership,
     }).eq("id", selectedClubId)
     setMyClubs((prev) => prev.map((c) => c.id === selectedClubId ? {
       ...c,
@@ -379,6 +384,7 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
       meeting_day: editForm.day || null,
       meeting_time: editForm.time || null,
       instagram_handle: rawHandle || null,
+      membership_type: editForm.membership,
     } : c))
     setSavingEdit(false)
     setEditing(false)
@@ -784,6 +790,29 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
                           placeholder="yourclubhandle"
                           className="w-full bg-[#1a2110] border border-[#2e3d1a] rounded-xl pl-7 pr-3 py-2.5 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#c5f135]/50 transition"
                         />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-white/50 mb-1.5">Membership</label>
+                      <div className="space-y-1.5">
+                        {([
+                          { value: "free", label: "Free to Join" },
+                          { value: "optional_paid", label: "Free + Paid Options" },
+                          { value: "paid_required", label: "Membership Required" },
+                        ] as { value: MembershipType; label: string }[]).map(({ value, label }) => (
+                          <button
+                            key={value}
+                            type="button"
+                            onClick={() => setEditForm({ ...editForm, membership: value })}
+                            className={`w-full text-left px-3 py-2 rounded-xl border text-sm transition ${
+                              editForm.membership === value
+                                ? "bg-[#c5f135]/10 border-[#c5f135]/40 text-[#c5f135] font-semibold"
+                                : "bg-[#1a2110] border-[#2e3d1a] text-white/50 hover:border-[#c5f135]/20"
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        ))}
                       </div>
                     </div>
                     <div className="flex gap-2 pt-1">

@@ -3,7 +3,9 @@
 import { useState, useRef } from "react"
 import { supabase } from "@/lib/supabase"
 import { useRouter } from "next/navigation"
-import { ImagePlus, X, MapPin, Instagram } from "lucide-react"
+import { ImagePlus, X, MapPin } from "lucide-react"
+
+type MembershipType = "free" | "optional_paid" | "paid_required"
 
 export default function SubmitClubForm() {
   const [name, setName] = useState("")
@@ -11,6 +13,7 @@ export default function SubmitClubForm() {
   const [city, setCity] = useState("")
   const [description, setDescription] = useState("")
   const [instagramHandle, setInstagramHandle] = useState("")
+  const [membershipType, setMembershipType] = useState<MembershipType>("free")
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -84,6 +87,7 @@ export default function SubmitClubForm() {
         image_url,
         description: description.trim() || null,
         instagram_handle: rawHandle || null,
+        membership_type: membershipType,
       }])
 
       if (error) {
@@ -211,6 +215,33 @@ export default function SubmitClubForm() {
           />
         </div>
       </label>
+
+      {/* MEMBERSHIP TYPE */}
+      <div>
+        <span className={labelClass}>Membership</span>
+        <p className="text-xs text-white/35 mt-0.5 mb-2">Is there a cost to join or participate?</p>
+        <div className="space-y-2">
+          {([
+            { value: "free", label: "Free to Join", desc: "Anyone can join at no cost" },
+            { value: "optional_paid", label: "Free + Paid Options", desc: "Free to join, optional paid membership available" },
+            { value: "paid_required", label: "Membership Required", desc: "A paid membership is required to participate" },
+          ] as { value: MembershipType; label: string; desc: string }[]).map(({ value, label, desc }) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setMembershipType(value)}
+              className={`w-full text-left px-4 py-3 rounded-xl border transition ${
+                membershipType === value
+                  ? "bg-[#c5f135]/10 border-[#c5f135]/40 text-white"
+                  : "bg-[#222d14] border-[#2e3d1a] text-white/60 hover:border-[#c5f135]/20"
+              }`}
+            >
+              <p className={`text-sm font-semibold ${membershipType === value ? "text-[#c5f135]" : ""}`}>{label}</p>
+              <p className="text-xs text-white/35 mt-0.5">{desc}</p>
+            </button>
+          ))}
+        </div>
+      </div>
 
       <button
         type="submit"
