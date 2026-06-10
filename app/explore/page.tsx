@@ -263,7 +263,7 @@ export default function ExplorePage() {
         <span className="text-[#c5f135] italic">Find your pace.</span>
       </h1>
       <p className="text-white/35 text-sm mt-4 max-w-sm mx-auto leading-relaxed">
-        Discover verified run clubs near you and show up to your next run for free.
+        Discover run clubs near you — from free community runs to coached training programs.
       </p>
       <div className="flex items-center justify-center gap-5 mt-7 flex-wrap">
         <div className="text-center">
@@ -277,8 +277,8 @@ export default function ExplorePage() {
         </div>
         <div className="w-px h-8 bg-[#2e3d1a]" />
         <div className="text-center">
-          <p className="text-2xl font-black text-[#c5f135] leading-none">Free</p>
-          <p className="text-[10px] font-bold text-white/35 tracking-widest uppercase mt-1">To Join</p>
+          <p className="text-2xl font-black text-[#c5f135] leading-none">All</p>
+          <p className="text-[10px] font-bold text-white/35 tracking-widest uppercase mt-1">Levels</p>
         </div>
       </div>
     </div>
