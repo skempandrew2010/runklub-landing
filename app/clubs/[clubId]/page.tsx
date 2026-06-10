@@ -89,13 +89,54 @@ export default async function ClubPage({ params }: Props) {
   }
 
   const isClaimed = club.user_id !== null
+  const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXT_PUBLIC_BASE_URL ?? "https://runklub.fit"
+
+  const sameAs = [
+    club.website ?? null,
+    club.instagram_handle ? `https://www.instagram.com/${club.instagram_handle}/` : null,
+  ].filter(Boolean) as string[]
+
+  const jsonLd: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "SportsClub",
+    "name": club.name,
+    "url": `${BASE_URL}/clubs/${clubId}`,
+    "sport": "Running",
+    ...(club.description && { "description": club.description }),
+    ...(club.image_url && { "image": club.image_url }),
+    ...(club.city && {
+      "location": {
+        "@type": "Place",
+        "address": { "@type": "PostalAddress", "addressLocality": club.city },
+      },
+    }),
+    ...(sameAs.length > 0 && { "sameAs": sameAs }),
+    ...(runs && runs.length > 0 && {
+      "event": runs.slice(0, 5).map((run) => ({
+        "@type": "SportsEvent",
+        "name": run.title,
+        "startDate": `${run.date}T${run.time}`,
+        "sport": "Running",
+        "organizer": { "@type": "SportsClub", "name": club.name },
+        ...(run.meeting_point && {
+          "location": { "@type": "Place", "name": run.meeting_point },
+        }),
+      })),
+    }),
+  }
 
   return (
-    <ClubPageClient
-      club={club}
-      runs={runs ?? []}
-      memberCount={memberCount ?? 0}
-      isClaimed={isClaimed}
-    />
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <ClubPageClient
+        club={club}
+        runs={runs ?? []}
+        memberCount={memberCount ?? 0}
+        isClaimed={isClaimed}
+      />
+    </>
   )
 }

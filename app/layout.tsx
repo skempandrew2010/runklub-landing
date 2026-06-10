@@ -17,12 +17,15 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXT_PUBLIC_BASE_URL ?? "https://runklub.fit"
+
 export const metadata: Metadata = {
   title: {
     default: "RunKlub — Find Your Run Crew",
     template: "%s | RunKlub",
   },
   description: "Discover run clubs near you, find upcoming group runs, and connect with runners in your city. Free to join.",
+  metadataBase: new URL(BASE_URL),
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -35,6 +38,14 @@ export const metadata: Metadata = {
   openGraph: {
     siteName: "RunKlub",
     type: "website",
+    url: BASE_URL,
+    title: "RunKlub — Find Your Run Crew",
+    description: "Discover run clubs near you, find upcoming group runs, and connect with runners in your city. Free to join.",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "RunKlub — Find Your Run Crew",
+    description: "Discover run clubs near you, find upcoming group runs, and connect with runners in your city. Free to join.",
   },
 };
 
