@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js"
 import { NextRequest, NextResponse } from "next/server"
+import { checkRateLimit, getIp } from "@/lib/rateLimit"
 
 function getAdminSupabase() {
   return createClient(
@@ -12,6 +13,11 @@ function getAdminSupabase() {
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export async function POST(req: NextRequest) {
+  // 5 submissions per IP per hour
+  if (!checkRateLimit(`claim:${getIp(req)}`, 5, 60 * 60 * 1000)) {
+    return NextResponse.json({ error: "Too many requests. Please try again later." }, { status: 429 })
+  }
+
   try {
     // Basic payload size guard
     const contentLength = req.headers.get("content-length")
