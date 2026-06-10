@@ -108,7 +108,7 @@ export default function Navbar() {
               >
                 <div className="relative">
                   <Icon
-                    className={`w-4 h-4 sm:w-5 sm:h-5 transition-colors ${active ? "text-[#c5f135]" : "text-white/35"}`}
+                    className={`w-5 h-5 transition-colors ${active ? "text-[#c5f135]" : "text-white/35"}`}
                     strokeWidth={active ? 2.5 : 1.75}
                   />
                   {badge && (
@@ -138,12 +138,12 @@ export default function Navbar() {
               className={`flex flex-col items-center justify-center gap-1 px-2 sm:px-4 py-2 rounded-xl transition ${profileActive ? "bg-[#c5f135]/10" : "hover:bg-[#2e3d1a]"}`}
             >
               {initials ? (
-                <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-xs font-black ${profileActive ? "bg-[#c5f135] text-[#1a2110]" : "bg-[#2e3d1a] border border-[#3d5220] text-[#c5f135]"}`}>
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black ${profileActive ? "bg-[#c5f135] text-[#1a2110]" : "bg-[#2e3d1a] border border-[#3d5220] text-[#c5f135]"}`}>
                   {initials}
                 </div>
               ) : (
                 <UserCircle
-                  className={`w-4 h-4 sm:w-5 sm:h-5 transition-colors ${profileActive ? "text-[#c5f135]" : "text-white/35"}`}
+                  className={`w-5 h-5 transition-colors ${profileActive ? "text-[#c5f135]" : "text-white/35"}`}
                   strokeWidth={profileActive ? 2.5 : 1.75}
                 />
               )}
