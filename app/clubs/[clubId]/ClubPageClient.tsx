@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
-import { Heart, MapPin, Clock, Users, ArrowLeft, Zap, ShieldCheck } from "lucide-react"
+import { Heart, MapPin, Clock, Users, ArrowLeft, Zap, ShieldCheck, ExternalLink } from "lucide-react"
 import { getTagStyle } from "@/utils/tagStyle"
 import { localDateStr } from "@/utils/dates"
 import { track } from "@vercel/analytics"
@@ -19,6 +19,7 @@ export type Club = {
   tier: string | null
   is_public: boolean
   membership_type?: "free" | "optional_paid" | "paid_required" | null
+  website?: string | null
 }
 
 export type Run = {
@@ -250,6 +251,18 @@ export default function ClubPageClient({
                 <rect width="20" height="20" x="2" y="2" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/>
               </svg>
               @{club.instagram_handle}
+            </a>
+          )}
+
+          {club.website && (
+            <a
+              href={club.website.startsWith("http") ? club.website : `https://${club.website}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-[#1e2d12] border border-[#2e3d1a] text-white/60 hover:text-white hover:border-white/30 transition text-sm font-semibold"
+            >
+              <ExternalLink className="w-4 h-4 shrink-0" />
+              Website
             </a>
           )}
 

@@ -13,6 +13,7 @@ export default function SubmitClubForm() {
   const [city, setCity] = useState("")
   const [description, setDescription] = useState("")
   const [instagramHandle, setInstagramHandle] = useState("")
+  const [website, setWebsite] = useState("")
   const [membershipType, setMembershipType] = useState<MembershipType>("free")
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
@@ -87,6 +88,7 @@ export default function SubmitClubForm() {
         image_url,
         description: description.trim() || null,
         instagram_handle: rawHandle || null,
+        website: website.trim() || null,
         membership_type: membershipType,
       }])
 
@@ -214,6 +216,17 @@ export default function SubmitClubForm() {
             className="w-full bg-[#222d14] border border-[#2e3d1a] rounded-xl pl-8 pr-4 py-3 text-white text-sm placeholder-white/30 focus:outline-none focus:border-[#c5f135]/60 transition"
           />
         </div>
+      </label>
+
+      {/* WEBSITE */}
+      <label className="block">
+        <span className={labelClass}>Website <span className="text-white/30 font-normal">(optional)</span></span>
+        <input
+          value={website}
+          onChange={(e) => setWebsite(e.target.value)}
+          placeholder="https://yourclub.com"
+          className={inputClass}
+        />
       </label>
 
       {/* MEMBERSHIP TYPE */}

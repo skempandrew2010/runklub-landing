@@ -17,4 +17,5 @@ export type Club = {
   meeting_day?: string | null
   is_public?: boolean | null
   membership_type?: "free" | "optional_paid" | "paid_required" | null
+  website?: string | null
 }
