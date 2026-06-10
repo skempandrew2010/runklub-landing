@@ -89,7 +89,7 @@ export default function LoginPage() {
               <span className="text-white">Run</span><span className="text-[#c5f135]">Klub</span>
             </span>
           </div>
-          <p className="text-white/30 text-sm mt-3 tracking-widest uppercase text-center px-4">Meet People Through Movement</p>
+          <p className="text-white/30 text-sm mt-3 tracking-widest uppercase text-center px-4">Find Your People. Find Your Pace.</p>
         </div>
       )}
 
@@ -103,7 +103,7 @@ export default function LoginPage() {
               <span className="text-white">Run</span><span className="text-[#c5f135]">Klub</span>
             </span>
             <p className="text-white/40 text-sm mt-2">
-              {mode === "login" ? "Welcome back." : mode === "signup" ? "Create your account." : "Meet People Through Movement"}
+              {mode === "login" ? "Welcome back." : mode === "signup" ? "Create your account." : "Find Your People. Find Your Pace."}
             </p>
           </div>
 
