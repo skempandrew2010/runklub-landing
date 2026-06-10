@@ -108,7 +108,7 @@ export default function ExplorePage() {
   useEffect(() => {
     async function loadClubs() {
       const [{ data: clubData }, { data: subData }] = await Promise.all([
-        supabase.from("clubs").select("id, name, city, latitude, longitude, location, image_url, tier, created_at").eq("is_public", true),
+        supabase.from("clubs").select("id, name, city, latitude, longitude, location, image_url, tier, membership_type, created_at").eq("is_public", true),
         supabase.from("subscriptions").select("club_id"),
       ])
       const countMap: Record<string, number> = {}
