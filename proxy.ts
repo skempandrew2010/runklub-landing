@@ -20,6 +20,7 @@ function makeRedis() {
 let emailRL: Ratelimit
 let checkoutRL: Ratelimit
 let logErrorRL: Ratelimit
+let claimRL: Ratelimit
 let defaultRL: Ratelimit
 
 function getRatelimiters() {
@@ -31,10 +32,12 @@ function getRatelimiters() {
     checkoutRL = new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10, "10 m"), prefix: "rl:checkout" })
     // Log-error beacon: 30 / min / IP  — prevent log flooding
     logErrorRL = new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(30, "1 m"), prefix: "rl:logerror" })
+    // Public club claim: 5 / hour / IP  — prevent spam submissions
+    claimRL = new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, "1 h"), prefix: "rl:claim" })
     // All other API routes: 120 / min / IP
     defaultRL = new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(120, "1 m"), prefix: "rl:api" })
   }
-  return { emailRL, checkoutRL, logErrorRL, defaultRL }
+  return { emailRL, checkoutRL, logErrorRL, claimRL, defaultRL }
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -70,7 +73,7 @@ export default async function proxy(req: NextRequest) {
   if (!UPSTASH_CONFIGURED) return NextResponse.next()
 
   const ip = getIp(req)
-  const { emailRL, checkoutRL, logErrorRL, defaultRL } = getRatelimiters()
+  const { emailRL, checkoutRL, logErrorRL, claimRL, defaultRL } = getRatelimiters()
 
   let result
 
@@ -80,6 +83,8 @@ export default async function proxy(req: NextRequest) {
     result = await checkoutRL.limit(ip)
   } else if (pathname.startsWith("/api/log-error")) {
     result = await logErrorRL.limit(ip)
+  } else if (pathname.startsWith("/api/claim")) {
+    result = await claimRL.limit(ip)
   } else {
     result = await defaultRL.limit(ip)
   }

@@ -7,14 +7,23 @@ import { Check, X, Clock, ExternalLink } from "lucide-react"
 
 type Claim = {
   id: string
-  club_id: string
-  user_id: string
+  club_id: string | null
+  user_id: string | null
   instagram: string | null
   message: string | null
   status: string
   created_at: string
+  // in-app claim fields (club already exists)
   clubs: { name: string; city: string | null; instagram_handle: string | null } | null
   profiles: { display_name: string | null } | null
+  // public /claim form fields (new club, no account)
+  club_name: string | null
+  contact_name: string | null
+  contact_email: string | null
+  city: string | null
+  website: string | null
+  referral_source: string | null
+  claimed_at: string | null
 }
 
 export default function AdminClaimsPage() {
@@ -34,7 +43,7 @@ export default function AdminClaimsPage() {
 
       const { data, error: claimsError } = await supabase
         .from("club_claims")
-        .select("*, clubs(name, city, instagram_handle), profiles!club_claims_user_id_profiles_fkey(display_name)")
+        .select("*, clubs(name, city, instagram_handle), profiles!club_claims_user_id_profiles_fkey(display_name), club_name, contact_name, contact_email, city, website, referral_source, claimed_at")
         .order("created_at", { ascending: false })
 
       if (claimsError) console.error("club_claims query error:", claimsError)
@@ -130,23 +139,54 @@ function ClaimCard({
 
   return (
     <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-5 space-y-3">
+      {/* Header row */}
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-bold text-white">{claim.clubs?.name ?? claim.club_id}</p>
-          {claim.clubs?.city && <p className="text-xs text-white/40">{claim.clubs.city}</p>}
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-sm font-bold text-white">
+              {claim.clubs?.name ?? claim.club_name ?? claim.club_id ?? "—"}
+            </p>
+            {/* Badge to distinguish public vs in-app claims */}
+            {!claim.club_id && (
+              <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-[#c5f135]/10 text-[#c5f135]/70 border border-[#c5f135]/20">
+                Public form
+              </span>
+            )}
+          </div>
+          {(claim.clubs?.city ?? claim.city) && (
+            <p className="text-xs text-white/40">{claim.clubs?.city ?? claim.city}</p>
+          )}
         </div>
-        <span className={`text-[10px] font-black uppercase tracking-wider ${statusColor}`}>
+        <span className={`text-[10px] font-black uppercase tracking-wider shrink-0 ${statusColor}`}>
           {claim.status}
         </span>
       </div>
 
+      {/* Fields grid */}
       <div className="grid grid-cols-2 gap-3 text-xs">
         <div>
-          <p className="text-white/30 font-semibold mb-0.5">Claimant</p>
-          <p className="text-white/70">{claim.profiles?.display_name ?? "—"}</p>
+          <p className="text-white/30 font-semibold mb-0.5">
+            {claim.contact_name ? "Contact" : "Claimant"}
+          </p>
+          <p className="text-white/70">
+            {claim.contact_name ?? claim.profiles?.display_name ?? "—"}
+          </p>
         </div>
+
+        {claim.contact_email && (
+          <div>
+            <p className="text-white/30 font-semibold mb-0.5">Email</p>
+            <a
+              href={`mailto:${claim.contact_email}`}
+              className="text-[#c5f135]/80 hover:underline truncate block"
+            >
+              {claim.contact_email}
+            </a>
+          </div>
+        )}
+
         <div>
-          <p className="text-white/30 font-semibold mb-0.5">Their Instagram</p>
+          <p className="text-white/30 font-semibold mb-0.5">Instagram</p>
           {claim.instagram ? (
             <a
               href={`https://instagram.com/${claim.instagram}`}
@@ -158,6 +198,7 @@ function ClaimCard({
             </a>
           ) : <p className="text-white/30">—</p>}
         </div>
+
         {claim.clubs?.instagram_handle && (
           <div>
             <p className="text-white/30 font-semibold mb-0.5">Club Instagram</p>
@@ -171,9 +212,35 @@ function ClaimCard({
             </a>
           </div>
         )}
+
+        {claim.website && (
+          <div>
+            <p className="text-white/30 font-semibold mb-0.5">Website</p>
+            <a
+              href={claim.website}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-white/60 flex items-center gap-1 hover:underline truncate"
+            >
+              {claim.website.replace(/^https?:\/\//, "")} <ExternalLink className="w-3 h-3 shrink-0" />
+            </a>
+          </div>
+        )}
+
+        {claim.referral_source && (
+          <div>
+            <p className="text-white/30 font-semibold mb-0.5">How they heard</p>
+            <p className="text-white/50">{claim.referral_source}</p>
+          </div>
+        )}
+
         <div>
           <p className="text-white/30 font-semibold mb-0.5">Submitted</p>
-          <p className="text-white/50">{new Date(claim.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</p>
+          <p className="text-white/50">
+            {new Date(claim.claimed_at ?? claim.created_at).toLocaleDateString("en-US", {
+              month: "short", day: "numeric", year: "numeric",
+            })}
+          </p>
         </div>
       </div>
 
@@ -201,14 +268,16 @@ function ClaimCard({
             <X className="w-3.5 h-3.5" />
             Reject
           </button>
-          <a
-            href={`/clubs/${claim.club_id}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 px-4 py-2 border border-[#2e3d1a] text-white/30 rounded-full text-xs font-semibold hover:text-white/60 transition ml-auto"
-          >
-            View club <ExternalLink className="w-3 h-3" />
-          </a>
+          {claim.club_id && (
+            <a
+              href={`/clubs/${claim.club_id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-4 py-2 border border-[#2e3d1a] text-white/30 rounded-full text-xs font-semibold hover:text-white/60 transition ml-auto"
+            >
+              View club <ExternalLink className="w-3 h-3" />
+            </a>
+          )}
         </div>
       )}
     </div>
