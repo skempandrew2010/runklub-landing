@@ -87,7 +87,7 @@ export default function Navbar() {
 
   return (
     <nav className="sticky top-0 z-50 bg-[#1a2110] border-b border-[#2e3d1a]" style={{ paddingTop: 'calc(var(--safe-top) + var(--nav-extra))' }}>
-      <div className="max-w-6xl mx-auto flex items-center px-6 h-[68px]">
+      <div className="max-w-6xl mx-auto flex items-center px-5 sm:px-6 h-[68px]">
 
         {/* Logo — left */}
         <div className="flex-1">
@@ -97,14 +97,14 @@ export default function Navbar() {
         </div>
 
         {/* Main nav tabs — centered */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-3 sm:gap-4">
           {tabs.map(({ href, label, Icon, badge }) => {
             const active = isActive(href)
             return (
               <Link
                 key={href}
                 href={href}
-                className={`flex flex-col items-center justify-center gap-1 px-4 py-2 rounded-xl transition ${active ? "bg-[#c5f135]/10" : "hover:bg-[#2e3d1a]"}`}
+                className={`flex flex-col items-center justify-center gap-1 px-3 sm:px-4 py-2 rounded-xl transition ${active ? "bg-[#c5f135]/10" : "hover:bg-[#2e3d1a]"}`}
               >
                 <div className="relative">
                   <Icon
