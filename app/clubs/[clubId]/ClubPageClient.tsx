@@ -293,6 +293,38 @@ export default function ClubPageClient({
         <div ref={runsRef}>
           <h2 className="text-xs font-bold text-white/40 uppercase tracking-widest px-1 mb-3">Upcoming Runs</h2>
 
+          {/* Unclaimed notice */}
+          {!isClaimed && (club.instagram_handle || club.website) && (
+            <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-amber-400/5 border border-amber-400/15 mb-3">
+              <span className="text-amber-400/70 text-xs leading-relaxed mt-px">ℹ</span>
+              <p className="text-xs text-white/40 leading-relaxed">
+                This club hasn&apos;t been claimed yet — verify run details on their{" "}
+                {club.instagram_handle && (
+                  <a
+                    href={`https://www.instagram.com/${club.instagram_handle}/`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-white/60 underline underline-offset-2 hover:text-white/80 transition"
+                  >
+                    Instagram
+                  </a>
+                )}
+                {club.instagram_handle && club.website && " or "}
+                {club.website && (
+                  <a
+                    href={club.website.startsWith("http") ? club.website : `https://${club.website}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-white/60 underline underline-offset-2 hover:text-white/80 transition"
+                  >
+                    website
+                  </a>
+                )}
+                {" "}before heading out.
+              </p>
+            </div>
+          )}
+
           {upcomingRuns.length === 0 ? (
             <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-8 text-center">
               <p className="text-white/40 text-sm">No upcoming runs scheduled.</p>
