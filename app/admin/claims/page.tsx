@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
-import { Check, X, Clock, ExternalLink } from "lucide-react"
+import { Check, X, Clock, ExternalLink, Send } from "lucide-react"
 
 type Claim = {
   id: string
@@ -26,11 +26,24 @@ type Claim = {
   claimed_at: string | null
 }
 
+type UnclaimedClub = {
+  id: string
+  name: string
+  city: string | null
+  contact_email: string | null
+  claim_token_used_at: string | null
+}
+
 export default function AdminClaimsPage() {
   const router = useRouter()
   const [claims, setClaims] = useState<Claim[]>([])
+  const [unclaimedClubs, setUnclaimedClubs] = useState<UnclaimedClub[]>([])
   const [loading, setLoading] = useState(true)
   const [acting, setActing] = useState<string | null>(null)
+  const [tab, setTab] = useState<"claims" | "invite">("claims")
+  const [inviteEmails, setInviteEmails] = useState<Record<string, string>>({})
+  const [sending, setSending] = useState<string | null>(null)
+  const [sent, setSent] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     const load = async () => {
@@ -48,10 +61,46 @@ export default function AdminClaimsPage() {
 
       if (claimsError) console.error("club_claims query error:", claimsError)
       setClaims((data as Claim[]) ?? [])
+
+      // Load unclaimed clubs (no user_id, token not yet used)
+      const { data: clubs } = await supabase
+        .from("clubs")
+        .select("id, name, city, contact_email, claim_token_used_at")
+        .is("user_id", null)
+        .is("claim_token_used_at", null)
+        .order("name")
+      setUnclaimedClubs((clubs as UnclaimedClub[]) ?? [])
+
       setLoading(false)
     }
     load()
   }, [])
+
+  const sendInvite = async (clubId: string) => {
+    const email = inviteEmails[clubId]?.trim()
+    const club = unclaimedClubs.find((c) => c.id === clubId)
+    const sendTo = email || club?.contact_email
+    if (!sendTo) return
+    setSending(clubId)
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch("/api/admin/send-claim-invite", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session?.access_token}`,
+      },
+      body: JSON.stringify({ club_id: clubId, email: sendTo }),
+    })
+    setSending(null)
+    if (res.ok) {
+      setSent((prev) => new Set(prev).add(clubId))
+      if (email) {
+        setUnclaimedClubs((prev) =>
+          prev.map((c) => c.id === clubId ? { ...c, contact_email: email } : c)
+        )
+      }
+    }
+  }
 
   const act = async (claimId: string, action: "approve" | "reject") => {
     setActing(claimId)
@@ -84,35 +133,107 @@ export default function AdminClaimsPage() {
   return (
     <div className="min-h-screen bg-[#1a2110] pb-24">
       <div className="max-w-2xl mx-auto px-5 py-8">
-        <div className="mb-8">
+        <div className="mb-6">
           <p className="text-xs font-bold text-[#c5f135]/60 uppercase tracking-widest mb-1">Admin</p>
-          <h1 className="text-2xl font-black text-white">Club Claims</h1>
-          <p className="text-sm text-white/40 mt-1">{pending.length} pending</p>
+          <h1 className="text-2xl font-black text-white">Club Management</h1>
         </div>
 
-        {pending.length === 0 && (
-          <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-8 text-center mb-8">
-            <Clock className="w-8 h-8 text-white/15 mx-auto mb-2" />
-            <p className="text-white/40 text-sm">No pending claims.</p>
-          </div>
-        )}
+        {/* Tabs */}
+        <div className="flex gap-2 mb-6">
+          <button
+            onClick={() => setTab("claims")}
+            className={`px-4 py-2 rounded-full text-sm font-bold transition ${tab === "claims" ? "bg-[#c5f135] text-[#1a2110]" : "bg-[#1e2d12] border border-[#2e3d1a] text-white/50 hover:text-white"}`}
+          >
+            Claims {pending.length > 0 && <span className="ml-1 text-xs">({pending.length})</span>}
+          </button>
+          <button
+            onClick={() => setTab("invite")}
+            className={`px-4 py-2 rounded-full text-sm font-bold transition ${tab === "invite" ? "bg-[#c5f135] text-[#1a2110]" : "bg-[#1e2d12] border border-[#2e3d1a] text-white/50 hover:text-white"}`}
+          >
+            Send Invites {unclaimedClubs.length > 0 && <span className="ml-1 text-xs">({unclaimedClubs.length})</span>}
+          </button>
+        </div>
 
-        {pending.length > 0 && (
-          <div className="space-y-3 mb-10">
-            {pending.map((claim) => (
-              <ClaimCard key={claim.id} claim={claim} acting={acting} onAct={act} />
-            ))}
-          </div>
-        )}
-
-        {resolved.length > 0 && (
+        {/* ── CLAIMS TAB ── */}
+        {tab === "claims" && (
           <>
-            <h2 className="text-xs font-bold text-white/30 uppercase tracking-widest mb-3">Resolved</h2>
-            <div className="space-y-3">
-              {resolved.map((claim) => (
-                <ClaimCard key={claim.id} claim={claim} acting={acting} onAct={act} resolved />
-              ))}
-            </div>
+            {pending.length === 0 && (
+              <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-8 text-center mb-8">
+                <Clock className="w-8 h-8 text-white/15 mx-auto mb-2" />
+                <p className="text-white/40 text-sm">No pending claims.</p>
+              </div>
+            )}
+
+            {pending.length > 0 && (
+              <div className="space-y-3 mb-10">
+                {pending.map((claim) => (
+                  <ClaimCard key={claim.id} claim={claim} acting={acting} onAct={act} />
+                ))}
+              </div>
+            )}
+
+            {resolved.length > 0 && (
+              <>
+                <h2 className="text-xs font-bold text-white/30 uppercase tracking-widest mb-3">Resolved</h2>
+                <div className="space-y-3">
+                  {resolved.map((claim) => (
+                    <ClaimCard key={claim.id} claim={claim} acting={acting} onAct={act} resolved />
+                  ))}
+                </div>
+              </>
+            )}
+          </>
+        )}
+
+        {/* ── INVITE TAB ── */}
+        {tab === "invite" && (
+          <>
+            <p className="text-sm text-white/40 mb-4 leading-relaxed">
+              Unclaimed clubs on the platform. Enter a director&apos;s email and send them a personalised invite link.
+            </p>
+            {unclaimedClubs.length === 0 ? (
+              <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-8 text-center">
+                <p className="text-white/40 text-sm">All clubs have been invited or claimed.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {unclaimedClubs.map((club) => {
+                  const isSent = sent.has(club.id)
+                  const isSending = sending === club.id
+                  const email = inviteEmails[club.id] ?? club.contact_email ?? ""
+                  return (
+                    <div key={club.id} className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-4 space-y-3">
+                      <div>
+                        <p className="text-sm font-bold text-white">{club.name}</p>
+                        {club.city && <p className="text-xs text-white/40">{club.city}</p>}
+                      </div>
+                      <div className="flex gap-2">
+                        <input
+                          type="email"
+                          placeholder="director@theirclub.com"
+                          value={inviteEmails[club.id] ?? (club.contact_email || "")}
+                          onChange={(e) => setInviteEmails((prev) => ({ ...prev, [club.id]: e.target.value }))}
+                          disabled={isSent}
+                          className="flex-1 bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#c5f135]/50 transition disabled:opacity-40"
+                        />
+                        <button
+                          onClick={() => sendInvite(club.id)}
+                          disabled={isSent || isSending || !email}
+                          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black transition disabled:opacity-40 shrink-0 bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45]"
+                        >
+                          {isSent
+                            ? <><Check className="w-3.5 h-3.5" /> Sent</>
+                            : isSending
+                            ? "…"
+                            : <><Send className="w-3.5 h-3.5" /> Send</>
+                          }
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </>
         )}
       </div>

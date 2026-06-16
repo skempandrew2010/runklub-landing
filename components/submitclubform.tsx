@@ -14,6 +14,7 @@ export default function SubmitClubForm() {
   const [description, setDescription] = useState("")
   const [instagramHandle, setInstagramHandle] = useState("")
   const [website, setWebsite] = useState("")
+  const [contactEmail, setContactEmail] = useState("")
   const [membershipType, setMembershipType] = useState<MembershipType>("free")
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
@@ -78,7 +79,7 @@ export default function SubmitClubForm() {
       }
 
       const rawHandle = instagramHandle.trim().replace(/^@/, "")
-      const { error } = await supabase.from("clubs").insert([{
+      const { data: insertedClub, error } = await supabase.from("clubs").insert([{
         name,
         city,
         latitude,
@@ -90,12 +91,28 @@ export default function SubmitClubForm() {
         instagram_handle: rawHandle || null,
         website: website.trim() || null,
         membership_type: membershipType,
-      }])
+        contact_email: contactEmail.trim() || null,
+      }]).select("id").single()
 
       if (error) {
         console.error("Insert error:", error)
         setLoading(false)
         return
+      }
+
+      // Auto-send claim invite if a contact email was provided
+      if (contactEmail.trim() && insertedClub?.id) {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session) {
+          fetch("/api/admin/send-claim-invite", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({ club_id: insertedClub.id }),
+          }).catch((err) => console.error("claim invite error:", err))
+        }
       }
 
       router.push("/dashboard?submitted=true")
@@ -225,6 +242,18 @@ export default function SubmitClubForm() {
           value={website}
           onChange={(e) => setWebsite(e.target.value)}
           placeholder="https://yourclub.com"
+          className={inputClass}
+        />
+      </label>
+
+      {/* DIRECTOR EMAIL */}
+      <label className="block">
+        <span className={labelClass}>Director&apos;s Email <span className="text-white/30 font-normal">(optional — sends a claim invite automatically)</span></span>
+        <input
+          type="email"
+          value={contactEmail}
+          onChange={(e) => setContactEmail(e.target.value)}
+          placeholder="director@theirclub.com"
           className={inputClass}
         />
       </label>
