@@ -44,6 +44,7 @@ export default function AdminClaimsPage() {
   const [inviteEmails, setInviteEmails] = useState<Record<string, string>>({})
   const [sending, setSending] = useState<string | null>(null)
   const [sent, setSent] = useState<Set<string>>(new Set())
+  const [inviteErrors, setInviteErrors] = useState<Record<string, string>>({})
 
   useEffect(() => {
     const load = async () => {
@@ -62,11 +63,10 @@ export default function AdminClaimsPage() {
       if (claimsError) console.error("club_claims query error:", claimsError)
       setClaims((data as Claim[]) ?? [])
 
-      // Load unclaimed clubs (no user_id, token not yet used)
+      // All clubs whose claim token hasn't been used yet
       const { data: clubs } = await supabase
         .from("clubs")
         .select("id, name, city, contact_email, claim_token_used_at")
-        .is("user_id", null)
         .is("claim_token_used_at", null)
         .order("name")
       setUnclaimedClubs((clubs as UnclaimedClub[]) ?? [])
@@ -82,6 +82,7 @@ export default function AdminClaimsPage() {
     const sendTo = email || club?.contact_email
     if (!sendTo) return
     setSending(clubId)
+    setInviteErrors((prev) => { const n = { ...prev }; delete n[clubId]; return n })
     const { data: { session } } = await supabase.auth.getSession()
     const res = await fetch("/api/admin/send-claim-invite", {
       method: "POST",
@@ -99,6 +100,9 @@ export default function AdminClaimsPage() {
           prev.map((c) => c.id === clubId ? { ...c, contact_email: email } : c)
         )
       }
+    } else {
+      const json = await res.json().catch(() => ({}))
+      setInviteErrors((prev) => ({ ...prev, [clubId]: json.error ?? "Failed to send — check console." }))
     }
   }
 
@@ -229,6 +233,9 @@ export default function AdminClaimsPage() {
                           }
                         </button>
                       </div>
+                      {inviteErrors[club.id] && (
+                        <p className="text-red-400 text-xs px-1">{inviteErrors[club.id]}</p>
+                      )}
                     </div>
                   )
                 })}
