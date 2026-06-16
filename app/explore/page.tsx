@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
+import { useRouter } from "next/navigation"
 import SearchBar from "@/components/searchbar"
 import Filters, { DEFAULT_FILTERS, type FilterOptions } from "@/components/filters"
 import dynamic from "next/dynamic"
@@ -13,7 +14,6 @@ import { getDistanceMiles } from "@/utils/distance"
 import { localDateStr } from "@/utils/dates"
 import { SlidersHorizontal, Map, List, CalendarCheck, Clock, MapPin, ChevronDown } from "lucide-react"
 import Footer from "@/components/Footer"
-import Link from "next/link"
 import Image from "next/image"
 import { getTagStyle } from "@/utils/tagStyle"
 
@@ -56,6 +56,7 @@ function formatTime(t: string) {
 }
 
 export default function ExplorePage() {
+  const router = useRouter()
   const [city, setCity] = useState("")
   const [, setHoveredClub] = useState<string | null>(null)
   const [selectedClub, setSelectedClub] = useState<ClubWithExtras | null>(null)
@@ -289,7 +290,13 @@ export default function ExplorePage() {
     <div className="bg-[#1a2110] border-b border-[#2e3d1a]">
       <div className="px-5 py-3 flex items-center gap-3">
         <div className="flex-1">
-          <SearchBar city={city} setCity={setCity} onSearch={() => {}} />
+          <SearchBar
+            city={city}
+            setCity={setCity}
+            onSearch={() => {}}
+            clubs={clubs}
+            onSelectClub={(clubId) => router.push(`/clubs/${clubId}`)}
+          />
         </div>
         <button
           onClick={() => setShowFilters(!showFilters)}
