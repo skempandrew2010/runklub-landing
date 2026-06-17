@@ -13,14 +13,30 @@ function getAdminSupabase() {
 function getResend() { return new Resend(process.env.RESEND_API_KEY) }
 
 const FROM = process.env.RESEND_FROM_EMAIL ?? "RunKlub <info@runklub.fit>"
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.runklub.fit"
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://runklub.fit"
 
-function buildInviteEmail(clubName: string, city: string | null, claimUrl: string): { html: string; text: string } {
+async function generateMagicLink(email: string, clubId: string): Promise<string> {
+  const redirectTo = `${BASE_URL}/welcome?club_id=${clubId}`
+  const { data, error } = await getAdminSupabase().auth.admin.generateLink({
+    type: "invite",
+    email,
+    options: { redirectTo },
+  })
+  if (!error && data?.properties?.action_link) return data.properties.action_link
+
+  const { data: data2, error: error2 } = await getAdminSupabase().auth.admin.generateLink({
+    type: "magiclink",
+    email,
+    options: { redirectTo },
+  })
+  if (error2 || !data2?.properties?.action_link) throw new Error("Could not generate magic link")
+  return data2.properties.action_link
+}
+
+function buildInviteEmail(clubName: string, city: string | null, magicLinkUrl: string): { html: string; text: string } {
   const safe = (s: string) => s.replace(/</g, "&lt;").replace(/>/g, "&gt;")
   const safeClub = safe(clubName)
   const safeCity = city ? ` in ${safe(city)}` : ""
-  const token = claimUrl.split("/claim/")[1] ?? ""
-  const displayUrl = `runklub.fit/claim/${token.slice(0, 8)}…`
 
   const html = `<!DOCTYPE html>
 <html>
@@ -47,13 +63,13 @@ function buildInviteEmail(clubName: string, city: string | null, claimUrl: strin
               We&rsquo;ve added <strong style="color:#ffffff;">${safeClub}</strong>${safeCity} to RunKlub — a platform where runners discover clubs, find group runs, and connect with their local running community.
             </p>
             <p style="margin:0 0 28px;font-size:15px;line-height:1.7;color:rgba(255,255,255,0.7);">
-              Claim your club to take ownership: post upcoming runs, manage your profile, and grow your crew.
+              Click below to claim your club. You&rsquo;ll be signed in automatically and can start posting runs right away.
             </p>
             <!-- CTA -->
             <table cellpadding="0" cellspacing="0">
               <tr>
                 <td style="border-radius:999px;background:#c5f135;">
-                  <a href="${claimUrl}" target="_blank"
+                  <a href="${magicLinkUrl}" target="_blank"
                     style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:900;color:#1a2110;text-decoration:none;border-radius:999px;">
                     Claim ${safeClub} →
                   </a>
@@ -61,7 +77,7 @@ function buildInviteEmail(clubName: string, city: string | null, claimUrl: strin
               </tr>
             </table>
             <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.25);">
-              Or copy this link: <a href="${claimUrl}" style="color:rgba(197,241,53,0.6);">${displayUrl}</a>
+              This link expires in 24 hours and can only be used once.
             </p>
           </td>
         </tr>
@@ -91,7 +107,7 @@ function buildInviteEmail(clubName: string, city: string | null, claimUrl: strin
         <tr>
           <td style="padding:20px 32px;border-top:1px solid #2e3d1a;">
             <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.25);line-height:1.6;">
-              This link is unique to ${safeClub} and expires once used. Questions? Reply to this email.<br>
+              This link is unique to ${safeClub} and expires in 24 hours. Questions? Reply to this email.<br>
               RunKlub &mdash; Find people you actually want to run with.
             </p>
           </td>
@@ -107,10 +123,11 @@ function buildInviteEmail(clubName: string, city: string | null, claimUrl: strin
 
 We've added ${clubName}${safeCity} to RunKlub — a platform where runners discover clubs, find group runs, and connect with their local running community.
 
-Claim your club to take ownership: post upcoming runs, manage your profile, and grow your crew.
+Click the link below to claim your club — you'll be signed in automatically and can start posting runs right away.
 
-Claim your club here:
-${claimUrl}
+${magicLinkUrl}
+
+This link expires in 24 hours and can only be used once.
 
 What you get:
 • Post upcoming runs so members always know when you're going out
@@ -156,15 +173,34 @@ export async function POST(req: NextRequest) {
     const emails = rawEmails.split(",").map((e: string) => e.trim()).filter(Boolean)
     if (emails.length === 0) return NextResponse.json({ error: "No valid email address provided" }, { status: 400 })
 
-    // On resend, regenerate the claim token so the old link is dead
-    let claimToken = club.claim_token
+    // On resend, regenerate the claim token
     if (resend || club.invite_sent_at) {
-      claimToken = crypto.randomUUID()
       await getAdminSupabase()
         .from("clubs")
-        .update({ claim_token: claimToken })
+        .update({ claim_token: crypto.randomUUID() })
         .eq("id", club_id)
     }
+
+    // Generate magic link for the primary recipient — this IS the claim link
+    const primaryEmail = emails[0].toLowerCase()
+    const magicLinkUrl = await generateMagicLink(primaryEmail, club_id)
+
+    // Pre-create an approved claim so /api/claim/activate can verify on sign-in
+    await getAdminSupabase()
+      .from("club_claims")
+      .delete()
+      .eq("club_id", club_id)
+      .eq("status", "approved")
+      .is("user_id", null)
+    await getAdminSupabase().from("club_claims").insert({
+      club_id:       club.id,
+      club_name:     club.name,
+      contact_name:  null,
+      contact_email: primaryEmail,
+      message:       null,
+      claimed_at:    new Date().toISOString(),
+      status:        "approved",
+    })
 
     // Save contact_email and invite_sent_at
     const updates: Record<string, unknown> = { invite_sent_at: new Date().toISOString() }
@@ -173,8 +209,7 @@ export async function POST(req: NextRequest) {
     }
     await getAdminSupabase().from("clubs").update(updates).eq("id", club_id)
 
-    const claimUrl = `${BASE_URL}/claim/${claimToken}`
-    const { html, text } = buildInviteEmail(club.name, club.city, claimUrl)
+    const { html, text } = buildInviteEmail(club.name, club.city, magicLinkUrl)
 
     const { error: emailError } = await getResend().emails.send({
       from: FROM,
