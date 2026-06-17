@@ -133,11 +133,14 @@ export async function POST(req: NextRequest) {
   try {
     // Verify caller is an admin
     const authHeader = req.headers.get("Authorization")
-    if (!authHeader) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    console.log("send-claim-invite: authHeader present:", !!authHeader, "value:", authHeader?.slice(0, 20))
+    if (!authHeader) return NextResponse.json({ error: "Unauthorized: no header" }, { status: 401 })
 
     const token = authHeader.replace("Bearer ", "")
+    console.log("send-claim-invite: token:", token.slice(0, 20))
     const { data: { user }, error: authError } = await getAdminSupabase().auth.getUser(token)
-    if (authError || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    console.log("send-claim-invite: user:", user?.id, "authError:", authError?.message)
+    if (authError || !user) return NextResponse.json({ error: `Unauthorized: ${authError?.message ?? "no user"}` }, { status: 401 })
 
     const { data: profile } = await getAdminSupabase()
       .from("profiles").select("role").eq("id", user.id).single()
