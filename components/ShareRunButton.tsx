@@ -65,7 +65,6 @@ export async function generateRunCard(run: RunShareData): Promise<Blob> {
   const H = 1920
   const PAD = 88
   const LIME = "#c5f135"
-  const FONT = "bold 1px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
   const F = (size: number, weight = "bold") => `${weight} ${size}px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif`
 
   const canvas = document.createElement("canvas")
@@ -301,7 +300,7 @@ export async function generateRunCard(run: RunShareData): Promise<Blob> {
 
   ctx.font = F(28, "500")
   ctx.fillStyle = "rgba(26,33,16,0.45)"
-  ctx.fillText("runkub.com  ·  find your run crew", PAD, fy + 140)
+  ctx.fillText("runklub.fit  ·  find your run crew", PAD, fy + 140)
 
   // Footer decorative circles
   for (let i = 0; i < 3; i++) {

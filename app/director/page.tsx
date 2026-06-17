@@ -9,7 +9,7 @@ import {
   ArrowLeft, Send, Plus, Trophy, Users, CalendarPlus,
   MessageSquare, MapPin, Ruler, ExternalLink,
   Pencil, Trash2, Clock, Calendar, Zap, ShieldCheck,
-  Globe, Lock, Check, X, Mail,
+  Globe, Lock, Check, X, Mail, Link2,
 } from "lucide-react"
 import { getTagStyle } from "@/utils/tagStyle"
 import ShareRunButton from "@/components/ShareRunButton"
@@ -285,6 +285,7 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
+  const [copiedJoinLink, setCopiedJoinLink] = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -549,6 +550,20 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
                   </p>
                 )}
               </div>
+              <button
+                onClick={() => {
+                  const link = `${window.location.origin}/clubs/${selectedClub.id}?join=1`
+                  navigator.clipboard.writeText(link)
+                  setCopiedJoinLink(true)
+                  setTimeout(() => setCopiedJoinLink(false), 2500)
+                }}
+                className="flex items-center gap-1.5 mt-2 text-xs font-semibold text-white/40 hover:text-[#c5f135] transition"
+              >
+                {copiedJoinLink
+                  ? <><Check className="w-3.5 h-3.5 text-[#c5f135]" /><span className="text-[#c5f135]">Link copied!</span></>
+                  : <><Link2 className="w-3.5 h-3.5" />Copy join link</>
+                }
+              </button>
             </div>
           </div>
         </div>
@@ -895,32 +910,31 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
               </div>
             </div>
 
-            {/* Email Members — Coming Soon */}
-            <div>
-              <h2 className="text-xs font-bold text-white/40 uppercase tracking-widest px-1 mb-3">Email Members</h2>
-              <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-4 opacity-60 cursor-not-allowed select-none">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-[#2e3d1a] flex items-center justify-center shrink-0">
-                      <Mail className="w-4 h-4 text-white/30" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-white/50">Send Newsletter</p>
-                      <p className="text-xs text-white/30 mt-0.5">Email all club members</p>
-                    </div>
-                  </div>
-                  <span className="text-[10px] font-black px-2.5 py-1 rounded-full bg-[#c5f135]/10 text-[#c5f135] border border-[#c5f135]/20 shrink-0">
-                    Coming Soon
-                  </span>
-                </div>
-              </div>
-            </div>
           </div>
         )}
 
         {/* ── MESSAGES TAB ── */}
         {tab === "messages" && (
           <div className="space-y-4">
+
+            {/* Email Members — Coming Soon */}
+            <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-4 opacity-60 cursor-not-allowed select-none">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-[#2e3d1a] flex items-center justify-center shrink-0">
+                    <Mail className="w-4 h-4 text-white/30" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-white/50">Send Newsletter</p>
+                    <p className="text-xs text-white/30 mt-0.5">Email all club members</p>
+                  </div>
+                </div>
+                <span className="text-[10px] font-black px-2.5 py-1 rounded-full bg-[#c5f135]/10 text-[#c5f135] border border-[#c5f135]/20 shrink-0">
+                  Coming Soon
+                </span>
+              </div>
+            </div>
+
             {allRuns.length === 0 ? (
               <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-12 text-center">
                 <MessageSquare className="w-10 h-10 text-white/15 mx-auto mb-3" />

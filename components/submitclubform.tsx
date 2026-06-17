@@ -100,6 +100,9 @@ export default function SubmitClubForm() {
         return
       }
 
+      // Ensure the creator has the manager role
+      await supabase.from("profiles").update({ role: "manager" }).eq("id", user.id)
+
       // Auto-send claim invite if a contact email was provided
       if (contactEmail.trim() && insertedClub?.id) {
         const { data: { session } } = await supabase.auth.getSession()
@@ -115,7 +118,7 @@ export default function SubmitClubForm() {
         }
       }
 
-      router.push("/dashboard?submitted=true")
+      router.push("/director")
     } catch (err) {
       console.error("Unexpected error:", err)
       setLoading(false)
