@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
-import { Check, X, Clock, ExternalLink, Send } from "lucide-react"
+import { Check, X, Clock, ExternalLink, Send, RotateCcw } from "lucide-react"
 
 type Claim = {
   id: string
@@ -13,10 +13,8 @@ type Claim = {
   message: string | null
   status: string
   created_at: string
-  // in-app claim fields (club already exists)
   clubs: { name: string; city: string | null; instagram_handle: string | null } | null
   profiles: { display_name: string | null } | null
-  // public /claim form fields (new club, no account)
   club_name: string | null
   contact_name: string | null
   contact_email: string | null
@@ -32,6 +30,7 @@ type UnclaimedClub = {
   city: string | null
   contact_email: string | null
   claim_token_used_at: string | null
+  invite_sent_at: string | null
 }
 
 export default function AdminClaimsPage() {
@@ -63,10 +62,9 @@ export default function AdminClaimsPage() {
       if (claimsError) console.error("club_claims query error:", claimsError)
       setClaims((data as Claim[]) ?? [])
 
-      // All clubs whose claim token hasn't been used yet
       const { data: clubs } = await supabase
         .from("clubs")
-        .select("id, name, city, contact_email, claim_token_used_at")
+        .select("id, name, city, contact_email, claim_token_used_at, invite_sent_at")
         .is("claim_token_used_at", null)
         .order("name")
       setUnclaimedClubs((clubs as UnclaimedClub[]) ?? [])
@@ -76,7 +74,7 @@ export default function AdminClaimsPage() {
     load()
   }, [])
 
-  const sendInvite = async (clubId: string) => {
+  const sendInvite = async (clubId: string, isResend = false) => {
     const email = inviteEmails[clubId]?.trim()
     const club = unclaimedClubs.find((c) => c.id === clubId)
     const sendTo = email || club?.contact_email
@@ -90,16 +88,17 @@ export default function AdminClaimsPage() {
         "Content-Type": "application/json",
         Authorization: `Bearer ${session?.access_token}`,
       },
-      body: JSON.stringify({ club_id: clubId, email: sendTo }),
+      body: JSON.stringify({ club_id: clubId, email: sendTo, resend: isResend }),
     })
     setSending(null)
     if (res.ok) {
       setSent((prev) => new Set(prev).add(clubId))
-      if (email) {
-        setUnclaimedClubs((prev) =>
-          prev.map((c) => c.id === clubId ? { ...c, contact_email: email } : c)
+      setUnclaimedClubs((prev) =>
+        prev.map((c) => c.id === clubId
+          ? { ...c, contact_email: email || c.contact_email, invite_sent_at: new Date().toISOString() }
+          : c
         )
-      }
+      )
     } else {
       const json = await res.json().catch(() => ({}))
       setInviteErrors((prev) => ({ ...prev, [clubId]: json.error ?? "Failed to send — check console." }))
@@ -125,6 +124,8 @@ export default function AdminClaimsPage() {
 
   const pending = claims.filter((c) => c.status === "pending")
   const resolved = claims.filter((c) => c.status !== "pending")
+  const invitedClubs = unclaimedClubs.filter((c) => c.invite_sent_at)
+  const notInvitedClubs = unclaimedClubs.filter((c) => !c.invite_sent_at)
 
   if (loading) {
     return (
@@ -192,55 +193,123 @@ export default function AdminClaimsPage() {
         {/* ── INVITE TAB ── */}
         {tab === "invite" && (
           <>
-            <p className="text-sm text-white/40 mb-4 leading-relaxed">
-              Unclaimed clubs on the platform. Enter a director&apos;s email and send them a personalised invite link.
-            </p>
-            {unclaimedClubs.length === 0 ? (
-              <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-8 text-center">
-                <p className="text-white/40 text-sm">All clubs have been invited or claimed.</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {unclaimedClubs.map((club) => {
-                  const isSent = sent.has(club.id)
-                  const isSending = sending === club.id
-                  const email = inviteEmails[club.id] ?? club.contact_email ?? ""
-                  return (
-                    <div key={club.id} className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-4 space-y-3">
-                      <div>
-                        <p className="text-sm font-bold text-white">{club.name}</p>
-                        {club.city && <p className="text-xs text-white/40">{club.city}</p>}
+            {/* Awaiting response */}
+            {invitedClubs.length > 0 && (
+              <div className="mb-8">
+                <h2 className="text-xs font-bold text-white/30 uppercase tracking-widest mb-3">
+                  Awaiting Response <span className="ml-1">({invitedClubs.length})</span>
+                </h2>
+                <div className="space-y-3">
+                  {invitedClubs.map((club) => {
+                    const isSending = sending === club.id
+                    const justSent = sent.has(club.id)
+                    const email = inviteEmails[club.id] ?? club.contact_email ?? ""
+                    return (
+                      <div key={club.id} className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-4 space-y-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-bold text-white">{club.name}</p>
+                            {club.city && <p className="text-xs text-white/40">{club.city}</p>}
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="text-[10px] font-bold text-[#c5f135]/50 uppercase tracking-wider">Invite sent</p>
+                            <p className="text-xs text-white/30 mt-0.5">
+                              {new Date(club.invite_sent_at!).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                            </p>
+                          </div>
+                        </div>
+                        {club.contact_email && (
+                          <p className="text-xs text-white/40">Sent to: <span className="text-white/60">{club.contact_email}</span></p>
+                        )}
+                        <div className="flex gap-2">
+                          <input
+                            type="email"
+                            placeholder="Send to a different address…"
+                            value={inviteEmails[club.id] ?? ""}
+                            onChange={(e) => setInviteEmails((prev) => ({ ...prev, [club.id]: e.target.value }))}
+                            className="flex-1 bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#c5f135]/50 transition"
+                          />
+                          <button
+                            onClick={() => sendInvite(club.id, true)}
+                            disabled={isSending}
+                            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black transition disabled:opacity-40 shrink-0 bg-[#1a2110] border border-[#2e3d1a] text-white/60 hover:text-white hover:border-[#c5f135]/40"
+                          >
+                            {justSent
+                              ? <><Check className="w-3.5 h-3.5 text-[#c5f135]" /> Sent</>
+                              : isSending
+                              ? "…"
+                              : <><RotateCcw className="w-3.5 h-3.5" /> Resend</>
+                            }
+                          </button>
+                        </div>
+                        {inviteErrors[club.id] && (
+                          <p className="text-red-400 text-xs px-1">{inviteErrors[club.id]}</p>
+                        )}
                       </div>
-                      <div className="flex gap-2">
-                        <input
-                          type="email"
-                          placeholder="director@theirclub.com"
-                          value={inviteEmails[club.id] ?? (club.contact_email || "")}
-                          onChange={(e) => setInviteEmails((prev) => ({ ...prev, [club.id]: e.target.value }))}
-                          disabled={isSent}
-                          className="flex-1 bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#c5f135]/50 transition disabled:opacity-40"
-                        />
-                        <button
-                          onClick={() => sendInvite(club.id)}
-                          disabled={isSent || isSending || !email}
-                          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black transition disabled:opacity-40 shrink-0 bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45]"
-                        >
-                          {isSent
-                            ? <><Check className="w-3.5 h-3.5" /> Sent</>
-                            : isSending
-                            ? "…"
-                            : <><Send className="w-3.5 h-3.5" /> Send</>
-                          }
-                        </button>
-                      </div>
-                      {inviteErrors[club.id] && (
-                        <p className="text-red-400 text-xs px-1">{inviteErrors[club.id]}</p>
-                      )}
-                    </div>
-                  )
-                })}
+                    )
+                  })}
+                </div>
               </div>
             )}
+
+            {/* Not yet contacted */}
+            <div>
+              {invitedClubs.length > 0 && (
+                <h2 className="text-xs font-bold text-white/30 uppercase tracking-widest mb-3">
+                  Not Yet Contacted <span className="ml-1">({notInvitedClubs.length})</span>
+                </h2>
+              )}
+              {notInvitedClubs.length === 0 && invitedClubs.length === 0 && (
+                <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-8 text-center">
+                  <p className="text-white/40 text-sm">All clubs have been invited or claimed.</p>
+                </div>
+              )}
+              {notInvitedClubs.length === 0 && invitedClubs.length > 0 && (
+                <p className="text-white/30 text-sm text-center py-4">All unclaimed clubs have been contacted.</p>
+              )}
+              {notInvitedClubs.length > 0 && (
+                <div className="space-y-3">
+                  {notInvitedClubs.map((club) => {
+                    const isSent = sent.has(club.id)
+                    const isSending = sending === club.id
+                    const email = inviteEmails[club.id] ?? club.contact_email ?? ""
+                    return (
+                      <div key={club.id} className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-4 space-y-3">
+                        <div>
+                          <p className="text-sm font-bold text-white">{club.name}</p>
+                          {club.city && <p className="text-xs text-white/40">{club.city}</p>}
+                        </div>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            placeholder="director@theirclub.com, another@email.com"
+                            value={inviteEmails[club.id] ?? (club.contact_email || "")}
+                            onChange={(e) => setInviteEmails((prev) => ({ ...prev, [club.id]: e.target.value }))}
+                            disabled={isSent}
+                            className="flex-1 bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#c5f135]/50 transition disabled:opacity-40"
+                          />
+                          <button
+                            onClick={() => sendInvite(club.id)}
+                            disabled={isSent || isSending || !email}
+                            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black transition disabled:opacity-40 shrink-0 bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45]"
+                          >
+                            {isSent
+                              ? <><Check className="w-3.5 h-3.5" /> Sent</>
+                              : isSending
+                              ? "…"
+                              : <><Send className="w-3.5 h-3.5" /> Send</>
+                            }
+                          </button>
+                        </div>
+                        {inviteErrors[club.id] && (
+                          <p className="text-red-400 text-xs px-1">{inviteErrors[club.id]}</p>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           </>
         )}
       </div>
@@ -267,14 +336,12 @@ function ClaimCard({
 
   return (
     <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-5 space-y-3">
-      {/* Header row */}
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2 flex-wrap">
             <p className="text-sm font-bold text-white">
               {claim.clubs?.name ?? claim.club_name ?? claim.club_id ?? "—"}
             </p>
-            {/* Badge to distinguish public vs in-app claims */}
             {!claim.club_id && (
               <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-[#c5f135]/10 text-[#c5f135]/70 border border-[#c5f135]/20">
                 Public form
@@ -290,7 +357,6 @@ function ClaimCard({
         </span>
       </div>
 
-      {/* Fields grid */}
       <div className="grid grid-cols-2 gap-3 text-xs">
         <div>
           <p className="text-white/30 font-semibold mb-0.5">

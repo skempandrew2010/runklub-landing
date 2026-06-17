@@ -27,6 +27,8 @@ function buildInviteEmail(clubName: string, city: string | null, claimUrl: strin
   const safe = (s: string) => s.replace(/</g, "&lt;").replace(/>/g, "&gt;")
   const safeClub = safe(clubName)
   const safeCity = city ? ` in ${safe(city)}` : ""
+  const token = claimUrl.split("/claim/")[1] ?? ""
+  const displayUrl = `runklub.fit/claim/${token.slice(0, 8)}…`
 
   const html = `<!DOCTYPE html>
 <html>
@@ -67,7 +69,7 @@ function buildInviteEmail(clubName: string, city: string | null, claimUrl: strin
               </tr>
             </table>
             <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.25);">
-              Or copy this link: <a href="${claimUrl}" style="color:rgba(197,241,53,0.6);">${claimUrl}</a>
+              Or copy this link: <a href="${claimUrl}" style="color:rgba(197,241,53,0.6);">${displayUrl}</a>
             </p>
           </td>
         </tr>
@@ -131,59 +133,66 @@ Questions? Just reply to this email.
 
 export async function POST(req: NextRequest) {
   try {
-    // Verify caller is an admin
     const authHeader = req.headers.get("Authorization")
-    console.log("send-claim-invite: authHeader present:", !!authHeader, "value:", authHeader?.slice(0, 20))
-    if (!authHeader) return NextResponse.json({ error: "Unauthorized: no header" }, { status: 401 })
+    if (!authHeader) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
     const token = authHeader.replace("Bearer ", "")
-    console.log("send-claim-invite: token:", token.slice(0, 20))
     const { data: { user }, error: authError } = await getAdminSupabase().auth.getUser(token)
-    console.log("send-claim-invite: user:", user?.id, "authError:", authError?.message)
-    if (authError || !user) return NextResponse.json({ error: `Unauthorized: ${authError?.message ?? "no user"}` }, { status: 401 })
+    if (authError || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
     const { data: profile } = await getAdminSupabase()
       .from("profiles").select("role").eq("id", user.id).single()
     if (profile?.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
     const body = await req.json()
-    const { club_id, email: overrideEmail } = body
+    const { club_id, email: overrideEmail, resend } = body
 
     if (!club_id) return NextResponse.json({ error: "club_id required" }, { status: 400 })
 
-    // Fetch club
     const { data: club } = await getAdminSupabase()
       .from("clubs")
-      .select("id, name, city, claim_token, claim_token_used_at, contact_email")
+      .select("id, name, city, claim_token, claim_token_used_at, contact_email, invite_sent_at")
       .eq("id", club_id)
       .single()
 
     if (!club) return NextResponse.json({ error: "Club not found" }, { status: 404 })
     if (club.claim_token_used_at) return NextResponse.json({ error: "Club already claimed" }, { status: 409 })
 
-    const sendTo = overrideEmail?.trim() || club.contact_email?.trim()
-    if (!sendTo) return NextResponse.json({ error: "No email address provided" }, { status: 400 })
+    // Parse and validate emails (supports comma-separated)
+    const rawEmails = overrideEmail?.trim() || club.contact_email?.trim()
+    if (!rawEmails) return NextResponse.json({ error: "No email address provided" }, { status: 400 })
+    const emails = rawEmails.split(",").map((e: string) => e.trim()).filter(Boolean)
+    if (emails.length === 0) return NextResponse.json({ error: "No valid email address provided" }, { status: 400 })
 
-    // Save contact_email if we got one via override and it wasn't stored yet
-    if (overrideEmail?.trim() && overrideEmail.trim() !== club.contact_email) {
+    // On resend, regenerate the claim token so the old link is dead
+    let claimToken = club.claim_token
+    if (resend || club.invite_sent_at) {
+      claimToken = crypto.randomUUID()
       await getAdminSupabase()
         .from("clubs")
-        .update({ contact_email: overrideEmail.trim() })
+        .update({ claim_token: claimToken })
         .eq("id", club_id)
     }
 
-    const claimUrl = `${BASE_URL}/claim/${club.claim_token}`
+    // Save contact_email and invite_sent_at
+    const updates: Record<string, unknown> = { invite_sent_at: new Date().toISOString() }
+    if (overrideEmail?.trim() && overrideEmail.trim() !== club.contact_email) {
+      updates.contact_email = overrideEmail.trim()
+    }
+    await getAdminSupabase().from("clubs").update(updates).eq("id", club_id)
+
+    const claimUrl = `${BASE_URL}/claim/${claimToken}`
     const { html, text } = buildInviteEmail(club.name, club.city, claimUrl)
 
     await getTransporter().sendMail({
       from: FROM,
-      to: sendTo,
+      to: emails,
       subject: `Claim ${club.name} on RunKlub`,
       html,
       text,
     })
 
-    return NextResponse.json({ ok: true })
+    return NextResponse.json({ ok: true, emails })
   } catch (err: any) {
     console.error("send-claim-invite error:", err)
     return NextResponse.json({ error: err.message ?? "Internal server error" }, { status: 500 })
