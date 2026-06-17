@@ -167,6 +167,13 @@ export async function PATCH(
 
     if (action === "reject") {
       await getAdminSupabase().from("club_claims").update({ status: "rejected" }).eq("id", claimId)
+      // Reset the club's claim token so it reappears in the Send Invites list
+      if (claim.club_id) {
+        await getAdminSupabase()
+          .from("clubs")
+          .update({ claim_token_used_at: null, claim_token: crypto.randomUUID() })
+          .eq("id", claim.club_id)
+      }
       return NextResponse.json({ ok: true })
     }
 

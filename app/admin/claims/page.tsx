@@ -119,6 +119,15 @@ export default function AdminClaimsPage() {
     setClaims((prev) =>
       prev.map((c) => c.id === claimId ? { ...c, status: action === "approve" ? "approved" : "rejected" } : c)
     )
+    // After rejecting, refresh unclaimed clubs so the club reappears in Send Invites
+    if (action === "reject") {
+      const { data: clubs } = await supabase
+        .from("clubs")
+        .select("id, name, city, contact_email, claim_token_used_at, invite_sent_at")
+        .is("claim_token_used_at", null)
+        .order("name")
+      setUnclaimedClubs((clubs as UnclaimedClub[]) ?? [])
+    }
     setActing(null)
   }
 
