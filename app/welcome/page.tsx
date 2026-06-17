@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabase"
 export default function WelcomePage() {
   const searchParams = useSearchParams()
   const router = useRouter()
-  const clubId = searchParams.get("club_id")
+  const clubIdFromUrl = searchParams.get("club_id")
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading")
   const [errorMsg, setErrorMsg] = useState("")
   const activated = useRef(false)
@@ -17,23 +17,21 @@ export default function WelcomePage() {
       if (activated.current) return
       activated.current = true
 
-      if (!clubId) {
-        router.push("/")
-        return
-      }
-
       const res = await fetch("/api/claim/activate", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${accessToken}`,
         },
-        body: JSON.stringify({ club_id: clubId }),
+        // Send club_id if available from URL, otherwise the endpoint finds it from the email
+        body: JSON.stringify(clubIdFromUrl ? { club_id: clubIdFromUrl } : {}),
       })
 
       if (res.ok) {
+        const json = await res.json()
+        const clubId = json.club_id ?? clubIdFromUrl
         setStatus("success")
-        setTimeout(() => router.push(`/clubs/${clubId}`), 2500)
+        setTimeout(() => router.push(clubId ? `/clubs/${clubId}` : "/explore"), 2500)
       } else {
         const json = await res.json().catch(() => ({}))
         setErrorMsg(json.error ?? "Something went wrong.")
@@ -56,7 +54,7 @@ export default function WelcomePage() {
     })
 
     return () => subscription.unsubscribe()
-  }, [clubId, router])
+  }, [clubIdFromUrl, router])
 
   return (
     <div className="min-h-screen bg-[#1a2110] flex items-center justify-center px-5">
@@ -98,7 +96,7 @@ export default function WelcomePage() {
             </div>
             <div>
               <p className="text-white font-black text-xl mb-2">Something went wrong</p>
-              <p className="text-white/50 text-sm mb-4">{errorMsg || "We couldn’t link your club. Please reply to your approval email and we’ll sort it out."}</p>
+              <p className="text-white/50 text-sm mb-4">{errorMsg || "We couldn't link your club. Please reply to your approval email and we'll sort it out."}</p>
               <a href="/" className="text-[#c5f135] text-sm font-bold hover:underline">Go to RunKlub</a>
             </div>
           </>
