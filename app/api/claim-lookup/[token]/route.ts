@@ -17,8 +17,8 @@ const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.runklub.fit"
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-async function generateMagicLink(email: string, clubId: string): Promise<string> {
-  const redirectTo = `${BASE_URL}/welcome?club_id=${clubId}`
+async function generateMagicLink(email: string, _clubId: string): Promise<string> {
+  const redirectTo = `${BASE_URL}/welcome`
   const { data, error } = await getAdminSupabase().auth.admin.generateLink({
     type: "invite",
     email,

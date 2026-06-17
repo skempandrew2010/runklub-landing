@@ -15,8 +15,8 @@ function getResend() { return new Resend(process.env.RESEND_API_KEY) }
 const FROM = process.env.RESEND_FROM_EMAIL ?? "RunKlub <info@runklub.fit>"
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://runklub.fit"
 
-async function generateMagicLink(email: string, clubId: string): Promise<string> {
-  const redirectTo = `${BASE_URL}/welcome?club_id=${clubId}`
+async function generateMagicLink(email: string, _clubId: string): Promise<string> {
+  const redirectTo = `${BASE_URL}/welcome`
   const { data, error } = await getAdminSupabase().auth.admin.generateLink({
     type: "invite",
     email,
