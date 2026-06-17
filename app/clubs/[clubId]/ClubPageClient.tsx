@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { Heart, MapPin, Clock, Users, ArrowLeft, Zap, ShieldCheck, ExternalLink } from "lucide-react"
 import Footer from "@/components/Footer"
@@ -63,6 +63,7 @@ export default function ClubPageClient({
   isClaimed: boolean
 }) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [isSubscribed, setIsSubscribed] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
   const [memberCount, setMemberCount] = useState(initialMemberCount)
@@ -72,6 +73,7 @@ export default function ClubPageClient({
   const [claimMessage, setClaimMessage] = useState("")
   const [claimSubmitting, setClaimSubmitting] = useState(false)
   const [claimStatus, setClaimStatus] = useState<"idle" | "pending" | "submitted">("idle")
+  const [joinBanner, setJoinBanner] = useState(false)
 
   // Refs for section-visibility tracking
   const runsRef = useRef<HTMLDivElement>(null)
@@ -115,10 +117,23 @@ export default function ClubPageClient({
         ])
         setIsSubscribed(!!sub)
         if (existingClaim) setClaimStatus("pending")
+
+        // Auto-subscribe when arriving via a join link (?join=1)
+        if (searchParams.get("join") === "1" && !sub) {
+          await supabase.from("subscriptions").upsert(
+            { user_id: user.id, club_id: club.id },
+            { onConflict: "user_id,club_id" }
+          )
+          setIsSubscribed(true)
+          setMemberCount((p) => p + 1)
+          setJoinBanner(true)
+          track("club_followed", { clubId: club.id, clubName: club.name, source: "join_link" })
+          setTimeout(() => setJoinBanner(false), 4000)
+        }
       }
     }
     load()
-  }, [club.id])
+  }, [club.id, searchParams])
 
   const handleFollow = async () => {
     if (!userId) { router.push("/login"); return }
@@ -161,6 +176,16 @@ export default function ClubPageClient({
 
   return (
     <div className="min-h-screen bg-[#1a2110] pb-24">
+
+      {/* ── JOIN BANNER ── */}
+      {joinBanner && (
+        <div className="fixed top-[var(--navbar-h)] left-0 right-0 z-50 flex justify-center px-4 pt-3 pointer-events-none">
+          <div className="flex items-center gap-2.5 px-5 py-3 bg-[#c5f135] text-[#1a2110] rounded-2xl shadow-xl shadow-black/40 font-bold text-sm animate-[fadeUp_0.3s_ease-out_forwards]">
+            <Heart className="w-4 h-4 fill-[#1a2110]" />
+            You&apos;re now following {club.name}!
+          </div>
+        </div>
+      )}
 
       {/* ── HERO HEADER ── */}
       <div className={`relative bg-gradient-to-b ${gradient} border-b border-[#2e3d1a]`}>
