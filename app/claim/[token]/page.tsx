@@ -24,6 +24,7 @@ export default function ClaimTokenPage() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
   const [done, setDone] = useState(false)
+  const [sentToEmail, setSentToEmail] = useState("")
 
   // Look up the club by token
   useEffect(() => {
@@ -62,6 +63,7 @@ export default function ClaimTokenPage() {
         setSubmitting(false)
         return
       }
+      setSentToEmail(json.email ?? contactEmail.trim())
       setDone(true)
     } catch {
       setError("Network error. Please try again.")
@@ -131,17 +133,14 @@ export default function ClaimTokenPage() {
                 <Check className="w-8 h-8 text-[#c5f135]" />
               </div>
               <div>
-                <h2 className="text-2xl font-black text-white mb-2">Claim submitted!</h2>
+                <h2 className="text-2xl font-black text-white mb-2">Check your inbox!</h2>
                 <p className="text-white/50 text-sm leading-relaxed max-w-xs mx-auto">
-                  We&apos;ll review and be in touch within 24 hours to get you set up on RunKlub.
+                  We&apos;ve sent a setup link to{" "}
+                  <span className="text-white font-semibold">{sentToEmail}</span>.
+                  Click it to sign in and get {club?.name} live on RunKlub.
                 </p>
               </div>
-              <Link
-                href="/explore"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-[#c5f135] text-[#1a2110] font-black text-sm rounded-full hover:bg-[#d4ff45] transition"
-              >
-                Explore RunKlub <ArrowRight className="w-4 h-4" />
-              </Link>
+              <p className="text-white/25 text-xs">Didn&apos;t get it? Check your spam folder.</p>
             </div>
           )}
 

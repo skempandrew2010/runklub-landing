@@ -33,19 +33,31 @@ type UnclaimedClub = {
   invite_sent_at: string | null
 }
 
+type FunnelClub = {
+  id: string
+  name: string
+  city: string | null
+  contact_email: string | null
+  invite_sent_at: string | null
+  invite_link_clicked_at: string | null
+  claim_token_used_at: string | null
+  user_id: string | null
+}
+
 export default function AdminClaimsPage() {
   const router = useRouter()
   const [claims, setClaims] = useState<Claim[]>([])
   const [unclaimedClubs, setUnclaimedClubs] = useState<UnclaimedClub[]>([])
   const [loading, setLoading] = useState(true)
   const [acting, setActing] = useState<string | null>(null)
-  const [tab, setTab] = useState<"claims" | "invite">("claims")
+  const [tab, setTab] = useState<"claims" | "invite" | "funnel">("claims")
   const [inviteEmails, setInviteEmails] = useState<Record<string, string>>({})
   const [sending, setSending] = useState<string | null>(null)
   const [sent, setSent] = useState<Set<string>>(new Set())
   const [inviteErrors, setInviteErrors] = useState<Record<string, string>>({})
   const [claimsSearch, setClaimsSearch] = useState("")
   const [claimsFilter, setClaimsFilter] = useState<"all" | "pending" | "approved" | "rejected">("all")
+  const [funnelClubs, setFunnelClubs] = useState<FunnelClub[]>([])
 
   useEffect(() => {
     const load = async () => {
@@ -70,6 +82,13 @@ export default function AdminClaimsPage() {
         .is("claim_token_used_at", null)
         .order("name")
       setUnclaimedClubs((clubs as UnclaimedClub[]) ?? [])
+
+      const { data: funnel } = await supabase
+        .from("clubs")
+        .select("id, name, city, contact_email, invite_sent_at, invite_link_clicked_at, claim_token_used_at, user_id")
+        .not("invite_sent_at", "is", null)
+        .order("invite_sent_at", { ascending: false })
+      setFunnelClubs((funnel as FunnelClub[]) ?? [])
 
       setLoading(false)
     }
@@ -178,6 +197,12 @@ export default function AdminClaimsPage() {
             className={`px-4 py-2 rounded-full text-sm font-bold transition ${tab === "invite" ? "bg-[#c5f135] text-[#1a2110]" : "bg-[#1e2d12] border border-[#2e3d1a] text-white/50 hover:text-white"}`}
           >
             Send Invites {unclaimedClubs.length > 0 && <span className="ml-1 text-xs">({unclaimedClubs.length})</span>}
+          </button>
+          <button
+            onClick={() => setTab("funnel")}
+            className={`px-4 py-2 rounded-full text-sm font-bold transition ${tab === "funnel" ? "bg-[#c5f135] text-[#1a2110]" : "bg-[#1e2d12] border border-[#2e3d1a] text-white/50 hover:text-white"}`}
+          >
+            Funnel
           </button>
         </div>
 
@@ -368,6 +393,93 @@ export default function AdminClaimsPage() {
             </div>
           </>
         )}
+        {/* ── FUNNEL TAB ── */}
+        {tab === "funnel" && (() => {
+          const total = funnelClubs.length
+          const clicked = funnelClubs.filter(c => c.invite_link_clicked_at).length
+          const submitted = funnelClubs.filter(c => c.claim_token_used_at).length
+          const activated = funnelClubs.filter(c => c.user_id).length
+          const pct = (n: number, d: number) => d === 0 ? "—" : `${Math.round((n / d) * 100)}%`
+
+          const stages = [
+            { label: "Invited",         count: total,     from: null,      color: "bg-white/10" },
+            { label: "Link Opened",     count: clicked,   from: total,     color: "bg-[#c5f135]/20" },
+            { label: "Form Submitted",  count: submitted, from: clicked,   color: "bg-[#c5f135]/40" },
+            { label: "Account Created", count: activated, from: submitted, color: "bg-[#c5f135]" },
+          ]
+
+          return (
+            <div className="space-y-6">
+              {/* Stage summary */}
+              <div className="grid grid-cols-2 gap-3">
+                {stages.map((s) => (
+                  <div key={s.label} className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-4">
+                    <p className="text-xs font-bold text-white/40 uppercase tracking-wider mb-1">{s.label}</p>
+                    <p className="text-3xl font-black text-white">{s.count}</p>
+                    {s.from !== null && (
+                      <p className="text-xs text-[#c5f135]/70 mt-0.5 font-semibold">
+                        {pct(s.count, s.from)} of previous
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Progress bar */}
+              {total > 0 && (
+                <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-4 space-y-2">
+                  <p className="text-xs font-bold text-white/40 uppercase tracking-wider mb-3">Conversion</p>
+                  {stages.slice(1).map((s) => (
+                    <div key={s.label}>
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className="text-white/50">{s.label}</span>
+                        <span className="text-white/70 font-bold">{pct(s.count, total)} of invited</span>
+                      </div>
+                      <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-[#c5f135] rounded-full transition-all"
+                          style={{ width: total > 0 ? `${(s.count / total) * 100}%` : "0%" }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Per-club breakdown */}
+              {total === 0 ? (
+                <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-8 text-center">
+                  <p className="text-white/40 text-sm">No invites sent yet.</p>
+                </div>
+              ) : (
+                <div>
+                  <h2 className="text-xs font-bold text-white/30 uppercase tracking-widest mb-3">Per Club</h2>
+                  <div className="space-y-2">
+                    {funnelClubs.map((club) => {
+                      const stage =
+                        club.user_id          ? { label: "Account Created", color: "text-[#c5f135]" } :
+                        club.claim_token_used_at ? { label: "Form Submitted",  color: "text-[#c5f135]/60" } :
+                        club.invite_link_clicked_at ? { label: "Link Opened", color: "text-white/50" } :
+                        { label: "Invited", color: "text-white/25" }
+                      return (
+                        <div key={club.id} className="bg-[#1e2d12] rounded-xl border border-[#2e3d1a] px-4 py-3 flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-bold text-white truncate">{club.name}</p>
+                            {club.city && <p className="text-xs text-white/30 truncate">{club.city}</p>}
+                          </div>
+                          <span className={`text-xs font-black uppercase tracking-wider shrink-0 ${stage.color}`}>
+                            {stage.label}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })()}
+
       </div>
     </div>
   )
