@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js"
-import nodemailer from "nodemailer"
+import { Resend } from "resend"
 import { NextRequest, NextResponse } from "next/server"
 
 function getAdminSupabase() {
@@ -10,17 +10,9 @@ function getAdminSupabase() {
   )
 }
 
-function getTransporter() {
-  return nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user: process.env.GMAIL_USER,
-      pass: process.env.GMAIL_APP_PASSWORD,
-    },
-  })
-}
+function getResend() { return new Resend(process.env.RESEND_API_KEY) }
 
-const FROM = `RunKlub <${process.env.GMAIL_USER ?? "runklubinfo@gmail.com"}>`
+const FROM = process.env.RESEND_FROM_EMAIL ?? "RunKlub <info@runklub.fit>"
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.runklub.fit"
 
 function buildInviteEmail(clubName: string, city: string | null, claimUrl: string): { html: string; text: string } {
@@ -184,13 +176,14 @@ export async function POST(req: NextRequest) {
     const claimUrl = `${BASE_URL}/claim/${claimToken}`
     const { html, text } = buildInviteEmail(club.name, club.city, claimUrl)
 
-    await getTransporter().sendMail({
+    const { error: emailError } = await getResend().emails.send({
       from: FROM,
       to: emails,
       subject: `Claim ${club.name} on RunKlub`,
       html,
       text,
     })
+    if (emailError) throw new Error(emailError.message)
 
     return NextResponse.json({ ok: true, emails })
   } catch (err: any) {

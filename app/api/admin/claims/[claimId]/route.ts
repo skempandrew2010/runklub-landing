@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js"
-import nodemailer from "nodemailer"
+import { Resend } from "resend"
 import { NextRequest, NextResponse } from "next/server"
 
 function getAdminSupabase() {
@@ -10,17 +10,9 @@ function getAdminSupabase() {
   )
 }
 
-function getTransporter() {
-  return nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user: process.env.GMAIL_USER,
-      pass: process.env.GMAIL_APP_PASSWORD,
-    },
-  })
-}
+function getResend() { return new Resend(process.env.RESEND_API_KEY) }
 
-const FROM = `RunKlub <${process.env.GMAIL_USER ?? "runklubinfo@gmail.com"}>`
+const FROM = process.env.RESEND_FROM_EMAIL ?? "RunKlub <info@runklub.fit>"
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.runklub.fit"
 
 async function generateMagicLink(email: string, clubId: string): Promise<string> {
@@ -235,13 +227,14 @@ export async function PATCH(
       const magicLinkUrl = await generateMagicLink(claim.contact_email, claim.club_id)
       const { html, text } = buildApprovalEmail(name, clubName, magicLinkUrl)
 
-      await getTransporter().sendMail({
+      const { error: emailError } = await getResend().emails.send({
         from: FROM,
         to: claim.contact_email,
         subject: `✅ ${clubName} is approved — finish setting up`,
         html,
         text,
       })
+      if (emailError) throw new Error(emailError.message)
     }
 
     return NextResponse.json({ ok: true })
