@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
-import { Check, X, Clock, ExternalLink, Send, RotateCcw } from "lucide-react"
+import { Check, X, Clock, ExternalLink, Send, RotateCcw, Search } from "lucide-react"
 
 type Claim = {
   id: string
@@ -44,6 +44,8 @@ export default function AdminClaimsPage() {
   const [sending, setSending] = useState<string | null>(null)
   const [sent, setSent] = useState<Set<string>>(new Set())
   const [inviteErrors, setInviteErrors] = useState<Record<string, string>>({})
+  const [claimsSearch, setClaimsSearch] = useState("")
+  const [claimsFilter, setClaimsFilter] = useState<"all" | "pending" | "approved" | "rejected">("all")
 
   useEffect(() => {
     const load = async () => {
@@ -131,8 +133,19 @@ export default function AdminClaimsPage() {
     setActing(null)
   }
 
-  const pending = claims.filter((c) => c.status === "pending")
-  const resolved = claims.filter((c) => c.status !== "pending")
+  const searchLower = claimsSearch.toLowerCase()
+  const matchesClaim = (c: Claim) => {
+    if (!searchLower) return true
+    return [
+      c.clubs?.name, c.club_name, c.clubs?.city, c.city,
+      c.contact_name, c.profiles?.display_name, c.contact_email,
+    ].some((v) => v?.toLowerCase().includes(searchLower))
+  }
+  const filteredClaims = claims.filter((c) =>
+    matchesClaim(c) && (claimsFilter === "all" || c.status === claimsFilter)
+  )
+  const pending = filteredClaims.filter((c) => c.status === "pending")
+  const resolved = filteredClaims.filter((c) => c.status !== "pending")
   const invitedClubs = unclaimedClubs.filter((c) => c.invite_sent_at)
   const notInvitedClubs = unclaimedClubs.filter((c) => !c.invite_sent_at)
 
@@ -171,10 +184,44 @@ export default function AdminClaimsPage() {
         {/* ── CLAIMS TAB ── */}
         {tab === "claims" && (
           <>
-            {pending.length === 0 && (
+            {/* Search + filter */}
+            <div className="space-y-3 mb-5">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/25 pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="Search by club, city, name or email…"
+                  value={claimsSearch}
+                  onChange={(e) => setClaimsSearch(e.target.value)}
+                  className="w-full bg-[#1e2d12] border border-[#2e3d1a] rounded-xl pl-9 pr-4 py-2.5 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#c5f135]/50 transition"
+                />
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                {(["all", "pending", "approved", "rejected"] as const).map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => setClaimsFilter(f)}
+                    className={`px-3 py-1 rounded-full text-xs font-bold capitalize transition ${
+                      claimsFilter === f
+                        ? "bg-[#c5f135] text-[#1a2110]"
+                        : "bg-[#1e2d12] border border-[#2e3d1a] text-white/40 hover:text-white"
+                    }`}
+                  >
+                    {f}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {pending.length === 0 && claimsFilter !== "pending" && !claimsSearch && (
               <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-8 text-center mb-8">
                 <Clock className="w-8 h-8 text-white/15 mx-auto mb-2" />
                 <p className="text-white/40 text-sm">No pending claims.</p>
+              </div>
+            )}
+            {filteredClaims.length === 0 && (claimsSearch || claimsFilter !== "all") && (
+              <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-8 text-center mb-8">
+                <p className="text-white/40 text-sm">No claims match your search.</p>
               </div>
             )}
 
