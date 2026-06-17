@@ -36,13 +36,7 @@ const nextConfig: NextConfig = {
     ],
   },
   async redirects() {
-    return [
-      {
-        source: "/",
-        destination: "/explore",
-        permanent: false,
-      },
-    ]
+    return []
   },
   async headers() {
     return [
