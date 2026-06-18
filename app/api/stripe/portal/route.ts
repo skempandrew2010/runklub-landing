@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No billing account found" }, { status: 404 })
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
+    const appUrl = process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
 
     const allowedReturnPaths = ["/profile", "/dashboard", "/"]
     const safePath = allowedReturnPaths.includes(returnPath) ? returnPath : "/profile"

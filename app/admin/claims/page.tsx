@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
-import { Check, X, Clock, ExternalLink, Send, RotateCcw, Search } from "lucide-react"
+import { Check, X, Clock, ExternalLink, Send, RotateCcw, Search, Ban } from "lucide-react"
 
 type Claim = {
   id: string
@@ -53,6 +53,7 @@ export default function AdminClaimsPage() {
   const [tab, setTab] = useState<"claims" | "invite" | "funnel">("claims")
   const [inviteEmails, setInviteEmails] = useState<Record<string, string>>({})
   const [sending, setSending] = useState<string | null>(null)
+  const [cancelling, setCancelling] = useState<string | null>(null)
   const [sent, setSent] = useState<Set<string>>(new Set())
   const [inviteErrors, setInviteErrors] = useState<Record<string, string>>({})
   const [claimsSearch, setClaimsSearch] = useState("")
@@ -123,6 +124,30 @@ export default function AdminClaimsPage() {
     } else {
       const json = await res.json().catch(() => ({}))
       setInviteErrors((prev) => ({ ...prev, [clubId]: json.error ?? "Failed to send — check console." }))
+    }
+  }
+
+  const cancelInvite = async (clubId: string) => {
+    setCancelling(clubId)
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch("/api/admin/cancel-claim-invite", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session?.access_token}`,
+      },
+      body: JSON.stringify({ club_id: clubId }),
+    })
+    setCancelling(null)
+    if (res.ok) {
+      // Move club back to "Not Yet Contacted"
+      setUnclaimedClubs((prev) =>
+        prev.map((c) => c.id === clubId ? { ...c, invite_sent_at: null } : c)
+      )
+      setSent((prev) => { const n = new Set(prev); n.delete(clubId); return n })
+    } else {
+      const json = await res.json().catch(() => ({}))
+      setInviteErrors((prev) => ({ ...prev, [clubId]: json.error ?? "Failed to cancel." }))
     }
   }
 
@@ -283,6 +308,7 @@ export default function AdminClaimsPage() {
                 <div className="space-y-3">
                   {invitedClubs.map((club) => {
                     const isSending = sending === club.id
+                    const isCancelling = cancelling === club.id
                     const justSent = sent.has(club.id)
                     const email = inviteEmails[club.id] ?? club.contact_email ?? ""
                     return (
@@ -312,7 +338,7 @@ export default function AdminClaimsPage() {
                           />
                           <button
                             onClick={() => sendInvite(club.id, true)}
-                            disabled={isSending}
+                            disabled={isSending || isCancelling}
                             className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black transition disabled:opacity-40 shrink-0 bg-[#1a2110] border border-[#2e3d1a] text-white/60 hover:text-white hover:border-[#c5f135]/40"
                           >
                             {justSent
@@ -321,6 +347,14 @@ export default function AdminClaimsPage() {
                               ? "…"
                               : <><RotateCcw className="w-3.5 h-3.5" /> Resend</>
                             }
+                          </button>
+                          <button
+                            onClick={() => cancelInvite(club.id)}
+                            disabled={isSending || isCancelling}
+                            title="Cancel invite — invalidates the link"
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition disabled:opacity-40 shrink-0 bg-[#1a2110] border border-[#2e3d1a] text-white/30 hover:text-red-400 hover:border-red-400/30"
+                          >
+                            {isCancelling ? "…" : <Ban className="w-3.5 h-3.5" />}
                           </button>
                         </div>
                         {inviteErrors[club.id] && (

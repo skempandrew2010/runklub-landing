@@ -13,7 +13,7 @@ function getAdminSupabase() {
 function getResend() { return new Resend(process.env.RESEND_API_KEY) }
 
 const FROM = process.env.RESEND_FROM_EMAIL ?? "RunKlub <info@runklub.fit>"
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.runklub.fit"
+const BASE_URL = process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "https://www.runklub.fit"
 
 async function generateMagicLink(email: string, _clubId: string): Promise<string> {
   const redirectTo = `${BASE_URL}/welcome`
@@ -208,12 +208,85 @@ export async function PATCH(
     const isInAppClaim = !!claim.club_id && !!claim.user_id
 
     if (isInAppClaim) {
-      // Existing user claiming an existing club — grant access immediately
+      // Director already signed in — link the club and grant role
+      const { data: existingProfile } = await getAdminSupabase()
+        .from("profiles").select("role").eq("id", claim.user_id).maybeSingle()
+      const shouldSetRole = !existingProfile?.role || existingProfile.role === "user"
+
       await Promise.all([
-        getAdminSupabase().from("clubs").update({ user_id: claim.user_id }).eq("id", claim.club_id),
-        getAdminSupabase().from("profiles").update({ role: "manager" }).eq("id", claim.user_id),
+        getAdminSupabase().from("clubs")
+          .update({ user_id: claim.user_id, claim_token_used_at: new Date().toISOString() })
+          .eq("id", claim.club_id),
+        shouldSetRole
+          ? getAdminSupabase().from("profiles").upsert({ id: claim.user_id, role: "manager" }, { onConflict: "id" })
+          : Promise.resolve(),
         getAdminSupabase().from("club_claims").update({ status: "approved" }).eq("id", claimId),
       ])
+
+      // Send the director a confirmation email
+      if (claim.contact_email && claim.club_id) {
+        const clubName = claim.club_name ?? "your club"
+        const clubUrl = `${BASE_URL}/clubs/${claim.club_id}`
+        const safeName = (claim.contact_name ?? "there").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        const safeClub = clubName.replace(/</g, "&lt;").replace(/>/g, "&gt;")
+
+        const html = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f4;padding:32px 0;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="background:#1a2110;border-radius:16px;overflow:hidden;max-width:600px;width:100%;">
+        <tr>
+          <td style="padding:28px 32px;border-bottom:1px solid #2e3d1a;">
+            <span style="font-size:22px;font-weight:900;color:#ffffff;">Run</span><span style="font-size:22px;font-weight:900;color:#c5f135;">Klub</span>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:32px 32px 12px;">
+            <h1 style="margin:0 0 16px;font-size:24px;font-weight:900;color:#ffffff;line-height:1.3;">
+              You&rsquo;re approved, ${safeName}! 🎉
+            </h1>
+            <p style="margin:0 0 28px;font-size:15px;line-height:1.7;color:rgba(255,255,255,0.7);">
+              <strong style="color:#ffffff;">${safeClub}</strong> has been approved and is now live on RunKlub. Sign in to start posting runs and growing your crew.
+            </p>
+            <table cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="border-radius:999px;background:#c5f135;">
+                  <a href="${clubUrl}" target="_blank"
+                    style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:900;color:#1a2110;text-decoration:none;border-radius:999px;">
+                    Go to ${safeClub} →
+                  </a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:20px 32px;border-top:1px solid #2e3d1a;">
+            <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.25);line-height:1.6;">
+              Questions? Reply to this email.<br>
+              RunKlub &mdash; Find people you actually want to run with.
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`
+
+        const text = `Hey ${claim.contact_name ?? "there"},\n\n${clubName} has been approved on RunKlub! 🎉\n\nSign in and go to your club: ${clubUrl}\n\nQuestions? Reply to this email.\n— The RunKlub team`
+
+        await getResend().emails.send({
+          from: FROM,
+          to: claim.contact_email,
+          subject: `✅ ${clubName} is approved on RunKlub!`,
+          html,
+          text,
+        }).catch((err: any) => console.error("Approval email failed:", err))
+      }
+
       return NextResponse.json({ ok: true })
     }
 

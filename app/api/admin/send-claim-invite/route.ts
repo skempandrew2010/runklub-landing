@@ -13,7 +13,7 @@ function getAdminSupabase() {
 function getResend() { return new Resend(process.env.RESEND_API_KEY) }
 
 const FROM = process.env.RESEND_FROM_EMAIL ?? "RunKlub <info@runklub.fit>"
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.runklub.fit"
+const BASE_URL = process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "https://www.runklub.fit"
 
 function buildInviteEmail(clubName: string, city: string | null, claimLink: string): { html: string; text: string } {
   const safe = (s: string) => s.replace(/</g, "&lt;").replace(/>/g, "&gt;")
@@ -145,34 +145,15 @@ export async function POST(req: NextRequest) {
     const emails = rawEmails.split(",").map((e: string) => e.trim()).filter(Boolean)
     if (emails.length === 0) return NextResponse.json({ error: "No valid email address provided" }, { status: 400 })
 
-    // On resend, regenerate the claim token so old links are invalidated
+    // Generate a new token if one doesn't exist, on resend, or if already invited before
     let currentClaimToken = club.claim_token
-    if (resend || club.invite_sent_at) {
+    if (!currentClaimToken || resend || club.invite_sent_at) {
       currentClaimToken = crypto.randomUUID()
       await getAdminSupabase()
         .from("clubs")
         .update({ claim_token: currentClaimToken })
         .eq("id", club_id)
     }
-
-    const primaryEmail = emails[0].toLowerCase()
-
-    // Pre-create an approved claim so /api/claim/activate can verify on sign-in
-    await getAdminSupabase()
-      .from("club_claims")
-      .delete()
-      .eq("club_id", club_id)
-      .eq("status", "approved")
-      .is("user_id", null)
-    await getAdminSupabase().from("club_claims").insert({
-      club_id:       club.id,
-      club_name:     club.name,
-      contact_name:  null,
-      contact_email: primaryEmail,
-      message:       null,
-      claimed_at:    new Date().toISOString(),
-      status:        "approved",
-    })
 
     // Save contact_email and invite_sent_at
     const updates: Record<string, unknown> = { invite_sent_at: new Date().toISOString() }

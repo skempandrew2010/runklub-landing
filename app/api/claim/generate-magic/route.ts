@@ -9,7 +9,7 @@ function getAdminSupabase() {
   )
 }
 
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.runklub.fit"
+const BASE_URL = process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "https://www.runklub.fit"
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 // Called when the director clicks "Sign in" on the /welcome?t=<token> page.

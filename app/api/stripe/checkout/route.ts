@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
       ? process.env.STRIPE_VERIFIED_PRICE_ID!
       : process.env.STRIPE_PRO_PRICE_ID!
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
+    const appUrl = process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
 
     const session = await getStripe().checkout.sessions.create({
       customer: customerId,
