@@ -19,8 +19,9 @@ export default function WelcomeContent() {
   const [errorMsg, setErrorMsg] = useState("")
   const activated = useRef(false)
 
-  // Post-approval path: director clicks magic link from approval email,
-  // gets signed in, and we activate immediately to link their club.
+  // Called when user is already signed in:
+  // - With claimToken: they clicked an invite link while logged in → create pending claim
+  // - Without claimToken: post-approval magic link path → link club directly
   const activate = async (accessToken: string) => {
     if (activated.current) return
     activated.current = true
@@ -29,7 +30,7 @@ export default function WelcomeContent() {
     const res = await fetch("/api/claim/activate", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
-      body: JSON.stringify({}),
+      body: JSON.stringify(claimToken ? { claim_token: claimToken } : {}),
     })
 
     if (res.ok) {
