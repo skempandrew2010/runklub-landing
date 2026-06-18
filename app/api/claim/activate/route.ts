@@ -170,7 +170,7 @@ export async function POST(req: NextRequest) {
     if (!userEmail) return NextResponse.json({ error: "User has no email" }, { status: 400 })
 
     const body = await req.json().catch(() => ({}))
-    const { claim_token, club_id: requestedClubId } = body ?? {}
+    const { claim_token, club_id: requestedClubId, contact_name } = body ?? {}
 
     if (claim_token) {
       // Primary path: director came via admin invite link
@@ -203,7 +203,7 @@ export async function POST(req: NextRequest) {
           club_name:     club.name,
           user_id:       user.id,
           contact_email: userEmail,
-          contact_name:  null,
+          contact_name:  contact_name?.trim() || null,
           message:       null,
           claimed_at:    new Date().toISOString(),
           status:        "pending",

@@ -15,22 +15,27 @@ export default function WelcomeContent() {
   const [clubName, setClubName] = useState("")
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [errorMsg, setErrorMsg] = useState("")
   const activated = useRef(false)
 
   // Called when user is already signed in:
-  // - With claimToken: they clicked an invite link while logged in → create pending claim
+  // - With claimToken: create pending claim with their user_id
   // - Without claimToken: post-approval magic link path → link club directly
-  const activate = async (accessToken: string) => {
+  const activate = async (accessToken: string, contactName?: string) => {
     if (activated.current) return
     activated.current = true
     setMode("activating")
 
+    const body: Record<string, string> = {}
+    if (claimToken) body.claim_token = claimToken
+    if (contactName) body.contact_name = contactName
+
     const res = await fetch("/api/claim/activate", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
-      body: JSON.stringify(claimToken ? { claim_token: claimToken } : {}),
+      body: JSON.stringify(body),
     })
 
     if (res.ok) {
@@ -51,12 +56,10 @@ export default function WelcomeContent() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.access_token) {
-        // Already signed in — this is the post-approval magic link path
         activate(session.access_token)
         return
       }
 
-      // Not signed in — need a claim token to show the form
       if (!claimToken) {
         setErrorMsg("No invite token found. Please use the link from your email.")
         setMode("error")
@@ -74,7 +77,7 @@ export default function WelcomeContent() {
         .catch(() => { setErrorMsg("Could not load club info. Please try again."); setMode("error") })
     })
 
-    // Listen for auth state change — handles magic link sign-in from approval email
+    // Handles magic link sign-in from approval email
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if ((event === "SIGNED_IN" || event === "TOKEN_REFRESHED") && session?.access_token) {
         activate(session.access_token)
@@ -86,31 +89,57 @@ export default function WelcomeContent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!name.trim() || !email.trim() || !claimToken) return
+    if (!name.trim() || !email.trim() || !password || !claimToken) return
     setSubmitting(true)
 
-    try {
-      const res = await fetch(`/api/claim-lookup/${claimToken}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contact_name: name.trim(), contact_email: email.trim() }),
-      })
+    const trimmedEmail = email.trim().toLowerCase()
+    const trimmedName = name.trim()
 
-      const json = await res.json()
+    // Try signing up first; fall back to sign-in if account already exists
+    let accessToken: string | undefined
 
-      if (!res.ok) {
-        setErrorMsg(json.error ?? "Failed to submit claim.")
+    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+      email: trimmedEmail,
+      password,
+      options: { data: { full_name: trimmedName } },
+    })
+
+    if (!signUpError) {
+      accessToken = signUpData.session?.access_token
+      if (!accessToken) {
+        // Email confirmation required — rare for this app config
+        setErrorMsg("Check your email to confirm your account, then try again.")
         setMode("error")
+        setSubmitting(false)
         return
       }
-
-      setMode("pending")
-    } catch {
-      setErrorMsg("Something went wrong. Please try again.")
-      setMode("error")
-    } finally {
+    } else if (signUpError.message.toLowerCase().includes("already registered") ||
+               signUpError.message.toLowerCase().includes("already been registered")) {
+      // Account exists — sign in with the provided password
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email: trimmedEmail,
+        password,
+      })
+      if (signInError) {
+        setErrorMsg("An account with this email already exists. Check your password and try again.")
+        setSubmitting(false)
+        return
+      }
+      accessToken = signInData.session?.access_token
+    } else {
+      setErrorMsg(signUpError.message)
       setSubmitting(false)
+      return
     }
+
+    if (!accessToken) {
+      setErrorMsg("Could not create session. Please try again.")
+      setSubmitting(false)
+      return
+    }
+
+    await activate(accessToken, trimmedName)
+    setSubmitting(false)
   }
 
   return (
@@ -149,7 +178,7 @@ export default function WelcomeContent() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-white/50 mb-1.5">Your email</label>
+                <label className="block text-xs font-semibold text-white/50 mb-1.5">Email</label>
                 <input
                   type="email"
                   value={email}
@@ -159,9 +188,21 @@ export default function WelcomeContent() {
                   className="w-full bg-white/8 border border-white/15 rounded-2xl px-5 py-4 text-white placeholder-white/30 focus:outline-none focus:border-[#c5f135]/60 transition"
                 />
               </div>
+              <div>
+                <label className="block text-xs font-semibold text-white/50 mb-1.5">Create a password</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder="At least 6 characters"
+                  minLength={6}
+                  required
+                  className="w-full bg-white/8 border border-white/15 rounded-2xl px-5 py-4 text-white placeholder-white/30 focus:outline-none focus:border-[#c5f135]/60 transition"
+                />
+              </div>
               <button
                 type="submit"
-                disabled={!name.trim() || !email.trim() || submitting}
+                disabled={!name.trim() || !email.trim() || password.length < 6 || submitting}
                 className="w-full bg-[#c5f135] text-[#1a2110] font-black text-base py-4 rounded-2xl hover:bg-[#d4ff45] transition disabled:opacity-40"
               >
                 {submitting ? "Submitting…" : "Claim my club"}
