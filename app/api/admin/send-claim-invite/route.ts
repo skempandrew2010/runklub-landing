@@ -13,27 +13,9 @@ function getAdminSupabase() {
 function getResend() { return new Resend(process.env.RESEND_API_KEY) }
 
 const FROM = process.env.RESEND_FROM_EMAIL ?? "RunKlub <info@runklub.fit>"
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://runklub.fit"
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.runklub.fit"
 
-async function generateMagicLink(email: string, _clubId: string): Promise<string> {
-  const redirectTo = `${BASE_URL}/welcome`
-  const { data, error } = await getAdminSupabase().auth.admin.generateLink({
-    type: "invite",
-    email,
-    options: { redirectTo },
-  })
-  if (!error && data?.properties?.action_link) return data.properties.action_link
-
-  const { data: data2, error: error2 } = await getAdminSupabase().auth.admin.generateLink({
-    type: "magiclink",
-    email,
-    options: { redirectTo },
-  })
-  if (error2 || !data2?.properties?.action_link) throw new Error("Could not generate magic link")
-  return data2.properties.action_link
-}
-
-function buildInviteEmail(clubName: string, city: string | null, magicLinkUrl: string): { html: string; text: string } {
+function buildInviteEmail(clubName: string, city: string | null, claimLink: string): { html: string; text: string } {
   const safe = (s: string) => s.replace(/</g, "&lt;").replace(/>/g, "&gt;")
   const safeClub = safe(clubName)
   const safeCity = city ? ` in ${safe(city)}` : ""
@@ -63,22 +45,19 @@ function buildInviteEmail(clubName: string, city: string | null, magicLinkUrl: s
               We&rsquo;ve added <strong style="color:#ffffff;">${safeClub}</strong>${safeCity} to RunKlub — a platform where runners discover clubs, find group runs, and connect with their local running community.
             </p>
             <p style="margin:0 0 28px;font-size:15px;line-height:1.7;color:rgba(255,255,255,0.7);">
-              Click below to claim your club. You&rsquo;ll be signed in automatically and can start posting runs right away.
+              Click below to claim your club and start posting runs right away.
             </p>
             <!-- CTA -->
             <table cellpadding="0" cellspacing="0">
               <tr>
                 <td style="border-radius:999px;background:#c5f135;">
-                  <a href="${magicLinkUrl}" target="_blank"
+                  <a href="${claimLink}" target="_blank"
                     style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:900;color:#1a2110;text-decoration:none;border-radius:999px;">
                     Claim ${safeClub} →
                   </a>
                 </td>
               </tr>
             </table>
-            <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.25);">
-              This link expires in 24 hours and can only be used once.
-            </p>
           </td>
         </tr>
 
@@ -107,7 +86,7 @@ function buildInviteEmail(clubName: string, city: string | null, magicLinkUrl: s
         <tr>
           <td style="padding:20px 32px;border-top:1px solid #2e3d1a;">
             <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.25);line-height:1.6;">
-              This link is unique to ${safeClub} and expires in 24 hours. Questions? Reply to this email.<br>
+              Questions? Reply to this email.<br>
               RunKlub &mdash; Find people you actually want to run with.
             </p>
           </td>
@@ -123,16 +102,9 @@ function buildInviteEmail(clubName: string, city: string | null, magicLinkUrl: s
 
 We've added ${clubName}${safeCity} to RunKlub — a platform where runners discover clubs, find group runs, and connect with their local running community.
 
-Click the link below to claim your club — you'll be signed in automatically and can start posting runs right away.
+Click the link below to claim your club:
 
-${magicLinkUrl}
-
-This link expires in 24 hours and can only be used once.
-
-What you get:
-• Post upcoming runs so members always know when you're going out
-• Grow your crew — runners in your city are already looking for clubs like yours
-• Members follow your club and get notified about new runs
+${claimLink}
 
 Questions? Just reply to this email.
 — The RunKlub team`
@@ -173,17 +145,17 @@ export async function POST(req: NextRequest) {
     const emails = rawEmails.split(",").map((e: string) => e.trim()).filter(Boolean)
     if (emails.length === 0) return NextResponse.json({ error: "No valid email address provided" }, { status: 400 })
 
-    // On resend, regenerate the claim token
+    // On resend, regenerate the claim token so old links are invalidated
+    let currentClaimToken = club.claim_token
     if (resend || club.invite_sent_at) {
+      currentClaimToken = crypto.randomUUID()
       await getAdminSupabase()
         .from("clubs")
-        .update({ claim_token: crypto.randomUUID() })
+        .update({ claim_token: currentClaimToken })
         .eq("id", club_id)
     }
 
-    // Generate magic link for the primary recipient — this IS the claim link
     const primaryEmail = emails[0].toLowerCase()
-    const magicLinkUrl = await generateMagicLink(primaryEmail, club_id)
 
     // Pre-create an approved claim so /api/claim/activate can verify on sign-in
     await getAdminSupabase()
@@ -209,7 +181,11 @@ export async function POST(req: NextRequest) {
     }
     await getAdminSupabase().from("clubs").update(updates).eq("id", club_id)
 
-    const { html, text } = buildInviteEmail(club.name, club.city, magicLinkUrl)
+    // The email link points to OUR page, not directly to Supabase.
+    // This prevents email scanners from consuming the one-time Supabase OTP
+    // before the director gets a chance to click it.
+    const claimLink = `${BASE_URL}/welcome?t=${currentClaimToken}`
+    const { html, text } = buildInviteEmail(club.name, club.city, claimLink)
 
     const { error: emailError } = await getResend().emails.send({
       from: FROM,

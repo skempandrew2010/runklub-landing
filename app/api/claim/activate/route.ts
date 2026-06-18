@@ -60,9 +60,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Club already has an owner" }, { status: 409 })
     }
 
-    // Link the club and grant manager role
+    // Link the club, mark the token used, and grant manager role
     await Promise.all([
-      getAdminSupabase().from("clubs").update({ user_id: user.id }).eq("id", clubId),
+      getAdminSupabase()
+        .from("clubs")
+        .update({ user_id: user.id, claim_token_used_at: new Date().toISOString() })
+        .eq("id", clubId),
       getAdminSupabase()
         .from("profiles")
         .upsert({ id: user.id, role: "manager" }, { onConflict: "id" }),
