@@ -185,9 +185,9 @@ export default function WelcomeContent() {
             </div>
             <a
               href="/explore"
-              className="inline-block text-[#c5f135] text-sm font-bold hover:underline"
+              className="block w-full bg-[#c5f135] text-[#1a2110] font-black text-base py-4 rounded-2xl hover:bg-[#d4ff45] transition text-center"
             >
-              Browse RunKlub →
+              Browse RunKlub
             </a>
           </>
         )}
