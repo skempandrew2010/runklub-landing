@@ -198,16 +198,25 @@ export async function POST(req: NextRequest) {
       }
 
       if (!existing) {
-        await getAdminSupabase().from("club_claims").insert({
-          club_id:       club.id,
-          club_name:     club.name,
-          user_id:       user.id,
-          contact_email: userEmail,
-          contact_name:  contact_name?.trim() || null,
-          message:       null,
-          claimed_at:    new Date().toISOString(),
-          status:        "pending",
-        })
+        const { data: existingProfile } = await getAdminSupabase()
+          .from("profiles").select("role").eq("id", user.id).maybeSingle()
+        const shouldSetRole = !existingProfile?.role || existingProfile.role === "user"
+
+        await Promise.all([
+          getAdminSupabase().from("club_claims").insert({
+            club_id:       club.id,
+            club_name:     club.name,
+            user_id:       user.id,
+            contact_email: userEmail,
+            contact_name:  contact_name?.trim() || null,
+            message:       null,
+            claimed_at:    new Date().toISOString(),
+            status:        "pending",
+          }),
+          shouldSetRole
+            ? getAdminSupabase().from("profiles").upsert({ id: user.id, role: "manager" }, { onConflict: "id" })
+            : Promise.resolve(),
+        ])
 
         // Fire both emails without blocking the response
         Promise.all([
