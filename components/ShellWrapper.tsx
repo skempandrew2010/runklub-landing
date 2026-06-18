@@ -10,12 +10,13 @@ const NavBar = dynamic(() => import("./navBar"), {
   loading: () => <nav className="sticky top-0 z-50 bg-[#1a2110] border-b border-[#2e3d1a]" style={{ height: 'var(--navbar-h)' }} />,
 })
 
-const SHELL_HIDDEN_ROUTES = ["/login", "/onboarding", "/claim"]
+const SHELL_HIDDEN_ROUTES = ["/login", "/onboarding", "/claim", "/welcome"]
 
 const PUBLIC_ROUTES = [
   "/login",
   "/onboarding",
   "/claim",
+  "/welcome",
   "/terms",
   "/privacy",
   "/community",
