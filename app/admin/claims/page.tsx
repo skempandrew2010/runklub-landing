@@ -58,6 +58,7 @@ export default function AdminClaimsPage() {
   const [inviteErrors, setInviteErrors] = useState<Record<string, string>>({})
   const [claimsSearch, setClaimsSearch] = useState("")
   const [claimsFilter, setClaimsFilter] = useState<"all" | "pending" | "approved" | "rejected">("all")
+  const [inviteSearch, setInviteSearch] = useState("")
   const [funnelClubs, setFunnelClubs] = useState<FunnelClub[]>([])
 
   useEffect(() => {
@@ -192,6 +193,13 @@ export default function AdminClaimsPage() {
   const resolved = filteredClaims.filter((c) => c.status !== "pending")
   const invitedClubs = unclaimedClubs.filter((c) => c.invite_sent_at)
   const notInvitedClubs = unclaimedClubs.filter((c) => !c.invite_sent_at)
+  const inviteSearchLower = inviteSearch.toLowerCase()
+  const filteredInvitedClubs = inviteSearch
+    ? invitedClubs.filter((c) => c.name.toLowerCase().includes(inviteSearchLower) || (c.city ?? "").toLowerCase().includes(inviteSearchLower))
+    : invitedClubs
+  const filteredNotInvitedClubs = inviteSearch
+    ? notInvitedClubs.filter((c) => c.name.toLowerCase().includes(inviteSearchLower) || (c.city ?? "").toLowerCase().includes(inviteSearchLower))
+    : notInvitedClubs
 
   if (loading) {
     return (
@@ -299,14 +307,26 @@ export default function AdminClaimsPage() {
         {/* ── INVITE TAB ── */}
         {tab === "invite" && (
           <>
+            {/* Search */}
+            <div className="relative mb-5">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/25 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Search by club or city…"
+                value={inviteSearch}
+                onChange={(e) => setInviteSearch(e.target.value)}
+                className="w-full bg-[#1e2d12] border border-[#2e3d1a] rounded-xl pl-9 pr-4 py-2.5 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#c5f135]/50 transition"
+              />
+            </div>
+
             {/* Awaiting response */}
-            {invitedClubs.length > 0 && (
+            {filteredInvitedClubs.length > 0 && (
               <div className="mb-8">
                 <h2 className="text-xs font-bold text-white/30 uppercase tracking-widest mb-3">
-                  Awaiting Response <span className="ml-1">({invitedClubs.length})</span>
+                  Awaiting Response <span className="ml-1">({filteredInvitedClubs.length})</span>
                 </h2>
                 <div className="space-y-3">
-                  {invitedClubs.map((club) => {
+                  {filteredInvitedClubs.map((club) => {
                     const isSending = sending === club.id
                     const isCancelling = cancelling === club.id
                     const justSent = sent.has(club.id)
@@ -369,22 +389,25 @@ export default function AdminClaimsPage() {
 
             {/* Not yet contacted */}
             <div>
-              {invitedClubs.length > 0 && (
+              {filteredInvitedClubs.length > 0 && (
                 <h2 className="text-xs font-bold text-white/30 uppercase tracking-widest mb-3">
-                  Not Yet Contacted <span className="ml-1">({notInvitedClubs.length})</span>
+                  Not Yet Contacted <span className="ml-1">({filteredNotInvitedClubs.length})</span>
                 </h2>
               )}
-              {notInvitedClubs.length === 0 && invitedClubs.length === 0 && (
+              {!inviteSearch && notInvitedClubs.length === 0 && invitedClubs.length === 0 && (
                 <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-8 text-center">
                   <p className="text-white/40 text-sm">All clubs have been invited or claimed.</p>
                 </div>
               )}
-              {notInvitedClubs.length === 0 && invitedClubs.length > 0 && (
+              {inviteSearch && filteredInvitedClubs.length === 0 && filteredNotInvitedClubs.length === 0 && (
+                <p className="text-white/30 text-sm text-center py-4">No clubs match your search.</p>
+              )}
+              {!inviteSearch && notInvitedClubs.length === 0 && invitedClubs.length > 0 && (
                 <p className="text-white/30 text-sm text-center py-4">All unclaimed clubs have been contacted.</p>
               )}
-              {notInvitedClubs.length > 0 && (
+              {filteredNotInvitedClubs.length > 0 && (
                 <div className="space-y-3">
-                  {notInvitedClubs.map((club) => {
+                  {filteredNotInvitedClubs.map((club) => {
                     const isSent = sent.has(club.id)
                     const isSending = sending === club.id
                     const email = inviteEmails[club.id] ?? club.contact_email ?? ""

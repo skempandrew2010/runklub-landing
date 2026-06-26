@@ -24,6 +24,14 @@ export type RunPin = {
   club_lng: number | null
 }
 
+export type ClubPin = {
+  id: string
+  name: string
+  lat: number
+  lng: number
+  image_url?: string | null
+}
+
 // Runs grouped by their map position (run location if set, else club location)
 type LocationGroup = {
   key: string
@@ -37,6 +45,7 @@ export type MapBounds = { north: number; south: number; east: number; west: numb
 type MapViewProps = {
   city: string
   runs: RunPin[]
+  clubs?: ClubPin[]
   onCityCoords?: (coords: { lat: number; lng: number } | null) => void
   onBoundsChange?: (bounds: MapBounds) => void
 }
@@ -117,13 +126,15 @@ function clusterGroups(groups: LocationGroup[], zoom: number, radiusPx: number):
   return result
 }
 
-export default function MapView({ city, runs, onCityCoords, onBoundsChange }: MapViewProps) {
+export default function MapView({ city, runs, clubs, onCityCoords, onBoundsChange }: MapViewProps) {
   const [viewState, setViewState] = useState({ latitude: 40.015, longitude: -105.2705, zoom: 11 })
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null)
   const [selectedGroup, setSelectedGroup] = useState<LocationGroup | null>(null)
+  const [selectedClubPin, setSelectedClubPin] = useState<ClubPin | null>(null)
   const [mapReady, setMapReady] = useState(false)
   const [geocodedCities, setGeocodedCities] = useState<Record<string, { lat: number; lng: number }>>({})
   const [cityBbox, setCityBbox] = useState<[number, number, number, number] | null>(null)
+  const [internalBounds, setInternalBounds] = useState<MapBounds | null>(null)
   const mapRef = useRef<any>(null)
   const cityReqId = useRef(0)
 
@@ -234,6 +245,24 @@ export default function MapView({ city, runs, onCityCoords, onBoundsChange }: Ma
     [locationGroups, viewState.zoom]
   )
 
+  const clubIdsWithRuns = useMemo(
+    () => new Set(locationGroups.flatMap((g) => g.runs.map((r) => r.club_id))),
+    [locationGroups]
+  )
+
+  const clubOnlyPins = useMemo(() => {
+    if (!clubs || !internalBounds) return []
+    return clubs.filter((c) => {
+      if (clubIdsWithRuns.has(c.id)) return false
+      return (
+        c.lat >= internalBounds.south &&
+        c.lat <= internalBounds.north &&
+        c.lng >= internalBounds.west &&
+        c.lng <= internalBounds.east
+      )
+    })
+  }, [clubs, clubIdsWithRuns, internalBounds])
+
   return (
     <Map
       ref={mapRef}
@@ -241,12 +270,14 @@ export default function MapView({ city, runs, onCityCoords, onBoundsChange }: Ma
       onMove={(evt: any) => {
         setViewState(evt.viewState)
         const map = mapRef.current?.getMap()
-        if (map && onBoundsChange) {
+        if (map) {
           const b = map.getBounds()
-          onBoundsChange({ north: b.getNorth(), south: b.getSouth(), east: b.getEast(), west: b.getWest() })
+          const bounds = { north: b.getNorth(), south: b.getSouth(), east: b.getEast(), west: b.getWest() }
+          setInternalBounds(bounds)
+          onBoundsChange?.(bounds)
         }
       }}
-      onClick={() => setSelectedGroup(null)}
+      onClick={() => { setSelectedGroup(null); setSelectedClubPin(null) }}
       style={{ width: "100%", height: "100%", minHeight: "180px" }}
       mapStyle="mapbox://styles/mapbox/streets-v11"
       mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
@@ -254,9 +285,11 @@ export default function MapView({ city, runs, onCityCoords, onBoundsChange }: Ma
       onLoad={() => {
         setMapReady(true)
         const map = mapRef.current?.getMap()
-        if (map && onBoundsChange) {
+        if (map) {
           const b = map.getBounds()
-          onBoundsChange({ north: b.getNorth(), south: b.getSouth(), east: b.getEast(), west: b.getWest() })
+          const bounds = { north: b.getNorth(), south: b.getSouth(), east: b.getEast(), west: b.getWest() }
+          setInternalBounds(bounds)
+          onBoundsChange?.(bounds)
         }
       }}
       onRemove={() => setMapReady(false)}
@@ -394,7 +427,82 @@ export default function MapView({ city, runs, onCityCoords, onBoundsChange }: Ma
         )
       })}
 
-      {/* Popup */}
+      {/* Club-only pins — shown when no upcoming runs exist for the club */}
+      {mapReady && clubOnlyPins.map((club) => (
+        <Marker key={`club-${club.id}`} longitude={club.lng} latitude={club.lat} anchor="bottom">
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              setSelectedClubPin(club)
+              setSelectedGroup(null)
+            }}
+            className="relative focus:outline-none"
+            style={{ transform: "scale(1)", transition: "transform 0.15s ease" }}
+          >
+            <svg width="22" height="30" viewBox="0 0 22 30" fill="none" xmlns="http://www.w3.org/2000/svg"
+              style={{ filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.4))" }}
+            >
+              <path
+                d="M11 0C4.925 0 0 4.925 0 11c0 7.667 11 19 11 19S22 18.667 22 11C22 4.925 17.075 0 11 0z"
+                fill="#1a2110" stroke="#c5f135" strokeWidth="1.5" strokeOpacity="0.55"
+              />
+              <circle cx="11" cy="10.5" r="3" fill="#c5f135" fillOpacity="0.55" />
+            </svg>
+          </button>
+        </Marker>
+      ))}
+
+      {/* Club-only popup */}
+      {mapReady && selectedClubPin && (
+        <Popup
+          longitude={selectedClubPin.lng}
+          latitude={selectedClubPin.lat}
+          anchor="top"
+          offset={14}
+          closeButton={false}
+          onClose={() => setSelectedClubPin(null)}
+          className="run-popup"
+          maxWidth="280px"
+        >
+          <div onClick={(e) => e.stopPropagation()} style={{ minWidth: 210 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px" }}>
+              <div style={{ width: 34, height: 34, borderRadius: 8, background: "#2e3d1a", overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {selectedClubPin.image_url ? (
+                  <img src={selectedClubPin.image_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                ) : (
+                  <span style={{ fontSize: 11, fontWeight: 900, color: "rgba(255,255,255,0.4)" }}>
+                    {selectedClubPin.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
+                  </span>
+                )}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ margin: 0, color: "#fff", fontWeight: 800, fontSize: 13, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {selectedClubPin.name}
+                </p>
+                <p style={{ margin: "3px 0 0", color: "rgba(255,255,255,0.35)", fontSize: 10 }}>
+                  No upcoming runs scheduled
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedClubPin(null)}
+                style={{ color: "rgba(255,255,255,0.25)", background: "none", border: "none", cursor: "pointer", padding: 2, lineHeight: 1, flexShrink: 0 }}
+              >
+                ✕
+              </button>
+            </div>
+            <div style={{ padding: "0 14px 12px" }}>
+              <a
+                href={`/clubs/${selectedClubPin.id}`}
+                style={{ display: "block", textAlign: "center", padding: "7px 0", borderRadius: 8, background: "#2e3d1a", color: "#c5f135", fontWeight: 700, fontSize: 12, textDecoration: "none" }}
+              >
+                View club →
+              </a>
+            </div>
+          </div>
+        </Popup>
+      )}
+
+      {/* Run popup */}
       {mapReady && selectedGroup && (() => {
         const allSameClub = selectedGroup.runs.every(r => r.club_id === selectedGroup.runs[0].club_id)
         const headerName = allSameClub ? selectedGroup.runs[0].club_name : `${selectedGroup.runs.length} runs here`

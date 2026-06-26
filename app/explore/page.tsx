@@ -228,6 +228,14 @@ export default function ExplorePage() {
     filters.paceRange[0] > 5 || filters.paceRange[1] < 15,
   ].filter(Boolean).length
 
+  const mapClubs = useMemo(
+    () =>
+      clubs
+        .filter((c) => c.latitude != null && c.longitude != null)
+        .map((c) => ({ id: c.id, name: c.name, lat: c.latitude!, lng: c.longitude!, image_url: c.image_url ?? null })),
+    [clubs]
+  )
+
   const mapRuns = mapBounds
     ? allWeekRuns.filter((r) => {
         const lat = r.run_lat ?? r.club_lat
@@ -464,7 +472,7 @@ export default function ExplorePage() {
         {showMobileMap ? (
           <>
             <div className="fixed left-0 right-0 z-10" style={{ top: 'var(--navbar-h)', bottom: "0" }}>
-              <MapView city={city} runs={mapRuns} onCityCoords={setCityCoords} onBoundsChange={setMapBounds} />
+              <MapView city={city} runs={mapRuns} clubs={mapClubs} onCityCoords={setCityCoords} onBoundsChange={setMapBounds} />
             </div>
             <button onClick={() => setShowMobileMap(false)}
               className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-5 py-2.5 bg-[#1a2110] border border-[#3d5220] rounded-full text-white font-semibold text-sm shadow-xl shadow-black/60">
@@ -498,7 +506,7 @@ export default function ExplorePage() {
           </div>
           <div className="w-[42%] shrink-0">
             <div className="sticky" style={{ top: 'var(--navbar-h)', height: 'calc(100vh - var(--navbar-h))' }}>
-              <MapView city={city} runs={mapRuns} onCityCoords={setCityCoords} onBoundsChange={setMapBounds} />
+              <MapView city={city} runs={mapRuns} clubs={mapClubs} onCityCoords={setCityCoords} onBoundsChange={setMapBounds} />
             </div>
           </div>
         </div>
