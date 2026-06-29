@@ -51,7 +51,7 @@ export default function AdminClaimsPage() {
   const [unclaimedClubs, setUnclaimedClubs] = useState<UnclaimedClub[]>([])
   const [loading, setLoading] = useState(true)
   const [acting, setActing] = useState<string | null>(null)
-  const [tab, setTab] = useState<"claims" | "invite" | "funnel">("claims")
+  const [tab, setTab] = useState<"claims" | "invite" | "sent" | "funnel">("claims")
   const [inviteEmails, setInviteEmails] = useState<Record<string, string>>({})
   const [sending, setSending] = useState<string | null>(null)
   const [cancelling, setCancelling] = useState<string | null>(null)
@@ -220,7 +220,7 @@ export default function AdminClaimsPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-2 mb-6">
+        <div className="flex gap-2 mb-6 flex-wrap">
           <button
             onClick={() => setTab("claims")}
             className={`px-4 py-2 rounded-full text-sm font-bold transition ${tab === "claims" ? "bg-[#c5f135] text-[#1a2110]" : "bg-[#1e2d12] border border-[#2e3d1a] text-white/50 hover:text-white"}`}
@@ -231,7 +231,13 @@ export default function AdminClaimsPage() {
             onClick={() => setTab("invite")}
             className={`px-4 py-2 rounded-full text-sm font-bold transition ${tab === "invite" ? "bg-[#c5f135] text-[#1a2110]" : "bg-[#1e2d12] border border-[#2e3d1a] text-white/50 hover:text-white"}`}
           >
-            Send Invites {unclaimedClubs.length > 0 && <span className="ml-1 text-xs">({unclaimedClubs.length})</span>}
+            Send Invites {notInvitedClubs.length > 0 && <span className="ml-1 text-xs">({notInvitedClubs.length})</span>}
+          </button>
+          <button
+            onClick={() => setTab("sent")}
+            className={`px-4 py-2 rounded-full text-sm font-bold transition ${tab === "sent" ? "bg-[#c5f135] text-[#1a2110]" : "bg-[#1e2d12] border border-[#2e3d1a] text-white/50 hover:text-white"}`}
+          >
+            Invites Sent {invitedClubs.length > 0 && <span className="ml-1 text-xs">({invitedClubs.length})</span>}
           </button>
           <button
             onClick={() => setTab("funnel")}
@@ -306,10 +312,9 @@ export default function AdminClaimsPage() {
           </>
         )}
 
-        {/* ── INVITE TAB ── */}
-        {tab === "invite" && (
+        {/* ── INVITES SENT TAB ── */}
+        {tab === "sent" && (
           <>
-            {/* Search */}
             <div className="relative mb-5">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/25 pointer-events-none" />
               <input
@@ -320,183 +325,172 @@ export default function AdminClaimsPage() {
                 className="w-full bg-[#1e2d12] border border-[#2e3d1a] rounded-xl pl-9 pr-4 py-2.5 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#c5f135]/50 transition"
               />
             </div>
-
-            {/* Awaiting response */}
-            {filteredInvitedClubs.length > 0 && (
-              <div className="mb-8">
-                <h2 className="text-xs font-bold text-white/30 uppercase tracking-widest mb-3">
-                  Awaiting Response <span className="ml-1">({filteredInvitedClubs.length})</span>
-                </h2>
-                <div className="space-y-3">
-                  {filteredInvitedClubs.map((club) => {
-                    const isSending = sending === club.id
-                    const isCancelling = cancelling === club.id
-                    const justSent = sent.has(club.id)
-                    const igHandle = (inviteInstagrams[club.id] ?? club.instagram_handle ?? "").replace(/^@/, "").trim()
-                    return (
-                      <div key={club.id} className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-4 space-y-3">
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="text-sm font-bold text-white">{club.name}</p>
-                            {club.city && <p className="text-xs text-white/40">{club.city}</p>}
-                          </div>
-                          <div className="text-right shrink-0">
-                            <p className="text-[10px] font-bold text-[#c5f135]/50 uppercase tracking-wider">Invite sent</p>
-                            <p className="text-xs text-white/30 mt-0.5">
-                              {new Date(club.invite_sent_at!).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                            </p>
-                          </div>
-                        </div>
-                        {club.contact_email && (
-                          <p className="text-xs text-white/40">Sent to: <span className="text-white/60">{club.contact_email}</span></p>
-                        )}
-                        <div className="flex gap-2">
-                          <input
-                            type="email"
-                            placeholder="Send to a different address…"
-                            value={inviteEmails[club.id] ?? ""}
-                            onChange={(e) => setInviteEmails((prev) => ({ ...prev, [club.id]: e.target.value }))}
-                            className="flex-1 bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#c5f135]/50 transition"
-                          />
-                          <button
-                            onClick={() => sendInvite(club.id, true)}
-                            disabled={isSending || isCancelling}
-                            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black transition disabled:opacity-40 shrink-0 bg-[#1a2110] border border-[#2e3d1a] text-white/60 hover:text-white hover:border-[#c5f135]/40"
-                          >
-                            {justSent
-                              ? <><Check className="w-3.5 h-3.5 text-[#c5f135]" /> Sent</>
-                              : isSending
-                              ? "…"
-                              : <><RotateCcw className="w-3.5 h-3.5" /> Resend</>
-                            }
-                          </button>
-                          <button
-                            onClick={() => cancelInvite(club.id)}
-                            disabled={isSending || isCancelling}
-                            title="Cancel invite — invalidates the link"
-                            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition disabled:opacity-40 shrink-0 bg-[#1a2110] border border-[#2e3d1a] text-white/30 hover:text-red-400 hover:border-red-400/30"
-                          >
-                            {isCancelling ? "…" : <Ban className="w-3.5 h-3.5" />}
-                          </button>
-                        </div>
-                        <div className="flex gap-2">
-                          <div className="relative flex-1">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 text-sm pointer-events-none">@</span>
-                            <input
-                              type="text"
-                              placeholder="instagram_handle"
-                              value={inviteInstagrams[club.id] ?? club.instagram_handle ?? ""}
-                              onChange={(e) => setInviteInstagrams((prev) => ({ ...prev, [club.id]: e.target.value.replace(/^@/, "") }))}
-                              className="w-full bg-[#1a2110] border border-[#2e3d1a] rounded-xl pl-7 pr-3 py-2 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#c5f135]/50 transition"
-                            />
-                          </div>
-                          <button
-                            disabled={!igHandle}
-                            onClick={async () => {
-                              await supabase.from("clubs").update({ instagram_handle: igHandle }).eq("id", club.id)
-                              setUnclaimedClubs((prev) => prev.map((c) => c.id === club.id ? { ...c, instagram_handle: igHandle } : c))
-                              window.open(`https://instagram.com/${igHandle}`, "_blank")
-                            }}
-                            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition disabled:opacity-30 shrink-0 bg-[#1a2110] border border-[#2e3d1a] text-white/60 hover:text-white hover:border-[#c5f135]/40"
-                          >
-                            <ExternalLink className="w-3.5 h-3.5" /> Instagram
-                          </button>
-                        </div>
-                        {inviteErrors[club.id] && (
-                          <p className="text-red-400 text-xs px-1">{inviteErrors[club.id]}</p>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
+            {filteredInvitedClubs.length === 0 && (
+              <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-8 text-center">
+                <p className="text-white/40 text-sm">{inviteSearch ? "No clubs match your search." : "No invites sent yet."}</p>
               </div>
             )}
-
-            {/* Not yet contacted */}
-            <div>
-              {filteredInvitedClubs.length > 0 && (
-                <h2 className="text-xs font-bold text-white/30 uppercase tracking-widest mb-3">
-                  Not Yet Contacted <span className="ml-1">({filteredNotInvitedClubs.length})</span>
-                </h2>
-              )}
-              {!inviteSearch && notInvitedClubs.length === 0 && invitedClubs.length === 0 && (
-                <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-8 text-center">
-                  <p className="text-white/40 text-sm">All clubs have been invited or claimed.</p>
-                </div>
-              )}
-              {inviteSearch && filteredInvitedClubs.length === 0 && filteredNotInvitedClubs.length === 0 && (
-                <p className="text-white/30 text-sm text-center py-4">No clubs match your search.</p>
-              )}
-              {!inviteSearch && notInvitedClubs.length === 0 && invitedClubs.length > 0 && (
-                <p className="text-white/30 text-sm text-center py-4">All unclaimed clubs have been contacted.</p>
-              )}
-              {filteredNotInvitedClubs.length > 0 && (
-                <div className="space-y-3">
-                  {filteredNotInvitedClubs.map((club) => {
-                    const isSent = sent.has(club.id)
-                    const isSending = sending === club.id
-                    const email = inviteEmails[club.id] ?? club.contact_email ?? ""
-                    const igHandle = (inviteInstagrams[club.id] ?? club.instagram_handle ?? "").replace(/^@/, "").trim()
-                    return (
-                      <div key={club.id} className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-4 space-y-3">
+            {filteredInvitedClubs.length > 0 && (
+              <div className="space-y-3">
+                {filteredInvitedClubs.map((club) => {
+                  const isSending = sending === club.id
+                  const isCancelling = cancelling === club.id
+                  const justSent = sent.has(club.id)
+                  const igHandle = (inviteInstagrams[club.id] ?? club.instagram_handle ?? "").replace(/^@/, "").trim()
+                  return (
+                    <div key={club.id} className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-4 space-y-3">
+                      <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="text-sm font-bold text-white">{club.name}</p>
                           {club.city && <p className="text-xs text-white/40">{club.city}</p>}
                         </div>
-                        <div className="flex gap-2">
+                        <div className="text-right shrink-0">
+                          <p className="text-[10px] font-bold text-[#c5f135]/50 uppercase tracking-wider">Invite sent</p>
+                          <p className="text-xs text-white/30 mt-0.5">
+                            {new Date(club.invite_sent_at!).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                          </p>
+                        </div>
+                      </div>
+                      {club.contact_email && (
+                        <p className="text-xs text-white/40">Sent to: <span className="text-white/60">{club.contact_email}</span></p>
+                      )}
+                      <div className="flex gap-2">
+                        <input
+                          type="email"
+                          placeholder="Send to a different address…"
+                          value={inviteEmails[club.id] ?? ""}
+                          onChange={(e) => setInviteEmails((prev) => ({ ...prev, [club.id]: e.target.value }))}
+                          className="flex-1 bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#c5f135]/50 transition"
+                        />
+                        <button
+                          onClick={() => sendInvite(club.id, true)}
+                          disabled={isSending || isCancelling}
+                          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black transition disabled:opacity-40 shrink-0 bg-[#1a2110] border border-[#2e3d1a] text-white/60 hover:text-white hover:border-[#c5f135]/40"
+                        >
+                          {justSent ? <><Check className="w-3.5 h-3.5 text-[#c5f135]" /> Sent</> : isSending ? "…" : <><RotateCcw className="w-3.5 h-3.5" /> Resend</>}
+                        </button>
+                        <button
+                          onClick={() => cancelInvite(club.id)}
+                          disabled={isSending || isCancelling}
+                          title="Cancel invite — invalidates the link"
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition disabled:opacity-40 shrink-0 bg-[#1a2110] border border-[#2e3d1a] text-white/30 hover:text-red-400 hover:border-red-400/30"
+                        >
+                          {isCancelling ? "…" : <Ban className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 text-sm pointer-events-none">@</span>
                           <input
                             type="text"
-                            placeholder="director@theirclub.com, another@email.com"
-                            value={inviteEmails[club.id] ?? (club.contact_email || "")}
-                            onChange={(e) => setInviteEmails((prev) => ({ ...prev, [club.id]: e.target.value }))}
-                            disabled={isSent}
-                            className="flex-1 bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#c5f135]/50 transition disabled:opacity-40"
+                            placeholder="instagram_handle"
+                            value={inviteInstagrams[club.id] ?? club.instagram_handle ?? ""}
+                            onChange={(e) => setInviteInstagrams((prev) => ({ ...prev, [club.id]: e.target.value.replace(/^@/, "") }))}
+                            className="w-full bg-[#1a2110] border border-[#2e3d1a] rounded-xl pl-7 pr-3 py-2 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#c5f135]/50 transition"
                           />
-                          <button
-                            onClick={() => sendInvite(club.id)}
-                            disabled={isSent || isSending || !email}
-                            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black transition disabled:opacity-40 shrink-0 bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45]"
-                          >
-                            {isSent
-                              ? <><Check className="w-3.5 h-3.5" /> Sent</>
-                              : isSending
-                              ? "…"
-                              : <><Send className="w-3.5 h-3.5" /> Send</>
-                            }
-                          </button>
                         </div>
-                        <div className="flex gap-2">
-                          <div className="relative flex-1">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 text-sm pointer-events-none">@</span>
-                            <input
-                              type="text"
-                              placeholder="instagram_handle"
-                              value={inviteInstagrams[club.id] ?? club.instagram_handle ?? ""}
-                              onChange={(e) => setInviteInstagrams((prev) => ({ ...prev, [club.id]: e.target.value.replace(/^@/, "") }))}
-                              className="w-full bg-[#1a2110] border border-[#2e3d1a] rounded-xl pl-7 pr-3 py-2 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#c5f135]/50 transition"
-                            />
-                          </div>
-                          <button
-                            disabled={!igHandle}
-                            onClick={async () => {
-                              await supabase.from("clubs").update({ instagram_handle: igHandle }).eq("id", club.id)
-                              setUnclaimedClubs((prev) => prev.map((c) => c.id === club.id ? { ...c, instagram_handle: igHandle } : c))
-                              window.open(`https://instagram.com/${igHandle}`, "_blank")
-                            }}
-                            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition disabled:opacity-30 shrink-0 bg-[#1a2110] border border-[#2e3d1a] text-white/60 hover:text-white hover:border-[#c5f135]/40"
-                          >
-                            <ExternalLink className="w-3.5 h-3.5" /> Instagram
-                          </button>
-                        </div>
-                        {inviteErrors[club.id] && (
-                          <p className="text-red-400 text-xs px-1">{inviteErrors[club.id]}</p>
-                        )}
+                        <button
+                          disabled={!igHandle}
+                          onClick={async () => {
+                            await supabase.from("clubs").update({ instagram_handle: igHandle }).eq("id", club.id)
+                            setUnclaimedClubs((prev) => prev.map((c) => c.id === club.id ? { ...c, instagram_handle: igHandle } : c))
+                            window.open(`https://instagram.com/${igHandle}`, "_blank")
+                          }}
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition disabled:opacity-30 shrink-0 bg-[#1a2110] border border-[#2e3d1a] text-white/60 hover:text-white hover:border-[#c5f135]/40"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" /> Instagram
+                        </button>
                       </div>
-                    )
-                  })}
-                </div>
-              )}
+                      {inviteErrors[club.id] && (
+                        <p className="text-red-400 text-xs px-1">{inviteErrors[club.id]}</p>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── SEND INVITES TAB ── */}
+        {tab === "invite" && (
+          <>
+            <div className="relative mb-5">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/25 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Search by club or city…"
+                value={inviteSearch}
+                onChange={(e) => setInviteSearch(e.target.value)}
+                className="w-full bg-[#1e2d12] border border-[#2e3d1a] rounded-xl pl-9 pr-4 py-2.5 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#c5f135]/50 transition"
+              />
             </div>
+            {filteredNotInvitedClubs.length === 0 && (
+              <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-8 text-center">
+                <p className="text-white/40 text-sm">{inviteSearch ? "No clubs match your search." : "All unclaimed clubs have been contacted."}</p>
+              </div>
+            )}
+            {filteredNotInvitedClubs.length > 0 && (
+              <div className="space-y-3">
+                {filteredNotInvitedClubs.map((club) => {
+                  const isSent = sent.has(club.id)
+                  const isSending = sending === club.id
+                  const email = inviteEmails[club.id] ?? club.contact_email ?? ""
+                  const igHandle = (inviteInstagrams[club.id] ?? club.instagram_handle ?? "").replace(/^@/, "").trim()
+                  return (
+                    <div key={club.id} className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-4 space-y-3">
+                      <div>
+                        <p className="text-sm font-bold text-white">{club.name}</p>
+                        {club.city && <p className="text-xs text-white/40">{club.city}</p>}
+                      </div>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          placeholder="director@theirclub.com, another@email.com"
+                          value={inviteEmails[club.id] ?? (club.contact_email || "")}
+                          onChange={(e) => setInviteEmails((prev) => ({ ...prev, [club.id]: e.target.value }))}
+                          disabled={isSent}
+                          className="flex-1 bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#c5f135]/50 transition disabled:opacity-40"
+                        />
+                        <button
+                          onClick={() => sendInvite(club.id)}
+                          disabled={isSent || isSending || !email}
+                          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black transition disabled:opacity-40 shrink-0 bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45]"
+                        >
+                          {isSent ? <><Check className="w-3.5 h-3.5" /> Sent</> : isSending ? "…" : <><Send className="w-3.5 h-3.5" /> Send</>}
+                        </button>
+                      </div>
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 text-sm pointer-events-none">@</span>
+                          <input
+                            type="text"
+                            placeholder="instagram_handle"
+                            value={inviteInstagrams[club.id] ?? club.instagram_handle ?? ""}
+                            onChange={(e) => setInviteInstagrams((prev) => ({ ...prev, [club.id]: e.target.value.replace(/^@/, "") }))}
+                            className="w-full bg-[#1a2110] border border-[#2e3d1a] rounded-xl pl-7 pr-3 py-2 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#c5f135]/50 transition"
+                          />
+                        </div>
+                        <button
+                          disabled={!igHandle}
+                          onClick={async () => {
+                            await supabase.from("clubs").update({ instagram_handle: igHandle }).eq("id", club.id)
+                            setUnclaimedClubs((prev) => prev.map((c) => c.id === club.id ? { ...c, instagram_handle: igHandle } : c))
+                            window.open(`https://instagram.com/${igHandle}`, "_blank")
+                          }}
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition disabled:opacity-30 shrink-0 bg-[#1a2110] border border-[#2e3d1a] text-white/60 hover:text-white hover:border-[#c5f135]/40"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" /> Instagram
+                        </button>
+                      </div>
+                      {inviteErrors[club.id] && (
+                        <p className="text-red-400 text-xs px-1">{inviteErrors[club.id]}</p>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </>
         )}
         {/* ── FUNNEL TAB ── */}
