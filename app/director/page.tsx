@@ -599,9 +599,10 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
           {tab === "runs" && (
             <button
               onClick={() => router.push(`/dashboard/${selectedClub.id}/create-run`)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-[#c5f135] text-[#1a2110] text-sm font-black rounded-full hover:bg-[#d4ff45] transition shrink-0"
+              className="flex items-center gap-2 px-3 py-2.5 sm:px-4 bg-[#c5f135] text-[#1a2110] text-sm font-black rounded-full hover:bg-[#d4ff45] transition shrink-0"
             >
-              <CalendarPlus className="w-4 h-4" /> Schedule Run
+              <CalendarPlus className="w-4 h-4" />
+              <span className="hidden sm:inline">Schedule Run</span>
             </button>
           )}
         </div>
