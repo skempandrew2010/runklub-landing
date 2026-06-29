@@ -286,6 +286,12 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
   const [copiedJoinLink, setCopiedJoinLink] = useState(false)
+  const [newsletterOpen, setNewsletterOpen] = useState(false)
+  const [newsletterSubject, setNewsletterSubject] = useState("")
+  const [newsletterBody, setNewsletterBody] = useState("")
+  const [newsletterSending, setNewsletterSending] = useState(false)
+  const [newsletterResult, setNewsletterResult] = useState<{ sent: number; total: number } | null>(null)
+  const [newsletterError, setNewsletterError] = useState("")
 
   useEffect(() => {
     const load = async () => {
@@ -351,6 +357,44 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
     if (!confirm("Delete this run? This cannot be undone.")) return
     setAllRuns((prev) => prev.filter((r) => r.id !== runId))
     await supabase.from("runs").delete().eq("id", runId)
+  }
+
+  const sendNewsletter = async () => {
+    if (!newsletterSubject.trim() || !newsletterBody.trim() || !selectedClubId) return
+    setNewsletterSending(true)
+    setNewsletterError("")
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+      const res = await fetch("/api/director/send-newsletter", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          club_id: selectedClubId,
+          subject: newsletterSubject,
+          message: newsletterBody,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        setNewsletterError(json.error ?? "Something went wrong. Please try again.")
+      } else {
+        setNewsletterResult({ sent: json.sent, total: json.total })
+        setNewsletterSubject("")
+        setNewsletterBody("")
+        setTimeout(() => {
+          setNewsletterResult(null)
+          setNewsletterOpen(false)
+        }, 5000)
+      }
+    } catch {
+      setNewsletterError("Network error. Please try again.")
+    } finally {
+      setNewsletterSending(false)
+    }
   }
 
   useEffect(() => {
@@ -918,22 +962,89 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
         {tab === "messages" && (
           <div className="space-y-4">
 
-            {/* Email Members — Coming Soon */}
-            <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-4 opacity-60 cursor-not-allowed select-none">
-              <div className="flex items-center justify-between">
+            {/* Newsletter Composer */}
+            <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] overflow-hidden">
+              {/* Header row */}
+              <button
+                onClick={() => { setNewsletterOpen((o) => !o); setNewsletterError(""); setNewsletterResult(null) }}
+                className="w-full flex items-center justify-between p-4 hover:bg-[#2e3d1a]/40 transition text-left"
+              >
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-xl bg-[#2e3d1a] flex items-center justify-center shrink-0">
-                    <Mail className="w-4 h-4 text-white/30" />
+                    <Mail className="w-4 h-4 text-[#c5f135]" />
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-white/50">Send Newsletter</p>
-                    <p className="text-xs text-white/30 mt-0.5">Email all club members</p>
+                    <p className="text-sm font-bold text-white">Send Newsletter</p>
+                    <p className="text-xs text-white/40 mt-0.5">
+                      Email all {selectedClub?.member_count ?? 0} follower{selectedClub?.member_count === 1 ? "" : "s"}
+                    </p>
                   </div>
                 </div>
-                <span className="text-[10px] font-black px-2.5 py-1 rounded-full bg-[#c5f135]/10 text-[#c5f135] border border-[#c5f135]/20 shrink-0">
-                  Coming Soon
-                </span>
-              </div>
+                <div className={`w-5 h-5 rounded-full border border-white/20 flex items-center justify-center transition-transform ${newsletterOpen ? "rotate-45" : ""}`}>
+                  <Plus className="w-3 h-3 text-white/50" />
+                </div>
+              </button>
+
+              {/* Compose form */}
+              {newsletterOpen && (
+                <div className="px-4 pb-4 space-y-3 border-t border-[#2e3d1a]">
+                  {newsletterResult ? (
+                    <div className="flex items-center gap-3 py-4">
+                      <div className="w-8 h-8 rounded-full bg-[#c5f135]/15 flex items-center justify-center shrink-0">
+                        <Check className="w-4 h-4 text-[#c5f135]" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-white">Newsletter sent!</p>
+                        <p className="text-xs text-white/40 mt-0.5">
+                          Delivered to {newsletterResult.sent} of {newsletterResult.total} subscriber{newsletterResult.total === 1 ? "" : "s"}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="pt-3">
+                        <label className="block text-[10px] font-bold text-white/40 uppercase tracking-widest mb-1.5">Subject</label>
+                        <input
+                          type="text"
+                          value={newsletterSubject}
+                          onChange={(e) => setNewsletterSubject(e.target.value)}
+                          placeholder="e.g. This weekend's run details"
+                          className="w-full bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2.5 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#c5f135]/50 transition"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-white/40 uppercase tracking-widest mb-1.5">Message</label>
+                        <textarea
+                          value={newsletterBody}
+                          onChange={(e) => setNewsletterBody(e.target.value)}
+                          placeholder="Write your message to club followers…"
+                          rows={5}
+                          className="w-full bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2.5 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#c5f135]/50 transition resize-none"
+                        />
+                      </div>
+                      {newsletterError && (
+                        <p className="text-red-400/80 text-xs px-1">{newsletterError}</p>
+                      )}
+                      <div className="flex items-center gap-2 pt-1">
+                        <button
+                          onClick={sendNewsletter}
+                          disabled={newsletterSending || !newsletterSubject.trim() || !newsletterBody.trim()}
+                          className="flex items-center gap-2 px-4 py-2.5 bg-[#c5f135] text-[#1a2110] text-sm font-black rounded-full hover:bg-[#d4ff45] transition disabled:opacity-40"
+                        >
+                          <Send className="w-3.5 h-3.5" />
+                          {newsletterSending ? "Sending…" : "Send to all followers"}
+                        </button>
+                        <button
+                          onClick={() => { setNewsletterOpen(false); setNewsletterSubject(""); setNewsletterBody(""); setNewsletterError("") }}
+                          className="px-4 py-2.5 text-white/40 text-sm font-semibold hover:text-white/70 transition"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
 
             {allRuns.length === 0 ? (
