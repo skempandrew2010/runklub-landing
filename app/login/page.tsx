@@ -24,7 +24,8 @@ export default function LoginPage() {
     const t2 = setTimeout(async () => {
       const { data: { session } } = await supabase.auth.getSession()
       if (session) {
-        router.replace("/explore")
+        const { data: prof } = await supabase.from("profiles").select("role").eq("id", session.user.id).single()
+        router.replace(prof?.role === "admin" ? "/admin/claims" : "/explore")
       } else {
         setMode("landing")
       }
@@ -50,8 +51,12 @@ export default function LoginPage() {
     // Returning user — skip onboarding if already done
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
-      const { data: profile } = await supabase.from("profiles").select("onboarding_complete").eq("id", user.id).single()
-      router.push(profile?.onboarding_complete ? "/explore" : "/onboarding")
+      const { data: profile } = await supabase.from("profiles").select("role, onboarding_complete").eq("id", user.id).single()
+      if (profile?.role === "admin") {
+        router.push("/admin/claims")
+      } else {
+        router.push(profile?.onboarding_complete ? "/explore" : "/onboarding")
+      }
     }
   }
 
