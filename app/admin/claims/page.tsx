@@ -31,6 +31,7 @@ type UnclaimedClub = {
   contact_email: string | null
   claim_token_used_at: string | null
   invite_sent_at: string | null
+  instagram_handle: string | null
 }
 
 type FunnelClub = {
@@ -59,6 +60,7 @@ export default function AdminClaimsPage() {
   const [claimsSearch, setClaimsSearch] = useState("")
   const [claimsFilter, setClaimsFilter] = useState<"all" | "pending" | "approved" | "rejected">("all")
   const [inviteSearch, setInviteSearch] = useState("")
+  const [inviteInstagrams, setInviteInstagrams] = useState<Record<string, string>>({})
   const [funnelClubs, setFunnelClubs] = useState<FunnelClub[]>([])
 
   useEffect(() => {
@@ -80,7 +82,7 @@ export default function AdminClaimsPage() {
 
       const { data: clubs } = await supabase
         .from("clubs")
-        .select("id, name, city, contact_email, claim_token_used_at, invite_sent_at")
+        .select("id, name, city, contact_email, claim_token_used_at, invite_sent_at, instagram_handle")
         .is("claim_token_used_at", null)
         .order("name")
       setUnclaimedClubs((clubs as UnclaimedClub[]) ?? [])
@@ -170,7 +172,7 @@ export default function AdminClaimsPage() {
     if (action === "reject") {
       const { data: clubs } = await supabase
         .from("clubs")
-        .select("id, name, city, contact_email, claim_token_used_at, invite_sent_at")
+        .select("id, name, city, contact_email, claim_token_used_at, invite_sent_at, instagram_handle")
         .is("claim_token_used_at", null)
         .order("name")
       setUnclaimedClubs((clubs as UnclaimedClub[]) ?? [])
@@ -330,7 +332,7 @@ export default function AdminClaimsPage() {
                     const isSending = sending === club.id
                     const isCancelling = cancelling === club.id
                     const justSent = sent.has(club.id)
-                    const email = inviteEmails[club.id] ?? club.contact_email ?? ""
+                    const igHandle = (inviteInstagrams[club.id] ?? club.instagram_handle ?? "").replace(/^@/, "").trim()
                     return (
                       <div key={club.id} className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-4 space-y-3">
                         <div className="flex items-start justify-between gap-3">
@@ -377,6 +379,29 @@ export default function AdminClaimsPage() {
                             {isCancelling ? "…" : <Ban className="w-3.5 h-3.5" />}
                           </button>
                         </div>
+                        <div className="flex gap-2">
+                          <div className="relative flex-1">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 text-sm pointer-events-none">@</span>
+                            <input
+                              type="text"
+                              placeholder="instagram_handle"
+                              value={inviteInstagrams[club.id] ?? club.instagram_handle ?? ""}
+                              onChange={(e) => setInviteInstagrams((prev) => ({ ...prev, [club.id]: e.target.value.replace(/^@/, "") }))}
+                              className="w-full bg-[#1a2110] border border-[#2e3d1a] rounded-xl pl-7 pr-3 py-2 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#c5f135]/50 transition"
+                            />
+                          </div>
+                          <button
+                            disabled={!igHandle}
+                            onClick={async () => {
+                              await supabase.from("clubs").update({ instagram_handle: igHandle }).eq("id", club.id)
+                              setUnclaimedClubs((prev) => prev.map((c) => c.id === club.id ? { ...c, instagram_handle: igHandle } : c))
+                              window.open(`https://instagram.com/${igHandle}`, "_blank")
+                            }}
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition disabled:opacity-30 shrink-0 bg-[#1a2110] border border-[#2e3d1a] text-white/60 hover:text-white hover:border-[#c5f135]/40"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" /> Instagram
+                          </button>
+                        </div>
                         {inviteErrors[club.id] && (
                           <p className="text-red-400 text-xs px-1">{inviteErrors[club.id]}</p>
                         )}
@@ -411,6 +436,7 @@ export default function AdminClaimsPage() {
                     const isSent = sent.has(club.id)
                     const isSending = sending === club.id
                     const email = inviteEmails[club.id] ?? club.contact_email ?? ""
+                    const igHandle = (inviteInstagrams[club.id] ?? club.instagram_handle ?? "").replace(/^@/, "").trim()
                     return (
                       <div key={club.id} className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-4 space-y-3">
                         <div>
@@ -437,6 +463,29 @@ export default function AdminClaimsPage() {
                               ? "…"
                               : <><Send className="w-3.5 h-3.5" /> Send</>
                             }
+                          </button>
+                        </div>
+                        <div className="flex gap-2">
+                          <div className="relative flex-1">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 text-sm pointer-events-none">@</span>
+                            <input
+                              type="text"
+                              placeholder="instagram_handle"
+                              value={inviteInstagrams[club.id] ?? club.instagram_handle ?? ""}
+                              onChange={(e) => setInviteInstagrams((prev) => ({ ...prev, [club.id]: e.target.value.replace(/^@/, "") }))}
+                              className="w-full bg-[#1a2110] border border-[#2e3d1a] rounded-xl pl-7 pr-3 py-2 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#c5f135]/50 transition"
+                            />
+                          </div>
+                          <button
+                            disabled={!igHandle}
+                            onClick={async () => {
+                              await supabase.from("clubs").update({ instagram_handle: igHandle }).eq("id", club.id)
+                              setUnclaimedClubs((prev) => prev.map((c) => c.id === club.id ? { ...c, instagram_handle: igHandle } : c))
+                              window.open(`https://instagram.com/${igHandle}`, "_blank")
+                            }}
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition disabled:opacity-30 shrink-0 bg-[#1a2110] border border-[#2e3d1a] text-white/60 hover:text-white hover:border-[#c5f135]/40"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" /> Instagram
                           </button>
                         </div>
                         {inviteErrors[club.id] && (
