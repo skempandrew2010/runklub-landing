@@ -61,6 +61,21 @@ export default function AdminClaimsPage() {
   const [claimsFilter, setClaimsFilter] = useState<"all" | "pending" | "approved" | "rejected">("all")
   const [inviteSearch, setInviteSearch] = useState("")
   const [inviteInstagrams, setInviteInstagrams] = useState<Record<string, string>>({})
+  const [copiedIg, setCopiedIg] = useState<string | null>(null)
+
+  const buildIgMessage = (club: UnclaimedClub) => {
+    const city = club.city ?? "your city"
+    return `Hey ${club.name}! I run RunKlub — a free platform for run clubs in ${city}. Your club is already listed and I'd love to get you set up so more runners can find you.\n\nClaim your page: runklub.fit/clubs/${club.id}\n\nHappy to jump on a call too if that's easier!`
+  }
+
+  const handleIgClick = async (club: UnclaimedClub, igHandle: string) => {
+    await supabase.from("clubs").update({ instagram_handle: igHandle }).eq("id", club.id)
+    setUnclaimedClubs((prev) => prev.map((c) => c.id === club.id ? { ...c, instagram_handle: igHandle } : c))
+    try { await navigator.clipboard.writeText(buildIgMessage(club)) } catch {}
+    setCopiedIg(club.id)
+    setTimeout(() => setCopiedIg((prev) => prev === club.id ? null : prev), 2000)
+    window.open(`https://instagram.com/${igHandle}`, "_blank")
+  }
   const [funnelClubs, setFunnelClubs] = useState<FunnelClub[]>([])
 
   useEffect(() => {
@@ -391,14 +406,10 @@ export default function AdminClaimsPage() {
                         </div>
                         <button
                           disabled={!igHandle}
-                          onClick={async () => {
-                            await supabase.from("clubs").update({ instagram_handle: igHandle }).eq("id", club.id)
-                            setUnclaimedClubs((prev) => prev.map((c) => c.id === club.id ? { ...c, instagram_handle: igHandle } : c))
-                            window.open(`https://instagram.com/${igHandle}`, "_blank")
-                          }}
+                          onClick={() => handleIgClick(club, igHandle)}
                           className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition disabled:opacity-30 shrink-0 bg-[#1a2110] border border-[#2e3d1a] text-white/60 hover:text-white hover:border-[#c5f135]/40"
                         >
-                          <ExternalLink className="w-3.5 h-3.5" /> Instagram
+                          {copiedIg === club.id ? <><Check className="w-3.5 h-3.5 text-[#c5f135]" /> Copied!</> : <><ExternalLink className="w-3.5 h-3.5" /> Instagram</>}
                         </button>
                       </div>
                       {inviteErrors[club.id] && (
@@ -473,14 +484,10 @@ export default function AdminClaimsPage() {
                         </div>
                         <button
                           disabled={!igHandle}
-                          onClick={async () => {
-                            await supabase.from("clubs").update({ instagram_handle: igHandle }).eq("id", club.id)
-                            setUnclaimedClubs((prev) => prev.map((c) => c.id === club.id ? { ...c, instagram_handle: igHandle } : c))
-                            window.open(`https://instagram.com/${igHandle}`, "_blank")
-                          }}
+                          onClick={() => handleIgClick(club, igHandle)}
                           className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition disabled:opacity-30 shrink-0 bg-[#1a2110] border border-[#2e3d1a] text-white/60 hover:text-white hover:border-[#c5f135]/40"
                         >
-                          <ExternalLink className="w-3.5 h-3.5" /> Instagram
+                          {copiedIg === club.id ? <><Check className="w-3.5 h-3.5 text-[#c5f135]" /> Copied!</> : <><ExternalLink className="w-3.5 h-3.5" /> Instagram</>}
                         </button>
                       </div>
                       {inviteErrors[club.id] && (
