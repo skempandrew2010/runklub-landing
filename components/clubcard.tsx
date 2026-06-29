@@ -126,7 +126,7 @@ export default function ClubCard({
       id={`club-${club.id}`}
       onMouseEnter={() => onHover?.(club.id)}
       onMouseLeave={() => onHover?.(null)}
-      onClick={() => router.push(`/clubs/${club.id}`)}
+      onClick={() => { sessionStorage.setItem("explore-last-club", club.id); router.push(`/clubs/${club.id}`) }}
       className={`group cursor-pointer flex items-start gap-4 px-5 py-5 transition-colors duration-150 hover:bg-[#1e2d12]
         ${isSelected ? "border-l-2 border-[#c5f135] !pl-[18px] bg-[#1e2d12]" : "border-l-2 border-transparent"}
         ${isRunSoon ? "animate-run-soon" : ""}`}

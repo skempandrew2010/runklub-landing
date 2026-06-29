@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { useRouter } from "next/navigation"
 import SearchBar from "@/components/searchbar"
 import Filters, { DEFAULT_FILTERS, type FilterOptions } from "@/components/filters"
@@ -72,7 +72,15 @@ export default function ExplorePage() {
   const [filters, setFilters] = useState<FilterOptions>(DEFAULT_FILTERS)
   const [sortBy, setSortBy] = useState<SortOption>("closest")
   const PAGE_SIZE = 10
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
+  const [visibleCount, setVisibleCount] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = sessionStorage.getItem("explore-visible")
+      if (saved) return parseInt(saved, 10)
+    }
+    return PAGE_SIZE
+  })
+  const scrollRestoredRef = useRef(false)
+  const skipVisibleResetRef = useRef(true)
   const [allWeekRuns, setAllWeekRuns] = useState<WeekRun[]>([])
   const [weekRunsLoading, setWeekRunsLoading] = useState(false)
   const [mapBounds, setMapBounds] = useState<{ north: number; south: number; east: number; west: number } | null>(null)
@@ -127,6 +135,7 @@ export default function ExplorePage() {
   }, [selectedClub])
 
   useEffect(() => {
+    if (skipVisibleResetRef.current) { skipVisibleResetRef.current = false; return }
     setVisibleCount(PAGE_SIZE)
   }, [city, cityCoords])
 
@@ -168,6 +177,24 @@ export default function ExplorePage() {
       setWeekRunsLoading(false)
     }
     loadWeekRuns()
+  }, [clubs])
+
+  // Persist visibleCount so the same number of cards exist in the DOM on return
+  useEffect(() => {
+    sessionStorage.setItem("explore-visible", String(visibleCount))
+  }, [visibleCount])
+
+  // Scroll the last-clicked club card into view after clubs load
+  useEffect(() => {
+    if (scrollRestoredRef.current || clubs.length === 0) return
+    const clubId = sessionStorage.getItem("explore-last-club")
+    if (!clubId) return
+    scrollRestoredRef.current = true
+    sessionStorage.removeItem("explore-last-club")
+    sessionStorage.removeItem("explore-visible")
+    requestAnimationFrame(() => {
+      document.getElementById(`club-${clubId}`)?.scrollIntoView({ block: "center", behavior: "instant" })
+    })
   }, [clubs])
 
   const center = cityCoords || userLocation
