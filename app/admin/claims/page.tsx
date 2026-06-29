@@ -65,7 +65,7 @@ export default function AdminClaimsPage() {
 
   const buildIgMessage = (club: UnclaimedClub) => {
     const city = club.city ?? "your city"
-    return `Hey ${club.name}! I run RunKlub — a free platform for run clubs in ${city}. Your club is already listed and I'd love to get you set up so more runners can find you.\n\nClaim your page: runklub.fit/clubs/${club.id}\n\nHappy to jump on a call too if that's easier!`
+    return `Hey ${club.name}! I run RunKlub — a free platform for run clubs in ${city}. Your club is already listed and I'd love to get you set up so more runners can find you.\n\nClaim your page: https://www.runklub.fit/clubs/${club.id}\n\nHappy to jump on a call too if that's easier!`
   }
 
   const handleIgClick = async (club: UnclaimedClub, igHandle: string) => {
