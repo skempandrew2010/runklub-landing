@@ -29,6 +29,7 @@ type UnclaimedClub = {
   name: string
   city: string | null
   contact_email: string | null
+  claim_token: string | null
   claim_token_used_at: string | null
   invite_sent_at: string | null
   instagram_handle: string | null
@@ -65,7 +66,10 @@ export default function AdminClaimsPage() {
 
   const buildIgMessage = (club: UnclaimedClub) => {
     const city = club.city ?? "your city"
-    return `Hey ${club.name}! I run RunKlub — a free platform for run clubs in ${city}. Your club is already listed and I'd love to get you set up so more runners can find you.\n\nClaim your page: https://www.runklub.fit/clubs/${club.id}\n\nHappy to jump on a call too if that's easier!`
+    const link = club.claim_token
+      ? `https://www.runklub.fit/welcome?t=${club.claim_token}`
+      : `https://www.runklub.fit/clubs/${club.id}`
+    return `Hey ${club.name}! I run RunKlub — a free platform for run clubs in ${city}. Your club is already listed and I'd love to get you set up so more runners can find you.\n\nClaim your page: ${link}\n\nHappy to jump on a call too if that's easier!`
   }
 
   const handleIgClick = async (club: UnclaimedClub, igHandle: string) => {
@@ -97,7 +101,7 @@ export default function AdminClaimsPage() {
 
       const { data: clubs } = await supabase
         .from("clubs")
-        .select("id, name, city, contact_email, claim_token_used_at, invite_sent_at, instagram_handle")
+        .select("id, name, city, contact_email, claim_token, claim_token_used_at, invite_sent_at, instagram_handle")
         .is("claim_token_used_at", null)
         .order("name")
       setUnclaimedClubs((clubs as UnclaimedClub[]) ?? [])
@@ -187,7 +191,7 @@ export default function AdminClaimsPage() {
     if (action === "reject") {
       const { data: clubs } = await supabase
         .from("clubs")
-        .select("id, name, city, contact_email, claim_token_used_at, invite_sent_at, instagram_handle")
+        .select("id, name, city, contact_email, claim_token, claim_token_used_at, invite_sent_at, instagram_handle")
         .is("claim_token_used_at", null)
         .order("name")
       setUnclaimedClubs((clubs as UnclaimedClub[]) ?? [])
