@@ -350,7 +350,7 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
   const deleteRun = async (runId: string) => {
     if (!confirm("Delete this run? This cannot be undone.")) return
     setAllRuns((prev) => prev.filter((r) => r.id !== runId))
-    await supabase.from("runs").delete().eq("id", runId).eq("created_by", userId)
+    await supabase.from("runs").delete().eq("id", runId)
   }
 
   useEffect(() => {

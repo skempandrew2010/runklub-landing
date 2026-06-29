@@ -40,10 +40,14 @@ export default function EditRunPage() {
         .from("runs")
         .select("*")
         .eq("id", runId)
-        .eq("created_by", user.id)
         .single()
 
-      if (error || !run) { setNotFound(true); setLoadingData(false); return }
+      // Verify the user owns the club this run belongs to
+      const { data: club } = run
+        ? await supabase.from("clubs").select("id").eq("id", run.club_id).eq("user_id", user.id).single()
+        : { data: null }
+
+      if (error || !run || !club) { setNotFound(true); setLoadingData(false); return }
 
       setTitle(run.title ?? "")
       setDate(run.date ?? "")
