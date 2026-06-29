@@ -73,9 +73,17 @@ export default function AdminClaimsPage() {
   }
 
   const handleIgClick = async (club: UnclaimedClub, igHandle: string) => {
-    await supabase.from("clubs").update({ instagram_handle: igHandle }).eq("id", club.id)
-    setUnclaimedClubs((prev) => prev.map((c) => c.id === club.id ? { ...c, instagram_handle: igHandle } : c))
-    try { await navigator.clipboard.writeText(buildIgMessage(club)) } catch {}
+    // Generate a fresh token every time, same as the email flow
+    const freshToken = crypto.randomUUID()
+    await supabase.from("clubs").update({
+      instagram_handle: igHandle,
+      claim_token: freshToken,
+    }).eq("id", club.id)
+    setUnclaimedClubs((prev) => prev.map((c) => c.id === club.id
+      ? { ...c, instagram_handle: igHandle, claim_token: freshToken }
+      : c
+    ))
+    try { await navigator.clipboard.writeText(buildIgMessage({ ...club, claim_token: freshToken })) } catch {}
     setCopiedIg(club.id)
     setTimeout(() => setCopiedIg((prev) => prev === club.id ? null : prev), 2000)
     window.open(`https://instagram.com/${igHandle}`, "_blank")
