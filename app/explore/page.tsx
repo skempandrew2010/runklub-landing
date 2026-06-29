@@ -444,7 +444,7 @@ export default function ExplorePage() {
               <p className="text-[11px] font-bold text-[#c5f135]/70 tracking-widest uppercase mb-2 px-1">{dateLabel}</p>
               <div className="bg-[#1e2d12] rounded-2xl overflow-hidden divide-y divide-[#2e3d1a]">
                 {dayRuns.map((run) => (
-                  <div key={run.id} className="px-4 py-3.5 flex items-start gap-3">
+                  <div key={run.id} onClick={() => { sessionStorage.setItem("explore-last-club", run.club_id); router.push(`/clubs/${run.club_id}`) }} className="px-4 py-3.5 flex items-start gap-3 cursor-pointer hover:bg-[#2e3d1a]/50 transition-colors">
                     <div className="relative w-9 h-9 rounded-xl bg-[#2e3d1a] shrink-0 overflow-hidden flex items-center justify-center">
                       {run.club_image ? (
                         <Image src={run.club_image} alt="" fill sizes="36px" className="object-cover" />
