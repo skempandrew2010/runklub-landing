@@ -63,6 +63,15 @@ export default function AdminClaimsPage() {
   const [inviteSearch, setInviteSearch] = useState("")
   const [inviteInstagrams, setInviteInstagrams] = useState<Record<string, string>>({})
   const [copiedIg, setCopiedIg] = useState<string | null>(null)
+  const [markingSent, setMarkingSent] = useState<string | null>(null)
+
+  const markIgSent = async (clubId: string) => {
+    setMarkingSent(clubId)
+    const now = new Date().toISOString()
+    await supabase.from("clubs").update({ invite_sent_at: now }).eq("id", clubId)
+    setUnclaimedClubs((prev) => prev.map((c) => c.id === clubId ? { ...c, invite_sent_at: now } : c))
+    setMarkingSent(null)
+  }
 
   const buildIgMessage = (club: UnclaimedClub) => {
     const city = club.city ?? "your city"
@@ -502,6 +511,13 @@ export default function AdminClaimsPage() {
                           {copiedIg === club.id ? <><Check className="w-3.5 h-3.5 text-[#c5f135]" /> Copied!</> : <><ExternalLink className="w-3.5 h-3.5" /> Instagram</>}
                         </button>
                       </div>
+                      <button
+                        onClick={() => markIgSent(club.id)}
+                        disabled={markingSent === club.id}
+                        className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-black transition disabled:opacity-40 border border-[#2e3d1a] text-white/40 hover:text-[#c5f135] hover:border-[#c5f135]/40"
+                      >
+                        {markingSent === club.id ? "…" : <><Check className="w-3.5 h-3.5" /> Mark as DM sent</>}
+                      </button>
                       {inviteErrors[club.id] && (
                         <p className="text-red-400 text-xs px-1">{inviteErrors[club.id]}</p>
                       )}
