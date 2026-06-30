@@ -9,6 +9,9 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@capacitor/cli": "^8.4.1",
+    "@capacitor/core": "^8.4.1",
+    "@capacitor/ios": "^8.4.1",
     "@mapbox/mapbox-sdk": "^0.16.2",
     "@supabase/supabase-js": "^2.99.1",
     "@upstash/ratelimit": "^2.0.8",
