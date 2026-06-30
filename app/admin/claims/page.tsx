@@ -67,9 +67,19 @@ export default function AdminClaimsPage() {
 
   const markIgSent = async (clubId: string) => {
     setMarkingSent(clubId)
-    const now = new Date().toISOString()
-    await supabase.from("clubs").update({ invite_sent_at: now }).eq("id", clubId)
-    setUnclaimedClubs((prev) => prev.map((c) => c.id === clubId ? { ...c, invite_sent_at: now } : c))
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch("/api/admin/mark-ig-sent", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session?.access_token}`,
+      },
+      body: JSON.stringify({ club_id: clubId }),
+    })
+    if (res.ok) {
+      const now = new Date().toISOString()
+      setUnclaimedClubs((prev) => prev.map((c) => c.id === clubId ? { ...c, invite_sent_at: now } : c))
+    }
     setMarkingSent(null)
   }
 
