@@ -22,6 +22,8 @@ workflows:
             --scheme App
       - name: Upload to TestFlight
         script: |
+          echo "Key ID length: ${#APP_STORE_CONNECT_KEY_IDENTIFIER}"
+          echo "Issuer ID length: ${#APP_STORE_CONNECT_ISSUER_ID}"
           python3 -c "
           import os
           key = os.environ.get('APP_STORE_CONNECT_PUBLISHER_PRIVATE_KEY', '')
