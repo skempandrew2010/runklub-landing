@@ -35,6 +35,13 @@ type UnclaimedClub = {
   instagram_handle: string | null
 }
 
+type OwnedClub = {
+  id: string
+  name: string
+  city: string | null
+  user_id: string
+}
+
 type FunnelClub = {
   id: string
   name: string
@@ -65,6 +72,7 @@ export default function AdminClaimsPage() {
   const [inviteInstagrams, setInviteInstagrams] = useState<Record<string, string>>({})
   const [copiedIg, setCopiedIg] = useState<string | null>(null)
   const [markingSent, setMarkingSent] = useState<string | null>(null)
+  const [ownedClubs, setOwnedClubs] = useState<OwnedClub[]>([])
 
   const markIgSent = async (clubId: string) => {
     setMarkingSent(clubId)
@@ -143,6 +151,19 @@ export default function AdminClaimsPage() {
         .not("invite_sent_at", "is", null)
         .order("invite_sent_at", { ascending: false })
       setFunnelClubs((funnel as FunnelClub[]) ?? [])
+
+      // Clubs that have an owner but no club_claims record — surfaces edge cases
+      const claimedClubIds = new Set(
+        ((data ?? []) as Claim[]).filter(c => c.club_id).map(c => c.club_id!)
+      )
+      const { data: owned } = await supabase
+        .from("clubs")
+        .select("id, name, city, user_id")
+        .not("user_id", "is", null)
+        .order("name")
+      setOwnedClubs(
+        ((owned ?? []) as OwnedClub[]).filter(c => !claimedClubIds.has(c.id))
+      )
 
       setLoading(false)
     }
@@ -355,6 +376,33 @@ export default function AdminClaimsPage() {
                 <div className="space-y-3">
                   {resolved.map((claim) => (
                     <ClaimCard key={claim.id} claim={claim} acting={acting} onAct={act} resolved />
+                  ))}
+                </div>
+              </>
+            )}
+
+            {ownedClubs.length > 0 && (claimsFilter === "all" || claimsFilter === "approved") && (
+              <>
+                <h2 className="text-xs font-bold text-white/30 uppercase tracking-widest mb-3 mt-10">Owned (no claim record)</h2>
+                <div className="space-y-2">
+                  {ownedClubs.map((club) => (
+                    <div key={club.id} className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] px-5 py-4 flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-white truncate">{club.name}</p>
+                        {club.city && <p className="text-xs text-white/40">{club.city}</p>}
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-[#c5f135]">Owned</span>
+                        <a
+                          href={`/clubs/${club.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-xs text-white/30 hover:text-white/70 transition"
+                        >
+                          View <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </div>
+                    </div>
                   ))}
                 </div>
               </>
