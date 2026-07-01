@@ -48,6 +48,7 @@ type MapViewProps = {
   clubs?: ClubPin[]
   onCityCoords?: (coords: { lat: number; lng: number } | null) => void
   onBoundsChange?: (bounds: MapBounds) => void
+  ownedClubIds?: Set<string>
 }
 
 const geocodingClient = mapboxSdk({ accessToken: process.env.NEXT_PUBLIC_MAPBOX_TOKEN })
@@ -126,7 +127,7 @@ function clusterGroups(groups: LocationGroup[], zoom: number, radiusPx: number):
   return result
 }
 
-export default function MapView({ city, runs, clubs, onCityCoords, onBoundsChange }: MapViewProps) {
+export default function MapView({ city, runs, clubs, onCityCoords, onBoundsChange, ownedClubIds }: MapViewProps) {
   const [viewState, setViewState] = useState({ latitude: 40.015, longitude: -105.2705, zoom: 11 })
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null)
   const [selectedGroup, setSelectedGroup] = useState<LocationGroup | null>(null)
@@ -365,6 +366,7 @@ export default function MapView({ city, runs, clubs, onCityCoords, onBoundsChang
       {/* Run pins — teardrop for individual locations, bubble for clusters */}
       {mapReady && displayClusters.map((item) => {
         if (item.isCluster) {
+          const clusterOwned = !ownedClubIds || item.groups.some((g) => g.runs.some((r) => ownedClubIds.has(r.club_id)))
           return (
             <Marker key={item.key} longitude={item.lng} latitude={item.lat} anchor="bottom">
               <button
@@ -374,7 +376,7 @@ export default function MapView({ city, runs, clubs, onCityCoords, onBoundsChang
                   map?.easeTo({ center: [item.lng, item.lat], zoom: viewState.zoom + 2, duration: 500 })
                 }}
                 className="relative focus:outline-none"
-                style={{ transform: "scale(1)", transition: "transform 0.15s ease" }}
+                style={{ transform: "scale(1)", transition: "transform 0.15s ease", opacity: clusterOwned ? 1 : 0.3 }}
               >
                 <svg width="22" height="30" viewBox="0 0 22 30" fill="none" xmlns="http://www.w3.org/2000/svg"
                   style={{ filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.5))" }}
@@ -396,6 +398,7 @@ export default function MapView({ city, runs, clubs, onCityCoords, onBoundsChang
         const group = item.group
         const active = selectedGroup?.key === group.key
         const count = group.runs.length
+        const pinOwned = !ownedClubIds || group.runs.some((r) => ownedClubIds.has(r.club_id))
         return (
           <Marker key={group.key} longitude={group.lng} latitude={group.lat} anchor="bottom">
             <button
@@ -404,7 +407,7 @@ export default function MapView({ city, runs, clubs, onCityCoords, onBoundsChang
                 setSelectedGroup(active ? null : group)
               }}
               className="relative focus:outline-none"
-              style={{ transform: active ? "scale(1.2)" : "scale(1)", transition: "transform 0.15s ease" }}
+              style={{ transform: active ? "scale(1.2)" : "scale(1)", transition: "transform 0.15s ease", opacity: pinOwned ? 1 : 0.3 }}
             >
               <svg width="22" height="30" viewBox="0 0 22 30" fill="none" xmlns="http://www.w3.org/2000/svg"
                 style={{ filter: active ? "drop-shadow(0 4px 12px rgba(197,241,53,0.55))" : "drop-shadow(0 2px 6px rgba(0,0,0,0.5))" }}
@@ -428,29 +431,32 @@ export default function MapView({ city, runs, clubs, onCityCoords, onBoundsChang
       })}
 
       {/* Club-only pins — shown when no upcoming runs exist for the club */}
-      {mapReady && clubOnlyPins.map((club) => (
-        <Marker key={`club-${club.id}`} longitude={club.lng} latitude={club.lat} anchor="bottom">
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              setSelectedClubPin(club)
-              setSelectedGroup(null)
-            }}
-            className="relative focus:outline-none"
-            style={{ transform: "scale(1)", transition: "transform 0.15s ease" }}
-          >
-            <svg width="22" height="30" viewBox="0 0 22 30" fill="none" xmlns="http://www.w3.org/2000/svg"
-              style={{ filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.4))" }}
+      {mapReady && clubOnlyPins.map((club) => {
+        const clubOwned = !ownedClubIds || ownedClubIds.has(club.id)
+        return (
+          <Marker key={`club-${club.id}`} longitude={club.lng} latitude={club.lat} anchor="bottom">
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                setSelectedClubPin(club)
+                setSelectedGroup(null)
+              }}
+              className="relative focus:outline-none"
+              style={{ transform: "scale(1)", transition: "transform 0.15s ease", opacity: clubOwned ? 1 : 0.2 }}
             >
-              <path
-                d="M11 0C4.925 0 0 4.925 0 11c0 7.667 11 19 11 19S22 18.667 22 11C22 4.925 17.075 0 11 0z"
-                fill="#1a2110" stroke="#c5f135" strokeWidth="1.5" strokeOpacity="0.55"
-              />
-              <circle cx="11" cy="10.5" r="3" fill="#c5f135" fillOpacity="0.55" />
-            </svg>
-          </button>
-        </Marker>
-      ))}
+              <svg width="22" height="30" viewBox="0 0 22 30" fill="none" xmlns="http://www.w3.org/2000/svg"
+                style={{ filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.4))" }}
+              >
+                <path
+                  d="M11 0C4.925 0 0 4.925 0 11c0 7.667 11 19 11 19S22 18.667 22 11C22 4.925 17.075 0 11 0z"
+                  fill="#1a2110" stroke="#c5f135" strokeWidth="1.5" strokeOpacity="0.65"
+                />
+                <circle cx="11" cy="10.5" r="3" fill="#c5f135" fillOpacity="0.65" />
+              </svg>
+            </button>
+          </Marker>
+        )
+      })}
 
       {/* Club-only popup */}
       {mapReady && selectedClubPin && (

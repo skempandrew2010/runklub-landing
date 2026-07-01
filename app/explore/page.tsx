@@ -166,7 +166,7 @@ export default function ExplorePage() {
   useEffect(() => {
     async function loadClubs() {
       const [{ data: clubData }, { data: subData }] = await Promise.all([
-        supabase.from("clubs").select("id, name, city, latitude, longitude, location, image_url, tier, membership_type, created_at").eq("is_public", true),
+        supabase.from("clubs").select("id, name, city, latitude, longitude, location, image_url, tier, membership_type, created_at, user_id").eq("is_public", true),
         supabase.from("subscriptions").select("club_id"),
       ])
       const countMap: Record<string, number> = {}
@@ -287,6 +287,11 @@ export default function ExplorePage() {
       return true
     })
     .sort((a, b) => {
+      // Owned (claimed) clubs always surface first
+      const aOwned = !!a.user_id
+      const bOwned = !!b.user_id
+      if (aOwned !== bOwned) return aOwned ? -1 : 1
+      // Then the user-selected sort within each tier
       if (sortBy === "popular") return (b.memberCount ?? 0) - (a.memberCount ?? 0)
       if (sortBy === "newest") return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       if (a.nearestRunDist != null && b.nearestRunDist != null) return a.nearestRunDist - b.nearestRunDist
@@ -308,6 +313,11 @@ export default function ExplorePage() {
       clubs
         .filter((c) => c.latitude != null && c.longitude != null)
         .map((c) => ({ id: c.id, name: c.name, lat: c.latitude!, lng: c.longitude!, image_url: c.image_url ?? null })),
+    [clubs]
+  )
+
+  const ownedClubIds = useMemo(
+    () => new Set(clubs.filter((c) => c.user_id).map((c) => c.id)),
     [clubs]
   )
 
@@ -548,7 +558,7 @@ export default function ExplorePage() {
         {showMobileMap ? (
           <>
             <div className="fixed left-0 right-0 z-10" style={{ top: 'var(--navbar-h)', bottom: "0" }}>
-              <MapView city={city} runs={mapRuns} clubs={mapClubs} onCityCoords={setCityCoords} onBoundsChange={setMapBounds} />
+              <MapView city={city} runs={mapRuns} clubs={mapClubs} ownedClubIds={ownedClubIds} onCityCoords={setCityCoords} onBoundsChange={setMapBounds} />
             </div>
             <button onClick={() => setShowMobileMap(false)}
               className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-5 py-2.5 bg-[#1a2110] border border-[#3d5220] rounded-full text-white font-semibold text-sm shadow-xl shadow-black/60">
@@ -582,7 +592,7 @@ export default function ExplorePage() {
           </div>
           <div className="w-[42%] shrink-0">
             <div className="sticky" style={{ top: 'var(--navbar-h)', height: 'calc(100vh - var(--navbar-h))' }}>
-              <MapView city={city} runs={mapRuns} clubs={mapClubs} onCityCoords={setCityCoords} onBoundsChange={setMapBounds} />
+              <MapView city={city} runs={mapRuns} clubs={mapClubs} ownedClubIds={ownedClubIds} onCityCoords={setCityCoords} onBoundsChange={setMapBounds} />
             </div>
           </div>
         </div>
