@@ -85,24 +85,27 @@ export default function AdminClaimsPage() {
 
   const buildIgMessage = (club: UnclaimedClub) => {
     const city = club.city ?? "your city"
-    const link = club.claim_token
-      ? `https://www.runklub.fit/welcome?t=${club.claim_token}`
-      : `https://www.runklub.fit/clubs/${club.id}`
+    const link = `https://www.runklub.fit/welcome?t=${club.claim_token}`
     return `Hey ${club.name}! I run RunKlub — a free platform for run clubs in ${city}. Your club is already listed and I'd love to get you set up so more runners can find you.\n\nClaim your page: ${link}\n\nHappy to jump on a call too if that's easier!`
   }
 
   const handleIgClick = async (club: UnclaimedClub, igHandle: string) => {
-    // Generate a fresh token every time, same as the email flow
-    const freshToken = crypto.randomUUID()
-    await supabase.from("clubs").update({
-      instagram_handle: igHandle,
-      claim_token: freshToken,
-    }).eq("id", club.id)
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch("/api/admin/generate-ig-link", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session?.access_token}`,
+      },
+      body: JSON.stringify({ club_id: club.id, instagram_handle: igHandle }),
+    })
+    if (!res.ok) return
+    const { link, claim_token: freshToken } = await res.json()
     setUnclaimedClubs((prev) => prev.map((c) => c.id === club.id
       ? { ...c, instagram_handle: igHandle, claim_token: freshToken }
       : c
     ))
-    try { await navigator.clipboard.writeText(buildIgMessage({ ...club, claim_token: freshToken })) } catch {}
+    try { await navigator.clipboard.writeText(buildIgMessage({ ...club, claim_token: freshToken, instagram_handle: igHandle })) } catch {}
     setCopiedIg(club.id)
     setTimeout(() => setCopiedIg((prev) => prev === club.id ? null : prev), 2000)
     window.open(`https://instagram.com/${igHandle}`, "_blank")
