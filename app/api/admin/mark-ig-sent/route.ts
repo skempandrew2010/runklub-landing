@@ -25,9 +25,10 @@ export async function POST(req: NextRequest) {
     const { club_id } = await req.json()
     if (!club_id) return NextResponse.json({ error: "club_id required" }, { status: 400 })
 
+    const now = new Date().toISOString()
     const { error } = await getAdminSupabase()
       .from("clubs")
-      .update({ invite_sent_at: new Date().toISOString() })
+      .update({ invite_sent_at: now, ig_invite_sent_at: now })
       .eq("id", club_id)
 
     if (error) throw new Error(error.message)

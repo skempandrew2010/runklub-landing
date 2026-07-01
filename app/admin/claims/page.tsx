@@ -41,6 +41,7 @@ type FunnelClub = {
   city: string | null
   contact_email: string | null
   invite_sent_at: string | null
+  ig_invite_sent_at: string | null
   invite_link_clicked_at: string | null
   claim_token_used_at: string | null
   user_id: string | null
@@ -138,7 +139,7 @@ export default function AdminClaimsPage() {
 
       const { data: funnel } = await supabase
         .from("clubs")
-        .select("id, name, city, contact_email, invite_sent_at, invite_link_clicked_at, claim_token_used_at, user_id")
+        .select("id, name, city, contact_email, invite_sent_at, ig_invite_sent_at, invite_link_clicked_at, claim_token_used_at, user_id")
         .not("invite_sent_at", "is", null)
         .order("invite_sent_at", { ascending: false })
       setFunnelClubs((funnel as FunnelClub[]) ?? [])
@@ -605,15 +606,26 @@ export default function AdminClaimsPage() {
                   <div className="space-y-2">
                     {funnelClubs.map((club) => {
                       const stage =
-                        club.user_id          ? { label: "Account Created", color: "text-[#c5f135]" } :
+                        club.user_id             ? { label: "Account Created", color: "text-[#c5f135]" } :
                         club.claim_token_used_at ? { label: "Form Submitted",  color: "text-[#c5f135]/60" } :
-                        club.invite_link_clicked_at ? { label: "Link Opened", color: "text-white/50" } :
+                        club.invite_link_clicked_at ? { label: "Link Opened",  color: "text-white/50" } :
                         { label: "Invited", color: "text-white/25" }
+
+                      const wasIg    = !!club.ig_invite_sent_at
+                      const wasEmail = !!club.invite_sent_at && club.invite_sent_at !== club.ig_invite_sent_at
+                      const channel  = wasIg && wasEmail ? "Email + IG" : wasIg ? "Instagram" : "Email"
+                      const channelColor = wasIg && wasEmail ? "bg-purple-500/20 text-purple-300 border-purple-500/30"
+                                         : wasIg            ? "bg-pink-500/20 text-pink-300 border-pink-500/30"
+                                         :                    "bg-blue-500/20 text-blue-300 border-blue-500/30"
+
                       return (
                         <div key={club.id} className="bg-[#1e2d12] rounded-xl border border-[#2e3d1a] px-4 py-3 flex items-center justify-between gap-3">
                           <div className="min-w-0">
                             <p className="text-sm font-bold text-white truncate">{club.name}</p>
                             {club.city && <p className="text-xs text-white/30 truncate">{club.city}</p>}
+                            <span className={`inline-block mt-1 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full border ${channelColor}`}>
+                              {channel}
+                            </span>
                           </div>
                           <span className={`text-xs font-black uppercase tracking-wider shrink-0 ${stage.color}`}>
                             {stage.label}
