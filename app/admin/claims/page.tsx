@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
-import { Check, X, Clock, ExternalLink, Send, RotateCcw, Search, Ban } from "lucide-react"
+import { Check, X, Clock, ExternalLink, Send, RotateCcw, Search, Ban, Trash2 } from "lucide-react"
 
 type Claim = {
   id: string
@@ -73,6 +73,47 @@ export default function AdminClaimsPage() {
   const [copiedIg, setCopiedIg] = useState<string | null>(null)
   const [markingSent, setMarkingSent] = useState<string | null>(null)
   const [ownedClubs, setOwnedClubs] = useState<OwnedClub[]>([])
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null)
+  const [deletePassword, setDeletePassword] = useState("")
+  const [deleteError, setDeleteError] = useState("")
+  const [deleting, setDeleting] = useState(false)
+
+  const openDelete = (club: { id: string; name: string }) => {
+    setDeleteTarget(club)
+    setDeletePassword("")
+    setDeleteError("")
+  }
+  const closeDelete = () => {
+    setDeleteTarget(null)
+    setDeletePassword("")
+    setDeleteError("")
+  }
+  const handleDelete = async () => {
+    if (!deleteTarget || !deletePassword) return
+    setDeleting(true)
+    setDeleteError("")
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch("/api/admin/delete-club", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session?.access_token}`,
+      },
+      body: JSON.stringify({ club_id: deleteTarget.id, password: deletePassword }),
+    })
+    if (res.ok) {
+      const id = deleteTarget.id
+      setUnclaimedClubs((prev) => prev.filter((c) => c.id !== id))
+      setOwnedClubs((prev) => prev.filter((c) => c.id !== id))
+      setClaims((prev) => prev.filter((c) => c.club_id !== id))
+      setFunnelClubs((prev) => prev.filter((c) => c.id !== id))
+      closeDelete()
+    } else {
+      const json = await res.json().catch(() => ({}))
+      setDeleteError(json.error ?? "Failed to delete")
+    }
+    setDeleting(false)
+  }
 
   const markIgSent = async (clubId: string) => {
     setMarkingSent(clubId)
@@ -365,7 +406,7 @@ export default function AdminClaimsPage() {
             {pending.length > 0 && (
               <div className="space-y-3 mb-10">
                 {pending.map((claim) => (
-                  <ClaimCard key={claim.id} claim={claim} acting={acting} onAct={act} />
+                  <ClaimCard key={claim.id} claim={claim} acting={acting} onAct={act} onDelete={openDelete} />
                 ))}
               </div>
             )}
@@ -375,7 +416,7 @@ export default function AdminClaimsPage() {
                 <h2 className="text-xs font-bold text-white/30 uppercase tracking-widest mb-3">Resolved</h2>
                 <div className="space-y-3">
                   {resolved.map((claim) => (
-                    <ClaimCard key={claim.id} claim={claim} acting={acting} onAct={act} resolved />
+                    <ClaimCard key={claim.id} claim={claim} acting={acting} onAct={act} resolved onDelete={openDelete} />
                   ))}
                 </div>
               </>
@@ -401,6 +442,13 @@ export default function AdminClaimsPage() {
                         >
                           View <ExternalLink className="w-3 h-3" />
                         </a>
+                        <button
+                          onClick={() => openDelete({ id: club.id, name: club.name })}
+                          className="p-1.5 rounded-lg text-white/20 hover:text-red-400 hover:bg-red-400/10 transition"
+                          title="Delete club"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -442,11 +490,20 @@ export default function AdminClaimsPage() {
                           <p className="text-sm font-bold text-white">{club.name}</p>
                           {club.city && <p className="text-xs text-white/40">{club.city}</p>}
                         </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-[10px] font-bold text-[#c5f135]/50 uppercase tracking-wider">Invite sent</p>
-                          <p className="text-xs text-white/30 mt-0.5">
-                            {new Date(club.invite_sent_at!).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                          </p>
+                        <div className="flex items-start gap-2 shrink-0">
+                          <div className="text-right">
+                            <p className="text-[10px] font-bold text-[#c5f135]/50 uppercase tracking-wider">Invite sent</p>
+                            <p className="text-xs text-white/30 mt-0.5">
+                              {new Date(club.invite_sent_at!).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => openDelete({ id: club.id, name: club.name })}
+                            className="p-1.5 rounded-lg text-white/20 hover:text-red-400 hover:bg-red-400/10 transition"
+                            title="Delete club"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       </div>
                       {club.contact_email && (
@@ -533,9 +590,18 @@ export default function AdminClaimsPage() {
                   const igHandle = (inviteInstagrams[club.id] ?? club.instagram_handle ?? "").replace(/^@/, "").trim()
                   return (
                     <div key={club.id} className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-4 space-y-3">
-                      <div>
-                        <p className="text-sm font-bold text-white">{club.name}</p>
-                        {club.city && <p className="text-xs text-white/40">{club.city}</p>}
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-bold text-white">{club.name}</p>
+                          {club.city && <p className="text-xs text-white/40">{club.city}</p>}
+                        </div>
+                        <button
+                          onClick={() => openDelete({ id: club.id, name: club.name })}
+                          className="shrink-0 p-1.5 rounded-lg text-white/20 hover:text-red-400 hover:bg-red-400/10 transition"
+                          title="Delete club"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                       <div className="flex gap-2">
                         <input
@@ -689,6 +755,48 @@ export default function AdminClaimsPage() {
         })()}
 
       </div>
+
+    {/* Delete confirmation modal */}
+    {deleteTarget && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center px-5">
+        <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={closeDelete} />
+        <div className="relative bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-6 w-full max-w-sm space-y-4">
+          <div>
+            <p className="text-xs font-bold text-red-400/70 uppercase tracking-widest mb-1">Delete Club</p>
+            <p className="text-lg font-black text-white">{deleteTarget.name}</p>
+            <p className="text-xs text-white/40 mt-1">This permanently deletes the club and all its runs. This cannot be undone.</p>
+          </div>
+          <div>
+            <label className="text-xs text-white/50 font-semibold mb-1.5 block">Enter your password to confirm</label>
+            <input
+              type="password"
+              value={deletePassword}
+              onChange={(e) => setDeletePassword(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleDelete()}
+              placeholder="Your password"
+              autoFocus
+              className="w-full bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2.5 text-white text-sm placeholder-white/20 focus:outline-none focus:border-red-400/50 transition"
+            />
+            {deleteError && <p className="text-red-400 text-xs mt-2">{deleteError}</p>}
+          </div>
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={closeDelete}
+              className="flex-1 px-4 py-2.5 rounded-xl text-sm font-bold border border-[#2e3d1a] text-white/50 hover:text-white transition"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleDelete}
+              disabled={deleting || !deletePassword}
+              className="flex-1 px-4 py-2.5 rounded-xl text-sm font-black bg-red-500/80 text-white hover:bg-red-500 disabled:opacity-40 transition"
+            >
+              {deleting ? "Deleting…" : "Delete"}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     </div>
   )
 }
@@ -698,11 +806,13 @@ function ClaimCard({
   acting,
   onAct,
   resolved = false,
+  onDelete,
 }: {
   claim: Claim
   acting: string | null
   onAct: (id: string, action: "approve" | "reject") => void
   resolved?: boolean
+  onDelete?: (club: { id: string; name: string }) => void
 }) {
   const isActing = acting === claim.id
   const statusColor =
@@ -820,33 +930,65 @@ function ClaimCard({
         </div>
       )}
 
-      {!resolved && (
-        <div className="flex gap-2 pt-1">
-          <button
-            onClick={() => onAct(claim.id, "approve")}
-            disabled={isActing}
-            className="flex items-center gap-1.5 px-4 py-2 bg-[#c5f135] text-[#1a2110] rounded-full text-xs font-black disabled:opacity-40 hover:bg-[#d4ff45] transition"
-          >
-            <Check className="w-3.5 h-3.5" />
-            {isActing ? "…" : "Approve"}
-          </button>
-          <button
-            onClick={() => onAct(claim.id, "reject")}
-            disabled={isActing}
-            className="flex items-center gap-1.5 px-4 py-2 border border-[#2e3d1a] text-white/50 rounded-full text-xs font-semibold disabled:opacity-40 hover:text-red-400 hover:border-red-400/30 transition"
-          >
-            <X className="w-3.5 h-3.5" />
-            Reject
-          </button>
-          {claim.club_id && (
-            <a
-              href={`/clubs/${claim.club_id}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-4 py-2 border border-[#2e3d1a] text-white/30 rounded-full text-xs font-semibold hover:text-white/60 transition ml-auto"
-            >
-              View club <ExternalLink className="w-3 h-3" />
-            </a>
+      {(!resolved || (claim.club_id && onDelete)) && (
+        <div className="flex gap-2 pt-1 flex-wrap">
+          {!resolved && (
+            <>
+              <button
+                onClick={() => onAct(claim.id, "approve")}
+                disabled={isActing}
+                className="flex items-center gap-1.5 px-4 py-2 bg-[#c5f135] text-[#1a2110] rounded-full text-xs font-black disabled:opacity-40 hover:bg-[#d4ff45] transition"
+              >
+                <Check className="w-3.5 h-3.5" />
+                {isActing ? "…" : "Approve"}
+              </button>
+              <button
+                onClick={() => onAct(claim.id, "reject")}
+                disabled={isActing}
+                className="flex items-center gap-1.5 px-4 py-2 border border-[#2e3d1a] text-white/50 rounded-full text-xs font-semibold disabled:opacity-40 hover:text-red-400 hover:border-red-400/30 transition"
+              >
+                <X className="w-3.5 h-3.5" />
+                Reject
+              </button>
+              {claim.club_id && (
+                <a
+                  href={`/clubs/${claim.club_id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-4 py-2 border border-[#2e3d1a] text-white/30 rounded-full text-xs font-semibold hover:text-white/60 transition ml-auto"
+                >
+                  View club <ExternalLink className="w-3 h-3" />
+                </a>
+              )}
+              {claim.club_id && onDelete && (
+                <button
+                  onClick={() => onDelete({ id: claim.club_id!, name: claim.clubs?.name ?? claim.club_name ?? "this club" })}
+                  className="p-2 rounded-full border border-[#2e3d1a] text-white/20 hover:text-red-400 hover:border-red-400/30 transition"
+                  title="Delete club"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </>
+          )}
+          {resolved && claim.club_id && onDelete && (
+            <>
+              <a
+                href={`/clubs/${claim.club_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-4 py-2 border border-[#2e3d1a] text-white/30 rounded-full text-xs font-semibold hover:text-white/60 transition"
+              >
+                View club <ExternalLink className="w-3 h-3" />
+              </a>
+              <button
+                onClick={() => onDelete({ id: claim.club_id!, name: claim.clubs?.name ?? claim.club_name ?? "this club" })}
+                className="flex items-center gap-1.5 px-4 py-2 border border-red-400/20 text-red-400/50 rounded-full text-xs font-semibold hover:text-red-400 hover:border-red-400/40 transition ml-auto"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Delete
+              </button>
+            </>
           )}
         </div>
       )}
