@@ -27,8 +27,18 @@ export async function POST(req: NextRequest) {
     const { club_id, instagram_handle } = await req.json()
     if (!club_id) return NextResponse.json({ error: "club_id required" }, { status: 400 })
 
-    const freshToken = crypto.randomUUID()
-    const updates: Record<string, string> = { claim_token: freshToken }
+    const { data: club, error: lookupError } = await getAdminSupabase()
+      .from("clubs")
+      .select("claim_token")
+      .eq("id", club_id)
+      .single()
+
+    if (lookupError || !club) return NextResponse.json({ error: "Club not found" }, { status: 404 })
+
+    // Reuse the existing token — only generate a new one if there isn't one yet.
+    // Generating a fresh token on every click would invalidate any link already sent.
+    const tokenToUse = club.claim_token ?? crypto.randomUUID()
+    const updates: Record<string, string> = { claim_token: tokenToUse }
     if (instagram_handle) updates.instagram_handle = instagram_handle
 
     const { error } = await getAdminSupabase()
@@ -40,8 +50,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       ok: true,
-      claim_token: freshToken,
-      link: `${BASE_URL}/welcome?t=${freshToken}`,
+      claim_token: tokenToUse,
+      link: `${BASE_URL}/welcome?t=${tokenToUse}`,
     })
   } catch (err: any) {
     console.error("generate-ig-link error:", err)
