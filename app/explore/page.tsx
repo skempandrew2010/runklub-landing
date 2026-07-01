@@ -65,6 +65,11 @@ export default function ExplorePage() {
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
   const [cityCoords, setCityCoords] = useState<{ lat: number; lng: number } | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null)
+  const [deletePassword, setDeletePassword] = useState("")
+  const [deleteError, setDeleteError] = useState("")
+  const [deleting, setDeleting] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [showMobileMap, setShowMobileMap] = useState(false)
@@ -89,13 +94,56 @@ export default function ExplorePage() {
     const getUser = async () => {
       const { data } = await supabase.auth.getUser()
       setUserId(data.user?.id || null)
+      if (data.user) {
+        const { data: profile } = await supabase.from("profiles").select("role").eq("id", data.user.id).single()
+        setIsAdmin(profile?.role === "admin")
+      }
     }
     getUser()
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setUserId(session?.user?.id || null)
+      if (session?.user) {
+        const { data: profile } = await supabase.from("profiles").select("role").eq("id", session.user.id).single()
+        setIsAdmin(profile?.role === "admin")
+      } else {
+        setIsAdmin(false)
+      }
     })
     return () => listener.subscription.unsubscribe()
   }, [])
+
+  const openDelete = (club: { id: string; name: string }) => {
+    setDeleteTarget(club)
+    setDeletePassword("")
+    setDeleteError("")
+  }
+  const closeDelete = () => {
+    setDeleteTarget(null)
+    setDeletePassword("")
+    setDeleteError("")
+  }
+  const handleDelete = async () => {
+    if (!deleteTarget || !deletePassword) return
+    setDeleting(true)
+    setDeleteError("")
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch("/api/admin/delete-club", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session?.access_token}`,
+      },
+      body: JSON.stringify({ club_id: deleteTarget.id, password: deletePassword }),
+    })
+    if (res.ok) {
+      setClubs((prev) => prev.filter((c) => c.id !== deleteTarget.id))
+      closeDelete()
+    } else {
+      const json = await res.json().catch(() => ({}))
+      setDeleteError(json.error ?? "Failed to delete")
+    }
+    setDeleting(false)
+  }
 
   const requireAuth = async (action?: () => void) => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -399,6 +447,7 @@ export default function ExplorePage() {
         setFavorites={setSubscriptions}
         userId={userId}
         requireAuth={requireAuth}
+        onDelete={isAdmin ? openDelete : undefined}
       />
       {remaining > 0 && (
         <div className="px-5 pb-5 pt-2">
@@ -552,6 +601,47 @@ export default function ExplorePage() {
             if (pendingAction) { pendingAction(); setPendingAction(null) }
           }}
         />
+      )}
+
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-5">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={closeDelete} />
+          <div className="relative bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-6 w-full max-w-sm space-y-4">
+            <div>
+              <p className="text-xs font-bold text-red-400/70 uppercase tracking-widest mb-1">Delete Club</p>
+              <p className="text-lg font-black text-white">{deleteTarget.name}</p>
+              <p className="text-xs text-white/40 mt-1">This permanently deletes the club and all its runs. This cannot be undone.</p>
+            </div>
+            <div>
+              <label className="text-xs text-white/50 font-semibold mb-1.5 block">Enter your password to confirm</label>
+              <input
+                type="password"
+                value={deletePassword}
+                onChange={(e) => setDeletePassword(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleDelete()}
+                placeholder="Your password"
+                autoFocus
+                className="w-full bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2.5 text-white text-sm placeholder-white/20 focus:outline-none focus:border-red-400/50 transition"
+              />
+              {deleteError && <p className="text-red-400 text-xs mt-2">{deleteError}</p>}
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={closeDelete}
+                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-bold border border-[#2e3d1a] text-white/50 hover:text-white transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting || !deletePassword}
+                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-black bg-red-500/80 text-white hover:bg-red-500 disabled:opacity-40 transition"
+              >
+                {deleting ? "Deleting…" : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   )

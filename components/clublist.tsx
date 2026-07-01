@@ -45,6 +45,7 @@ type Props = {
   userId: string | null
   requireAuth: (action?: () => void) => void
   selectedClub: Club | null
+  onDelete?: (club: { id: string; name: string }) => void
 }
 
 export default function ClubList({
@@ -54,6 +55,7 @@ export default function ClubList({
   userId,
   requireAuth,
   selectedClub,
+  onDelete,
 }: Props) {
   if (clubs.length === 0) {
     return (
@@ -75,6 +77,7 @@ export default function ClubList({
             isSelected={selectedClub?.id === club.id}
             showHeart={true}
             onHover={setHoveredClub}
+            onDelete={onDelete}
             onSubscriptionChange={(club, isFav) => {
               if (isFav) {
                 setFavorites((prev) => [...prev, club])

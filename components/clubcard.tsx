@@ -4,7 +4,7 @@ import { Club } from "@/types/club"
 import { supabase } from "@/lib/supabase"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Heart } from "lucide-react"
+import { Heart, Trash2 } from "lucide-react"
 import { formatTimeToAMPM } from "@/utils/formatTime"
 import { getTagStyle } from "@/utils/tagStyle"
 import { localDateStr } from "@/utils/dates"
@@ -26,6 +26,7 @@ type Props = {
   userId: string | null
   requireAuth?: (action?: () => void) => void
   isSelected?: boolean
+  onDelete?: (club: { id: string; name: string }) => void
 }
 
 const GRADIENTS = [
@@ -60,6 +61,7 @@ export default function ClubCard({
   userId,
   requireAuth,
   isSelected,
+  onDelete,
 }: Props) {
   const router = useRouter()
   const [isSubscribed, setIsSubscribed] = useState(false)
@@ -153,17 +155,31 @@ export default function ClubCard({
             </div>
           </div>
 
-          {showHeart && (
-            <button
-              type="button"
-              onClick={(e) => requireAuth ? requireAuth(() => handleSubscription(e)) : handleSubscription(e)}
-              className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center hover:bg-[#2e3d1a] transition mt-0.5"
-            >
-              <Heart
-                fill={isSubscribed ? "#ef4444" : "none"}
-                className={`w-4 h-4 ${isSubscribed ? "text-red-400" : "text-white/40"} transition-transform duration-300 ${isAnimating ? "scale-125" : ""}`}
-              />
-            </button>
+          {(showHeart || onDelete) && (
+            <div className="flex items-start gap-0.5 shrink-0">
+              {showHeart && (
+                <button
+                  type="button"
+                  onClick={(e) => requireAuth ? requireAuth(() => handleSubscription(e)) : handleSubscription(e)}
+                  className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-[#2e3d1a] transition mt-0.5"
+                >
+                  <Heart
+                    fill={isSubscribed ? "#ef4444" : "none"}
+                    className={`w-4 h-4 ${isSubscribed ? "text-red-400" : "text-white/40"} transition-transform duration-300 ${isAnimating ? "scale-125" : ""}`}
+                  />
+                </button>
+              )}
+              {onDelete && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onDelete({ id: club.id, name: club.name }) }}
+                  title="Delete club"
+                  className="group/del w-8 h-8 rounded-full flex items-center justify-center hover:bg-red-400/10 transition mt-0.5"
+                >
+                  <Trash2 className="w-4 h-4 text-white/20 group-hover/del:text-red-400 transition" />
+                </button>
+              )}
+            </div>
           )}
         </div>
 
