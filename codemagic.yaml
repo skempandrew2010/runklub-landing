@@ -20,6 +20,21 @@ workflows:
           xcode-project build-ipa \
             --project ios/App/App.xcodeproj \
             --scheme App
+      - name: Upload to TestFlight
+        script: |
+          python3 -c "
+          import os
+          key = os.environ.get('APP_STORE_CONNECT_PUBLISHER_PRIVATE_KEY', '')
+          key = key.replace('\\\\n', '\\n')
+          with open('/tmp/asc_key.p8', 'w') as f:
+              f.write(key)
+          "
+          app-store-connect publish \
+            --path build/ios/ipa/App.ipa \
+            --key-id "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
+            --issuer-id "$APP_STORE_CONNECT_ISSUER_ID" \
+            --private-key @file:/tmp/asc_key.p8 \
+            --testflight
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
