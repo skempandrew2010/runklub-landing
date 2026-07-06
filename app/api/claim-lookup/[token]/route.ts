@@ -128,12 +128,16 @@ export async function GET(
   const ua = _req.headers.get("user-agent") ?? ""
   const isPreviewBot = /facebookexternalhit|facebot|twitterbot|linkedinbot|slackbot|whatsapp|telegram|discordbot|applebot|googlebot|bingbot|yandex|instagram|preview|crawler|spider|bot\b/i.test(ua)
 
+  // Only record a click if the invite has already been formally sent.
+  // This prevents false positives from browser link-preview fetches that happen
+  // during the admin's own outreach workflow (before the DM/email is actually sent).
   if (!isPreviewBot) {
     await getAdminSupabase()
       .from("clubs")
       .update({ invite_link_clicked_at: new Date().toISOString() })
       .eq("id", club.id)
       .is("invite_link_clicked_at", null)
+      .not("invite_sent_at", "is", null)
   }
 
   return NextResponse.json({
