@@ -50,6 +50,7 @@ type EditableClub = {
   latitude: number | null
   longitude: number | null
   is_public: boolean
+  bad_contact: boolean
 }
 
 type OwnedClub = {
@@ -178,7 +179,7 @@ export default function AdminClaimsPage() {
   const loadEditableClubs = async () => {
     const { data } = await supabase
       .from("clubs")
-      .select("id, name, city, description, instagram_handle, contact_email, website, meeting_day, meeting_time, location, latitude, longitude, is_public")
+      .select("id, name, city, description, instagram_handle, contact_email, website, meeting_day, meeting_time, location, latitude, longitude, is_public, bad_contact")
       .order("name")
     setEditableClubs((data as EditableClub[]) ?? [])
     setEditableClubsLoaded(true)
@@ -935,6 +936,11 @@ export default function AdminClaimsPage() {
                               <span className={`text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full border ${club.is_public ? "bg-[#c5f135]/10 text-[#c5f135]/70 border-[#c5f135]/20" : "bg-white/5 text-white/25 border-white/10"}`}>
                                 {club.is_public ? "Public" : "Hidden"}
                               </span>
+                              {club.bad_contact && (
+                                <span className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full border bg-red-500/10 text-red-400/70 border-red-500/20">
+                                  Bad Contact
+                                </span>
+                              )}
                             </div>
                           </div>
                           {isExpanded ? <ChevronUp className="w-4 h-4 text-white/30 shrink-0" /> : <ChevronDown className="w-4 h-4 text-white/30 shrink-0" />}
