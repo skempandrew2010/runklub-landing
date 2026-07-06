@@ -16,7 +16,7 @@ export function useClubs() {
 
   useEffect(() => {
     async function loadClubs() {
-      const { data } = await supabase.from("clubs").select("*")
+      const { data } = await supabase.from("clubs").select("id, name, city, latitude, longitude, meeting_day, meeting_time").eq("is_public", true)
       setClubs(data || [])
     }
 

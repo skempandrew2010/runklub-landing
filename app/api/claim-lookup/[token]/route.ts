@@ -122,12 +122,19 @@ export async function GET(
   if (!club) return NextResponse.json({ error: "invalid" }, { status: 404 })
   if (club.claim_token_used_at) return NextResponse.json({ error: "used" }, { status: 410 })
 
-  // Record first link click for funnel tracking
-  await getAdminSupabase()
-    .from("clubs")
-    .update({ invite_link_clicked_at: new Date().toISOString() })
-    .eq("id", club.id)
-    .is("invite_link_clicked_at", null)
+  // Only record the click for real browser sessions — skip known link-preview crawlers
+  // (Instagram/Facebook, Slack, Twitter, WhatsApp, Telegram all pre-fetch URLs to render
+  // preview cards, which would falsely mark the link as opened before the owner clicks it)
+  const ua = _req.headers.get("user-agent") ?? ""
+  const isPreviewBot = /facebookexternalhit|facebot|twitterbot|linkedinbot|slackbot|whatsapp|telegram|discordbot|applebot|googlebot|bingbot|yandex|instagram|preview|crawler|spider|bot\b/i.test(ua)
+
+  if (!isPreviewBot) {
+    await getAdminSupabase()
+      .from("clubs")
+      .update({ invite_link_clicked_at: new Date().toISOString() })
+      .eq("id", club.id)
+      .is("invite_link_clicked_at", null)
+  }
 
   return NextResponse.json({
     club: {

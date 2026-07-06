@@ -164,54 +164,28 @@ export default function ExplorePage() {
   }, [])
 
   useEffect(() => {
-    async function loadClubs() {
-      const [{ data: clubData }, { data: subData }] = await Promise.all([
-        supabase.from("clubs").select("id, name, city, latitude, longitude, location, image_url, tier, membership_type, created_at, user_id").eq("is_public", true),
-        supabase.from("subscriptions").select("club_id"),
-      ])
-      const countMap: Record<string, number> = {}
-      subData?.forEach((s) => { countMap[s.club_id] = (countMap[s.club_id] || 0) + 1 })
-      setClubs((clubData || []).map((club) => ({ ...club, memberCount: countMap[club.id] || 0 })))
-    }
-    loadClubs()
-  }, [])
-
-  useEffect(() => {
-    if (!selectedClub) return
-    const el = document.getElementById(`club-${selectedClub.id}`)
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" })
-  }, [selectedClub])
-
-  useEffect(() => {
-    if (skipVisibleResetRef.current) { skipVisibleResetRef.current = false; return }
-    setVisibleCount(PAGE_SIZE)
-  }, [city, cityCoords])
-
-  useEffect(() => {
-    async function loadWeekRuns() {
-      if (clubs.length === 0) return
+    async function loadData() {
       setWeekRunsLoading(true)
-
       const todayStr = localDateStr()
       const weekAhead = new Date()
       weekAhead.setDate(weekAhead.getDate() + 7)
       const weekStr = localDateStr(weekAhead)
 
-      const { data } = await supabase
-        .from("runs")
-        .select("id, title, date, time, distance, meeting_point, city, run_lat, run_lng, tags, club_id")
-        .in("club_id", clubs.map((c) => c.id))
-        .gte("date", todayStr)
-        .lte("date", weekStr)
-        .eq("is_public", true)
-        .order("date", { ascending: true })
-        .order("time", { ascending: true })
+      const [{ data: clubData }, { data: subData }, { data: runsData }] = await Promise.all([
+        supabase.from("clubs").select("id, name, city, latitude, longitude, location, image_url, tier, membership_type, created_at, user_id").eq("is_public", true),
+        supabase.from("subscriptions").select("club_id"),
+        supabase.from("runs").select("id, title, date, time, distance, meeting_point, city, run_lat, run_lng, tags, club_id").gte("date", todayStr).lte("date", weekStr).eq("is_public", true).order("date", { ascending: true }).order("time", { ascending: true }),
+      ])
+
+      const countMap: Record<string, number> = {}
+      subData?.forEach((s) => { countMap[s.club_id] = (countMap[s.club_id] || 0) + 1 })
+      const loadedClubs = (clubData || []).map((club) => ({ ...club, memberCount: countMap[club.id] || 0 }))
+      setClubs(loadedClubs)
 
       const clubLookup: Record<string, ClubWithExtras> = {}
-      clubs.forEach((c) => { clubLookup[c.id] = c })
-
+      loadedClubs.forEach((c) => { clubLookup[c.id] = c })
       setAllWeekRuns(
-        (data || []).map((r) => ({
+        (runsData || []).map((r) => ({
           ...r,
           club_name: clubLookup[r.club_id]?.name ?? "",
           club_image: clubLookup[r.club_id]?.image_url ?? null,
@@ -224,8 +198,19 @@ export default function ExplorePage() {
       )
       setWeekRunsLoading(false)
     }
-    loadWeekRuns()
-  }, [clubs])
+    loadData()
+  }, [])
+
+  useEffect(() => {
+    if (!selectedClub) return
+    const el = document.getElementById(`club-${selectedClub.id}`)
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" })
+  }, [selectedClub])
+
+  useEffect(() => {
+    if (skipVisibleResetRef.current) { skipVisibleResetRef.current = false; return }
+    setVisibleCount(PAGE_SIZE)
+  }, [city, cityCoords])
 
   // Persist visibleCount so the same number of cards exist in the DOM on return
   useEffect(() => {
@@ -263,7 +248,7 @@ export default function ExplorePage() {
     return map
   }, [center, allWeekRuns])
 
-  const clubsWithDistance = clubs.map((club) => {
+  const clubsWithDistance = useMemo(() => clubs.map((club) => {
     if (!center) return { ...club }
     let clubDist: number | undefined
     if (club.latitude != null && club.longitude != null) {
@@ -272,13 +257,13 @@ export default function ExplorePage() {
     const runDist = nearestRunDistByClub[club.id]
     const dist = runDist != null && (clubDist == null || runDist < clubDist) ? runDist : clubDist
     return { ...club, distance: dist, nearestRunDist: runDist }
-  })
+  }), [clubs, center, nearestRunDistByClub])
 
-  const baseClubs = center
+  const baseClubs = useMemo(() => center
     ? clubsWithDistance.filter((c) => c.distance != null && c.distance <= NEARBY_RADIUS)
-    : clubsWithDistance
+    : clubsWithDistance, [center, clubsWithDistance])
 
-  const filteredClubs = baseClubs
+  const filteredClubs = useMemo(() => baseClubs
     .filter((club) => {
       if (club.distance != null) {
         const [dMin, dMax] = filters.distanceRange
@@ -287,11 +272,9 @@ export default function ExplorePage() {
       return true
     })
     .sort((a, b) => {
-      // Owned (claimed) clubs always surface first
       const aOwned = !!a.user_id
       const bOwned = !!b.user_id
       if (aOwned !== bOwned) return aOwned ? -1 : 1
-      // Then the user-selected sort within each tier
       if (sortBy === "popular") return (b.memberCount ?? 0) - (a.memberCount ?? 0)
       if (sortBy === "newest") return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       if (a.nearestRunDist != null && b.nearestRunDist != null) return a.nearestRunDist - b.nearestRunDist
@@ -301,7 +284,7 @@ export default function ExplorePage() {
       if (a.distance != null) return -1
       if (b.distance != null) return 1
       return 0
-    })
+    }), [baseClubs, filters, sortBy])
 
   const activeFilterCount = [
     filters.distanceRange[0] > 0 || filters.distanceRange[1] < 25,
@@ -321,17 +304,18 @@ export default function ExplorePage() {
     [clubs]
   )
 
-  const mapRuns = mapBounds
+  const mapRuns = useMemo(() => mapBounds
     ? allWeekRuns.filter((r) => {
         const lat = r.run_lat ?? r.club_lat
         const lng = r.run_lng ?? r.club_lng
         if (lat == null || lng == null) return false
         return lat >= mapBounds.south && lat <= mapBounds.north && lng >= mapBounds.west && lng <= mapBounds.east
       })
-    : allWeekRuns
+    : allWeekRuns, [mapBounds, allWeekRuns])
 
-  const nearbyClubIds = new Set(baseClubs.map((c) => c.id))
-  const weekRuns = center
+  const nearbyClubIds = useMemo(() => new Set(baseClubs.map((c) => c.id)), [baseClubs])
+
+  const weekRuns = useMemo(() => center
     ? allWeekRuns.filter((r) => {
         const lat = r.run_lat ?? r.club_lat
         const lng = r.run_lng ?? r.club_lng
@@ -340,14 +324,17 @@ export default function ExplorePage() {
         }
         return nearbyClubIds.has(r.club_id)
       })
-    : allWeekRuns
+    : allWeekRuns, [center, allWeekRuns, nearbyClubIds])
 
-  const groupedWeekRuns: Record<string, WeekRun[]> = {}
-  weekRuns.forEach((r) => {
-    const label = formatDate(r.date)
-    if (!groupedWeekRuns[label]) groupedWeekRuns[label] = []
-    groupedWeekRuns[label].push(r)
-  })
+  const groupedWeekRuns = useMemo(() => {
+    const result: Record<string, WeekRun[]> = {}
+    weekRuns.forEach((r) => {
+      const label = formatDate(r.date)
+      if (!result[label]) result[label] = []
+      result[label].push(r)
+    })
+    return result
+  }, [weekRuns])
 
   const locationLabel = cityCoords && city ? `near "${city}"` : "near you"
 

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
-import { Check, X, Clock, ExternalLink, Send, RotateCcw, Search, Ban, Trash2 } from "lucide-react"
+import { Check, X, Clock, ExternalLink, Send, RotateCcw, Search, Ban, Trash2, AlertTriangle, ChevronDown, ChevronUp, Globe, Mail } from "lucide-react"
 
 type Claim = {
   id: string
@@ -33,6 +33,23 @@ type UnclaimedClub = {
   claim_token_used_at: string | null
   invite_sent_at: string | null
   instagram_handle: string | null
+  bad_contact: boolean | null
+}
+
+type EditableClub = {
+  id: string
+  name: string
+  city: string | null
+  description: string | null
+  instagram_handle: string | null
+  contact_email: string | null
+  website: string | null
+  meeting_day: string | null
+  meeting_time: string | null
+  location: string | null
+  latitude: number | null
+  longitude: number | null
+  is_public: boolean
 }
 
 type OwnedClub = {
@@ -60,7 +77,7 @@ export default function AdminClaimsPage() {
   const [unclaimedClubs, setUnclaimedClubs] = useState<UnclaimedClub[]>([])
   const [loading, setLoading] = useState(true)
   const [acting, setActing] = useState<string | null>(null)
-  const [tab, setTab] = useState<"claims" | "invite" | "sent" | "funnel">("claims")
+  const [tab, setTab] = useState<"claims" | "invite" | "sent" | "funnel" | "clubs">("claims")
   const [inviteEmails, setInviteEmails] = useState<Record<string, string>>({})
   const [sending, setSending] = useState<string | null>(null)
   const [cancelling, setCancelling] = useState<string | null>(null)
@@ -72,7 +89,15 @@ export default function AdminClaimsPage() {
   const [inviteInstagrams, setInviteInstagrams] = useState<Record<string, string>>({})
   const [copiedIg, setCopiedIg] = useState<string | null>(null)
   const [markingSent, setMarkingSent] = useState<string | null>(null)
+  const [markingBadContact, setMarkingBadContact] = useState<string | null>(null)
   const [ownedClubs, setOwnedClubs] = useState<OwnedClub[]>([])
+  const [editableClubs, setEditableClubs] = useState<EditableClub[]>([])
+  const [editableClubsLoaded, setEditableClubsLoaded] = useState(false)
+  const [editSearch, setEditSearch] = useState("")
+  const [expandedClub, setExpandedClub] = useState<string | null>(null)
+  const [editState, setEditState] = useState<Partial<EditableClub>>({})
+  const [savingClub, setSavingClub] = useState<string | null>(null)
+  const [saveErrors, setSaveErrors] = useState<Record<string, string>>({})
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null)
   const [deletePassword, setDeletePassword] = useState("")
   const [deleteError, setDeleteError] = useState("")
@@ -133,6 +158,55 @@ export default function AdminClaimsPage() {
     setMarkingSent(null)
   }
 
+  const markBadContact = async (clubId: string) => {
+    setMarkingBadContact(clubId)
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch("/api/admin/mark-bad-contact", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session?.access_token}`,
+      },
+      body: JSON.stringify({ club_id: clubId }),
+    })
+    if (res.ok) {
+      setUnclaimedClubs((prev) => prev.map((c) => c.id === clubId ? { ...c, bad_contact: true } : c))
+    }
+    setMarkingBadContact(null)
+  }
+
+  const loadEditableClubs = async () => {
+    const { data } = await supabase
+      .from("clubs")
+      .select("id, name, city, description, instagram_handle, contact_email, website, meeting_day, meeting_time, location, latitude, longitude, is_public")
+      .order("name")
+    setEditableClubs((data as EditableClub[]) ?? [])
+    setEditableClubsLoaded(true)
+  }
+
+  const saveClub = async (clubId: string) => {
+    setSavingClub(clubId)
+    setSaveErrors((prev) => { const n = { ...prev }; delete n[clubId]; return n })
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch("/api/admin/update-club", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session?.access_token}`,
+      },
+      body: JSON.stringify({ club_id: clubId, updates: editState }),
+    })
+    if (res.ok) {
+      setEditableClubs((prev) => prev.map((c) => c.id === clubId ? { ...c, ...editState } : c))
+      setExpandedClub(null)
+      setEditState({})
+    } else {
+      const json = await res.json().catch(() => ({}))
+      setSaveErrors((prev) => ({ ...prev, [clubId]: json.error ?? "Failed to save." }))
+    }
+    setSavingClub(null)
+  }
+
   const buildIgMessage = (club: UnclaimedClub) => {
     const city = club.city ?? "your city"
     const link = `https://www.runklub.fit/welcome?t=${club.claim_token}`
@@ -181,7 +255,7 @@ export default function AdminClaimsPage() {
 
       const { data: clubs } = await supabase
         .from("clubs")
-        .select("id, name, city, contact_email, claim_token, claim_token_used_at, invite_sent_at, instagram_handle")
+        .select("id, name, city, contact_email, claim_token, claim_token_used_at, invite_sent_at, instagram_handle, bad_contact")
         .is("claim_token_used_at", null)
         .order("name")
       setUnclaimedClubs((clubs as UnclaimedClub[]) ?? [])
@@ -284,7 +358,7 @@ export default function AdminClaimsPage() {
     if (action === "reject") {
       const { data: clubs } = await supabase
         .from("clubs")
-        .select("id, name, city, contact_email, claim_token, claim_token_used_at, invite_sent_at, instagram_handle")
+        .select("id, name, city, contact_email, claim_token, claim_token_used_at, invite_sent_at, instagram_handle, bad_contact")
         .is("claim_token_used_at", null)
         .order("name")
       setUnclaimedClubs((clubs as UnclaimedClub[]) ?? [])
@@ -306,7 +380,7 @@ export default function AdminClaimsPage() {
   const pending = filteredClaims.filter((c) => c.status === "pending")
   const resolved = filteredClaims.filter((c) => c.status !== "pending")
   const invitedClubs = unclaimedClubs.filter((c) => c.invite_sent_at)
-  const notInvitedClubs = unclaimedClubs.filter((c) => !c.invite_sent_at)
+  const notInvitedClubs = unclaimedClubs.filter((c) => !c.invite_sent_at && !c.bad_contact)
   const inviteSearchLower = inviteSearch.toLowerCase()
   const filteredInvitedClubs = inviteSearch
     ? invitedClubs.filter((c) => c.name.toLowerCase().includes(inviteSearchLower) || (c.city ?? "").toLowerCase().includes(inviteSearchLower))
@@ -356,6 +430,12 @@ export default function AdminClaimsPage() {
             className={`px-4 py-2 rounded-full text-sm font-bold transition ${tab === "funnel" ? "bg-[#c5f135] text-[#1a2110]" : "bg-[#1e2d12] border border-[#2e3d1a] text-white/50 hover:text-white"}`}
           >
             Funnel
+          </button>
+          <button
+            onClick={() => { setTab("clubs"); if (!editableClubsLoaded) loadEditableClubs() }}
+            className={`px-4 py-2 rounded-full text-sm font-bold transition ${tab === "clubs" ? "bg-[#c5f135] text-[#1a2110]" : "bg-[#1e2d12] border border-[#2e3d1a] text-white/50 hover:text-white"}`}
+          >
+            Clubs
           </button>
         </div>
 
@@ -552,6 +632,13 @@ export default function AdminClaimsPage() {
                           {copiedIg === club.id ? <><Check className="w-3.5 h-3.5 text-[#c5f135]" /> Copied!</> : <><ExternalLink className="w-3.5 h-3.5" /> Instagram</>}
                         </button>
                       </div>
+                      <button
+                        onClick={() => markBadContact(club.id)}
+                        disabled={markingBadContact === club.id}
+                        className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-black transition disabled:opacity-40 border border-red-500/20 text-red-400/50 hover:text-red-400 hover:border-red-400/40"
+                      >
+                        {markingBadContact === club.id ? "…" : <><AlertTriangle className="w-3.5 h-3.5" /> Mark contact info as incorrect</>}
+                      </button>
                       {inviteErrors[club.id] && (
                         <p className="text-red-400 text-xs px-1">{inviteErrors[club.id]}</p>
                       )}
@@ -645,6 +732,13 @@ export default function AdminClaimsPage() {
                         className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-black transition disabled:opacity-40 border border-[#2e3d1a] text-white/40 hover:text-[#c5f135] hover:border-[#c5f135]/40"
                       >
                         {markingSent === club.id ? "…" : <><Check className="w-3.5 h-3.5" /> Mark as DM sent</>}
+                      </button>
+                      <button
+                        onClick={() => markBadContact(club.id)}
+                        disabled={markingBadContact === club.id}
+                        className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-black transition disabled:opacity-40 border border-red-500/20 text-red-400/50 hover:text-red-400 hover:border-red-400/40"
+                      >
+                        {markingBadContact === club.id ? "…" : <><AlertTriangle className="w-3.5 h-3.5" /> Mark contact info as incorrect</>}
                       </button>
                       {inviteErrors[club.id] && (
                         <p className="text-red-400 text-xs px-1">{inviteErrors[club.id]}</p>
@@ -753,6 +847,149 @@ export default function AdminClaimsPage() {
             </div>
           )
         })()}
+
+        {/* ── CLUBS TAB ── */}
+        {tab === "clubs" && (
+          <>
+            <div className="relative mb-5">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/25 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Search by club or city…"
+                value={editSearch}
+                onChange={(e) => setEditSearch(e.target.value)}
+                className="w-full bg-[#1e2d12] border border-[#2e3d1a] rounded-xl pl-9 pr-4 py-2.5 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#c5f135]/50 transition"
+              />
+            </div>
+            {!editableClubsLoaded ? (
+              <div className="flex justify-center py-12">
+                <div className="w-6 h-6 border-2 border-[#c5f135]/30 border-t-[#c5f135] rounded-full animate-spin" />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {editableClubs
+                  .filter((c) => {
+                    if (!editSearch) return true
+                    const s = editSearch.toLowerCase()
+                    return c.name.toLowerCase().includes(s) || (c.city ?? "").toLowerCase().includes(s)
+                  })
+                  .map((club) => {
+                    const isExpanded = expandedClub === club.id
+                    const isSaving = savingClub === club.id
+                    const openEdit = () => {
+                      setExpandedClub(isExpanded ? null : club.id)
+                      setEditState({ ...club })
+                      setSaveErrors((prev) => { const n = { ...prev }; delete n[club.id]; return n })
+                    }
+                    const field = (key: keyof EditableClub, label: string, type: "text" | "textarea" | "number" | "toggle" = "text") => {
+                      const val = editState[key]
+                      if (type === "toggle") {
+                        return (
+                          <div key={key} className="flex items-center justify-between">
+                            <span className="text-xs text-white/50 font-semibold">{label}</span>
+                            <button
+                              onClick={() => setEditState((p) => ({ ...p, [key]: !p[key] }))}
+                              className={`relative w-10 h-5 rounded-full transition ${val ? "bg-[#c5f135]" : "bg-white/10"}`}
+                            >
+                              <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${val ? "left-5" : "left-0.5"}`} />
+                            </button>
+                          </div>
+                        )
+                      }
+                      if (type === "textarea") {
+                        return (
+                          <div key={key}>
+                            <label className="text-xs text-white/50 font-semibold block mb-1">{label}</label>
+                            <textarea
+                              rows={3}
+                              value={(val as string) ?? ""}
+                              onChange={(e) => setEditState((p) => ({ ...p, [key]: e.target.value || null }))}
+                              className="w-full bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#c5f135]/50 transition resize-none"
+                            />
+                          </div>
+                        )
+                      }
+                      return (
+                        <div key={key}>
+                          <label className="text-xs text-white/50 font-semibold block mb-1">{label}</label>
+                          <input
+                            type={type}
+                            value={(val as string | number) ?? ""}
+                            onChange={(e) => setEditState((p) => ({ ...p, [key]: type === "number" ? (e.target.value ? parseFloat(e.target.value) : null) : (e.target.value || null) }))}
+                            className="w-full bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#c5f135]/50 transition"
+                          />
+                        </div>
+                      )
+                    }
+                    return (
+                      <div key={club.id} className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] overflow-hidden">
+                        <button
+                          onClick={openEdit}
+                          className="w-full flex items-center justify-between gap-3 px-4 py-3 hover:bg-white/[0.02] transition"
+                        >
+                          <div className="text-left min-w-0">
+                            <p className="text-sm font-bold text-white truncate">{club.name}</p>
+                            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                              {club.city && <span className="text-xs text-white/30">{club.city}</span>}
+                              {club.instagram_handle && <span className="text-xs text-white/20">@{club.instagram_handle}</span>}
+                              <span className={`text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full border ${club.is_public ? "bg-[#c5f135]/10 text-[#c5f135]/70 border-[#c5f135]/20" : "bg-white/5 text-white/25 border-white/10"}`}>
+                                {club.is_public ? "Public" : "Hidden"}
+                              </span>
+                            </div>
+                          </div>
+                          {isExpanded ? <ChevronUp className="w-4 h-4 text-white/30 shrink-0" /> : <ChevronDown className="w-4 h-4 text-white/30 shrink-0" />}
+                        </button>
+                        {isExpanded && (
+                          <div className="border-t border-[#2e3d1a] px-4 py-4 space-y-3">
+                            <div className="grid grid-cols-2 gap-3">
+                              {field("name", "Name")}
+                              {field("city", "City")}
+                            </div>
+                            {field("description", "Description", "textarea")}
+                            <div className="grid grid-cols-2 gap-3">
+                              {field("instagram_handle", "Instagram")}
+                              {field("contact_email", "Contact Email")}
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                              {field("website", "Website")}
+                              {field("location", "Location (venue)")}
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                              {field("meeting_day", "Meeting Day")}
+                              {field("meeting_time", "Meeting Time")}
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                              {field("latitude", "Latitude", "number")}
+                              {field("longitude", "Longitude", "number")}
+                            </div>
+                            {field("is_public", "Public", "toggle")}
+                            {saveErrors[club.id] && (
+                              <p className="text-red-400 text-xs">{saveErrors[club.id]}</p>
+                            )}
+                            <div className="flex gap-2 pt-1">
+                              <button
+                                onClick={() => { setExpandedClub(null); setEditState({}) }}
+                                className="flex-1 py-2 rounded-xl text-xs font-bold border border-[#2e3d1a] text-white/40 hover:text-white transition"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                onClick={() => saveClub(club.id)}
+                                disabled={isSaving}
+                                className="flex-1 py-2 rounded-xl text-xs font-black bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45] disabled:opacity-40 transition"
+                              >
+                                {isSaving ? "Saving…" : "Save"}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+              </div>
+            )}
+          </>
+        )}
 
       </div>
 
