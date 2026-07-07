@@ -32,16 +32,16 @@ function buildReminderEmail(
     : `Reminder: ${clubName}'s RunKlub page is waiting`
 
   const headline = isWarm
-    ? `You were so close! 👟`
-    : `Don't forget about RunKlub 👟`
+    ? `Still thinking about it? 👟`
+    : `Just following up 👟`
 
   const body1 = isWarm
-    ? `You visited the page for <strong style="color:#ffffff;">${safeClub}</strong>${safeCity} but didn't quite finish setting it up. It only takes a minute — just click the button below to claim your club and start getting discovered by runners in your area.`
-    : `Just a friendly nudge — <strong style="color:#ffffff;">${safeClub}</strong>${safeCity} still has an unclaimed page on RunKlub. Runners in your city are searching for clubs to join right now, and your page is ready and waiting for you.`
+    ? `You clicked the link for <strong style="color:#ffffff;">${safeClub}</strong>${safeCity} but didn&rsquo;t quite finish. Totally fine — here&rsquo;s the link again whenever you&rsquo;re ready.`
+    : `Quick follow-up from Andrew &amp; Sean — <strong style="color:#ffffff;">${safeClub}</strong>${safeCity} still has an unclaimed page on RunKlub. Runners in your city are out there looking for a group right now.`
 
   const body2 = isWarm
-    ? `Runners are already finding your page. Claiming it means you can post your schedule, update your info, and keep your community in the loop — all for free.`
-    : `Claiming takes less than a minute. You&rsquo;ll be able to post your runs, keep your schedule up to date, and get discovered by people who are looking for exactly what your club offers.`
+    ? `Once you&rsquo;re in you can post your runs, update your schedule, and start showing up for people in your city who are looking for exactly what your club offers.`
+    : `Claim it for free and you can post runs, keep your schedule current, and get in front of people who are already searching for a club to join.`
 
   const ctaLabel = isWarm ? `Finish setting up ${safeClub} →` : `Claim ${safeClub} →`
 
@@ -83,7 +83,7 @@ function buildReminderEmail(
         <tr>
           <td style="padding:20px 32px;border-top:1px solid #2e3d1a;">
             <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.25);line-height:1.6;">
-              Questions? Reply to this email.<br>
+              &mdash; Andrew &amp; Sean<br>
               RunKlub &mdash; Find people you actually want to run with.
             </p>
           </td>
@@ -95,8 +95,8 @@ function buildReminderEmail(
 </html>`
 
   const text = isWarm
-    ? `You were so close!\n\nYou visited the page for ${clubName}${city ? ` in ${city}` : ""} but didn't finish setting it up. Click the link below to claim your club — it only takes a minute.\n\n${claimLink}\n\nQuestions? Reply to this email.\n— Andrew at RunKlub`
-    : `Don't forget about RunKlub\n\n${clubName}${city ? ` in ${city}` : ""} still has an unclaimed page on RunKlub. Runners in your city are searching for clubs right now — claim your page for free.\n\n${claimLink}\n\nQuestions? Reply to this email.\n— Andrew at RunKlub`
+    ? `Still thinking about it?\n\nYou clicked the link for ${clubName}${city ? ` in ${city}` : ""} but didn't quite finish. Here's the link again whenever you're ready:\n\n${claimLink}\n\nOnce you're in you can post your runs, update your schedule, and start showing up for people in your city who are looking for a group.\n\n— Andrew & Sean\nRunKlub`
+    : `Just following up\n\nQuick note from Andrew & Sean — ${clubName}${city ? ` in ${city}` : ""} still has an unclaimed page on RunKlub. Runners in your city are out there looking for a group right now.\n\n${claimLink}\n\nClaim it for free and you can post runs, keep your schedule current, and get in front of people who are already searching.\n\n— Andrew & Sean\nRunKlub`
 
   return { subject, html, text }
 }

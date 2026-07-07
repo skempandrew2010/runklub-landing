@@ -42,13 +42,13 @@ function buildInviteEmail(clubName: string, city: string | null, claimLink: stri
               ${safeClub} is on RunKlub 👟
             </h1>
             <p style="margin:0 0 12px;font-size:15px;line-height:1.7;color:rgba(255,255,255,0.7);">
-              We&rsquo;ve added <strong style="color:#ffffff;">${safeClub}</strong>${safeCity} to RunKlub — a free platform that puts everything runners need to find your club in one place. Your schedule, location, and club info are all there so that when someone in your city is looking for a group to run with, they can find you instantly.
+              Hey! We&rsquo;re Andrew and Sean — we built RunKlub as a free way for people to find run clubs near them. We found <strong style="color:#ffffff;">${safeClub}</strong>${safeCity} and added it, so your page is already live with your schedule and location.
             </p>
             <p style="margin:0 0 12px;font-size:15px;line-height:1.7;color:rgba(255,255,255,0.7);">
-              No more runners missing out because they didn&rsquo;t know you existed. Claim your page, post your runs and events, and keep your whole community in the loop — all in one place. Let RunKlub do the work of getting you discovered.
+              Claim it and you can post runs, update your info, and start showing up for runners in your city who are out there looking for a group. Takes less than a minute to set up.
             </p>
             <p style="margin:0 0 28px;font-size:15px;line-height:1.7;color:rgba(255,255,255,0.7);">
-              Click below to claim your club and start posting runs right away — or just reply to this email and we can set up a quick call. I&rsquo;d love to hear about your club and help you get more people through the door.
+              If you want to chat first, just reply to this — we&rsquo;re always happy to hop on a quick call.
             </p>
             <!-- CTA -->
             <table cellpadding="0" cellspacing="0">
@@ -89,7 +89,7 @@ function buildInviteEmail(clubName: string, city: string | null, claimLink: stri
         <tr>
           <td style="padding:20px 32px;border-top:1px solid #2e3d1a;">
             <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.25);line-height:1.6;">
-              Questions? Reply to this email.<br>
+              &mdash; Andrew &amp; Sean<br>
               RunKlub &mdash; Find people you actually want to run with.
             </p>
           </td>
@@ -103,17 +103,16 @@ function buildInviteEmail(clubName: string, city: string | null, claimLink: stri
 
   const text = `${clubName} is on RunKlub 👟
 
-We've added ${clubName}${safeCity} to RunKlub — a free platform that puts everything runners need to find your club in one place. Your schedule, location, and club info are all there so that when someone in your city is looking for a group to run with, they can find you instantly.
+Hey! We're Andrew and Sean — we built RunKlub as a free way for people to find run clubs near them. We found ${clubName}${city ? ` in ${city}` : ""} and added it, so your page is already live.
 
-No more runners missing out because they didn't know you existed. Claim your page, post your runs and events, and keep your whole community in the loop — all in one place. Let RunKlub do the work of getting you discovered.
-
-Claim your club here:
+Claim it and you can post runs, update your info, and start showing up for runners in your city who are looking for a group. Takes less than a minute.
 
 ${claimLink}
 
-Or just reply to this email and we can set up a quick call — I'd love to hear about your club and help you get more people through the door.
+If you want to chat first, just reply to this — we're always happy to hop on a quick call.
 
-— Andrew at RunKlub`
+— Andrew & Sean
+RunKlub`
 
   return { html, text }
 }
