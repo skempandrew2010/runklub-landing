@@ -53,6 +53,17 @@ type EditableClub = {
   bad_contact: boolean
 }
 
+type ReminderClub = {
+  id: string
+  name: string
+  city: string | null
+  contact_email: string | null
+  invite_sent_at: string
+  invite_link_clicked_at: string | null
+  claim_token: string | null
+  reminder_sent_at: string | null
+}
+
 type OwnedClub = {
   id: string
   name: string
@@ -78,7 +89,7 @@ export default function AdminClaimsPage() {
   const [unclaimedClubs, setUnclaimedClubs] = useState<UnclaimedClub[]>([])
   const [loading, setLoading] = useState(true)
   const [acting, setActing] = useState<string | null>(null)
-  const [tab, setTab] = useState<"claims" | "invite" | "sent" | "funnel" | "clubs">("claims")
+  const [tab, setTab] = useState<"claims" | "invite" | "sent" | "funnel" | "clubs" | "reminders">("claims")
   const [inviteEmails, setInviteEmails] = useState<Record<string, string>>({})
   const [sending, setSending] = useState<string | null>(null)
   const [cancelling, setCancelling] = useState<string | null>(null)
@@ -99,6 +110,12 @@ export default function AdminClaimsPage() {
   const [editState, setEditState] = useState<Partial<EditableClub>>({})
   const [savingClub, setSavingClub] = useState<string | null>(null)
   const [saveErrors, setSaveErrors] = useState<Record<string, string>>({})
+  const [reminderClubs, setReminderClubs] = useState<ReminderClub[]>([])
+  const [reminderClubsLoaded, setReminderClubsLoaded] = useState(false)
+  const [reminderSearch, setReminderSearch] = useState("")
+  const [sendingReminder, setSendingReminder] = useState<string | null>(null)
+  const [reminderSent, setReminderSent] = useState<Set<string>>(new Set())
+  const [reminderErrors, setReminderErrors] = useState<Record<string, string>>({})
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null)
   const [deletePassword, setDeletePassword] = useState("")
   const [deleteError, setDeleteError] = useState("")
@@ -206,6 +223,38 @@ export default function AdminClaimsPage() {
       setSaveErrors((prev) => ({ ...prev, [clubId]: json.error ?? "Failed to save." }))
     }
     setSavingClub(null)
+  }
+
+  const loadReminderClubs = async () => {
+    const { data } = await supabase
+      .from("clubs")
+      .select("id, name, city, contact_email, invite_sent_at, invite_link_clicked_at, claim_token, reminder_sent_at")
+      .not("invite_sent_at", "is", null)
+      .is("claim_token_used_at", null)
+      .is("user_id", null)
+      .order("invite_sent_at", { ascending: false })
+    setReminderClubs((data as ReminderClub[]) ?? [])
+    setReminderClubsLoaded(true)
+  }
+
+  const sendReminder = async (clubId: string) => {
+    setSendingReminder(clubId)
+    setReminderErrors((prev) => { const n = { ...prev }; delete n[clubId]; return n })
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch("/api/admin/send-reminder", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+      body: JSON.stringify({ club_id: clubId }),
+    })
+    if (res.ok) {
+      const now = new Date().toISOString()
+      setReminderSent((prev) => new Set(prev).add(clubId))
+      setReminderClubs((prev) => prev.map((c) => c.id === clubId ? { ...c, reminder_sent_at: now } : c))
+    } else {
+      const json = await res.json().catch(() => ({}))
+      setReminderErrors((prev) => ({ ...prev, [clubId]: json.error ?? "Failed to send." }))
+    }
+    setSendingReminder(null)
   }
 
   const buildIgMessage = (club: UnclaimedClub) => {
@@ -437,6 +486,12 @@ export default function AdminClaimsPage() {
             className={`px-4 py-2 rounded-full text-sm font-bold transition ${tab === "clubs" ? "bg-[#c5f135] text-[#1a2110]" : "bg-[#1e2d12] border border-[#2e3d1a] text-white/50 hover:text-white"}`}
           >
             Clubs
+          </button>
+          <button
+            onClick={() => { setTab("reminders"); if (!reminderClubsLoaded) loadReminderClubs() }}
+            className={`px-4 py-2 rounded-full text-sm font-bold transition ${tab === "reminders" ? "bg-[#c5f135] text-[#1a2110]" : "bg-[#1e2d12] border border-[#2e3d1a] text-white/50 hover:text-white"}`}
+          >
+            Reminders
           </button>
         </div>
 
@@ -994,6 +1049,106 @@ export default function AdminClaimsPage() {
                   })}
               </div>
             )}
+          </>
+        )}
+
+        {/* ── REMINDERS TAB ── */}
+        {tab === "reminders" && (
+          <>
+            <div className="relative mb-5">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/25 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Search by club or city…"
+                value={reminderSearch}
+                onChange={(e) => setReminderSearch(e.target.value)}
+                className="w-full bg-[#1e2d12] border border-[#2e3d1a] rounded-xl pl-9 pr-4 py-2.5 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#c5f135]/50 transition"
+              />
+            </div>
+            {!reminderClubsLoaded ? (
+              <div className="flex justify-center py-12">
+                <div className="w-6 h-6 border-2 border-[#c5f135]/30 border-t-[#c5f135] rounded-full animate-spin" />
+              </div>
+            ) : (() => {
+              const searchLow = reminderSearch.toLowerCase()
+              const filtered = reminderClubs.filter((c) =>
+                !reminderSearch || c.name.toLowerCase().includes(searchLow) || (c.city ?? "").toLowerCase().includes(searchLow)
+              )
+              const warm = filtered.filter((c) => c.invite_link_clicked_at)
+              const cold = filtered.filter((c) => !c.invite_link_clicked_at)
+
+              const ReminderCard = ({ club }: { club: ReminderClub }) => {
+                const isSending = sendingReminder === club.id
+                const wasSent = reminderSent.has(club.id)
+                const noEmail = !club.contact_email
+                const fmtDate = (d: string) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                return (
+                  <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] px-4 py-3 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-white truncate">{club.name}</p>
+                      <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                        {club.city && <span className="text-xs text-white/30">{club.city}</span>}
+                        {club.contact_email
+                          ? <span className="text-xs text-white/20 truncate">{club.contact_email}</span>
+                          : <span className="text-[10px] font-bold text-red-400/60 uppercase tracking-wider">No email</span>
+                        }
+                      </div>
+                      <div className="flex items-center gap-3 mt-1">
+                        <span className="text-[10px] text-white/20">Invited {fmtDate(club.invite_sent_at)}</span>
+                        {club.reminder_sent_at && (
+                          <span className="text-[10px] text-[#c5f135]/40">Reminded {fmtDate(club.reminder_sent_at)}</span>
+                        )}
+                      </div>
+                      {reminderErrors[club.id] && (
+                        <p className="text-red-400 text-xs mt-1">{reminderErrors[club.id]}</p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => sendReminder(club.id)}
+                      disabled={isSending || wasSent || noEmail}
+                      className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition disabled:opacity-40 bg-[#1a2110] border border-[#2e3d1a] text-white/50 hover:text-[#c5f135] hover:border-[#c5f135]/40"
+                    >
+                      {wasSent ? <><Check className="w-3.5 h-3.5 text-[#c5f135]" /> Sent</> : isSending ? "…" : <><Send className="w-3.5 h-3.5" /> Remind</>}
+                    </button>
+                  </div>
+                )
+              }
+
+              if (filtered.length === 0) return (
+                <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-8 text-center">
+                  <p className="text-white/40 text-sm">{reminderSearch ? "No clubs match your search." : "No outstanding signups to follow up on."}</p>
+                </div>
+              )
+
+              return (
+                <div className="space-y-6">
+                  {warm.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-3">
+                        <h2 className="text-xs font-bold text-white/30 uppercase tracking-widest">Opened but didn't submit</h2>
+                        <span className="text-xs font-black text-[#c5f135]/60">{warm.length}</span>
+                      </div>
+                      <p className="text-xs text-white/25 mb-3 -mt-1">These clubs visited their claim page but didn't complete signup — warm leads.</p>
+                      <div className="space-y-2">
+                        {warm.map((club) => <ReminderCard key={club.id} club={club} />)}
+                      </div>
+                    </div>
+                  )}
+                  {cold.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-3">
+                        <h2 className="text-xs font-bold text-white/30 uppercase tracking-widest">Invited, haven't opened</h2>
+                        <span className="text-xs font-black text-white/20">{cold.length}</span>
+                      </div>
+                      <p className="text-xs text-white/25 mb-3 -mt-1">These clubs received an invite but haven't clicked the link yet.</p>
+                      <div className="space-y-2">
+                        {cold.map((club) => <ReminderCard key={club.id} club={club} />)}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
           </>
         )}
 
