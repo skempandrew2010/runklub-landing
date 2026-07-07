@@ -62,6 +62,7 @@ type ReminderClub = {
   invite_link_clicked_at: string | null
   claim_token: string | null
   reminder_sent_at: string | null
+  instagram_handle: string | null
 }
 
 type OwnedClub = {
@@ -116,6 +117,8 @@ export default function AdminClaimsPage() {
   const [sendingReminder, setSendingReminder] = useState<string | null>(null)
   const [reminderSent, setReminderSent] = useState<Set<string>>(new Set())
   const [reminderErrors, setReminderErrors] = useState<Record<string, string>>({})
+  const [reminderInstagrams, setReminderInstagrams] = useState<Record<string, string>>({})
+  const [copiedIgReminder, setCopiedIgReminder] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null)
   const [deletePassword, setDeletePassword] = useState("")
   const [deleteError, setDeleteError] = useState("")
@@ -228,7 +231,7 @@ export default function AdminClaimsPage() {
   const loadReminderClubs = async () => {
     const { data } = await supabase
       .from("clubs")
-      .select("id, name, city, contact_email, invite_sent_at, invite_link_clicked_at, claim_token, reminder_sent_at")
+      .select("id, name, city, contact_email, invite_sent_at, invite_link_clicked_at, claim_token, reminder_sent_at, instagram_handle")
       .not("invite_sent_at", "is", null)
       .is("claim_token_used_at", null)
       .is("user_id", null)
@@ -284,6 +287,19 @@ export default function AdminClaimsPage() {
     setTimeout(() => setCopiedIg((prev) => prev === club.id ? null : prev), 2000)
     window.open(`https://instagram.com/${igHandle}`, "_blank")
   }
+  const buildIgReminderMessage = (club: ReminderClub) => {
+    const link = `https://www.runklub.fit/welcome?t=${club.claim_token}`
+    return `Hey ${club.name}! Just following up — I reached out a little while ago about getting your club set up on RunKlub. Your page is still there whenever you're ready.\n\nHere's the link again: ${link}\n\nFeel free to DM back if you have any questions!`
+  }
+
+  const handleIgReminderClick = async (club: ReminderClub, igHandle: string) => {
+    if (!club.claim_token) return
+    try { await navigator.clipboard.writeText(buildIgReminderMessage(club)) } catch {}
+    setCopiedIgReminder(club.id)
+    setTimeout(() => setCopiedIgReminder((prev) => prev === club.id ? null : prev), 2000)
+    window.open(`https://instagram.com/${igHandle}`, "_blank")
+  }
+
   const [funnelClubs, setFunnelClubs] = useState<FunnelClub[]>([])
 
   useEffect(() => {
@@ -1081,11 +1097,13 @@ export default function AdminClaimsPage() {
                 const isSending = sendingReminder === club.id
                 const wasSent = reminderSent.has(club.id)
                 const noEmail = !club.contact_email
+                const igHandle = (reminderInstagrams[club.id] ?? club.instagram_handle ?? "").replace(/^@/, "").trim()
+                const igCopied = copiedIgReminder === club.id
                 const fmtDate = (d: string) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" })
                 return (
-                  <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] px-4 py-3 flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-sm font-bold text-white truncate">{club.name}</p>
+                  <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-4 space-y-3">
+                    <div>
+                      <p className="text-sm font-bold text-white">{club.name}</p>
                       <div className="flex items-center gap-2 flex-wrap mt-0.5">
                         {club.city && <span className="text-xs text-white/30">{club.city}</span>}
                         {club.contact_email
@@ -1103,13 +1121,34 @@ export default function AdminClaimsPage() {
                         <p className="text-red-400 text-xs mt-1">{reminderErrors[club.id]}</p>
                       )}
                     </div>
+                    {/* Email reminder */}
                     <button
                       onClick={() => sendReminder(club.id)}
                       disabled={isSending || wasSent || noEmail}
-                      className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition disabled:opacity-40 bg-[#1a2110] border border-[#2e3d1a] text-white/50 hover:text-[#c5f135] hover:border-[#c5f135]/40"
+                      className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition disabled:opacity-40 bg-[#1a2110] border border-[#2e3d1a] text-white/50 hover:text-[#c5f135] hover:border-[#c5f135]/40"
                     >
-                      {wasSent ? <><Check className="w-3.5 h-3.5 text-[#c5f135]" /> Sent</> : isSending ? "…" : <><Send className="w-3.5 h-3.5" /> Remind</>}
+                      {wasSent ? <><Check className="w-3.5 h-3.5 text-[#c5f135]" /> Email sent</> : isSending ? "…" : <><Mail className="w-3.5 h-3.5" /> Send email reminder</>}
                     </button>
+                    {/* Instagram reminder */}
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 text-sm pointer-events-none">@</span>
+                        <input
+                          type="text"
+                          placeholder="instagram_handle"
+                          value={reminderInstagrams[club.id] ?? club.instagram_handle ?? ""}
+                          onChange={(e) => setReminderInstagrams((prev) => ({ ...prev, [club.id]: e.target.value.replace(/^@/, "") }))}
+                          className="w-full bg-[#1a2110] border border-[#2e3d1a] rounded-xl pl-7 pr-3 py-2 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#c5f135]/50 transition"
+                        />
+                      </div>
+                      <button
+                        disabled={!igHandle || !club.claim_token}
+                        onClick={() => handleIgReminderClick(club, igHandle)}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition disabled:opacity-30 shrink-0 bg-[#1a2110] border border-[#2e3d1a] text-white/60 hover:text-white hover:border-[#c5f135]/40"
+                      >
+                        {igCopied ? <><Check className="w-3.5 h-3.5 text-[#c5f135]" /> Copied!</> : <><ExternalLink className="w-3.5 h-3.5" /> Instagram</>}
+                      </button>
+                    </div>
                   </div>
                 )
               }
