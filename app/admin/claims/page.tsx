@@ -466,9 +466,17 @@ export default function AdminClaimsPage() {
   return (
     <div className="min-h-screen bg-[#1a2110] pb-24">
       <div className="max-w-2xl mx-auto px-5 py-8">
-        <div className="mb-6">
-          <p className="text-xs font-bold text-[#c5f135]/60 uppercase tracking-widest mb-1">Admin</p>
-          <h1 className="text-2xl font-black text-white">Club Management</h1>
+        <div className="mb-6 flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-bold text-[#c5f135]/60 uppercase tracking-widest mb-1">Admin</p>
+            <h1 className="text-2xl font-black text-white">Club Management</h1>
+          </div>
+          <button
+            onClick={() => router.push("/admin/signups")}
+            className="text-xs text-white/30 hover:text-white/70 transition mt-1 shrink-0"
+          >
+            Incomplete Signups →
+          </button>
         </div>
 
         {/* Tabs */}
