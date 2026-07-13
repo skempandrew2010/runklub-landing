@@ -23,6 +23,7 @@ const PUBLIC_ROUTES = [
   "/auth",
   "/explore",
   "/clubs",
+  "/pricing",
 ]
 
 export default function ShellWrapper({ children }: { children: React.ReactNode }) {

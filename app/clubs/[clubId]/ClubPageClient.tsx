@@ -439,14 +439,22 @@ export default function ClubPageClient({
           <button
             onClick={handleFollow}
             disabled={subscribing}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-black transition disabled:opacity-50 ${
+            title={isSubscribed ? "Remove from favorites" : "Add to favorites & turn on notifications"}
+            className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-[#2e3d1a] transition disabled:opacity-50 shrink-0"
+          >
+            <Heart className={`w-5 h-5 ${isSubscribed ? "fill-red-400 text-red-400" : "text-white/40"}`} />
+          </button>
+
+          <button
+            onClick={handleFollow}
+            disabled={subscribing}
+            className={`px-5 py-2.5 rounded-full text-sm font-black transition disabled:opacity-50 ${
               isSubscribed
-                ? "bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45]"
-                : "bg-[#1e2d12] border border-[#2e3d1a] text-white hover:border-[#c5f135]/50 hover:text-[#c5f135]"
+                ? "bg-[#1e2d12] border border-[#c5f135]/50 text-[#c5f135]"
+                : "bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45]"
             }`}
           >
-            <Heart className={`w-4 h-4 ${isSubscribed ? "fill-[#1a2110]" : ""}`} />
-            {subscribing ? "…" : isSubscribed ? "Following" : userId ? "Follow Club" : "Join Club"}
+            {subscribing ? "…" : isSubscribed ? "Joined" : "Join Club"}
           </button>
 
           {club.instagram_handle && (

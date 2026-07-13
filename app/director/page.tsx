@@ -13,6 +13,7 @@ import {
 } from "lucide-react"
 import { getTagStyle } from "@/utils/tagStyle"
 import ShareRunButton from "@/components/ShareRunButton"
+import { isNativeApp } from "@/utils/platform"
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -292,6 +293,10 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
   const [newsletterSending, setNewsletterSending] = useState(false)
   const [newsletterResult, setNewsletterResult] = useState<{ sent: number; total: number } | null>(null)
   const [newsletterError, setNewsletterError] = useState("")
+  const [upgrading, setUpgrading] = useState(false)
+  const [nativeApp, setNativeApp] = useState(false)
+
+  useEffect(() => { setNativeApp(isNativeApp()) }, [])
 
   useEffect(() => {
     const load = async () => {
@@ -394,6 +399,33 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
       setNewsletterError("Network error. Please try again.")
     } finally {
       setNewsletterSending(false)
+    }
+  }
+
+  const upgradeToPro = async () => {
+    if (!selectedClubId) return
+    setUpgrading(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { router.push("/login"); return }
+      const res = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ clubId: selectedClubId, tier: "pro" }),
+      })
+      const json = await res.json()
+      if (json.url) {
+        window.location.href = json.url
+      } else {
+        alert(json.error ?? "Could not start checkout")
+        setUpgrading(false)
+      }
+    } catch {
+      alert("Could not start checkout. Try again.")
+      setUpgrading(false)
     }
   }
 
@@ -974,7 +1006,14 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
                     <Mail className="w-4 h-4 text-[#c5f135]" />
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-white">Send Newsletter</p>
+                    <p className="text-sm font-bold text-white flex items-center gap-1.5">
+                      Send Newsletter
+                      {selectedClub?.tier !== "pro" && (
+                        <span className="flex items-center gap-1 text-[9px] font-black px-1.5 py-0.5 rounded-full bg-[#c5f135] text-[#1a2110]">
+                          <Zap className="w-2.5 h-2.5" /> PRO
+                        </span>
+                      )}
+                    </p>
                     <p className="text-xs text-white/40 mt-0.5">
                       Email all {selectedClub?.member_count ?? 0} follower{selectedClub?.member_count === 1 ? "" : "s"}
                     </p>
@@ -986,7 +1025,34 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
               </button>
 
               {/* Compose form */}
-              {newsletterOpen && (
+              {newsletterOpen && selectedClub?.tier !== "pro" ? (
+                <div className="px-4 pb-4 border-t border-[#2e3d1a]">
+                  <div className="flex items-center gap-3 pt-4">
+                    <div className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center shrink-0">
+                      <Lock className="w-4 h-4 text-white/40" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-white">Newsletters are a Pro feature</p>
+                      <p className="text-xs text-white/40 mt-0.5">Upgrade to email your followers directly.</p>
+                    </div>
+                  </div>
+                  {nativeApp ? (
+                    <p className="mt-4 text-xs text-white/40">
+                      Upgrade to Pro at{" "}
+                      <span className="text-[#c5f135] font-semibold">runklub.fit</span> on the web.
+                    </p>
+                  ) : (
+                    <button
+                      onClick={upgradeToPro}
+                      disabled={upgrading}
+                      className="mt-4 flex items-center gap-2 px-4 py-2.5 bg-[#c5f135] text-[#1a2110] text-sm font-black rounded-full hover:bg-[#d4ff45] transition disabled:opacity-40"
+                    >
+                      <Zap className="w-3.5 h-3.5" />
+                      {upgrading ? "Redirecting…" : "Upgrade to Pro"}
+                    </button>
+                  )}
+                </div>
+              ) : newsletterOpen && (
                 <div className="px-4 pb-4 space-y-3 border-t border-[#2e3d1a]">
                   {newsletterResult ? (
                     <div className="flex items-center gap-3 py-4">

@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { localDateStr } from "@/utils/dates"
-import { CalendarCheck, Clock, ChevronRight, Users, Zap } from "lucide-react"
+import { CalendarCheck, Clock, ChevronRight, Users, Zap, Dumbbell } from "lucide-react"
 import Link from "next/link"
+import { fetchMyMemberships } from "@/lib/clubModel/api"
+import { currentWeekMonday, dateForDayOfWeek } from "@/lib/clubModel/week"
 
 type Club = {
   id: string
@@ -26,6 +28,13 @@ type Run = {
   club_id: string
   club_name?: string
   club_image?: string | null
+  // Surface-level only — a recurring paid-training session (from the
+  // club-management system) rather than a literal one-off community run.
+  // Full detail (pace group, coach, messages) lives at /club-management. `time` is
+  // kept in HH:MM for sorting; displayTime is the free-text time as entered
+  // by the director (e.g. "6:00 PM"), since it isn't guaranteed to parse.
+  isTraining?: boolean
+  displayTime?: string | null
 }
 
 function greeting() {
@@ -124,6 +133,7 @@ export default function HubPage() {
       if (userRole === "manager") setManagedKlubs(coachClubs)
 
       const clubIds = allClubs.map((c) => c.id)
+      const communityRuns: Run[] = []
       if (clubIds.length > 0) {
         const { data: upcomingRuns } = await supabase
           .from("runs")
@@ -134,12 +144,46 @@ export default function HubPage() {
           .order("date", { ascending: true })
           .order("time", { ascending: true })
 
-        setRuns((upcomingRuns || []).map((r) => ({
+        communityRuns.push(...(upcomingRuns || []).map((r) => ({
           ...r,
           club_name: clubMap.get(r.club_id)?.name,
           club_image: clubMap.get(r.club_id)?.image_url,
         })))
       }
+
+      // Surface-level: this week's paid-training sessions, condensed into
+      // the same list. Full detail (coach, messages, teammates) is at /club-management.
+      let trainingRuns: Run[] = []
+      try {
+        const memberships = await fetchMyMemberships()
+        const weekOf = currentWeekMonday()
+        trainingRuns = memberships
+          .flatMap((m) =>
+            m.weekSchedule.map((s, i) => ({
+              id: `training-${m.member.id}-${i}`,
+              title: `${s.paceGroup.name} training`,
+              date: dateForDayOfWeek(weekOf, s.dayOfWeek),
+              time: "00:00",
+              displayTime: s.time,
+              distance: null,
+              meeting_point: s.location?.name ?? null,
+              tags: [s.workout?.isInPerson === false ? "On your own" : "In person"],
+              club_id: m.club?.id ?? "",
+              club_name: m.club?.name,
+              club_image: m.club?.image_url,
+              isTraining: true,
+            }))
+          )
+          .filter((r) => r.date >= todayStr && r.date <= weekStr)
+      } catch {
+        // No paid training memberships (or not applicable) — fine, just skip.
+      }
+
+      setRuns(
+        [...communityRuns, ...trainingRuns].sort((a, b) =>
+          a.date === b.date ? a.time.localeCompare(b.time) : a.date.localeCompare(b.date)
+        )
+      )
       setLoading(false)
     }
     load()
@@ -337,10 +381,13 @@ export default function HubPage() {
 
                         {/* Runs */}
                         <div className="divide-y divide-[#2e3d1a]/60">
-                          {dayRuns.map((run) => (
-                            <div key={run.id} className="px-4 py-4 flex items-start gap-3">
+                          {dayRuns.map((run) => {
+                            const rowContent = (
+                              <>
                               <div className="w-10 h-10 rounded-xl bg-[#2e3d1a] shrink-0 overflow-hidden flex items-center justify-center mt-0.5">
-                                {run.club_image ? (
+                                {run.isTraining ? (
+                                  <Dumbbell className="w-4 h-4 text-[#c5f135]/70" />
+                                ) : run.club_image ? (
                                   <img src={run.club_image} alt="" className="w-full h-full object-cover" />
                                 ) : (
                                   <span className="text-[10px] font-black text-white/40">
@@ -349,11 +396,18 @@ export default function HubPage() {
                                 )}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-bold text-white leading-tight">{run.title}</p>
+                                <div className="flex items-center gap-1.5">
+                                  <p className="text-sm font-bold text-white leading-tight">{run.title}</p>
+                                  {run.isTraining && (
+                                    <span className="text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-[#c5f135]/10 text-[#c5f135]/70 border border-[#c5f135]/25 shrink-0">
+                                      Training
+                                    </span>
+                                  )}
+                                </div>
                                 <p className="text-[11px] text-[#c5f135]/70 font-semibold mt-0.5">{run.club_name}</p>
                                 <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1.5">
                                   <span className="flex items-center gap-1 text-xs text-white/45">
-                                    <Clock className="w-3 h-3" /> {formatTime(run.time)}
+                                    <Clock className="w-3 h-3" /> {run.isTraining ? (run.displayTime ?? "Time TBD") : formatTime(run.time)}
                                   </span>
                                   {run.meeting_point && (
                                     <span className="text-xs text-white/35 truncate">{run.meeting_point}</span>
@@ -372,8 +426,18 @@ export default function HubPage() {
                                   </div>
                                 )}
                               </div>
-                            </div>
-                          ))}
+                              </>
+                            )
+                            return run.isTraining ? (
+                              <Link key={run.id} href="/club-management" className="px-4 py-4 flex items-start gap-3">
+                                {rowContent}
+                              </Link>
+                            ) : (
+                              <div key={run.id} className="px-4 py-4 flex items-start gap-3">
+                                {rowContent}
+                              </div>
+                            )
+                          })}
                         </div>
                       </div>
                     )

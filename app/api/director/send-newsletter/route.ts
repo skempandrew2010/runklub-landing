@@ -120,12 +120,19 @@ export async function POST(req: NextRequest) {
     // Verify the requesting user owns this club
     const { data: club } = await adminSupabase
       .from("clubs")
-      .select("id, name")
+      .select("id, name, tier")
       .eq("id", club_id)
       .eq("user_id", user.id)
       .single()
 
     if (!club) return NextResponse.json({ error: "Club not found or unauthorized" }, { status: 403 })
+
+    if (club.tier !== "pro") {
+      return NextResponse.json(
+        { error: "Newsletters are a Pro feature. Upgrade your club to send one.", code: "pro_required" },
+        { status: 403 }
+      )
+    }
 
     // Get subscriber user IDs
     const { data: subs } = await adminSupabase

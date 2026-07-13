@@ -4,7 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { useEffect, useState } from "react"
-import { Compass, CalendarCheck, Trophy, UserCircle, MessageSquare } from "lucide-react"
+import { Compass, CalendarCheck, Trophy, UserCircle, MessageSquare, Dumbbell } from "lucide-react"
 import { localDateStr } from "@/utils/dates"
 
 export default function Navbar() {
@@ -77,7 +77,8 @@ export default function Navbar() {
   const tabs = [
     { href: "/explore",  label: "Discover",                               Icon: Compass,        badge: false },
     { href: "/today",    label: "Hub",                                    Icon: CalendarCheck,  badge: false },
-    { href: "/director", label: isManager ? "Director" : "Messages",     Icon: isManager ? Trophy : MessageSquare, badge: hasUnread },
+    { href: "/club-management", label: "Paid Members",                    Icon: Dumbbell,       badge: false },
+    { href: "/director", label: isManager ? "Community Events" : "Messages", Icon: isManager ? Trophy : MessageSquare, badge: hasUnread },
   ]
 
   const isActive = (href: string) => pathname.startsWith(href)

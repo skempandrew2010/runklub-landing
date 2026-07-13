@@ -156,18 +156,32 @@ export default function ClubCard({
           </div>
 
           {(showHeart || onDelete) && (
-            <div className="flex items-start gap-0.5 shrink-0">
+            <div className="flex items-center gap-1.5 shrink-0">
               {showHeart && (
-                <button
-                  type="button"
-                  onClick={(e) => requireAuth ? requireAuth(() => handleSubscription(e)) : handleSubscription(e)}
-                  className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-[#2e3d1a] transition mt-0.5"
-                >
-                  <Heart
-                    fill={isSubscribed ? "#ef4444" : "none"}
-                    className={`w-4 h-4 ${isSubscribed ? "text-red-400" : "text-white/40"} transition-transform duration-300 ${isAnimating ? "scale-125" : ""}`}
-                  />
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={(e) => requireAuth ? requireAuth(() => handleSubscription(e)) : handleSubscription(e)}
+                    title={isSubscribed ? "Remove from favorites" : "Add to favorites & turn on notifications"}
+                    className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-[#2e3d1a] transition shrink-0"
+                  >
+                    <Heart
+                      fill={isSubscribed ? "#ef4444" : "none"}
+                      className={`w-4 h-4 ${isSubscribed ? "text-red-400" : "text-white/40"} transition-transform duration-300 ${isAnimating ? "scale-125" : ""}`}
+                    />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => requireAuth ? requireAuth(() => handleSubscription(e)) : handleSubscription(e)}
+                    className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-black transition-transform duration-300 ${isAnimating ? "scale-105" : ""} ${
+                      isSubscribed
+                        ? "bg-[#1e2d12] border border-[#c5f135]/50 text-[#c5f135]"
+                        : "bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45]"
+                    }`}
+                  >
+                    {isSubscribed ? "Joined" : "Join Club"}
+                  </button>
+                </>
               )}
               {onDelete && (
                 <button

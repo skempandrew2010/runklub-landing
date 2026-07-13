@@ -63,6 +63,7 @@ type ReminderClub = {
   claim_token: string | null
   reminder_sent_at: string | null
   instagram_handle: string | null
+  ig_reminder_sent_at: string | null
 }
 
 type OwnedClub = {
@@ -90,7 +91,7 @@ export default function AdminClaimsPage() {
   const [unclaimedClubs, setUnclaimedClubs] = useState<UnclaimedClub[]>([])
   const [loading, setLoading] = useState(true)
   const [acting, setActing] = useState<string | null>(null)
-  const [tab, setTab] = useState<"claims" | "invite" | "sent" | "funnel" | "clubs" | "reminders">("claims")
+  const [tab, setTab] = useState<"claims" | "invite" | "sent" | "funnel" | "clubs" | "reminders" | "badcontact">("claims")
   const [inviteEmails, setInviteEmails] = useState<Record<string, string>>({})
   const [sending, setSending] = useState<string | null>(null)
   const [cancelling, setCancelling] = useState<string | null>(null)
@@ -119,10 +120,27 @@ export default function AdminClaimsPage() {
   const [reminderErrors, setReminderErrors] = useState<Record<string, string>>({})
   const [reminderInstagrams, setReminderInstagrams] = useState<Record<string, string>>({})
   const [copiedIgReminder, setCopiedIgReminder] = useState<string | null>(null)
+  const [markingIgReminder, setMarkingIgReminder] = useState<string | null>(null)
+  const [igReminderMarked, setIgReminderMarked] = useState<Set<string>>(new Set())
+  const [clearingBadContact, setClearingBadContact] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null)
   const [deletePassword, setDeletePassword] = useState("")
   const [deleteError, setDeleteError] = useState("")
   const [deleting, setDeleting] = useState(false)
+
+  const clearBadContact = async (clubId: string) => {
+    setClearingBadContact(clubId)
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch("/api/admin/clear-bad-contact", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+      body: JSON.stringify({ club_id: clubId }),
+    })
+    if (res.ok) {
+      setUnclaimedClubs((prev) => prev.map((c) => c.id === clubId ? { ...c, bad_contact: false } : c))
+    }
+    setClearingBadContact(null)
+  }
 
   const openDelete = (club: { id: string; name: string }) => {
     setDeleteTarget(club)
@@ -228,10 +246,26 @@ export default function AdminClaimsPage() {
     setSavingClub(null)
   }
 
+  const markIgReminderSent = async (clubId: string) => {
+    setMarkingIgReminder(clubId)
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch("/api/admin/mark-ig-reminder-sent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+      body: JSON.stringify({ club_id: clubId }),
+    })
+    if (res.ok) {
+      const now = new Date().toISOString()
+      setIgReminderMarked((prev) => new Set(prev).add(clubId))
+      setReminderClubs((prev) => prev.map((c) => c.id === clubId ? { ...c, ig_reminder_sent_at: now } : c))
+    }
+    setMarkingIgReminder(null)
+  }
+
   const loadReminderClubs = async () => {
     const { data } = await supabase
       .from("clubs")
-      .select("id, name, city, contact_email, invite_sent_at, invite_link_clicked_at, claim_token, reminder_sent_at, instagram_handle")
+      .select("id, name, city, contact_email, invite_sent_at, invite_link_clicked_at, claim_token, reminder_sent_at, instagram_handle, ig_reminder_sent_at")
       .not("invite_sent_at", "is", null)
       .is("claim_token_used_at", null)
       .is("user_id", null)
@@ -369,13 +403,21 @@ export default function AdminClaimsPage() {
     })
     setSending(null)
     if (res.ok) {
+      const wasBadContact = unclaimedClubs.find((c) => c.id === clubId)?.bad_contact
       setSent((prev) => new Set(prev).add(clubId))
       setUnclaimedClubs((prev) =>
         prev.map((c) => c.id === clubId
-          ? { ...c, contact_email: email || c.contact_email, invite_sent_at: new Date().toISOString() }
+          ? { ...c, contact_email: email || c.contact_email, invite_sent_at: new Date().toISOString(), bad_contact: false }
           : c
         )
       )
+      if (wasBadContact) {
+        fetch("/api/admin/clear-bad-contact", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+          body: JSON.stringify({ club_id: clubId }),
+        })
+      }
     } else {
       const json = await res.json().catch(() => ({}))
       setInviteErrors((prev) => ({ ...prev, [clubId]: json.error ?? "Failed to send — check console." }))
@@ -447,6 +489,7 @@ export default function AdminClaimsPage() {
   const resolved = filteredClaims.filter((c) => c.status !== "pending")
   const invitedClubs = unclaimedClubs.filter((c) => c.invite_sent_at)
   const notInvitedClubs = unclaimedClubs.filter((c) => !c.invite_sent_at && !c.bad_contact)
+  const badContactClubs = unclaimedClubs.filter((c) => c.bad_contact)
   const inviteSearchLower = inviteSearch.toLowerCase()
   const filteredInvitedClubs = inviteSearch
     ? invitedClubs.filter((c) => c.name.toLowerCase().includes(inviteSearchLower) || (c.city ?? "").toLowerCase().includes(inviteSearchLower))
@@ -471,12 +514,20 @@ export default function AdminClaimsPage() {
             <p className="text-xs font-bold text-[#c5f135]/60 uppercase tracking-widest mb-1">Admin</p>
             <h1 className="text-2xl font-black text-white">Club Management</h1>
           </div>
-          <button
-            onClick={() => router.push("/admin/signups")}
-            className="text-xs text-white/30 hover:text-white/70 transition mt-1 shrink-0"
-          >
-            Incomplete Signups →
-          </button>
+          <div className="flex flex-col items-end gap-1 mt-1 shrink-0">
+            <button
+              onClick={() => router.push("/admin/signups")}
+              className="text-xs text-white/30 hover:text-white/70 transition"
+            >
+              Incomplete Signups →
+            </button>
+            <button
+              onClick={() => router.push("/admin/club-model/manager")}
+              className="text-xs text-white/30 hover:text-white/70 transition"
+            >
+              Club Model Prototype →
+            </button>
+          </div>
         </div>
 
         {/* Tabs */}
@@ -516,6 +567,12 @@ export default function AdminClaimsPage() {
             className={`px-4 py-2 rounded-full text-sm font-bold transition ${tab === "reminders" ? "bg-[#c5f135] text-[#1a2110]" : "bg-[#1e2d12] border border-[#2e3d1a] text-white/50 hover:text-white"}`}
           >
             Reminders
+          </button>
+          <button
+            onClick={() => setTab("badcontact")}
+            className={`px-4 py-2 rounded-full text-sm font-bold transition ${tab === "badcontact" ? "bg-red-400 text-white" : "bg-[#1e2d12] border border-red-500/20 text-red-400/50 hover:text-red-400"}`}
+          >
+            Bad Contact {badContactClubs.length > 0 && <span className="ml-1 text-xs">({badContactClubs.length})</span>}
           </button>
         </div>
 
@@ -1119,10 +1176,13 @@ export default function AdminClaimsPage() {
                           : <span className="text-[10px] font-bold text-red-400/60 uppercase tracking-wider">No email</span>
                         }
                       </div>
-                      <div className="flex items-center gap-3 mt-1">
+                      <div className="flex items-center gap-3 flex-wrap mt-1">
                         <span className="text-[10px] text-white/20">Invited {fmtDate(club.invite_sent_at)}</span>
                         {club.reminder_sent_at && (
-                          <span className="text-[10px] text-[#c5f135]/40">Reminded {fmtDate(club.reminder_sent_at)}</span>
+                          <span className="text-[10px] text-[#c5f135]/40">Email {fmtDate(club.reminder_sent_at)}</span>
+                        )}
+                        {(club.ig_reminder_sent_at || igReminderMarked.has(club.id)) && (
+                          <span className="text-[10px] text-pink-400/60">IG DM {fmtDate(club.ig_reminder_sent_at ?? new Date().toISOString())}</span>
                         )}
                       </div>
                       {reminderErrors[club.id] && (
@@ -1157,6 +1217,20 @@ export default function AdminClaimsPage() {
                         {igCopied ? <><Check className="w-3.5 h-3.5 text-[#c5f135]" /> Copied!</> : <><ExternalLink className="w-3.5 h-3.5" /> Instagram</>}
                       </button>
                     </div>
+                    {/* Mark IG reminder sent */}
+                    {club.ig_reminder_sent_at || igReminderMarked.has(club.id) ? (
+                      <p className="text-[10px] text-pink-400/50 text-center py-1">
+                        IG DM marked sent {fmtDate(club.ig_reminder_sent_at ?? new Date().toISOString())}
+                      </p>
+                    ) : (
+                      <button
+                        onClick={() => markIgReminderSent(club.id)}
+                        disabled={markingIgReminder === club.id}
+                        className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-black transition disabled:opacity-40 border border-[#2e3d1a] text-white/40 hover:text-pink-400 hover:border-pink-400/40"
+                      >
+                        {markingIgReminder === club.id ? "…" : <><Check className="w-3.5 h-3.5" /> Mark IG DM sent</>}
+                      </button>
+                    )}
                   </div>
                 )
               }
@@ -1196,6 +1270,112 @@ export default function AdminClaimsPage() {
                 </div>
               )
             })()}
+          </>
+        )}
+
+        {/* ── BAD CONTACT TAB ── */}
+        {tab === "badcontact" && (
+          <>
+            <div className="bg-red-500/10 border border-red-500/20 rounded-2xl px-4 py-3 mb-5">
+              <p className="text-xs text-red-400/80 leading-relaxed">
+                These clubs were marked as having incorrect contact info. Enter a corrected email or use Instagram to reach them. Sending an invite will automatically clear the bad contact flag.
+              </p>
+            </div>
+            {badContactClubs.length === 0 ? (
+              <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-8 text-center">
+                <p className="text-white/40 text-sm">No bad contact clubs.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {badContactClubs.map((club) => {
+                  const isSent = sent.has(club.id)
+                  const isSending = sending === club.id
+                  const isClearing = clearingBadContact === club.id
+                  const email = inviteEmails[club.id] ?? ""
+                  const igHandle = (inviteInstagrams[club.id] ?? club.instagram_handle ?? "").replace(/^@/, "").trim()
+                  return (
+                    <div key={club.id} className="bg-[#1e2d12] rounded-2xl border border-red-500/20 p-4 space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-bold text-white">{club.name}</p>
+                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                            {club.city && <p className="text-xs text-white/40">{club.city}</p>}
+                            {club.contact_email && (
+                              <p className="text-xs text-red-400/50 line-through">{club.contact_email}</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full border bg-red-500/10 text-red-400/70 border-red-500/20">
+                            Bad Contact
+                          </span>
+                          <button
+                            onClick={() => openDelete({ id: club.id, name: club.name })}
+                            className="p-1.5 rounded-lg text-white/20 hover:text-red-400 hover:bg-red-400/10 transition"
+                            title="Delete club"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Email invite with corrected address */}
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          placeholder="Enter corrected email…"
+                          value={inviteEmails[club.id] ?? ""}
+                          onChange={(e) => setInviteEmails((prev) => ({ ...prev, [club.id]: e.target.value }))}
+                          disabled={isSent}
+                          className="flex-1 bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#c5f135]/50 transition disabled:opacity-40"
+                        />
+                        <button
+                          onClick={() => sendInvite(club.id)}
+                          disabled={isSent || isSending || !email}
+                          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black transition disabled:opacity-40 shrink-0 bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45]"
+                        >
+                          {isSent ? <><Check className="w-3.5 h-3.5" /> Sent</> : isSending ? "…" : <><Send className="w-3.5 h-3.5" /> Send</>}
+                        </button>
+                      </div>
+
+                      {/* Instagram DM */}
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 text-sm pointer-events-none">@</span>
+                          <input
+                            type="text"
+                            placeholder="instagram_handle"
+                            value={inviteInstagrams[club.id] ?? club.instagram_handle ?? ""}
+                            onChange={(e) => setInviteInstagrams((prev) => ({ ...prev, [club.id]: e.target.value.replace(/^@/, "") }))}
+                            className="w-full bg-[#1a2110] border border-[#2e3d1a] rounded-xl pl-7 pr-3 py-2 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#c5f135]/50 transition"
+                          />
+                        </div>
+                        <button
+                          disabled={!igHandle}
+                          onClick={() => handleIgClick(club, igHandle)}
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition disabled:opacity-30 shrink-0 bg-[#1a2110] border border-[#2e3d1a] text-white/60 hover:text-white hover:border-[#c5f135]/40"
+                        >
+                          {copiedIg === club.id ? <><Check className="w-3.5 h-3.5 text-[#c5f135]" /> Copied!</> : <><ExternalLink className="w-3.5 h-3.5" /> Instagram</>}
+                        </button>
+                      </div>
+
+                      {/* Clear flag — moves back to Send Invites */}
+                      <button
+                        onClick={() => clearBadContact(club.id)}
+                        disabled={isClearing}
+                        className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-black transition disabled:opacity-40 border border-[#2e3d1a] text-white/30 hover:text-white hover:border-[#2e3d1a]"
+                      >
+                        {isClearing ? "…" : "Move back to Send Invites"}
+                      </button>
+
+                      {inviteErrors[club.id] && (
+                        <p className="text-red-400 text-xs px-1">{inviteErrors[club.id]}</p>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </>
         )}
 
