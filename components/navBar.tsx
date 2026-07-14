@@ -78,7 +78,7 @@ export default function Navbar() {
     { href: "/",         label: "Home",                                   Icon: Home,           badge: false },
     { href: "/explore",  label: "Discover",                               Icon: Compass,        badge: false },
     { href: "/today",    label: "Hub",                                    Icon: CalendarCheck,  badge: false },
-{ href: "/director", label: isManager ? "Community Events" : "Messages", Icon: isManager ? Trophy : MessageSquare, badge: hasUnread },
+{ href: "/director", label: isManager ? "Director" : "Messages", Icon: isManager ? Trophy : MessageSquare, badge: hasUnread },
   ]
 
   const isActive = (href: string) => href === "/" ? pathname === "/" : pathname.startsWith(href)
