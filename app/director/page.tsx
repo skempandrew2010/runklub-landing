@@ -402,7 +402,7 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
     }
   }
 
-  const upgradeToPro = async () => {
+  const startCheckout = async (tier: "starter" | "pro") => {
     if (!selectedClubId) return
     setUpgrading(true)
     try {
@@ -414,7 +414,7 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ clubId: selectedClubId, tier: "pro" }),
+        body: JSON.stringify({ clubId: selectedClubId, tier }),
       })
       const json = await res.json()
       if (json.url) {
@@ -428,6 +428,8 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
       setUpgrading(false)
     }
   }
+
+  const upgradeToPro = () => startCheckout("pro")
 
   useEffect(() => {
     const club = myClubs.find((c) => c.id === selectedClubId)
@@ -646,6 +648,24 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
       </div>
 
       <div className="max-w-2xl mx-auto px-5 py-6 space-y-5">
+
+        {/* ── UPSELL BANNER — free clubs only ── */}
+        {(!selectedClub.tier || selectedClub.tier === "free") && (
+          <div className="flex items-center gap-3 bg-[#c5f135]/5 border border-[#c5f135]/20 rounded-2xl px-4 py-3.5">
+            <Lock className="w-4 h-4 text-[#c5f135] shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-white leading-snug">Want to add private events?</p>
+              <p className="text-xs text-white/40 mt-0.5">Member-only runs, weekly emails, and more.</p>
+            </div>
+            <button
+              onClick={() => startCheckout("starter")}
+              disabled={upgrading}
+              className="shrink-0 px-3 py-1.5 rounded-full bg-[#c5f135] text-[#1a2110] text-xs font-black hover:bg-[#d4ff45] transition disabled:opacity-50"
+            >
+              {upgrading ? "…" : "Free trial"}
+            </button>
+          </div>
+        )}
 
         {/* ── TABS + SCHEDULE BUTTON ── */}
         <div className="flex items-center justify-between gap-3">
