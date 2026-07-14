@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { Heart, MapPin, Clock, Users, ArrowLeft, Zap, ShieldCheck, ExternalLink, MessageSquare, Send } from "lucide-react"
-import Footer from "@/components/Footer"
 import { getTagStyle } from "@/utils/tagStyle"
 import { localDateStr } from "@/utils/dates"
 import { track } from "@vercel/analytics"
@@ -707,7 +706,6 @@ export default function ClubPageClient({
             </button>
           </div>
         )}
-        <Footer />
       </div>
 
       {/* ── RUN CHAT PANEL ── */}

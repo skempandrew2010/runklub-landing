@@ -3,7 +3,6 @@
 import { useState } from "react"
 import Link from "next/link"
 import { ArrowRight, Check } from "lucide-react"
-import Footer from "@/components/Footer"
 
 const REFERRAL_OPTIONS = [
   "BolderBOULDER",
@@ -272,7 +271,6 @@ export default function ClaimPage() {
           to   { opacity: 1; transform: translateY(0); }
         }
       `}</style>
-      <Footer />
     </div>
   )
 }

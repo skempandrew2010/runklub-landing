@@ -25,7 +25,7 @@ export default function LoginPage() {
       const { data: { session } } = await supabase.auth.getSession()
       if (session) {
         const { data: prof } = await supabase.from("profiles").select("role").eq("id", session.user.id).single()
-        router.replace(prof?.role === "admin" ? "/admin/claims" : "/explore")
+        router.replace(prof?.role === "admin" ? "/admin/claims" : "/today")
       } else {
         setMode("landing")
       }
@@ -55,7 +55,7 @@ export default function LoginPage() {
       if (profile?.role === "admin") {
         router.push("/admin/claims")
       } else {
-        router.push(profile?.onboarding_complete ? "/explore" : "/onboarding")
+        router.push(profile?.onboarding_complete ? "/today" : "/onboarding")
       }
     }
   }

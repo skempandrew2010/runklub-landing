@@ -111,7 +111,7 @@ export default function OnboardingPage() {
       onboarding_complete: true,
       updated_at: new Date().toISOString(),
     }).eq("id", userId)
-    router.push(role === "manager" ? "/director" : "/explore")
+    router.push(role === "manager" ? "/director" : "/today")
   }
 
   // ── Advance step ──

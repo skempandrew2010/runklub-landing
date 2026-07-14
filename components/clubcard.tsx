@@ -4,7 +4,7 @@ import { Club } from "@/types/club"
 import { supabase } from "@/lib/supabase"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Heart, Trash2 } from "lucide-react"
+import { Trash2, EyeOff } from "lucide-react"
 import { formatTimeToAMPM } from "@/utils/formatTime"
 import { getTagStyle } from "@/utils/tagStyle"
 import { localDateStr } from "@/utils/dates"
@@ -27,6 +27,9 @@ type Props = {
   requireAuth?: (action?: () => void) => void
   isSelected?: boolean
   onDelete?: (club: { id: string; name: string }) => void
+  onNotInterested?: (id: string) => void
+  initialIsSubscribed?: boolean
+  initialNextRun?: NextRun | null
 }
 
 const GRADIENTS = [
@@ -62,14 +65,20 @@ export default function ClubCard({
   requireAuth,
   isSelected,
   onDelete,
+  onNotInterested,
+  initialIsSubscribed,
+  initialNextRun,
 }: Props) {
   const router = useRouter()
-  const [isSubscribed, setIsSubscribed] = useState(false)
+  const [isSubscribed, setIsSubscribed] = useState(initialIsSubscribed ?? false)
   const [isAnimating, setIsAnimating] = useState(false)
-  const [nextRun, setNextRun] = useState<NextRun | null | undefined>(undefined)
+  const [nextRun, setNextRun] = useState<NextRun | null | undefined>(
+    initialNextRun !== undefined ? initialNextRun : undefined
+  )
   const [subscriberCount, setSubscriberCount] = useState<number | null>(null)
 
   useEffect(() => {
+    if (initialIsSubscribed !== undefined) return
     if (!userId) return
     supabase
       .from("subscriptions")
@@ -78,9 +87,10 @@ export default function ClubCard({
       .eq("club_id", club.id)
       .maybeSingle()
       .then(({ data }) => setIsSubscribed(!!data))
-  }, [club.id, userId])
+  }, [club.id, userId, initialIsSubscribed])
 
   useEffect(() => {
+    if (initialNextRun !== undefined) return
     const today = localDateStr()
     supabase
       .from("runs")
@@ -93,7 +103,7 @@ export default function ClubCard({
       .limit(1)
       .maybeSingle()
       .then(({ data }) => setNextRun(data ?? null))
-  }, [club.id])
+  }, [club.id, initialNextRun])
 
   const handleSubscription = async (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -155,33 +165,30 @@ export default function ClubCard({
             </div>
           </div>
 
-          {(showHeart || onDelete) && (
+          {(showHeart || onDelete || onNotInterested) && (
             <div className="flex items-center gap-1.5 shrink-0">
               {showHeart && (
-                <>
-                  <button
-                    type="button"
-                    onClick={(e) => requireAuth ? requireAuth(() => handleSubscription(e)) : handleSubscription(e)}
-                    title={isSubscribed ? "Remove from favorites" : "Add to favorites & turn on notifications"}
-                    className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-[#2e3d1a] transition shrink-0"
-                  >
-                    <Heart
-                      fill={isSubscribed ? "#ef4444" : "none"}
-                      className={`w-4 h-4 ${isSubscribed ? "text-red-400" : "text-white/40"} transition-transform duration-300 ${isAnimating ? "scale-125" : ""}`}
-                    />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => requireAuth ? requireAuth(() => handleSubscription(e)) : handleSubscription(e)}
-                    className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-black transition-transform duration-300 ${isAnimating ? "scale-105" : ""} ${
-                      isSubscribed
-                        ? "bg-[#1e2d12] border border-[#c5f135]/50 text-[#c5f135]"
-                        : "bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45]"
-                    }`}
-                  >
-                    {isSubscribed ? "Joined" : "Join Club"}
-                  </button>
-                </>
+                <button
+                  type="button"
+                  onClick={(e) => requireAuth ? requireAuth(() => handleSubscription(e)) : handleSubscription(e)}
+                  className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-black transition-transform duration-300 ${isAnimating ? "scale-105" : ""} ${
+                    isSubscribed
+                      ? "bg-[#1e2d12] border border-[#c5f135]/50 text-[#c5f135]"
+                      : "bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45]"
+                  }`}
+                >
+                  {isSubscribed ? "Joined" : "Join Club"}
+                </button>
+              )}
+              {onNotInterested && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onNotInterested(club.id) }}
+                  title="Not interested"
+                  className="group/ni opacity-0 group-hover:opacity-100 transition-opacity w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/5 shrink-0"
+                >
+                  <EyeOff className="w-4 h-4 text-white/20 group-hover/ni:text-white/50 transition" />
+                </button>
               )}
               {onDelete && (
                 <button

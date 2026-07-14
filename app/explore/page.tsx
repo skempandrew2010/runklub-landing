@@ -13,7 +13,6 @@ import { Club } from "@/types/club"
 import { getDistanceMiles } from "@/utils/distance"
 import { localDateStr } from "@/utils/dates"
 import { SlidersHorizontal, Map, List, CalendarCheck, Clock, MapPin, ChevronDown } from "lucide-react"
-import Footer from "@/components/Footer"
 import Image from "next/image"
 import { getTagStyle } from "@/utils/tagStyle"
 
@@ -89,6 +88,13 @@ export default function ExplorePage() {
   const [allWeekRuns, setAllWeekRuns] = useState<WeekRun[]>([])
   const [weekRunsLoading, setWeekRunsLoading] = useState(false)
   const [mapBounds, setMapBounds] = useState<{ north: number; south: number; east: number; west: number } | null>(null)
+  const [userSubscribedIds, setUserSubscribedIds] = useState<Set<string>>(new Set())
+  const [notInterestedIds, setNotInterestedIds] = useState<Set<string>>(() => {
+    if (typeof window !== "undefined") {
+      try { return new Set(JSON.parse(localStorage.getItem("explore-not-interested") ?? "[]")) } catch { return new Set() }
+    }
+    return new Set()
+  })
 
   useEffect(() => {
     const getUser = async () => {
@@ -171,15 +177,16 @@ export default function ExplorePage() {
       weekAhead.setDate(weekAhead.getDate() + 7)
       const weekStr = localDateStr(weekAhead)
 
-      const [{ data: clubData }, { data: subData }, { data: runsData }] = await Promise.all([
-        supabase.from("clubs").select("id, name, city, latitude, longitude, location, image_url, tier, membership_type, created_at, user_id").eq("is_public", true),
-        supabase.from("subscriptions").select("club_id"),
+      const [{ data: clubData }, { data: runsData }] = await Promise.all([
+        supabase.from("clubs").select("id, name, city, latitude, longitude, location, image_url, tier, membership_type, created_at, user_id, subscriptions(count)").eq("is_public", true),
         supabase.from("runs").select("id, title, date, time, distance, meeting_point, city, run_lat, run_lng, tags, club_id").gte("date", todayStr).lte("date", weekStr).eq("is_public", true).order("date", { ascending: true }).order("time", { ascending: true }),
       ])
 
-      const countMap: Record<string, number> = {}
-      subData?.forEach((s) => { countMap[s.club_id] = (countMap[s.club_id] || 0) + 1 })
-      const loadedClubs = (clubData || []).map((club) => ({ ...club, memberCount: countMap[club.id] || 0 }))
+      const loadedClubs = (clubData || []).map((club: any) => ({
+        ...club,
+        memberCount: club.subscriptions?.[0]?.count ?? 0,
+        subscriptions: undefined,
+      }))
       setClubs(loadedClubs)
 
       const clubLookup: Record<string, ClubWithExtras> = {}
@@ -200,6 +207,13 @@ export default function ExplorePage() {
     }
     loadData()
   }, [])
+
+  // Fetch only this user's subscriptions (small targeted query, not all subscriptions)
+  useEffect(() => {
+    if (!userId) { setUserSubscribedIds(new Set()); return }
+    supabase.from("subscriptions").select("club_id").eq("user_id", userId)
+      .then(({ data }) => setUserSubscribedIds(new Set(data?.map((s) => s.club_id) ?? [])))
+  }, [userId])
 
   useEffect(() => {
     if (!selectedClub) return
@@ -232,6 +246,15 @@ export default function ExplorePage() {
 
   const center = cityCoords || userLocation
   const NEARBY_RADIUS = 50
+
+  // Map each club_id to its earliest run this week (avoids N per-card queries)
+  const nextRunByClubId = useMemo(() => {
+    const map: Record<string, WeekRun> = {}
+    allWeekRuns.forEach((run) => {
+      if (!map[run.club_id]) map[run.club_id] = run
+    })
+    return map
+  }, [allWeekRuns])
 
   const nearestRunDistByClub = useMemo(() => {
     if (!center) return {} as Record<string, number>
@@ -338,34 +361,6 @@ export default function ExplorePage() {
 
   const locationLabel = cityCoords && city ? `near "${city}"` : "near you"
 
-  const heroSection = (
-    <div className="bg-[#1a2110] px-5 pt-12 pb-10 text-center">
-      <h1 className="text-4xl sm:text-5xl font-black text-white leading-tight tracking-tight">
-        Find your people.<br />
-        <span className="text-[#c5f135] italic">Find your pace.</span>
-      </h1>
-      <p className="text-white/35 text-sm mt-4 max-w-sm mx-auto leading-relaxed">
-        Discover run clubs near you — from free community runs to coached training programs.
-      </p>
-      <div className="flex items-center justify-center gap-5 mt-7 flex-wrap">
-        <div className="text-center">
-          <p className="text-2xl font-black text-[#c5f135] leading-none">{clubs.length > 0 ? `${clubs.length}+` : "—"}</p>
-          <p className="text-[10px] font-bold text-white/35 tracking-widest uppercase mt-1">Run Clubs</p>
-        </div>
-        <div className="w-px h-8 bg-[#2e3d1a]" />
-        <div className="text-center">
-          <p className="text-2xl font-black text-[#c5f135] leading-none">Weekly</p>
-          <p className="text-[10px] font-bold text-white/35 tracking-widest uppercase mt-1">Runs</p>
-        </div>
-        <div className="w-px h-8 bg-[#2e3d1a]" />
-        <div className="text-center">
-          <p className="text-2xl font-black text-[#c5f135] leading-none">All</p>
-          <p className="text-[10px] font-bold text-white/35 tracking-widest uppercase mt-1">Levels</p>
-        </div>
-      </div>
-    </div>
-  )
-
   const filterBar = (
     <div className="bg-[#1a2110] border-b border-[#2e3d1a]">
       <div className="px-5 py-3 flex items-center gap-3">
@@ -432,7 +427,22 @@ export default function ExplorePage() {
     </div>
   )
 
-  const remaining = filteredClubs.length - visibleCount
+  const handleNotInterested = (id: string) => {
+    setNotInterestedIds((prev) => {
+      const next = new Set(prev)
+      next.add(id)
+      localStorage.setItem("explore-not-interested", JSON.stringify([...next]))
+      return next
+    })
+  }
+
+  const clearNotInterested = () => {
+    setNotInterestedIds(new Set())
+    localStorage.removeItem("explore-not-interested")
+  }
+
+  const listClubs = filteredClubs.filter((c) => !notInterestedIds.has(c.id))
+  const remaining = listClubs.length - visibleCount
 
   const clubListSection = (
     <>
@@ -440,11 +450,14 @@ export default function ExplorePage() {
         setHoveredClub={setHoveredClub}
         setSelectedClub={setSelectedClub}
         selectedClub={selectedClub}
-        clubs={filteredClubs.slice(0, visibleCount)}
+        clubs={listClubs.slice(0, visibleCount)}
         setFavorites={setSubscriptions}
         userId={userId}
         requireAuth={requireAuth}
         onDelete={isAdmin ? openDelete : undefined}
+        onNotInterested={handleNotInterested}
+        userSubscribedIds={userSubscribedIds}
+        nextRunByClubId={nextRunByClubId}
       />
       {remaining > 0 && (
         <div className="px-5 pb-5 pt-2">
@@ -453,6 +466,13 @@ export default function ExplorePage() {
             className="w-full py-3 rounded-2xl border border-[#2e3d1a] bg-[#1e2d12] text-sm font-bold text-white/60 hover:text-white hover:border-[#c5f135]/40 transition"
           >
             Show {Math.min(PAGE_SIZE, remaining)} more clubs
+          </button>
+        </div>
+      )}
+      {notInterestedIds.size > 0 && (
+        <div className="px-5 pb-4 text-center">
+          <button onClick={clearNotInterested} className="text-xs text-white/25 hover:text-white/50 transition">
+            {notInterestedIds.size} club{notInterestedIds.size !== 1 ? "s" : ""} hidden — show again
           </button>
         </div>
       )}
@@ -534,13 +554,10 @@ export default function ExplorePage() {
     </div>
   )
 
-  const footerSection = <Footer />
-
   return (
     <>
       {/* ── MOBILE ── */}
       <div className="md:hidden bg-[#1a2110]">
-        {!showMobileMap && heroSection}
         <div className="sticky z-40" style={{ top: 'var(--navbar-h)' }}>{filterBar}</div>
         {showMobileMap ? (
           <>
@@ -557,7 +574,6 @@ export default function ExplorePage() {
             {countRow}
             {clubListSection}
             <div className="mt-4 border-t-2 border-[#2e3d1a]">{weekScheduleSection}</div>
-            {footerSection}
             <div className="h-24" />
             <button onClick={() => setShowMobileMap(true)}
               className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-5 py-2.5 bg-[#1a2110] border border-[#3d5220] rounded-full text-white font-semibold text-sm shadow-xl shadow-black/60">
@@ -569,7 +585,6 @@ export default function ExplorePage() {
 
       {/* ── DESKTOP ── */}
       <div className="hidden md:block bg-[#1a2110]">
-        {heroSection}
         <div className="sticky z-40" style={{ top: 'var(--navbar-h)' }}>{filterBar}</div>
         <div className="flex">
           <div className="w-[58%] border-r border-[#2e3d1a]" style={{ minHeight: 'calc(100vh - var(--navbar-h))' }}>
@@ -586,7 +601,6 @@ export default function ExplorePage() {
         <div className="border-t-2 border-[#2e3d1a]">
           <div className="max-w-4xl mx-auto">{weekScheduleSection}</div>
         </div>
-        <div className="max-w-4xl mx-auto">{footerSection}</div>
         <div className="h-6" />
       </div>
 

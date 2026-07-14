@@ -4,7 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { useEffect, useState } from "react"
-import { Compass, CalendarCheck, Trophy, UserCircle, MessageSquare } from "lucide-react"
+import { Compass, CalendarCheck, Trophy, UserCircle, MessageSquare, Home } from "lucide-react"
 import { localDateStr } from "@/utils/dates"
 
 export default function Navbar() {
@@ -75,12 +75,13 @@ export default function Navbar() {
   const isManager = role === "manager"
 
   const tabs = [
+    { href: "/",         label: "Home",                                   Icon: Home,           badge: false },
     { href: "/explore",  label: "Discover",                               Icon: Compass,        badge: false },
     { href: "/today",    label: "Hub",                                    Icon: CalendarCheck,  badge: false },
 { href: "/director", label: isManager ? "Community Events" : "Messages", Icon: isManager ? Trophy : MessageSquare, badge: hasUnread },
   ]
 
-  const isActive = (href: string) => pathname.startsWith(href)
+  const isActive = (href: string) => href === "/" ? pathname === "/" : pathname.startsWith(href)
 
   const profileActive = pathname.startsWith("/profile")
   const initials = user?.email ? user.email[0].toUpperCase() : null

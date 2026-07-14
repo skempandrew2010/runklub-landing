@@ -37,6 +37,14 @@ function FadeInCard({ children, index }: { children: React.ReactNode; index: num
   )
 }
 
+type NextRun = {
+  id: string
+  title: string
+  date: string
+  time: string
+  tags: string[] | null
+}
+
 type Props = {
   clubs: Club[]
   setHoveredClub: (id: string | null) => void
@@ -46,6 +54,9 @@ type Props = {
   requireAuth: (action?: () => void) => void
   selectedClub: Club | null
   onDelete?: (club: { id: string; name: string }) => void
+  onNotInterested?: (id: string) => void
+  userSubscribedIds?: Set<string>
+  nextRunByClubId?: Record<string, NextRun>
 }
 
 export default function ClubList({
@@ -56,6 +67,9 @@ export default function ClubList({
   requireAuth,
   selectedClub,
   onDelete,
+  onNotInterested,
+  userSubscribedIds,
+  nextRunByClubId,
 }: Props) {
   if (clubs.length === 0) {
     return (
@@ -78,6 +92,9 @@ export default function ClubList({
             showHeart={true}
             onHover={setHoveredClub}
             onDelete={onDelete}
+            onNotInterested={onNotInterested}
+            initialIsSubscribed={userSubscribedIds ? userSubscribedIds.has(club.id) : undefined}
+            initialNextRun={nextRunByClubId ? (nextRunByClubId[club.id] ?? null) : undefined}
             onSubscriptionChange={(club, isFav) => {
               if (isFav) {
                 setFavorites((prev) => [...prev, club])

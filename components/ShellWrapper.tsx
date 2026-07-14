@@ -4,6 +4,7 @@ import dynamic from "next/dynamic"
 import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
+import Footer from "@/components/Footer"
 
 const NavBar = dynamic(() => import("./navBar"), {
   ssr: false,
@@ -73,6 +74,7 @@ export default function ShellWrapper({ children }: { children: React.ReactNode }
     <>
       {!hideShell && <NavBar />}
       {children}
+      {!hideShell && <Footer />}
     </>
   )
 }
