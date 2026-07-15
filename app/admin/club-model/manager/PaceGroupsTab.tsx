@@ -2,12 +2,11 @@
 
 import { useEffect, useState } from "react"
 import { fetchClubModelData, insertRow, deleteRow } from "@/lib/clubModel/api"
-import { CLUB_ID } from "@/lib/clubModel/constants"
 import type { PaceGroup, PaceOption } from "@/lib/clubModel/types"
 import { formatPace, formatPaceRange, parsePace } from "@/lib/clubModel/pace"
 import { Card, SectionTitle, Input, Button, Row } from "./ui"
 
-export default function PaceGroupsTab() {
+export default function PaceGroupsTab({ clubId }: { clubId: string }) {
   const [groups, setGroups] = useState<PaceGroup[]>([])
   const [options, setOptions] = useState<PaceOption[]>([])
   const [loading, setLoading] = useState(true)
@@ -17,38 +16,38 @@ export default function PaceGroupsTab() {
   const [optionDraft, setOptionDraft] = useState("")
 
   const load = async () => {
-    const data = await fetchClubModelData()
+    const data = await fetchClubModelData(clubId)
     setGroups(data.pace_groups.slice().sort((a, b) => a.pace_min - b.pace_min))
     setOptions(data.pace_options.slice().sort((a, b) => a.pace - b.pace))
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [clubId])
 
   const addGroup = async () => {
     const min = Number(draft.pace_min)
     const max = Number(draft.pace_max)
     if (!draft.name.trim() || !Number.isFinite(min) || !Number.isFinite(max)) return
-    await insertRow("pace_groups", { club_id: CLUB_ID, name: draft.name.trim(), pace_min: min, pace_max: max })
+    await insertRow("pace_groups", { club_id: clubId, name: draft.name.trim(), pace_min: min, pace_max: max }, clubId)
     setDraft({ name: "", pace_min: "", pace_max: "" })
     load()
   }
 
   const deleteGroup = async (id: string) => {
-    await deleteRow("pace_groups", { id })
+    await deleteRow("pace_groups", { id }, clubId)
     load()
   }
 
   const addOption = async () => {
     const pace = parsePace(optionDraft)
     if (pace === null) return
-    await insertRow("pace_options", { club_id: CLUB_ID, pace })
+    await insertRow("pace_options", { club_id: clubId, pace }, clubId)
     setOptionDraft("")
     load()
   }
 
   const deleteOption = async (id: string) => {
-    await deleteRow("pace_options", { id })
+    await deleteRow("pace_options", { id }, clubId)
     load()
   }
 

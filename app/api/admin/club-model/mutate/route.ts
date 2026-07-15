@@ -1,8 +1,6 @@
 import { createClient } from "@supabase/supabase-js"
 import { NextRequest, NextResponse } from "next/server"
-import { TEST_MANAGER_USER_ID, TEST_MEMBER_USER_ID } from "@/lib/clubModel/testAccounts"
-import { getClubModelTier, regionLimitForTier, coachLimitForTier } from "@/lib/clubModel/tierGate"
-import { CLUB_ID } from "@/lib/clubModel/constants"
+import { regionLimitForTier, coachLimitForTier } from "@/lib/clubModel/tierGate"
 
 function getAdminSupabase() {
   return createClient(
@@ -12,8 +10,8 @@ function getAdminSupabase() {
   )
 }
 
-// Only these prototype tables are reachable through this endpoint — never
-// widen this to arbitrary table names, since it runs on the service-role key.
+// Only these tables are reachable through this endpoint — never widen this to
+// arbitrary table names since it runs on the service-role key.
 const ALLOWED_TABLES = new Set([
   "regions",
   "region_days",
@@ -28,7 +26,6 @@ const ALLOWED_TABLES = new Set([
   "workout_types",
   "scheduled_workouts",
   "members",
-  "club_model_invites",
   "run_rsvps",
 ])
 
@@ -42,51 +39,45 @@ export async function POST(req: NextRequest) {
     const { data: { user }, error: authError } = await admin.auth.getUser(token)
     if (authError || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-    const { data: profile } = await admin
-      .from("profiles").select("role").eq("id", user.id).single()
+    const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).single()
     const isAdmin = profile?.role === "admin"
-    const isManagerTester = user.id === TEST_MANAGER_USER_ID
-    const isMemberTester = user.id === TEST_MEMBER_USER_ID
-    if (!isAdmin && !isManagerTester && !isMemberTester) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    }
-    const tier = await getClubModelTier(admin)
-    if (!isAdmin && !tier) {
-      return NextResponse.json({ error: "This club needs a Starter, Pro, or Premium plan" }, { status: 403 })
-    }
 
-    const { table, action, values, match, onConflict } = await req.json()
+    const body = await req.json()
+    const { table, action, values, match, onConflict, clubId } = body
+
     if (!ALLOWED_TABLES.has(table)) return NextResponse.json({ error: "Unknown table" }, { status: 400 })
 
-    // Starter can't add any regions at all; Pro is capped at one; Premium is
-    // unlimited. Admins bypass (they may be testing without a real tier set).
-    if (table === "regions" && action === "insert" && !isAdmin) {
-      const limit = regionLimitForTier(tier)
+    let tier: string | null = null
+    if (!isAdmin) {
+      if (!clubId) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      const { data: club } = await admin.from("clubs").select("id, tier").eq("id", clubId).eq("user_id", user.id).single()
+      if (!club) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      if (!["starter", "growth", "enterprise"].includes(club.tier ?? "")) {
+        return NextResponse.json({ error: "This club needs a Starter, Growth, or Enterprise plan" }, { status: 403 })
+      }
+      tier = club.tier
+    }
+
+    // Region limit check
+    if (table === "regions" && action === "insert" && !isAdmin && clubId) {
+      const limit = regionLimitForTier(tier as any)
       if (limit !== null) {
-        const { count } = await admin.from("regions").select("*", { count: "exact", head: true }).eq("club_id", CLUB_ID)
+        const { count } = await admin.from("regions").select("*", { count: "exact", head: true }).eq("club_id", clubId)
         if ((count ?? 0) >= limit) {
           return NextResponse.json({ error: `Your plan is limited to ${limit} region${limit === 1 ? "" : "s"}` }, { status: 403 })
         }
       }
     }
 
-    // Starter is capped at 2 coaches, Pro at 10, Premium is unlimited.
-    if (table === "coaches" && action === "insert" && !isAdmin) {
-      const limit = coachLimitForTier(tier)
+    // Coach limit check
+    if (table === "coaches" && action === "insert" && !isAdmin && clubId) {
+      const limit = coachLimitForTier(tier as any)
       if (limit !== null) {
-        const { count } = await admin.from("coaches").select("*", { count: "exact", head: true }).eq("club_id", CLUB_ID)
+        const { count } = await admin.from("coaches").select("*", { count: "exact", head: true }).eq("club_id", clubId)
         if ((count ?? 0) >= limit) {
           return NextResponse.json({ error: `Your plan is limited to ${limit} coach${limit === 1 ? "" : "es"}` }, { status: 403 })
         }
       }
-    }
-
-    // The member test account can only insert its own signup row and manage
-    // its own RSVPs — every other table/action here stays admin/manager-only.
-    const memberTesterAllowed = (table === "members" && action === "insert")
-      || (table === "run_rsvps" && ["insert", "update", "upsert"].includes(action))
-    if (isMemberTester && !memberTesterAllowed) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
     if (action === "insert") {

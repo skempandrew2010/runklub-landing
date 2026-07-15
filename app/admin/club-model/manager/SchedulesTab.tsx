@@ -48,7 +48,7 @@ function RegionCheckboxes({
   )
 }
 
-export default function SchedulesTab() {
+export default function SchedulesTab({ clubId }: { clubId: string }) {
   const [paceGroups, setPaceGroups] = useState<PaceGroup[]>([])
   const [schedules, setSchedules] = useState<TrainingSchedule[]>([])
   const [scheduleRegions, setScheduleRegions] = useState<TrainingScheduleRegion[]>([])
@@ -65,7 +65,7 @@ export default function SchedulesTab() {
   const thisWeek = currentWeekMonday()
 
   const load = async () => {
-    const data = await fetchClubModelData()
+    const data = await fetchClubModelData(clubId)
     setPaceGroups(data.pace_groups.slice().sort((a, b) => a.pace_min - b.pace_min))
     setSchedules(data.training_schedules)
     setScheduleRegions(data.training_schedule_regions)
@@ -99,26 +99,26 @@ export default function SchedulesTab() {
   const addSchedule = async (paceGroupId: string) => {
     const draft = draftFor(paceGroupId)
     if (!draft.day_of_week) return
-    const created = await insertRow("training_schedules", { pace_group_id: paceGroupId, day_of_week: draft.day_of_week })
+    const created = await insertRow("training_schedules", { pace_group_id: paceGroupId, day_of_week: draft.day_of_week }, clubId)
     const scheduleId = created[0].id
     await Promise.all(
-      Array.from(draft.regionIds).map((regionId) => insertRow("training_schedule_regions", { training_schedule_id: scheduleId, region_id: regionId }))
+      Array.from(draft.regionIds).map((regionId) => insertRow("training_schedule_regions", { training_schedule_id: scheduleId, region_id: regionId }, clubId))
     )
     setNewSchedule((p) => ({ ...p, [paceGroupId]: { day_of_week: "", regionIds: new Set() } }))
     load()
   }
 
   const deleteSchedule = async (id: string) => {
-    await deleteRow("training_schedules", { id })
+    await deleteRow("training_schedules", { id }, clubId)
     load()
   }
 
   const toggleScheduleRegion = async (scheduleId: string, regionId: string) => {
     const exists = scheduleRegions.some((sr) => sr.training_schedule_id === scheduleId && sr.region_id === regionId)
     if (exists) {
-      await deleteRow("training_schedule_regions", { training_schedule_id: scheduleId, region_id: regionId })
+      await deleteRow("training_schedule_regions", { training_schedule_id: scheduleId, region_id: regionId }, clubId)
     } else {
-      await insertRow("training_schedule_regions", { training_schedule_id: scheduleId, region_id: regionId })
+      await insertRow("training_schedule_regions", { training_schedule_id: scheduleId, region_id: regionId }, clubId)
     }
     load()
   }
@@ -127,10 +127,10 @@ export default function SchedulesTab() {
     const selected = new Set(scheduleRegions.filter((sr) => sr.training_schedule_id === scheduleId).map((sr) => sr.region_id))
     const allSelected = regions.length > 0 && regions.every((r) => selected.has(r.id))
     if (allSelected) {
-      await Promise.all(regions.map((r) => deleteRow("training_schedule_regions", { training_schedule_id: scheduleId, region_id: r.id })))
+      await Promise.all(regions.map((r) => deleteRow("training_schedule_regions", { training_schedule_id: scheduleId, region_id: r.id }, clubId)))
     } else {
       await Promise.all(
-        regions.filter((r) => !selected.has(r.id)).map((r) => insertRow("training_schedule_regions", { training_schedule_id: scheduleId, region_id: r.id }))
+        regions.filter((r) => !selected.has(r.id)).map((r) => insertRow("training_schedule_regions", { training_schedule_id: scheduleId, region_id: r.id }, clubId))
       )
     }
     load()
@@ -151,9 +151,9 @@ export default function SchedulesTab() {
     }
     const editingId = editingWorkout[scheduleId]
     if (editingId) {
-      await updateRow("scheduled_workouts", { id: editingId }, values)
+      await updateRow("scheduled_workouts", { id: editingId }, values, clubId)
     } else {
-      await insertRow("scheduled_workouts", values)
+      await insertRow("scheduled_workouts", values, clubId)
     }
     setNewWorkout((p) => ({ ...p, [scheduleId]: emptyWorkoutDraft }))
     setEditingWorkout((p) => ({ ...p, [scheduleId]: null }))
@@ -180,7 +180,7 @@ export default function SchedulesTab() {
   }
 
   const deleteScheduledWorkout = async (id: string) => {
-    await deleteRow("scheduled_workouts", { id })
+    await deleteRow("scheduled_workouts", { id }, clubId)
     load()
   }
 

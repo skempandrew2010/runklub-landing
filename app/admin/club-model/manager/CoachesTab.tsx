@@ -3,13 +3,12 @@
 import { useEffect, useState } from "react"
 import { fetchClubModelData, insertRow, deleteRow, setTestTier } from "@/lib/clubModel/api"
 import { supabase } from "@/lib/supabase"
-import { CLUB_ID } from "@/lib/clubModel/constants"
 import { coachLimitForTier, nextTierForMoreCoaches, type ClubModelTier } from "@/lib/clubModel/tierGate"
 import { PLANS } from "@/lib/plans"
 import type { Coach, Location, LocationCoach } from "@/lib/clubModel/types"
 import { Card, SectionTitle, Input, Button, Row } from "./ui"
 
-export default function CoachesTab() {
+export default function CoachesTab({ clubId }: { clubId: string }) {
   const [coaches, setCoaches] = useState<Coach[]>([])
   const [locations, setLocations] = useState<Location[]>([])
   const [assignments, setAssignments] = useState<LocationCoach[]>([])
@@ -20,8 +19,8 @@ export default function CoachesTab() {
 
   const load = async () => {
     const [data, { data: club }] = await Promise.all([
-      fetchClubModelData(),
-      supabase.from("clubs").select("tier").eq("id", CLUB_ID).single(),
+      fetchClubModelData(clubId),
+      supabase.from("clubs").select("tier").eq("id", clubId).single(),
     ])
     setCoaches(data.coaches.slice().sort((a, b) => a.name.localeCompare(b.name)))
     setLocations(data.locations.slice().sort((a, b) => a.name.localeCompare(b.name)))
@@ -30,7 +29,7 @@ export default function CoachesTab() {
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [clubId])
 
   const coachLimit = coachLimitForTier(tier)
   const atCoachLimit = coachLimit !== null && coaches.length >= coachLimit
@@ -49,25 +48,25 @@ export default function CoachesTab() {
   const addCoach = async () => {
     if (!draft.name?.trim()) return
     await insertRow("coaches", {
-      club_id: CLUB_ID,
+      club_id: clubId,
       name: draft.name.trim(),
       email: draft.email ?? null,
       phone: draft.phone ?? null,
-    })
+    }, clubId)
     setDraft({})
     load()
   }
 
   const deleteCoach = async (id: string) => {
-    await deleteRow("coaches", { id })
+    await deleteRow("coaches", { id }, clubId)
     load()
   }
 
   const toggleAssignment = async (coachId: string, locationId: string, assigned: boolean) => {
     if (assigned) {
-      await deleteRow("location_coaches", { coach_id: coachId, location_id: locationId })
+      await deleteRow("location_coaches", { coach_id: coachId, location_id: locationId }, clubId)
     } else {
-      await insertRow("location_coaches", { coach_id: coachId, location_id: locationId })
+      await insertRow("location_coaches", { coach_id: coachId, location_id: locationId }, clubId)
     }
     load()
   }

@@ -817,7 +817,7 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
                         </div>
                       )}
                       <div className="border-t border-[#2e3d1a] mt-5 pt-5">
-                        <SchedulesTab />
+                        <SchedulesTab clubId={selectedClubId ?? ""} />
                       </div>
                     </>
                   )}
@@ -1009,7 +1009,7 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
 
           {/* ── COACHES ── */}
           {tab === "coaches" && (isPaid
-            ? <CoachesTab />
+            ? <CoachesTab clubId={selectedClubId ?? ""} />
             : <div className="space-y-4">
                 <p className="text-sm font-bold text-white/40 uppercase tracking-widest">Coaches</p>
                 <p className="text-sm text-white/50">Unlock coach management with Starter or above.</p>
@@ -1021,7 +1021,7 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
 
           {/* ── REGIONS & LOCATIONS ── */}
           {tab === "regions" && (isGrowth || isEnterprise
-            ? <RegionsLocationsTab />
+            ? <RegionsLocationsTab clubId={selectedClubId ?? ""} />
             : <div className="space-y-4">
                 <p className="text-sm font-bold text-white/40 uppercase tracking-widest">Branches & Locations</p>
                 <p className="text-sm text-white/50">Unlock branches and locations with Growth or above.</p>
@@ -1032,7 +1032,7 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
 
           {/* ── PACE GROUPS ── */}
           {tab === "pace" && (isGrowth || isEnterprise
-            ? <PaceGroupsTab />
+            ? <PaceGroupsTab clubId={selectedClubId ?? ""} />
             : <div className="space-y-4">
                 <p className="text-sm font-bold text-white/40 uppercase tracking-widest">Pace Groups</p>
                 <p className="text-sm text-white/50">Unlock pace group management with Growth or above.</p>
@@ -1043,7 +1043,7 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
 
           {/* ── WORKOUT LIBRARY ── */}
           {tab === "workouts" && (isGrowth || isEnterprise
-            ? <WorkoutsTab />
+            ? <WorkoutsTab clubId={selectedClubId ?? ""} />
             : <div className="space-y-4">
                 <p className="text-sm font-bold text-white/40 uppercase tracking-widest">Workout Library</p>
                 <p className="text-sm text-white/50">Unlock the workout library with Growth or above.</p>

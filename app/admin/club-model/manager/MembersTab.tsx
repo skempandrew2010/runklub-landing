@@ -6,16 +6,14 @@ import type { Member, PaceGroup, Location, Region } from "@/lib/clubModel/types"
 import { formatPaceRange } from "@/lib/clubModel/pace"
 import { Card, SectionTitle, Select, Button } from "./ui"
 import CoachesTab from "./CoachesTab"
-import InvitesTab from "./InvitesTab"
 
 const SUB_TABS = [
   { key: "members", label: "Members" },
   { key: "coaches", label: "Coaches" },
-  { key: "invites", label: "Invites" },
 ] as const
 type SubTabKey = (typeof SUB_TABS)[number]["key"]
 
-export default function MembersTab() {
+export default function MembersTab({ clubId }: { clubId: string }) {
   const [subTab, setSubTab] = useState<SubTabKey>("members")
   const [members, setMembers] = useState<Member[]>([])
   const [regions, setRegions] = useState<Region[]>([])
@@ -28,7 +26,7 @@ export default function MembersTab() {
   const [paceGroupFilter, setPaceGroupFilter] = useState("")
 
   const load = async () => {
-    const data = await fetchClubModelData()
+    const data = await fetchClubModelData(clubId)
     setMembers(data.members.slice().sort((a, b) => b.created_at.localeCompare(a.created_at)))
     setRegions(data.regions.slice().sort((a, b) => a.name.localeCompare(b.name)))
     setPaceGroups(data.pace_groups.slice().sort((a, b) => a.pace_min - b.pace_min))
@@ -36,11 +34,11 @@ export default function MembersTab() {
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [clubId])
 
   const setStatus = async (id: string, status: "active" | "rejected" | "pending") => {
     setActing(id)
-    await updateRow("members", { id }, { status })
+    await updateRow("members", { id }, { status }, clubId)
     await load()
     setActing(null)
   }
@@ -145,10 +143,8 @@ export default function MembersTab() {
             </div>
           </Card>
         </div>
-      ) : subTab === "coaches" ? (
-        <CoachesTab />
       ) : (
-        <InvitesTab />
+        <CoachesTab clubId={clubId} />
       )}
     </div>
   )

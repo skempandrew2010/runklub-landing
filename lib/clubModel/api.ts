@@ -8,8 +8,11 @@ async function authHeaders() {
   return { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` }
 }
 
-export async function fetchClubModelData(): Promise<ClubModelData> {
-  const res = await fetch("/api/admin/club-model", { headers: await authHeaders() })
+export async function fetchClubModelData(clubId?: string): Promise<ClubModelData> {
+  const url = clubId
+    ? `/api/admin/club-model?club_id=${encodeURIComponent(clubId)}`
+    : `/api/admin/club-model`
+  const res = await fetch(url, { headers: await authHeaders() })
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "Failed to load data")
   return res.json()
 }
@@ -105,40 +108,40 @@ export async function sendClubModelMessage(memberId: string, body: string): Prom
   return (await res.json()).message
 }
 
-export async function insertRow<T extends Record<string, unknown>>(table: string, values: T) {
+export async function insertRow<T extends Record<string, unknown>>(table: string, values: T, clubId?: string) {
   const res = await fetch("/api/admin/club-model/mutate", {
     method: "POST",
     headers: await authHeaders(),
-    body: JSON.stringify({ table, action: "insert", values }),
+    body: JSON.stringify({ table, action: "insert", values, clubId }),
   })
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "Insert failed")
   return (await res.json()).data
 }
 
-export async function deleteRow(table: string, match: Record<string, unknown>) {
+export async function deleteRow(table: string, match: Record<string, unknown>, clubId?: string) {
   const res = await fetch("/api/admin/club-model/mutate", {
     method: "POST",
     headers: await authHeaders(),
-    body: JSON.stringify({ table, action: "delete", match }),
+    body: JSON.stringify({ table, action: "delete", match, clubId }),
   })
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "Delete failed")
 }
 
-export async function updateRow<T extends Record<string, unknown>>(table: string, match: Record<string, unknown>, values: T) {
+export async function updateRow<T extends Record<string, unknown>>(table: string, match: Record<string, unknown>, values: T, clubId?: string) {
   const res = await fetch("/api/admin/club-model/mutate", {
     method: "POST",
     headers: await authHeaders(),
-    body: JSON.stringify({ table, action: "update", match, values }),
+    body: JSON.stringify({ table, action: "update", match, values, clubId }),
   })
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "Update failed")
   return (await res.json()).data
 }
 
-export async function upsertRow<T extends Record<string, unknown>>(table: string, values: T, onConflict: string) {
+export async function upsertRow<T extends Record<string, unknown>>(table: string, values: T, onConflict: string, clubId?: string) {
   const res = await fetch("/api/admin/club-model/mutate", {
     method: "POST",
     headers: await authHeaders(),
-    body: JSON.stringify({ table, action: "upsert", values, onConflict }),
+    body: JSON.stringify({ table, action: "upsert", values, onConflict, clubId }),
   })
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "Save failed")
   return (await res.json()).data

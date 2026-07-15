@@ -4,7 +4,6 @@ import { useEffect, useState } from "react"
 import { Check } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { setTestTier } from "@/lib/clubModel/api"
-import { CLUB_ID } from "@/lib/clubModel/constants"
 import { PLANS, PLAN_ORDER, LIFETIME_VERIFICATION_PRICE, type PlanId, type BillingInterval } from "@/lib/plans"
 import { Card, SectionTitle, Button } from "./ui"
 
@@ -13,14 +12,14 @@ function yearlySavingsPct(monthly: number, yearly: number) {
   return Math.round(((fullYear - yearly) / fullYear) * 100)
 }
 
-export default function PlanSettingsTab() {
+export default function PlanSettingsTab({ clubId }: { clubId: string }) {
   const [tier, setTier] = useState<PlanId | null>(null)
   const [loading, setLoading] = useState(true)
   const [switching, setSwitching] = useState<PlanId | null>(null)
   const [interval, setInterval] = useState<BillingInterval>("monthly")
 
   const load = async () => {
-    const { data } = await supabase.from("clubs").select("tier").eq("id", CLUB_ID).single()
+    const { data } = await supabase.from("clubs").select("tier").eq("id", clubId).single()
     setTier((data?.tier as PlanId) ?? "free")
     setLoading(false)
   }

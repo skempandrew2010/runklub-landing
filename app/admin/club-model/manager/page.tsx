@@ -3,6 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useClubModelAccess } from "@/lib/clubModel/access"
+import { CLUB_ID } from "@/lib/clubModel/constants"
 import RegionsLocationsTab from "./RegionsLocationsTab"
 import PaceGroupsTab from "./PaceGroupsTab"
 import SchedulesTab from "./SchedulesTab"
@@ -73,12 +74,12 @@ export default function ClubModelManagerPage() {
       </header>
 
       <main className="max-w-5xl mx-auto px-6 py-8">
-        {tab === "regions" && <RegionsLocationsTab />}
-        {tab === "pace" && <PaceGroupsTab />}
-        {tab === "schedules" && <SchedulesTab />}
-        {tab === "workouts" && <WorkoutsTab />}
-        {tab === "members" && <MembersTab />}
-        {tab === "settings" && <PlanSettingsTab />}
+        {tab === "regions" && <RegionsLocationsTab clubId={CLUB_ID} />}
+        {tab === "pace" && <PaceGroupsTab clubId={CLUB_ID} />}
+        {tab === "schedules" && <SchedulesTab clubId={CLUB_ID} />}
+        {tab === "workouts" && <WorkoutsTab clubId={CLUB_ID} />}
+        {tab === "members" && <MembersTab clubId={CLUB_ID} />}
+        {tab === "settings" && <PlanSettingsTab clubId={CLUB_ID} />}
       </main>
     </div>
   )

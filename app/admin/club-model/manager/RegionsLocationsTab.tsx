@@ -3,14 +3,13 @@
 import { useEffect, useState } from "react"
 import { fetchClubModelData, insertRow, deleteRow, updateRow, setTestTier } from "@/lib/clubModel/api"
 import { supabase } from "@/lib/supabase"
-import { CLUB_ID } from "@/lib/clubModel/constants"
 import { regionLimitForTier, nextTierForMoreRegions, type ClubModelTier } from "@/lib/clubModel/tierGate"
 import { PLANS } from "@/lib/plans"
 import type { Region, RegionDay, RegionDayTime, Location } from "@/lib/clubModel/types"
 import { DAYS_OF_WEEK } from "@/lib/clubModel/types"
 import { Card, SectionTitle, Input, Select, Button, Row } from "./ui"
 
-export default function RegionsLocationsTab() {
+export default function RegionsLocationsTab({ clubId }: { clubId: string }) {
   const [regions, setRegions] = useState<Region[]>([])
   const [regionDays, setRegionDays] = useState<RegionDay[]>([])
   const [regionDayTimes, setRegionDayTimes] = useState<RegionDayTime[]>([])
@@ -24,8 +23,8 @@ export default function RegionsLocationsTab() {
 
   const load = async () => {
     const [data, { data: club }] = await Promise.all([
-      fetchClubModelData(),
-      supabase.from("clubs").select("tier").eq("id", CLUB_ID).single(),
+      fetchClubModelData(clubId),
+      supabase.from("clubs").select("tier").eq("id", clubId).single(),
     ])
     setRegions(data.regions.slice().sort((a, b) => a.name.localeCompare(b.name)))
     setRegionDays(data.region_days)
@@ -35,7 +34,7 @@ export default function RegionsLocationsTab() {
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [clubId])
 
   const regionLimit = regionLimitForTier(tier)
   const atRegionLimit = regionLimit !== null && regions.length >= regionLimit
@@ -53,40 +52,40 @@ export default function RegionsLocationsTab() {
 
   const addRegion = async () => {
     if (!newRegionName.trim()) return
-    await insertRow("regions", { club_id: CLUB_ID, name: newRegionName.trim() })
+    await insertRow("regions", { club_id: clubId, name: newRegionName.trim() }, clubId)
     setNewRegionName("")
     load()
   }
 
   const deleteRegion = async (id: string) => {
-    await deleteRow("regions", { id })
+    await deleteRow("regions", { id }, clubId)
     load()
   }
 
   const toggleMeets = async (day: RegionDay) => {
-    await updateRow("region_days", { id: day.id }, { meets: !day.meets })
+    await updateRow("region_days", { id: day.id }, { meets: !day.meets }, clubId)
     load()
   }
 
   const addSlot = async (day: RegionDay) => {
-    await insertRow("region_day_times", { region_day_id: day.id, location_id: null, time: null })
+    await insertRow("region_day_times", { region_day_id: day.id, location_id: null, time: null }, clubId)
     load()
   }
 
   const deleteSlot = async (id: string) => {
-    await deleteRow("region_day_times", { id })
+    await deleteRow("region_day_times", { id }, clubId)
     load()
   }
 
   const setSlotLocation = async (slot: RegionDayTime, locationId: string) => {
-    await updateRow("region_day_times", { id: slot.id }, { location_id: locationId || null })
+    await updateRow("region_day_times", { id: slot.id }, { location_id: locationId || null }, clubId)
     load()
   }
 
   const saveSlotTime = async (slot: RegionDayTime) => {
     const draft = timeDrafts[slot.id]
     if (draft === undefined || draft === (slot.time ?? "")) return
-    await updateRow("region_day_times", { id: slot.id }, { time: draft.trim() || null })
+    await updateRow("region_day_times", { id: slot.id }, { time: draft.trim() || null }, clubId)
     load()
   }
 
@@ -97,13 +96,13 @@ export default function RegionsLocationsTab() {
       region_id: regionId,
       name: draft.name.trim(),
       address: draft.address ?? null,
-    })
+    }, clubId)
     setNewLocation((prev) => ({ ...prev, [regionId]: {} }))
     load()
   }
 
   const deleteLocation = async (id: string) => {
-    await deleteRow("locations", { id })
+    await deleteRow("locations", { id }, clubId)
     load()
   }
 

@@ -2,36 +2,35 @@
 
 import { useEffect, useState } from "react"
 import { fetchClubModelData, insertRow, deleteRow } from "@/lib/clubModel/api"
-import { CLUB_ID } from "@/lib/clubModel/constants"
 import type { WorkoutType } from "@/lib/clubModel/types"
 import { Card, SectionTitle, Input, TextArea, Button } from "./ui"
 
-export default function WorkoutsTab() {
+export default function WorkoutsTab({ clubId }: { clubId: string }) {
   const [workouts, setWorkouts] = useState<WorkoutType[]>([])
   const [loading, setLoading] = useState(true)
   const [draft, setDraft] = useState<Partial<WorkoutType>>({})
 
   const load = async () => {
-    const data = await fetchClubModelData()
+    const data = await fetchClubModelData(clubId)
     setWorkouts(data.workout_types.slice().sort((a, b) => a.name.localeCompare(b.name)))
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [clubId])
 
   const addWorkout = async () => {
     if (!draft.name?.trim()) return
     await insertRow("workout_types", {
-      club_id: CLUB_ID,
+      club_id: clubId,
       name: draft.name.trim(),
       description: draft.description ?? null,
-    })
+    }, clubId)
     setDraft({})
     load()
   }
 
   const deleteWorkout = async (id: string) => {
-    await deleteRow("workout_types", { id })
+    await deleteRow("workout_types", { id }, clubId)
     load()
   }
 
