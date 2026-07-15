@@ -752,23 +752,23 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
             const membersOnlyRuns = clubRuns.filter((r) => r.members_only)
 
             const RunRow = ({ run }: { run: RunChatPreview }) => (
-              <div className="flex items-center justify-between gap-3 bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2.5">
+              <div className="flex items-center justify-between gap-3 bg-[#111a0a] border border-[#2e3d1a] rounded-xl px-3 py-3">
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold text-white truncate">{run.title}</p>
-                  <p className="text-xs text-white/40 mt-0.5">
+                  <p className="text-xs text-white/50 mt-0.5">
                     {formatDay(run.date)} · {formatTime(run.time)}{run.distance ? ` · ${run.distance}` : ""}
                   </p>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <button
                     onClick={() => router.push(`/dashboard/${selectedClubId}/edit-run/${run.id}`)}
-                    className="p-1.5 rounded-lg text-white/25 hover:text-white/70 hover:bg-[#2e3d1a] transition"
+                    className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-[#2e3d1a] transition"
                   >
                     <Pencil className="w-3.5 h-3.5" />
                   </button>
                   <button
                     onClick={() => deleteRun(run.id)}
-                    className="p-1.5 rounded-lg text-white/25 hover:text-red-400 hover:bg-[#2e3d1a] transition"
+                    className="p-1.5 rounded-lg text-white/40 hover:text-red-400 hover:bg-red-400/10 transition"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -787,24 +787,30 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
                   <CalendarPlus className="w-5 h-5" />
                 </button>
 
-                <Card>
-                  <SectionTitle>Community Runs</SectionTitle>
-                  <p className="text-xs text-white/30 mb-3">Open to everyone — visible on the discover map</p>
+                <div className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-5">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Globe className="w-3.5 h-3.5 text-[#c5f135]/60 shrink-0" />
+                    <h2 className="text-xs font-bold text-[#c5f135]/70 uppercase tracking-widest">Community Runs</h2>
+                  </div>
+                  <p className="text-xs text-white/35 mb-4">Open to everyone · visible on the discover map</p>
                   {communityRuns.length === 0 ? (
-                    <p className="text-sm text-white/50">No upcoming community runs.</p>
+                    <p className="text-sm text-white/40">No upcoming community runs.</p>
                   ) : (
                     <div className="space-y-2">
                       {communityRuns.map((run) => <RunRow key={run.id} run={run} />)}
                     </div>
                   )}
-                </Card>
+                </div>
 
-                <Card>
+                <div className="bg-[#1a2810] border border-[#c5f135]/20 rounded-2xl p-5">
                   <div className="flex items-center justify-between mb-1">
-                    <SectionTitle>Members Only Runs</SectionTitle>
+                    <div className="flex items-center gap-2">
+                      <Lock className="w-3.5 h-3.5 text-[#c5f135]/60 shrink-0" />
+                      <h2 className="text-xs font-bold text-[#c5f135]/70 uppercase tracking-widest">Members Only Runs</h2>
+                    </div>
                     {!isPaid && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-[#c5f135] text-[#1a2110]">STARTER+</span>}
                   </div>
-                  <p className="text-xs text-white/30 mb-3">Only visible to paying members</p>
+                  <p className="text-xs text-white/35 mb-4">Only visible to paying members</p>
                   {!isPaid ? (
                     <p className="text-sm text-white/50">Upgrade to Starter to create members-only runs.</p>
                   ) : (
@@ -821,7 +827,7 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
                       </div>
                     </>
                   )}
-                </Card>
+                </div>
               </div>
             )
           })()}
