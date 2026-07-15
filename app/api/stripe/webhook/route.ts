@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
         break
       }
 
-      // ── Pro subscription renewed, updated, or payment failed ──
+      // ── Growth subscription renewed, updated, or payment failed ──
       case "customer.subscription.updated": {
         const sub = event.data.object as Stripe.Subscription
 
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
 
         const isActive = ["active", "trialing"].includes(sub.status)
         await getSupabaseAdmin().from("clubs").update({
-          tier: isActive ? "pro" : "free",
+          tier: isActive ? "growth" : "free",
           stripe_subscription_status: sub.status,
           tier_expires_at: (sub as any).current_period_end
             ? new Date((sub as any).current_period_end * 1000).toISOString()
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
         break
       }
 
-      // ── Pro subscription cancelled ──
+      // ── Growth subscription cancelled ──
       case "customer.subscription.deleted": {
         const sub = event.data.object as Stripe.Subscription
 

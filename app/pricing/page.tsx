@@ -49,7 +49,7 @@ export default function PricingPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {PLAN_ORDER.map((id) => {
             const plan = PLANS[id]
-            const highlighted = id === "pro"
+            const highlighted = id === "growth"
             const savingsPct = plan.price ? yearlySavingsPct(plan.price.monthly, plan.price.yearly) : null
 
             return (

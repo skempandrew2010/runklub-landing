@@ -5,7 +5,7 @@
 // each limit still needs its own check wired in wherever it applies (see
 // lib/clubModel/tierGate.ts for the one built so far: region caps).
 
-export type PlanId = "free" | "starter" | "pro" | "premium"
+export type PlanId = "free" | "starter" | "growth" | "enterprise"
 export type BillingInterval = "monthly" | "yearly"
 export type EmailCadence = "none" | "weekly" | "3x-week" | "daily"
 export type SearchPlacement = "standard" | "priority-verified" | "first-in-city"
@@ -89,12 +89,12 @@ export const PLANS: Record<PlanId, Plan> = {
     id: "starter",
     name: "Starter",
     tagline: "Best for clubs just starting out",
-    price: { monthly: 29.99, yearly: 299.99 },
+    price: { monthly: 24.99, yearly: 249.99 },
     memberLimit: 100,
     clubMembershipPaymentsAllowed: true,
     regionLimit: 0,
     singleWeeklyLocationOnly: true,
-    coachLimit: 2,
+    coachLimit: 4,
     eventLimit: null,
     paymentFeeSurchargePct: 3,
     emailCadence: "weekly",
@@ -114,14 +114,14 @@ export const PLANS: Record<PlanId, Plan> = {
       "Event payments at Stripe fee + 3%",
       "Optionally charge members to join your club",
       "Up to 100 members",
-      "Up to 2 coaches",
+      "Up to 4 coaches",
       "Access to race benefits & sponsors",
       "Verified badge included while subscribed",
     ],
   },
-  pro: {
-    id: "pro",
-    name: "Pro",
+  growth: {
+    id: "growth",
+    name: "Growth",
     tagline: null,
     price: { monthly: 49.99, yearly: 499.99 },
     memberLimit: 150,
@@ -142,7 +142,7 @@ export const PLANS: Record<PlanId, Plan> = {
     verificationIncludedWhileSubscribed: true,
     features: [
       "Everything in Starter",
-      "One region, unlimited locations",
+      "One branch, unlimited locations (upgrade to Premium for multiple branches)",
       "Club update emails 3x a week",
       "Event payments at Stripe fee + 2%",
       "Up to 150 members",
@@ -152,9 +152,9 @@ export const PLANS: Record<PlanId, Plan> = {
       "Access to the sponsor & race network",
     ],
   },
-  premium: {
-    id: "premium",
-    name: "Premium",
+  enterprise: {
+    id: "enterprise",
+    name: "Enterprise",
     tagline: null,
     price: { monthly: 99.99, yearly: 999.99 },
     memberLimit: null,
@@ -174,7 +174,7 @@ export const PLANS: Record<PlanId, Plan> = {
     searchPlacement: "first-in-city",
     verificationIncludedWhileSubscribed: true,
     features: [
-      "Everything in Pro",
+      "Everything in Growth",
       "Unlimited members",
       "Daily email updates for members",
       "Event payments at Stripe fee + 1%",
@@ -184,9 +184,9 @@ export const PLANS: Record<PlanId, Plan> = {
       "Priority placement in the sponsor & race network",
       "Unlimited events",
       "Unlimited coaches",
-      "Unlimited regions",
+      "Unlimited branches",
     ],
   },
 }
 
-export const PLAN_ORDER: PlanId[] = ["free", "starter", "pro", "premium"]
+export const PLAN_ORDER: PlanId[] = ["free", "starter", "growth", "enterprise"]

@@ -75,7 +75,7 @@ export default function PlanSettingsTab() {
           {PLAN_ORDER.map((id) => {
             const plan = PLANS[id]
             const isCurrent = tier === id
-            const highlighted = id === "pro"
+            const highlighted = id === "growth"
             const savingsPct = plan.price ? yearlySavingsPct(plan.price.monthly, plan.price.yearly) : null
 
             return (

@@ -40,7 +40,7 @@ export function useClubModelAccess(scope: AccessScope, skip = false) {
       // enforced server-side in the mutate route). The test club acts as the
       // one club this prototype supports today, so its tier is the whole gate.
       const { data: club } = await supabase.from("clubs").select("tier").eq("id", CLUB_ID).single()
-      if (club?.tier !== "starter" && club?.tier !== "pro" && club?.tier !== "premium") { router.push("/"); return }
+      if (club?.tier !== "starter" && club?.tier !== "growth" && club?.tier !== "enterprise") { router.push("/"); return }
 
       setReady(true)
     }

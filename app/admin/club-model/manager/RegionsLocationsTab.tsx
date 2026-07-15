@@ -31,7 +31,7 @@ export default function RegionsLocationsTab() {
     setRegionDays(data.region_days)
     setRegionDayTimes(data.region_day_times)
     setLocations(data.locations.slice().sort((a, b) => a.name.localeCompare(b.name)))
-    setTier(club?.tier === "starter" || club?.tier === "pro" || club?.tier === "premium" ? club.tier : null)
+    setTier(club?.tier === "starter" || club?.tier === "growth" || club?.tier === "enterprise" ? club.tier : null)
     setLoading(false)
   }
 
@@ -112,13 +112,13 @@ export default function RegionsLocationsTab() {
   return (
     <div className="space-y-6">
       <Card>
-        <SectionTitle>Add a region</SectionTitle>
+        <SectionTitle>Add a branch</SectionTitle>
         {atRegionLimit ? (
           <div className="bg-[#1a2110] border border-[#c5f135]/25 rounded-xl px-4 py-3">
             <p className="text-sm text-white/70 mb-3">
               {regionLimit === 0
-                ? "Your Starter plan doesn't include regions yet — it's built around one weekly location instead."
-                : `Your plan is limited to ${regionLimit} region${regionLimit === 1 ? "" : "s"}.`}
+                ? "Your Starter plan doesn't include branches yet — it's built around one weekly location instead."
+                : `Your plan is limited to ${regionLimit} branch${regionLimit === 1 ? "" : "es"}.`}
             </p>
             <Button onClick={simulateUpgrade} disabled={upgrading}>
               {upgrading ? "Upgrading…" : `Become a ${PLANS[upgradeTarget].name} member`}
@@ -128,13 +128,13 @@ export default function RegionsLocationsTab() {
           <Row>
             <div className="flex-1 min-w-[200px]">
               <Input
-                placeholder="Region name, e.g. Boulder"
+                placeholder="Branch name, e.g. Boulder"
                 value={newRegionName}
                 onChange={(e) => setNewRegionName(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && addRegion()}
               />
             </div>
-            <Button onClick={addRegion}>Add region</Button>
+            <Button onClick={addRegion}>Add branch</Button>
           </Row>
         )}
       </Card>
@@ -150,7 +150,7 @@ export default function RegionsLocationsTab() {
           <Card key={region.id}>
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-black text-white">{region.name}</h3>
-              <Button variant="danger" onClick={() => deleteRegion(region.id)}>Delete region</Button>
+              <Button variant="danger" onClick={() => deleteRegion(region.id)}>Delete branch</Button>
             </div>
 
             <p className="text-xs font-bold text-white/60 uppercase tracking-widest mb-2">Which days do you meet?</p>
@@ -215,7 +215,7 @@ export default function RegionsLocationsTab() {
             )}
 
             <div className="space-y-2 mb-4">
-              <p className="text-xs font-bold text-white/60 uppercase tracking-widest">Locations in {region.name}</p>
+              <p className="text-xs font-bold text-white/60 uppercase tracking-widest">Locations in {region.name} branch</p>
               {regionLocations.length === 0 && (
                 <p className="text-sm text-white/50">No locations yet.</p>
               )}

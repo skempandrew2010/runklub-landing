@@ -14,6 +14,7 @@ const NavBar = dynamic(() => import("./navBar"), {
 const SHELL_HIDDEN_ROUTES = ["/login", "/onboarding", "/claim", "/welcome"]
 
 const PUBLIC_ROUTES = [
+  "/",
   "/login",
   "/onboarding",
   "/claim",
@@ -25,6 +26,7 @@ const PUBLIC_ROUTES = [
   "/explore",
   "/clubs",
   "/pricing",
+  "/invite",
 ]
 
 export default function ShellWrapper({ children }: { children: React.ReactNode }) {

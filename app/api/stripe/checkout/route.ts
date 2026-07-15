@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
     const { clubId, tier } = await req.json()
 
     const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-    if (!clubId || !UUID_RE.test(clubId) || !tier || !["verified", "pro"].includes(tier)) {
+    if (!clubId || !UUID_RE.test(clubId) || !tier || !["verified", "growth"].includes(tier)) {
       return NextResponse.json({ error: "Invalid request" }, { status: 400 })
     }
 
@@ -38,8 +38,8 @@ export async function POST(req: NextRequest) {
     if (!club) return NextResponse.json({ error: "Club not found" }, { status: 404 })
 
     // Prevent downgrade via checkout
-    if (club.tier === "pro") {
-      return NextResponse.json({ error: "Club is already on Pro" }, { status: 400 })
+    if (club.tier === "growth") {
+      return NextResponse.json({ error: "Club is already on Growth" }, { status: 400 })
     }
     if (club.tier === "verified" && tier === "verified") {
       return NextResponse.json({ error: "Club is already Verified" }, { status: 400 })

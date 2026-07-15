@@ -18,7 +18,7 @@ type Club = {
   city: string
   location: string
   instagram_handle: string | null
-  tier: "free" | "verified" | "pro"
+  tier: "free" | "verified" | "growth"
   stripe_subscription_id: string | null
   stripe_subscription_status: string | null
   tier_expires_at: string | null
@@ -26,10 +26,10 @@ type Club = {
 }
 
 function TierBadge({ tier }: { tier: string }) {
-  if (tier === "pro") {
+  if (tier === "growth") {
     return (
       <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-black bg-[#c5f135] text-[#1a2110]">
-        <Zap className="w-3 h-3" /> PRO
+        <Zap className="w-3 h-3" /> GROWTH
       </span>
     )
   }

@@ -11,7 +11,7 @@ import MembersTab from "./MembersTab"
 import PlanSettingsTab from "./PlanSettingsTab"
 
 const TABS = [
-  { key: "regions", label: "Regions & Locations" },
+  { key: "regions", label: "Branches & Locations" },
   { key: "pace", label: "Pace Groups" },
   { key: "schedules", label: "Training Schedules" },
   { key: "workouts", label: "Workout Library" },

@@ -378,27 +378,6 @@ export default function SchedulesTab() {
               })}
             </div>
 
-            <div className="border-t border-[#2e3d1a] mt-4 pt-3 space-y-2">
-              <p className="text-xs font-bold text-white/60 uppercase tracking-widest">Add a weekly slot</p>
-              <Row>
-                <div className="min-w-[140px]">
-                  <Select
-                    value={draft.day_of_week}
-                    onChange={(e) => setNewSchedule((p) => ({ ...p, [group.id]: { ...draft, day_of_week: e.target.value } }))}
-                  >
-                    <option value="">Day of week</option>
-                    {DAYS_OF_WEEK.map((d) => <option key={d} value={d}>{d}</option>)}
-                  </Select>
-                </div>
-                <Button onClick={() => addSchedule(group.id)}>Add slot</Button>
-              </Row>
-              <RegionCheckboxes
-                regions={regions}
-                selected={draft.regionIds}
-                onToggle={(regionId) => toggleDraftRegion(group.id, regionId)}
-                onSelectAll={() => selectAllDraftRegions(group.id)}
-              />
-            </div>
           </Card>
         )
       })}

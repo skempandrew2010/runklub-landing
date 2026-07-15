@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { ArrowLeft, CalendarPlus, Repeat2, Globe, Lock } from "lucide-react"
@@ -9,19 +9,29 @@ import mapboxSdk from "@mapbox/mapbox-sdk/services/geocoding"
 const geocodingClient = mapboxSdk({ accessToken: process.env.NEXT_PUBLIC_MAPBOX_TOKEN! })
 
 const TAG_GROUPS = [
-  {
-    label: "Pace",
-    tags: ["Easy", "Moderate", "Fast", "All Paces"],
-  },
-  {
-    label: "Type",
-    tags: ["Social Run", "Long Run", "Speed Work", "Trail Run", "Race Prep", "Fun Run", "Night Run"],
-  },
-  {
-    label: "Vibe",
-    tags: ["Beer After", "Coffee After", "Dog Friendly", "Beginner Friendly", "No Drop", "First Timers Welcome", "Traveler Friendly", "Rain or Shine", "Stroller Friendly"],
-  },
+  { label: "Pace", tags: ["Easy", "Moderate", "Fast", "All Paces"] },
+  { label: "Type", tags: ["Social Run", "Long Run", "Speed Work", "Trail Run", "Race Prep", "Fun Run", "Night Run"] },
+  { label: "Vibe", tags: ["Beer After", "Coffee After", "Dog Friendly", "Beginner Friendly", "No Drop", "First Timers Welcome", "Traveler Friendly", "Rain or Shine", "Stroller Friendly"] },
 ]
+
+type PaceGroup = { id: string; name: string; pace_min: number; pace_max: number }
+type WorkoutType = { id: string; name: string }
+type Coach = { id: string; name: string }
+type RunTemplate = {
+  id: string
+  title: string
+  distance: string | null
+  meeting_point: string | null
+  city: string | null
+  route_url: string | null
+  description: string | null
+  tags: string[] | null
+  pace_group_ids: string[]
+  workout_type_id: string | null
+  coach_id: string | null
+  members_only: boolean
+  times_used: number
+}
 
 function addWeeks(dateStr: string, weeks: number): string {
   const d = new Date(dateStr + "T00:00:00")
@@ -33,12 +43,19 @@ function getRepeatDates(startDate: string, totalWeeks: number): string[] {
   return Array.from({ length: totalWeeks }, (_, i) => addWeeks(startDate, i))
 }
 
+function fmtPace(minPerMile: number) {
+  const m = Math.floor(minPerMile)
+  const s = Math.round((minPerMile - m) * 60)
+  return `${m}:${String(s).padStart(2, "0")}`
+}
+
 function CreateRunContent() {
   const params = useParams()
   const searchParams = useSearchParams()
   const clubId = params?.clubId as string
   const router = useRouter()
 
+  // Core form
   const [title, setTitle] = useState("")
   const [date, setDate] = useState(searchParams.get("date") ?? "")
   const [time, setTime] = useState("")
@@ -53,11 +70,57 @@ function CreateRunContent() {
   const [repeatWeeks, setRepeatWeeks] = useState(4)
   const [loading, setLoading] = useState(false)
 
-  function toggleTag(tag: string) {
-    setSelectedTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
-    )
+  // New fields
+  const [selectedPaceGroupIds, setSelectedPaceGroupIds] = useState<string[]>([])
+  const [selectedWorkoutTypeId, setSelectedWorkoutTypeId] = useState("")
+  const [selectedCoachId, setSelectedCoachId] = useState("")
+
+  // Club model data
+  const [paceGroups, setPaceGroups] = useState<PaceGroup[]>([])
+  const [workoutTypes, setWorkoutTypes] = useState<WorkoutType[]>([])
+  const [coaches, setCoaches] = useState<Coach[]>([])
+  const [templates, setTemplates] = useState<RunTemplate[]>([])
+  const [dataLoading, setDataLoading] = useState(true)
+
+  useEffect(() => {
+    if (!clubId) return
+    Promise.all([
+      supabase.from("pace_groups").select("id, name, pace_min, pace_max").eq("club_id", clubId).order("pace_min"),
+      supabase.from("workout_types").select("id, name").eq("club_id", clubId).order("name"),
+      supabase.from("coaches").select("id, name").eq("club_id", clubId).order("name"),
+      supabase.from("run_templates")
+        .select("id, title, distance, meeting_point, city, route_url, description, tags, pace_group_ids, workout_type_id, coach_id, members_only, times_used")
+        .eq("club_id", clubId)
+        .order("last_used_at", { ascending: false })
+        .limit(8),
+    ]).then(([pg, wt, co, tpl]) => {
+      setPaceGroups((pg.data as PaceGroup[]) || [])
+      setWorkoutTypes((wt.data as WorkoutType[]) || [])
+      setCoaches((co.data as Coach[]) || [])
+      setTemplates((tpl.data as RunTemplate[]) || [])
+      setDataLoading(false)
+    })
+  }, [clubId])
+
+  const applyTemplate = (tpl: RunTemplate) => {
+    setTitle(tpl.title)
+    setDistance(tpl.distance || "")
+    setAddress(tpl.meeting_point || "")
+    setCity(tpl.city || "")
+    setRouteUrl(tpl.route_url || "")
+    setDescription(tpl.description || "")
+    setSelectedTags(tpl.tags || [])
+    setSelectedPaceGroupIds(tpl.pace_group_ids || [])
+    setSelectedWorkoutTypeId(tpl.workout_type_id || "")
+    setSelectedCoachId(tpl.coach_id || "")
+    setIsPublic(!tpl.members_only)
   }
+
+  const togglePaceGroup = (id: string) =>
+    setSelectedPaceGroupIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])
+
+  const toggleTag = (tag: string) =>
+    setSelectedTags((prev) => prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag])
 
   async function geocodeAddress(addr: string, cityName: string): Promise<{ lat: number; lng: number } | null> {
     const query = [addr, cityName].filter(Boolean).join(", ")
@@ -70,9 +133,40 @@ function CreateRunContent() {
     return null
   }
 
+  async function saveTemplate() {
+    const payload = {
+      club_id: clubId,
+      title,
+      distance: distance || null,
+      meeting_point: address || null,
+      city: city || null,
+      route_url: routeUrl || null,
+      description: description || null,
+      tags: selectedTags.length > 0 ? selectedTags : null,
+      pace_group_ids: selectedPaceGroupIds,
+      workout_type_id: selectedWorkoutTypeId || null,
+      coach_id: selectedCoachId || null,
+      members_only: !isPublic,
+      last_used_at: new Date().toISOString(),
+    }
+    const { data: existing } = await supabase
+      .from("run_templates")
+      .select("id, times_used")
+      .eq("club_id", clubId)
+      .eq("title", title)
+      .maybeSingle()
+    if (existing) {
+      await supabase.from("run_templates")
+        .update({ ...payload, times_used: existing.times_used + 1 })
+        .eq("id", existing.id)
+    } else {
+      await supabase.from("run_templates").insert(payload)
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    if (!title || !date || !time) return
+    if (!date || !time) return
     setLoading(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
@@ -97,15 +191,18 @@ function CreateRunContent() {
         description: description || null,
         tags: selectedTags.length > 0 ? selectedTags : null,
         is_public: isPublic,
+        members_only: !isPublic,
+        pace_group_ids: selectedPaceGroupIds.length > 0 ? selectedPaceGroupIds : null,
+        workout_type_id: selectedWorkoutTypeId || null,
+        coach_id: selectedCoachId || null,
         created_by: user.id,
       }
 
       const dates = repeatWeekly ? getRepeatDates(date, repeatWeeks) : [date]
-      const rows = dates.map((d) => ({ ...baseRun, date: d }))
-
-      const { error } = await supabase.from("runs").insert(rows)
-
+      const { error } = await supabase.from("runs").insert(dates.map((d) => ({ ...baseRun, date: d })))
       if (error) { console.error(error); setLoading(false); return }
+
+      await saveTemplate()
       router.push(`/director`)
     } catch (err) {
       console.error(err)
@@ -123,10 +220,8 @@ function CreateRunContent() {
 
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
-          <button
-            onClick={() => router.push(`/director`)}
-            className="w-9 h-9 rounded-full bg-[#1e2d12] border border-[#2e3d1a] flex items-center justify-center text-white/60 hover:text-white transition shrink-0"
-          >
+          <button onClick={() => router.push(`/director`)}
+            className="w-9 h-9 rounded-full bg-[#1e2d12] border border-[#2e3d1a] flex items-center justify-center text-white/60 hover:text-white transition shrink-0">
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
@@ -139,103 +234,171 @@ function CreateRunContent() {
           </div>
         </div>
 
+        {/* Template library */}
+        {!dataLoading && templates.length > 0 && (
+          <div className="mb-5">
+            <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest mb-2 px-0.5">Load from library</p>
+            <div className="flex gap-2 overflow-x-auto scrollbar-none pb-1">
+              {templates.map((tpl) => (
+                <button key={tpl.id} type="button" onClick={() => applyTemplate(tpl)}
+                  className="shrink-0 flex flex-col items-start px-3 py-2.5 rounded-xl bg-[#1e2d12] border border-[#2e3d1a] hover:border-[#c5f135]/40 transition text-left min-w-[120px] max-w-[180px]">
+                  <p className="text-xs font-bold text-white truncate w-full">{tpl.title}</p>
+                  {tpl.distance && <p className="text-[10px] text-white/40 mt-0.5">{tpl.distance}</p>}
+                  <p className="text-[10px] text-white/25 mt-0.5">Used {tpl.times_used}×</p>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-4">
+
           {/* Core details */}
           <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-4 space-y-4">
-
             <div>
-              <label className={labelClass}>Run Title *</label>
-              <input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. Saturday Morning 5K"
-                required
-                className={inputClass}
-              />
+              <label className={labelClass}>Run Title <span className="text-white/25 font-normal">(optional)</span></label>
+              <input value={title} onChange={(e) => setTitle(e.target.value)}
+                placeholder="e.g. Saturday Morning 5K (optional)" className={inputClass} />
             </div>
-
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelClass}>Date *</label>
-                <input
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  required
-                  className={inputClass}
-                />
+                <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required className={inputClass} />
               </div>
-              <div>
-                <label className={labelClass}>Time *</label>
-                <input
-                  type="time"
-                  value={time}
-                  onChange={(e) => setTime(e.target.value)}
-                  required
-                  className={inputClass}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelClass}>Distance</label>
-                <input
-                  value={distance}
-                  onChange={(e) => setDistance(e.target.value)}
-                  placeholder="e.g. 5K, 10 mi"
-                  className={inputClass}
-                />
+                <input value={distance} onChange={(e) => setDistance(e.target.value)}
+                  placeholder="e.g. 5K, 10 mi" className={inputClass} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelClass}>Time *</label>
+                <input type="time" value={time} onChange={(e) => setTime(e.target.value)} required className={inputClass} />
               </div>
               <div>
                 <label className={labelClass}>Route Link <span className="text-white/25 font-normal">(optional)</span></label>
-                <input
-                  value={routeUrl}
-                  onChange={(e) => setRouteUrl(e.target.value)}
-                  placeholder="Strava link…"
-                  type="url"
-                  className={inputClass}
-                />
+                <input value={routeUrl} onChange={(e) => setRouteUrl(e.target.value)}
+                  placeholder="Strava link…" type="url" className={inputClass} />
               </div>
             </div>
+          </div>
 
+          {/* Workout library */}
+          <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-4 space-y-3">
             <div>
-              <label className={labelClass}>Description <span className="text-white/25 font-normal">(optional)</span></label>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Pace, terrain, what to bring…"
-                rows={3}
-                className={`${inputClass} resize-none`}
-              />
+              <p className="text-xs font-semibold text-white/50 mb-0.5">Workout</p>
+              <p className="text-[11px] text-white/25">
+                {workoutTypes.length > 0 ? "Pick from your workout library" : "Add workouts in the club manager to link them here"}
+              </p>
+            </div>
+            {workoutTypes.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={() => setSelectedWorkoutTypeId("")}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${!selectedWorkoutTypeId ? "bg-[#c5f135] text-[#1a2110] border-[#c5f135]" : "bg-transparent text-white/50 border-[#2e3d1a] hover:border-[#c5f135]/40"}`}>
+                  No workout
+                </button>
+                {workoutTypes.map((wt) => (
+                  <button key={wt.id} type="button"
+                    onClick={() => setSelectedWorkoutTypeId(selectedWorkoutTypeId === wt.id ? "" : wt.id)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${selectedWorkoutTypeId === wt.id ? "bg-[#c5f135] text-[#1a2110] border-[#c5f135]" : "bg-transparent text-white/50 border-[#2e3d1a] hover:border-[#c5f135]/40 hover:text-white/70"}`}>
+                    {wt.name}
+                  </button>
+                ))}
+              </div>
+            )}
+            <div>
+              <label className={labelClass}>Notes <span className="text-white/25 font-normal">(optional)</span></label>
+              <textarea value={description} onChange={(e) => setDescription(e.target.value)}
+                placeholder="Pace, terrain, workout details…" rows={3}
+                className={`${inputClass} resize-none`} />
+            </div>
+          </div>
+
+          {/* Groups & Visibility */}
+          <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-4 space-y-4">
+            <p className="text-xs font-semibold text-white/50">Groups</p>
+
+            {/* Community / Members Only */}
+            <button type="button" onClick={() => setIsPublic((v) => !v)}
+              className="w-full flex items-center justify-between gap-3 text-left bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-3">
+              <div className="flex items-center gap-3">
+                {isPublic
+                  ? <Globe className="w-4 h-4 text-[#c5f135] shrink-0" />
+                  : <Lock className="w-4 h-4 text-white/40 shrink-0" />}
+                <div>
+                  <p className="text-xs font-semibold text-white/70">{isPublic ? "Community Run" : "Members Only"}</p>
+                  <p className="text-[11px] text-white/30 mt-0.5">
+                    {isPublic ? "Open to everyone" : "Paying members only"}
+                  </p>
+                </div>
+              </div>
+              <div className={`relative w-11 h-6 rounded-full shrink-0 transition-colors duration-200 ${isPublic ? "bg-[#c5f135]" : "bg-[#2e3d1a]"}`}>
+                <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all duration-200 ${isPublic ? "left-[22px]" : "left-0.5"}`} />
+              </div>
+            </button>
+
+            {/* Pace groups */}
+            <div className="space-y-2">
+              <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Pace Group</p>
+              {paceGroups.length === 0 ? (
+                <p className="text-xs text-white/30 italic">No pace groups set up yet — add them in the club manager.</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {paceGroups.map((pg) => {
+                    const active = selectedPaceGroupIds.includes(pg.id)
+                    return (
+                      <button key={pg.id} type="button" onClick={() => togglePaceGroup(pg.id)}
+                        className={`flex flex-col items-start px-3 py-2 rounded-xl text-xs font-semibold border transition-all ${active ? "bg-[#c5f135] text-[#1a2110] border-[#c5f135]" : "bg-[#1a2110] text-white/50 border-[#2e3d1a] hover:border-[#c5f135]/40 hover:text-white/70"}`}>
+                        <span>{pg.name}</span>
+                        <span className={`text-[10px] font-normal mt-0.5 ${active ? "text-[#1a2110]/60" : "text-white/30"}`}>
+                          {fmtPace(pg.pace_min)}–{fmtPace(pg.pace_max)} /mi
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Coach */}
+            <div className="space-y-2">
+              <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Coach</p>
+              {coaches.length === 0 ? (
+                <p className="text-xs text-white/30 italic">No coaches set up yet — add them in the club manager.</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" onClick={() => setSelectedCoachId("")}
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${!selectedCoachId ? "bg-[#c5f135] text-[#1a2110] border-[#c5f135]" : "bg-[#1a2110] text-white/50 border-[#2e3d1a] hover:border-[#c5f135]/40"}`}>
+                    No coach
+                  </button>
+                  {coaches.map((coach) => (
+                    <button key={coach.id} type="button"
+                      onClick={() => setSelectedCoachId(selectedCoachId === coach.id ? "" : coach.id)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${selectedCoachId === coach.id ? "bg-[#c5f135] text-[#1a2110] border-[#c5f135]" : "bg-[#1a2110] text-white/50 border-[#2e3d1a] hover:border-[#c5f135]/40 hover:text-white/70"}`}>
+                      {coach.name}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
           {/* Location */}
           <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-4 space-y-4">
             <div>
-              <p className="text-xs font-semibold text-white/50 mb-0.5">Run Location</p>
+              <p className="text-xs font-semibold text-white/50 mb-0.5">Meeting Location</p>
               <p className="text-[11px] text-white/25">Used to pin this run on the discover map</p>
             </div>
-
             <div>
               <label className={labelClass}>Meeting Address</label>
-              <input
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                placeholder="e.g. 1600 Pearl St, Central Park"
-                className={inputClass}
-              />
+              <input value={address} onChange={(e) => setAddress(e.target.value)}
+                placeholder="e.g. 1600 Pearl St, Central Park" className={inputClass} />
             </div>
-
             <div>
               <label className={labelClass}>City</label>
-              <input
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-                placeholder="e.g. Boulder, CO"
-                className={inputClass}
-              />
+              <input value={city} onChange={(e) => setCity(e.target.value)}
+                placeholder="e.g. Boulder, CO" className={inputClass} />
             </div>
           </div>
 
@@ -252,16 +415,8 @@ function CreateRunContent() {
                   {group.tags.map((tag) => {
                     const active = selectedTags.includes(tag)
                     return (
-                      <button
-                        key={tag}
-                        type="button"
-                        onClick={() => toggleTag(tag)}
-                        className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all duration-100
-                          ${active
-                            ? "bg-[#c5f135] text-[#1a2110] border-[#c5f135]"
-                            : "bg-transparent text-white/50 border-[#2e3d1a] hover:border-[#c5f135]/40 hover:text-white/70"
-                          }`}
-                      >
+                      <button key={tag} type="button" onClick={() => toggleTag(tag)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all duration-100 ${active ? "bg-[#c5f135] text-[#1a2110] border-[#c5f135]" : "bg-transparent text-white/50 border-[#2e3d1a] hover:border-[#c5f135]/40 hover:text-white/70"}`}>
                         {tag}
                       </button>
                     )
@@ -271,38 +426,10 @@ function CreateRunContent() {
             ))}
           </div>
 
-          {/* Visibility */}
-          <button
-            type="button"
-            onClick={() => setIsPublic((v) => !v)}
-            className="w-full bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-4 flex items-center justify-between gap-3 text-left"
-          >
-            <div className="flex items-center gap-3">
-              {isPublic
-                ? <Globe className="w-4 h-4 text-[#c5f135] shrink-0" />
-                : <Lock className="w-4 h-4 text-white/40 shrink-0" />
-              }
-              <div>
-                <p className="text-xs font-semibold text-white/70">
-                  {isPublic ? "Public Run" : "Members Only"}
-                </p>
-                <p className="text-[11px] text-white/30 mt-0.5">
-                  {isPublic ? "Visible to everyone on the discover map" : "Only visible to club members"}
-                </p>
-              </div>
-            </div>
-            <div className={`relative w-11 h-6 rounded-full shrink-0 transition-colors duration-200 ${isPublic ? "bg-[#c5f135]" : "bg-[#2e3d1a]"}`}>
-              <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all duration-200 ${isPublic ? "left-[22px]" : "left-0.5"}`} />
-            </div>
-          </button>
-
-          {/* Repeat Weekly */}
+          {/* Repeat weekly */}
           <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-4 space-y-4">
-            <button
-              type="button"
-              onClick={() => setRepeatWeekly((v) => !v)}
-              className="w-full flex items-center justify-between gap-3"
-            >
+            <button type="button" onClick={() => setRepeatWeekly((v) => !v)}
+              className="w-full flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5">
                 <Repeat2 className={`w-4 h-4 shrink-0 transition-colors ${repeatWeekly ? "text-[#c5f135]" : "text-white/30"}`} />
                 <div className="text-left">
@@ -321,22 +448,13 @@ function CreateRunContent() {
                   <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest mb-2.5">Repeat for</p>
                   <div className="flex gap-2 flex-wrap">
                     {[2, 3, 4, 5, 6, 8].map((n) => (
-                      <button
-                        key={n}
-                        type="button"
-                        onClick={() => setRepeatWeeks(n)}
-                        className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${
-                          repeatWeeks === n
-                            ? "bg-[#c5f135] text-[#1a2110] border-[#c5f135]"
-                            : "bg-transparent text-white/50 border-[#2e3d1a] hover:border-[#c5f135]/40 hover:text-white/70"
-                        }`}
-                      >
+                      <button key={n} type="button" onClick={() => setRepeatWeeks(n)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${repeatWeeks === n ? "bg-[#c5f135] text-[#1a2110] border-[#c5f135]" : "bg-transparent text-white/50 border-[#2e3d1a] hover:border-[#c5f135]/40 hover:text-white/70"}`}>
                         {n} weeks
                       </button>
                     ))}
                   </div>
                 </div>
-
                 {date ? (
                   <div className="bg-[#1a2110] rounded-xl p-3">
                     <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest mb-2.5">
@@ -363,18 +481,14 @@ function CreateRunContent() {
             )}
           </div>
 
-          <button
-            type="submit"
-            disabled={loading || !title || !date || !time}
-            className="w-full flex items-center justify-center gap-2 py-3.5 bg-[#c5f135] text-[#1a2110] text-sm font-black rounded-2xl disabled:opacity-40 hover:bg-[#d4ff45] transition"
-          >
+          <button type="submit" disabled={loading || !date || !time}
+            className="w-full flex items-center justify-center gap-2 py-3.5 bg-[#c5f135] text-[#1a2110] text-sm font-black rounded-2xl disabled:opacity-40 hover:bg-[#d4ff45] transition">
             <CalendarPlus className="w-4 h-4" />
             {loading
               ? "Scheduling…"
               : repeatWeekly
                 ? `Schedule ${repeatWeeks} Runs`
-                : "Schedule Run"
-            }
+                : "Schedule Run"}
           </button>
         </form>
       </div>

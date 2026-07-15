@@ -12,7 +12,7 @@ function getAdminSupabase() {
   )
 }
 
-const VALID_TIERS = new Set<PlanId>(["free", "starter", "pro", "premium"])
+const VALID_TIERS = new Set<PlanId>(["free", "starter", "growth", "enterprise"])
 
 // Test-only: lets the manager-dashboard tester flip the one seeded test
 // club's billing tier to walk through what each plan unlocks, without a real

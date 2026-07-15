@@ -30,6 +30,7 @@ export type Run = {
   distance: string | null
   meeting_point: string | null
   tags: string[] | null
+  members_only?: boolean
 }
 
 type ChatMessage = {
@@ -252,9 +253,13 @@ export default function ClubPageClient({
   const [claimMessage, setClaimMessage] = useState("")
   const [claimSubmitting, setClaimSubmitting] = useState(false)
   const [claimStatus, setClaimStatus] = useState<"idle" | "pending" | "submitted">("idle")
+  const [joinRequestStatus, setJoinRequestStatus] = useState<"none" | "pending" | "approved" | "rejected">("none")
+  const [requestingJoin, setRequestingJoin] = useState(false)
   const [joinBanner, setJoinBanner] = useState(false)
   const [activeChatRun, setActiveChatRun] = useState<Run | null>(null)
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
+  const [isPaidMember, setIsPaidMember] = useState(false)
+  const [memberOnlyRuns, setMemberOnlyRuns] = useState<Run[]>([])
 
   // Refs for section-visibility tracking
   const runsRef = useRef<HTMLDivElement>(null)
@@ -292,14 +297,31 @@ export default function ClubPageClient({
       const user = authData.user
       setUserId(user?.id ?? null)
       if (user) {
-        const [{ data: sub }, { data: existingClaim }, { data: prof }] = await Promise.all([
-          supabase.from("subscriptions").select("id").eq("user_id", user.id).eq("club_id", club.id).maybeSingle(),
+        const [{ data: sub }, { data: existingClaim }, { data: prof }, { data: joinReq }] = await Promise.all([
+          supabase.from("subscriptions").select("id, member_type").eq("user_id", user.id).eq("club_id", club.id).maybeSingle(),
           supabase.from("club_claims").select("id, status").eq("user_id", user.id).eq("club_id", club.id).maybeSingle(),
           supabase.from("profiles").select("display_name, avatar_url").eq("id", user.id).single(),
+          supabase.from("membership_requests").select("status").eq("user_id", user.id).eq("club_id", club.id).maybeSingle(),
         ])
         setIsSubscribed(!!sub)
         if (existingClaim) setClaimStatus("pending")
+        if (joinReq) setJoinRequestStatus(joinReq.status as any)
         if (prof) setUserProfile(prof)
+
+        const paid = (sub as any)?.member_type === "paid"
+        setIsPaidMember(paid)
+        if (paid) {
+          const today = localDateStr()
+          const { data: mRuns } = await supabase
+            .from("runs")
+            .select("id, title, date, time, distance, meeting_point, tags, members_only")
+            .eq("club_id", club.id)
+            .eq("members_only", true)
+            .gte("date", today)
+            .order("date", { ascending: true })
+            .order("time", { ascending: true })
+          setMemberOnlyRuns((mRuns as Run[]) || [])
+        }
 
         // Auto-subscribe when arriving via a join link (?join=1)
         if (searchParams.get("join") === "1" && !sub) {
@@ -335,6 +357,16 @@ export default function ClubPageClient({
     setSubscribing(false)
   }
 
+  const handleRequestJoin = async () => {
+    if (!userId) { router.push("/login"); return }
+    setRequestingJoin(true)
+    const { error } = await supabase
+      .from("membership_requests")
+      .upsert({ user_id: userId, club_id: club.id, status: "pending" }, { onConflict: "club_id,user_id" })
+    setRequestingJoin(false)
+    if (!error) setJoinRequestStatus("pending")
+  }
+
   const submitClaim = async () => {
     if (!userId) { router.push("/login"); return }
     setClaimSubmitting(true)
@@ -355,7 +387,10 @@ export default function ClubPageClient({
   const initials = club.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
   const gradient = getGradient(club.name)
   const todayStr = localDateStr()
-  const upcomingRuns = runs.filter(r => r.date >= todayStr)
+  const publicUpcoming = runs.filter(r => r.date >= todayStr)
+  const upcomingRuns = [...memberOnlyRuns, ...publicUpcoming].sort((a, b) =>
+    a.date !== b.date ? a.date.localeCompare(b.date) : (a.time ?? "").localeCompare(b.time ?? "")
+  )
 
   return (
     <div className="min-h-screen bg-[#1a2110] pb-24">
@@ -397,7 +432,7 @@ export default function ClubPageClient({
             <div className="flex-1 min-w-0 pb-1">
               <div className="flex items-center gap-2 flex-wrap mb-1">
                 <h1 className="text-2xl font-black text-white leading-tight">{club.name}</h1>
-                {club.tier === "pro" && (
+                {club.tier === "growth" && (
                   <span className="flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-[#c5f135] text-[#1a2110]">
                     <Zap className="w-2.5 h-2.5" /> PRO
                   </span>
@@ -444,17 +479,34 @@ export default function ClubPageClient({
             <Heart className={`w-5 h-5 ${isSubscribed ? "fill-red-400 text-red-400" : "text-white/40"}`} />
           </button>
 
-          <button
-            onClick={handleFollow}
-            disabled={subscribing}
-            className={`px-5 py-2.5 rounded-full text-sm font-black transition disabled:opacity-50 ${
-              isSubscribed
-                ? "bg-[#1e2d12] border border-[#c5f135]/50 text-[#c5f135]"
-                : "bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45]"
-            }`}
-          >
-            {subscribing ? "…" : isSubscribed ? "Joined" : "Join Club"}
-          </button>
+          {club.membership_type === "paid_required" && !isSubscribed ? (
+            // Approval-gated club — show request flow
+            <button
+              onClick={joinRequestStatus === "none" ? handleRequestJoin : undefined}
+              disabled={requestingJoin || joinRequestStatus !== "none"}
+              className={`px-5 py-2.5 rounded-full text-sm font-black transition disabled:opacity-60 ${
+                joinRequestStatus === "pending"
+                  ? "bg-[#1e2d12] border border-white/20 text-white/50"
+                  : joinRequestStatus === "rejected"
+                  ? "bg-red-400/10 border border-red-400/30 text-red-400/70"
+                  : "bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45]"
+              }`}
+            >
+              {requestingJoin ? "…" : joinRequestStatus === "pending" ? "Request Pending" : joinRequestStatus === "rejected" ? "Request Declined" : "Request to Join"}
+            </button>
+          ) : (
+            <button
+              onClick={handleFollow}
+              disabled={subscribing}
+              className={`px-5 py-2.5 rounded-full text-sm font-black transition disabled:opacity-50 ${
+                isSubscribed
+                  ? "bg-[#1e2d12] border border-[#c5f135]/50 text-[#c5f135]"
+                  : "bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45]"
+              }`}
+            >
+              {subscribing ? "…" : isSubscribed ? "Joined" : "Join Club"}
+            </button>
+          )}
 
           {club.instagram_handle && (
             <a
@@ -574,7 +626,14 @@ export default function ClubPageClient({
                         </p>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-white">{run.title}</p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-bold text-white">{run.title}</p>
+                          {run.members_only && (
+                            <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-white/10 text-white/50 border border-white/10">
+                              MEMBERS
+                            </span>
+                          )}
+                        </div>
                         <p className="text-xs text-white/50 mt-0.5 flex items-center gap-1">
                           <Clock className="w-3 h-3 shrink-0" />
                           {formatTime(run.time)}

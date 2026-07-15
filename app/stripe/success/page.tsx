@@ -8,10 +8,10 @@ function SuccessContent() {
   const params = useSearchParams()
   const router = useRouter()
   const clubId = params.get("club_id")
-  const tier = params.get("tier") as "verified" | "pro" | null
+  const tier = params.get("tier") as "verified" | "growth" | null
 
   const isVerified = tier === "verified"
-  const isPro = tier === "pro"
+  const isPro = tier === "growth"
 
   return (
     <div className="min-h-screen bg-[#1a2110] flex flex-col items-center justify-center px-6 text-center">
@@ -24,11 +24,11 @@ function SuccessContent() {
       </div>
 
       <h1 className="text-3xl font-black text-white mb-2">
-        {isPro ? "Welcome to Pro!" : "Klub Verified!"}
+        {isPro ? "Welcome to Growth!" : "Klub Verified!"}
       </h1>
       <p className="text-sm text-white/50 max-w-xs leading-relaxed mb-8">
         {isPro
-          ? "Your klub is now on the Pro plan. Push notifications, analytics, and featured placement are all active."
+          ? "Your klub is now on the Growth plan. Push notifications, analytics, and featured placement are all active."
           : "Your verified badge is live. Your klub now appears with priority placement and you have access to RSVP data. Your subscription renews annually."
         }
       </p>
@@ -36,7 +36,7 @@ function SuccessContent() {
       {/* What's unlocked */}
       <div className="w-full max-w-xs bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-4 mb-8 text-left">
         <p className="text-[10px] font-bold text-white/30 tracking-widest uppercase mb-3">
-          {isPro ? "Pro Features Active" : "Verified Features Active"}
+          {isPro ? "Growth Features Active" : "Verified Features Active"}
         </p>
         <ul className="space-y-2">
           {(isPro ? [

@@ -127,9 +127,9 @@ export async function POST(req: NextRequest) {
 
     if (!club) return NextResponse.json({ error: "Club not found or unauthorized" }, { status: 403 })
 
-    if (club.tier !== "pro") {
+    if (club.tier !== "growth" && club.tier !== "enterprise") {
       return NextResponse.json(
-        { error: "Newsletters are a Pro feature. Upgrade your club to send one.", code: "pro_required" },
+        { error: "Newsletters are a Growth feature. Upgrade your club to send one.", code: "growth_required" },
         { status: 403 }
       )
     }

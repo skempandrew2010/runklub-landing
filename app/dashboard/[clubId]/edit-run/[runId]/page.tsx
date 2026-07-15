@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
-import { ArrowLeft, Check } from "lucide-react"
+import { ArrowLeft, Check, Globe, Lock } from "lucide-react"
 import mapboxSdk from "@mapbox/mapbox-sdk/services/geocoding"
 
 const geocodingClient = mapboxSdk({ accessToken: process.env.NEXT_PUBLIC_MAPBOX_TOKEN! })
@@ -27,6 +27,7 @@ export default function EditRunPage() {
   const [routeUrl, setRouteUrl] = useState("")
   const [description, setDescription] = useState("")
   const [selectedTags, setSelectedTags] = useState<string[]>([])
+  const [membersOnly, setMembersOnly] = useState(false)
   const [loadingData, setLoadingData] = useState(true)
   const [saving, setSaving] = useState(false)
   const [notFound, setNotFound] = useState(false)
@@ -58,6 +59,7 @@ export default function EditRunPage() {
       setRouteUrl(run.route_url ?? "")
       setDescription(run.description ?? "")
       setSelectedTags(run.tags ?? [])
+      setMembersOnly(run.members_only ?? false)
       setLoadingData(false)
     }
     load()
@@ -97,6 +99,8 @@ export default function EditRunPage() {
         route_url: routeUrl || null,
         description: description || null,
         tags: selectedTags.length > 0 ? selectedTags : null,
+        is_public: !membersOnly,
+        members_only: membersOnly,
       }).eq("id", runId)
 
       if (error) { console.error(error); setSaving(false); return }
@@ -279,6 +283,31 @@ export default function EditRunPage() {
               </div>
             ))}
           </div>
+
+          {/* Visibility */}
+          <button
+            type="button"
+            onClick={() => setMembersOnly((v) => !v)}
+            className="w-full bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-4 flex items-center justify-between gap-3 text-left"
+          >
+            <div className="flex items-center gap-3">
+              {membersOnly
+                ? <Lock className="w-4 h-4 text-white/40 shrink-0" />
+                : <Globe className="w-4 h-4 text-[#c5f135] shrink-0" />
+              }
+              <div>
+                <p className="text-xs font-semibold text-white/70">
+                  {membersOnly ? "Members Only" : "Community Run"}
+                </p>
+                <p className="text-[11px] text-white/30 mt-0.5">
+                  {membersOnly ? "Only visible to paying members" : "Visible to everyone on the discover map"}
+                </p>
+              </div>
+            </div>
+            <div className={`relative w-11 h-6 rounded-full shrink-0 transition-colors duration-200 ${membersOnly ? "bg-[#2e3d1a]" : "bg-[#c5f135]"}`}>
+              <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all duration-200 ${membersOnly ? "left-0.5" : "left-[22px]"}`} />
+            </div>
+          </button>
 
           <button
             type="submit"

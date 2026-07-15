@@ -51,6 +51,10 @@ export default function SubmitClubForm() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { setLoading(false); return }
 
+      // One club per manager — redirect if they already own one
+      const { data: existingClub } = await supabase.from("clubs").select("id").eq("user_id", user.id).maybeSingle()
+      if (existingClub) { router.push("/director"); return }
+
       // Geocode using meeting address + city, or just city if no address given
       const query = meetingAddress ? `${meetingAddress}, ${city}` : city
       const sdk = (await import("@mapbox/mapbox-sdk/services/geocoding")).default
