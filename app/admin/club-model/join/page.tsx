@@ -6,9 +6,9 @@ import { useSearchParams } from "next/navigation"
 import { fetchClubModelData, fetchJoinData, lookupInvite, insertRow, acceptInvite } from "@/lib/clubModel/api"
 import { useClubModelAccess } from "@/lib/clubModel/access"
 import { supabase } from "@/lib/supabase"
-import type { Region, Location, Coach, PaceGroup, PaceOption, WorkoutType } from "@/lib/clubModel/types"
-import { formatPace, formatPaceRange } from "@/lib/clubModel/pace"
-import { matchPaceGroup, matchLocationForPaceGroup } from "@/lib/clubModel/matching"
+import type { Region, Location, Coach, PaceGroup, WorkoutType } from "@/lib/clubModel/types"
+import { formatPaceRange } from "@/lib/clubModel/pace"
+import { matchLocationForPaceGroup } from "@/lib/clubModel/matching"
 import { currentWeekMonday } from "@/lib/clubModel/week"
 import { resolveScheduledWorkout } from "@/lib/clubModel/resolveWorkout"
 import { googleMapsUrl } from "@/lib/clubModel/maps"
@@ -48,10 +48,10 @@ function JoinContent() {
   const ready = inviteToken ? inviteState !== "checking" : testerReady
 
   const [regions, setRegions] = useState<Region[]>([])
-  const [paceOptions, setPaceOptions] = useState<PaceOption[]>([])
+  const [paceGroups, setPaceGroups] = useState<PaceGroup[]>([])
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
-  const [paceOptionId, setPaceOptionId] = useState("")
+  const [paceGroupId, setPaceGroupId] = useState("")
   const [regionId, setRegionId] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
@@ -85,16 +85,15 @@ function JoinContent() {
       setRegions(sortedRegions)
       if (sortedRegions[0]) setRegionId(sortedRegions[0].id)
 
-      const sortedPaceOptions = data.pace_options.slice().sort((a, b) => a.pace - b.pace)
-      setPaceOptions(sortedPaceOptions)
-      if (sortedPaceOptions[0]) setPaceOptionId(sortedPaceOptions[0].id)
+      const sortedPaceGroups = data.pace_groups.slice().sort((a, b) => a.pace_min - b.pace_min)
+      setPaceGroups(sortedPaceGroups)
+      if (sortedPaceGroups[0]) setPaceGroupId(sortedPaceGroups[0].id)
     })
   }, [ready, inviteState, inviteToken])
 
   const submit = async () => {
     setError("")
-    const paceValue = paceOptions.find((o) => o.id === paceOptionId)?.pace
-    if (!name.trim() || !email.trim() || paceValue === undefined || !regionId) {
+    if (!name.trim() || !email.trim() || !paceGroupId || !regionId) {
       setError("Fill in every field.")
       return
     }
@@ -102,8 +101,9 @@ function JoinContent() {
     try {
       const data = inviteToken ? await fetchJoinData(inviteToken) : await fetchClubModelData()
 
-      const matchedGroup = matchPaceGroup(paceValue, data.pace_groups)
+      const matchedGroup = data.pace_groups.find((g) => g.id === paceGroupId)
       if (!matchedGroup) throw new Error("No pace groups configured yet — add one in the manager dashboard.")
+      const paceValue = (matchedGroup.pace_min + matchedGroup.pace_max) / 2
 
       // A pace group can train on multiple days; only the day(s) whose
       // training schedule includes the member's chosen region are relevant.
@@ -192,7 +192,7 @@ function JoinContent() {
         </p>
         <h1 className="text-2xl font-black text-white mb-1">Join the club</h1>
         <p className="text-sm text-white/60 mb-6">
-          {inviteToken ? "Pick your pace and region to get matched." : "Simulates a prospective member signing up and getting matched."}
+          {inviteToken ? "Pick your pace group and branch to get matched." : "Simulates a prospective member signing up and getting matched."}
         </p>
 
         {!result ? (
@@ -213,14 +213,29 @@ function JoinContent() {
               />
             </div>
             <div>
-              <label className="text-xs font-bold text-white/60 block mb-1">Self-reported pace (min/mile)</label>
-              <select
-                className="w-full bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-[#c5f135]/50"
-                value={paceOptionId} onChange={(e) => setPaceOptionId(e.target.value)}
-              >
-                {paceOptions.length === 0 && <option value="">No pace options configured</option>}
-                {paceOptions.map((o) => <option key={o.id} value={o.id}>{formatPace(o.pace)} /mi</option>)}
-              </select>
+              <label className="text-xs font-bold text-white/60 block mb-2">Pace group</label>
+              {paceGroups.length === 0 ? (
+                <p className="text-xs text-white/30 italic">No pace groups configured yet.</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {paceGroups.map((pg) => {
+                    const active = paceGroupId === pg.id
+                    return (
+                      <button key={pg.id} type="button" onClick={() => setPaceGroupId(pg.id)}
+                        className={`flex flex-col items-start px-3 py-2 rounded-xl text-xs font-semibold border transition-all ${
+                          active
+                            ? "bg-[#c5f135] text-[#1a2110] border-[#c5f135]"
+                            : "bg-[#1a2110] text-white/50 border-[#2e3d1a] hover:border-[#c5f135]/40 hover:text-white/70"
+                        }`}>
+                        <span>{pg.name}</span>
+                        <span className={`text-[10px] font-normal mt-0.5 ${active ? "text-[#1a2110]/60" : "text-white/30"}`}>
+                          {formatPaceRange(pg.pace_min, pg.pace_max)}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
             </div>
             <div>
               <label className="text-xs font-bold text-white/60 block mb-1">Preferred region</label>

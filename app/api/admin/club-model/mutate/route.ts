@@ -23,7 +23,6 @@ const ALLOWED_TABLES = new Set([
   "pace_options",
   "training_schedules",
   "training_schedule_regions",
-  "workout_types",
   "scheduled_workouts",
   "members",
   "run_rsvps",

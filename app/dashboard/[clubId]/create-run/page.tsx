@@ -6,7 +6,6 @@ import { supabase } from "@/lib/supabase"
 import { ArrowLeft, CalendarPlus, Repeat2, Globe, Lock } from "lucide-react"
 import mapboxSdk from "@mapbox/mapbox-sdk/services/geocoding"
 
-const geocodingClient = mapboxSdk({ accessToken: process.env.NEXT_PUBLIC_MAPBOX_TOKEN! })
 
 const TAG_GROUPS = [
   { label: "Pace", tags: ["Easy", "Moderate", "Fast", "All Paces"] },
@@ -86,7 +85,7 @@ function CreateRunContent() {
     if (!clubId) return
     Promise.all([
       supabase.from("pace_groups").select("id, name, pace_min, pace_max").eq("club_id", clubId).order("pace_min"),
-      supabase.from("workout_types").select("id, name").eq("club_id", clubId).order("name"),
+      supabase.from("runs").select("id, title").eq("club_id", clubId).eq("kind", "workout").order("title"),
       supabase.from("coaches").select("id, name").eq("club_id", clubId).order("name"),
       supabase.from("run_templates")
         .select("id, title, distance, meeting_point, city, route_url, description, tags, pace_group_ids, workout_type_id, coach_id, members_only, times_used")
@@ -95,7 +94,7 @@ function CreateRunContent() {
         .limit(8),
     ]).then(([pg, wt, co, tpl]) => {
       setPaceGroups((pg.data as PaceGroup[]) || [])
-      setWorkoutTypes((wt.data as WorkoutType[]) || [])
+      setWorkoutTypes(((wt.data ?? []) as any[]).map((r) => ({ id: r.id, name: r.title })))
       setCoaches((co.data as Coach[]) || [])
       setTemplates((tpl.data as RunTemplate[]) || [])
       setDataLoading(false)
@@ -126,6 +125,7 @@ function CreateRunContent() {
     const query = [addr, cityName].filter(Boolean).join(", ")
     if (!query) return null
     try {
+      const geocodingClient = mapboxSdk({ accessToken: process.env.NEXT_PUBLIC_MAPBOX_TOKEN! })
       const res = await geocodingClient.forwardGeocode({ query, limit: 1 }).send()
       const match = res.body.features[0]
       if (match) return { lat: match.center[1], lng: match.center[0] }

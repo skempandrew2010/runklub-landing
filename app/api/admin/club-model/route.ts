@@ -12,7 +12,7 @@ function getAdminSupabase() {
 const ALL_TABLES = [
   "regions", "region_days", "region_day_times", "locations", "coaches",
   "location_coaches", "pace_groups", "pace_options", "training_schedules",
-  "training_schedule_regions", "workout_types", "scheduled_workouts",
+  "training_schedule_regions", "scheduled_workouts",
   "members", "club_model_invites", "run_rsvps",
 ] as const
 
@@ -48,6 +48,8 @@ export async function GET(req: NextRequest) {
         if (results[i].error) throw new Error(`${table}: ${results[i].error!.message}`)
         payload[table] = results[i].data
       })
+      const { data: workoutRows } = await admin.from("runs").select("id, club_id, title, description, created_at").eq("kind", "workout")
+      payload["workout_types"] = (workoutRows ?? []).map((r: any) => ({ ...r, name: r.title }))
       return NextResponse.json(payload)
     }
 
@@ -57,14 +59,14 @@ export async function GET(req: NextRequest) {
       { data: coaches, error: e2 },
       { data: paceGroups, error: e3 },
       { data: paceOptions, error: e4 },
-      { data: workoutTypes, error: e5 },
+      { data: workoutRows, error: e5 },
       { data: members, error: e6 },
     ] = await Promise.all([
       admin.from("regions").select("*").eq("club_id", clubId),
       admin.from("coaches").select("*").eq("club_id", clubId),
       admin.from("pace_groups").select("*").eq("club_id", clubId),
       admin.from("pace_options").select("*").eq("club_id", clubId),
-      admin.from("workout_types").select("*").eq("club_id", clubId),
+      admin.from("runs").select("id, club_id, title, description, created_at").eq("club_id", clubId).eq("kind", "workout"),
       admin.from("members").select("*").eq("club_id", clubId),
     ])
 
@@ -74,6 +76,8 @@ export async function GET(req: NextRequest) {
     ] as [string, any][]) {
       if (err) throw new Error(`${name}: ${err.message}`)
     }
+
+    const workoutTypes = (workoutRows ?? []).map((r: any) => ({ ...r, name: r.title }))
 
     const regionIds = (regions ?? []).map((r: any) => r.id)
     const paceGroupIds = (paceGroups ?? []).map((g: any) => g.id)

@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
       admin.from("region_days").select("*"),
       admin.from("region_day_times").select("*"),
       admin.from("scheduled_workouts").select("*"),
-      admin.from("workout_types").select("*"),
+      admin.from("runs").select("id, club_id, title, description, created_at").eq("kind", "workout"),
     ])
 
     const scheduleData = {
@@ -70,7 +70,7 @@ export async function GET(req: NextRequest) {
       region_days: region_days ?? [],
       region_day_times: region_day_times ?? [],
       scheduled_workouts: scheduled_workouts ?? [],
-      workout_types: workout_types ?? [],
+      workout_types: (workout_types ?? []).map((r: any) => ({ ...r, name: r.title })),
     }
     const allSchedule = resolveClubWeekSchedule(scheduleData, currentWeekMonday())
 

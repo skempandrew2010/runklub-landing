@@ -24,7 +24,6 @@ const TABLES = [
   "pace_options",
   "training_schedules",
   "training_schedule_regions",
-  "workout_types",
   "scheduled_workouts",
 ] as const
 
@@ -50,6 +49,9 @@ export async function GET(req: NextRequest) {
       if (results[i].error) throw new Error(`${table}: ${results[i].error!.message}`)
       payload[table] = results[i].data
     })
+
+    const { data: workoutRows } = await admin.from("runs").select("id, club_id, title, description, created_at").eq("kind", "workout")
+    payload["workout_types"] = (workoutRows ?? []).map((r: any) => ({ ...r, name: r.title }))
 
     return NextResponse.json(payload)
   } catch (err: any) {
