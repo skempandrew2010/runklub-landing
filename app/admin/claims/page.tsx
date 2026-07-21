@@ -91,7 +91,10 @@ export default function AdminClaimsPage() {
   const [unclaimedClubs, setUnclaimedClubs] = useState<UnclaimedClub[]>([])
   const [loading, setLoading] = useState(true)
   const [acting, setActing] = useState<string | null>(null)
-  const [tab, setTab] = useState<"claims" | "invite" | "sent" | "funnel" | "clubs" | "reminders" | "badcontact">("claims")
+  const [tab, setTab] = useState<"claims" | "invite" | "sent" | "funnel" | "clubs" | "reminders" | "badcontact" | "trial">("claims")
+  const [trialSending, setTrialSending] = useState(false)
+  const [trialResult, setTrialResult] = useState<{ sent: number; errors: number; results: { club: string; email: string; status: string }[] } | null>(null)
+  const [trialError, setTrialError] = useState("")
   const [inviteEmails, setInviteEmails] = useState<Record<string, string>>({})
   const [sending, setSending] = useState<string | null>(null)
   const [cancelling, setCancelling] = useState<string | null>(null)
@@ -115,6 +118,7 @@ export default function AdminClaimsPage() {
   const [reminderClubs, setReminderClubs] = useState<ReminderClub[]>([])
   const [reminderClubsLoaded, setReminderClubsLoaded] = useState(false)
   const [reminderSearch, setReminderSearch] = useState("")
+  const [reminderEmailFilter, setReminderEmailFilter] = useState<"all" | "email" | "no-email">("all")
   const [sendingReminder, setSendingReminder] = useState<string | null>(null)
   const [reminderSent, setReminderSent] = useState<Set<string>>(new Set())
   const [reminderErrors, setReminderErrors] = useState<Record<string, string>>({})
@@ -573,6 +577,12 @@ export default function AdminClaimsPage() {
             className={`px-4 py-2 rounded-full text-sm font-bold transition ${tab === "badcontact" ? "bg-red-400 text-white" : "bg-[#1e2d12] border border-red-500/20 text-red-400/50 hover:text-red-400"}`}
           >
             Bad Contact {badContactClubs.length > 0 && <span className="ml-1 text-xs">({badContactClubs.length})</span>}
+          </button>
+          <button
+            onClick={() => setTab("trial")}
+            className={`px-4 py-2 rounded-full text-sm font-bold transition ${tab === "trial" ? "bg-[#c5f135] text-[#1a2110]" : "bg-[#1e2d12] border border-[#c5f135]/20 text-[#c5f135]/60 hover:text-[#c5f135]"}`}
+          >
+            Trial
           </button>
         </div>
 
@@ -1146,6 +1156,25 @@ export default function AdminClaimsPage() {
                 className="w-full bg-[#1e2d12] border border-[#2e3d1a] rounded-xl pl-9 pr-4 py-2.5 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#c5f135]/50 transition"
               />
             </div>
+            <div className="flex gap-2 flex-wrap mb-5">
+              {([
+                { key: "all", label: "All" },
+                { key: "email", label: "Has email" },
+                { key: "no-email", label: "No email" },
+              ] as const).map((f) => (
+                <button
+                  key={f.key}
+                  onClick={() => setReminderEmailFilter(f.key)}
+                  className={`px-3 py-1 rounded-full text-xs font-bold transition ${
+                    reminderEmailFilter === f.key
+                      ? "bg-[#c5f135] text-[#1a2110]"
+                      : "bg-[#1e2d12] border border-[#2e3d1a] text-white/40 hover:text-white"
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
             {!reminderClubsLoaded ? (
               <div className="flex justify-center py-12">
                 <div className="w-6 h-6 border-2 border-[#c5f135]/30 border-t-[#c5f135] rounded-full animate-spin" />
@@ -1153,7 +1182,8 @@ export default function AdminClaimsPage() {
             ) : (() => {
               const searchLow = reminderSearch.toLowerCase()
               const filtered = reminderClubs.filter((c) =>
-                !reminderSearch || c.name.toLowerCase().includes(searchLow) || (c.city ?? "").toLowerCase().includes(searchLow)
+                (!reminderSearch || c.name.toLowerCase().includes(searchLow) || (c.city ?? "").toLowerCase().includes(searchLow)) &&
+                (reminderEmailFilter === "all" || (reminderEmailFilter === "email" ? !!c.contact_email : !c.contact_email))
               )
               const warm = filtered.filter((c) => c.invite_link_clicked_at)
               const cold = filtered.filter((c) => !c.invite_link_clicked_at)
@@ -1377,6 +1407,112 @@ export default function AdminClaimsPage() {
               </div>
             )}
           </>
+        )}
+
+        {/* ── TRIAL TAB ── */}
+        {tab === "trial" && (
+          <div className="space-y-6">
+            <div className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-6">
+              <p className="text-xs font-black text-[#c5f135] uppercase tracking-widest mb-1">Active Trial</p>
+              <h2 className="text-lg font-black text-white mb-1">Enterprise trial — all 26 real directors</h2>
+              <p className="text-sm text-white/40 mb-5">
+                Trial expires <strong className="text-white/60">48 hours from activation</strong>. After expiry, run the reset SQL in Supabase to downgrade all clubs back to free.
+              </p>
+
+              <div className="bg-[#0e150a] border border-[#2e3d1a] rounded-xl p-4 mb-5 font-mono text-xs text-white/50 overflow-x-auto">
+                {`UPDATE public.clubs SET tier = 'free' WHERE trial_ends_at IS NOT NULL AND trial_ends_at < now();`}
+              </div>
+
+              {trialResult ? (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="px-4 py-3 rounded-xl bg-[#c5f135]/10 border border-[#c5f135]/25 text-center">
+                      <p className="text-2xl font-black text-[#c5f135]">{trialResult.sent}</p>
+                      <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest mt-0.5">Sent</p>
+                    </div>
+                    {trialResult.errors > 0 && (
+                      <div className="px-4 py-3 rounded-xl bg-red-400/10 border border-red-400/25 text-center">
+                        <p className="text-2xl font-black text-red-400">{trialResult.errors}</p>
+                        <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest mt-0.5">Errors</p>
+                      </div>
+                    )}
+                  </div>
+                  <div className="bg-[#0e150a] border border-[#2e3d1a] rounded-xl divide-y divide-[#2e3d1a] max-h-72 overflow-y-auto">
+                    {trialResult.results.map((r, i) => (
+                      <div key={i} className="flex items-center justify-between px-4 py-2.5 gap-3">
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-white truncate">{r.club}</p>
+                          <p className="text-[10px] text-white/35 truncate">{r.email}</p>
+                        </div>
+                        <span className={`text-[10px] font-black shrink-0 ${r.status === "sent" ? "text-[#c5f135]" : r.status === "error" ? "text-red-400" : "text-white/25"}`}>
+                          {r.status.toUpperCase()}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {trialError && (
+                    <p className="text-red-400 text-sm">{trialError}</p>
+                  )}
+                  <div className="flex gap-3">
+                    <button
+                      onClick={async () => {
+                        setTrialSending(true)
+                        setTrialError("")
+                        try {
+                          const { data: { session } } = await supabase.auth.getSession()
+                          const res = await fetch("/api/admin/send-trial-email", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+                            body: JSON.stringify({ dry_run: true }),
+                          })
+                          const data = await res.json()
+                          if (!res.ok) throw new Error(data.error)
+                          setTrialResult(data)
+                        } catch (err: any) {
+                          setTrialError(err.message)
+                        } finally {
+                          setTrialSending(false)
+                        }
+                      }}
+                      disabled={trialSending}
+                      className="flex-1 py-3 rounded-xl text-sm font-black border border-[#2e3d1a] text-white/50 hover:text-white hover:border-[#c5f135]/30 transition disabled:opacity-40"
+                    >
+                      {trialSending ? "…" : "Dry Run (preview only)"}
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (!confirm("Send trial emails to all 26 directors now?")) return
+                        setTrialSending(true)
+                        setTrialError("")
+                        try {
+                          const { data: { session } } = await supabase.auth.getSession()
+                          const res = await fetch("/api/admin/send-trial-email", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+                            body: JSON.stringify({ dry_run: false }),
+                          })
+                          const data = await res.json()
+                          if (!res.ok) throw new Error(data.error)
+                          setTrialResult(data)
+                        } catch (err: any) {
+                          setTrialError(err.message)
+                        } finally {
+                          setTrialSending(false)
+                        }
+                      }}
+                      disabled={trialSending}
+                      className="flex-1 py-3 rounded-xl text-sm font-black bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45] transition disabled:opacity-40"
+                    >
+                      {trialSending ? "Sending…" : "Send to All Directors"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         )}
 
       </div>

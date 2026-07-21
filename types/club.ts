@@ -9,7 +9,7 @@ export type Club = {
   image_url?: string | null
   user_id?: string | null
   description?: string | null
-  tier?: "free" | "verified" | "growth" | null
+  tier?: "free" | "starter" | "growth" | "enterprise" | null
   stripe_subscription_id?: string | null
   stripe_subscription_status?: string | null
   tier_expires_at?: string | null

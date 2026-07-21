@@ -52,21 +52,29 @@ export async function POST(req: NextRequest) {
         break
       }
 
-      // ── Growth subscription renewed, updated, or payment failed ──
+      // ── Subscription renewed, plan-changed, or payment failed ──
       case "customer.subscription.updated": {
         const sub = event.data.object as Stripe.Subscription
 
         const { data: club } = await getSupabaseAdmin()
           .from("clubs")
-          .select("id")
+          .select("id, tier")
           .eq("stripe_subscription_id", sub.id)
           .maybeSingle()
 
         if (!club) break
 
         const isActive = ["active", "trialing"].includes(sub.status)
+
+        // Read the tier from subscription metadata (set at checkout time).
+        // Fall back to the club's current tier so a missing metadata value
+        // never accidentally downgrades or changes the tier.
+        const VALID_TIERS = ["starter", "growth", "enterprise"]
+        const metaTier = (sub as any).metadata?.tier as string | undefined
+        const resolvedTier = metaTier && VALID_TIERS.includes(metaTier) ? metaTier : club.tier
+
         await getSupabaseAdmin().from("clubs").update({
-          tier: isActive ? "growth" : "free",
+          tier: isActive ? resolvedTier : "free",
           stripe_subscription_status: sub.status,
           tier_expires_at: (sub as any).current_period_end
             ? new Date((sub as any).current_period_end * 1000).toISOString()
@@ -75,7 +83,7 @@ export async function POST(req: NextRequest) {
         break
       }
 
-      // ── Growth subscription cancelled ──
+      // ── Subscription cancelled ──
       case "customer.subscription.deleted": {
         const sub = event.data.object as Stripe.Subscription
 

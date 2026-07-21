@@ -432,12 +432,7 @@ export default function ClubPageClient({
             <div className="flex-1 min-w-0 pb-1">
               <div className="flex items-center gap-2 flex-wrap mb-1">
                 <h1 className="text-2xl font-black text-white leading-tight">{club.name}</h1>
-                {club.tier === "growth" && (
-                  <span className="flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-[#c5f135] text-[#1a2110]">
-                    <Zap className="w-2.5 h-2.5" /> PRO
-                  </span>
-                )}
-                {club.tier === "verified" && (
+                {(club.tier === "starter" || club.tier === "growth" || club.tier === "enterprise") && (
                   <span className="flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-[#c5f135]/15 text-[#c5f135] border border-[#c5f135]/30">
                     <ShieldCheck className="w-2.5 h-2.5" /> VERIFIED
                   </span>

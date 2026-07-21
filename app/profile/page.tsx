@@ -350,10 +350,11 @@ export default function ProfilePage() {
               {myClubs
                 .filter((c) => (c as any).tier && (c as any).tier !== "free")
                 .map((club) => {
-                  const tier = (club as any).tier as "verified" | "growth"
+                  const tier = (club as any).tier as string
+                  const isPremium = tier === "growth" || tier === "enterprise"
                   return (
                     <div key={club.id} className="flex items-center gap-3 px-4 py-3.5">
-                      {tier === "growth"
+                      {isPremium
                         ? <Zap className="w-4 h-4 text-[#c5f135] shrink-0" />
                         : <ShieldCheck className="w-4 h-4 text-[#c5f135] shrink-0" />
                       }
@@ -362,7 +363,7 @@ export default function ProfilePage() {
                         <p className="text-xs text-white/40 capitalize">{tier} plan</p>
                       </div>
                       <span className={`text-xs font-black px-2.5 py-1 rounded-full shrink-0
-                        ${tier === "growth"
+                        ${isPremium
                           ? "bg-[#c5f135] text-[#1a2110]"
                           : "bg-[#c5f135]/15 text-[#c5f135] border border-[#c5f135]/30"
                         }`}>
