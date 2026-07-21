@@ -757,6 +757,19 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
     }
     const updates: Record<string, unknown> = { name: editForm.name, city: editForm.city, location: editForm.location, meeting_day: editForm.day || null, meeting_time: editForm.time || null, instagram_handle: rawHandle || null, website: editForm.website.trim() || null, membership_type: editForm.membership }
     if (image_url) updates.image_url = image_url
+
+    const currentClub = myClubs.find((c) => c.id === selectedClubId)
+    const locationChanged = editForm.location.trim() && editForm.location.trim() !== (currentClub?.location ?? "").trim()
+    if (locationChanged) {
+      try {
+        const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
+        const res = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(editForm.location.trim())}.json?access_token=${token}&limit=1`)
+        const geo = await res.json()
+        const [lng, lat] = geo?.features?.[0]?.center ?? []
+        if (lat != null && lng != null) { updates.latitude = lat; updates.longitude = lng }
+      } catch { /* non-fatal — save location text without coords */ }
+    }
+
     await supabase.from("clubs").update(updates).eq("id", selectedClubId)
     setMyClubs((prev) => prev.map((c) => c.id === selectedClubId ? { ...c, ...(updates as Partial<ClubWithCount>), ...(image_url ? { image_url } : {}) } : c))
     setImageFile(null)

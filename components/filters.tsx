@@ -2,9 +2,12 @@
 
 import { useState, useRef } from "react"
 
+export type MembershipFilter = "all" | "free" | "paid" | "both"
+
 export type FilterOptions = {
   distanceRange: [number, number]
   paceRange: [number, number]
+  membershipType: MembershipFilter
 }
 
 type FiltersProps = {
@@ -19,6 +22,7 @@ const PACE_MAX = 15
 export const DEFAULT_FILTERS: FilterOptions = {
   distanceRange: [DIST_MIN, DIST_MAX],
   paceRange: [PACE_MIN, PACE_MAX],
+  membershipType: "all",
 }
 
 function formatDist(v: number) {
@@ -111,12 +115,40 @@ export default function Filters({ onChange }: FiltersProps) {
     filters.distanceRange[0] > DIST_MIN ||
     filters.distanceRange[1] < DIST_MAX ||
     filters.paceRange[0] > PACE_MIN ||
-    filters.paceRange[1] < PACE_MAX
+    filters.paceRange[1] < PACE_MAX ||
+    filters.membershipType !== "all"
 
   const sectionLabel = "text-[10px] font-bold text-white/30 tracking-widest uppercase mb-2"
 
+  const MEMBERSHIP_OPTIONS: { value: MembershipFilter; label: string }[] = [
+    { value: "all",  label: "All"           },
+    { value: "free", label: "Free to Join"  },
+    { value: "paid", label: "Paid"          },
+    { value: "both", label: "Free + Paid"   },
+  ]
+
   return (
     <div className="space-y-5">
+
+      {/* Membership type */}
+      <div>
+        <p className={sectionLabel}>Membership</p>
+        <div className="flex flex-wrap gap-1.5">
+          {MEMBERSHIP_OPTIONS.map(({ value, label }) => (
+            <button
+              key={value}
+              onClick={() => update({ ...filters, membershipType: value })}
+              className={`px-3 py-1.5 rounded-full text-xs font-bold transition border ${
+                filters.membershipType === value
+                  ? "bg-[#c5f135] text-[#1a2110] border-[#c5f135]"
+                  : "bg-transparent text-white/50 border-[#2e3d1a] hover:text-white hover:border-[#c5f135]/30"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {/* Distance range */}
       <div>

@@ -292,6 +292,12 @@ export default function ExplorePage() {
         const [dMin, dMax] = filters.distanceRange
         if (club.distance < dMin || (dMax < 25 && club.distance > dMax)) return false
       }
+      if (filters.membershipType !== "all") {
+        const mt = (club as any).membership_type as string | null
+        if (filters.membershipType === "free" && mt !== "free") return false
+        if (filters.membershipType === "paid" && mt !== "paid_required") return false
+        if (filters.membershipType === "both" && mt !== "optional_paid") return false
+      }
       return true
     })
     .sort((a, b) => {
@@ -312,6 +318,7 @@ export default function ExplorePage() {
   const activeFilterCount = [
     filters.distanceRange[0] > 0 || filters.distanceRange[1] < 25,
     filters.paceRange[0] > 5 || filters.paceRange[1] < 15,
+    filters.membershipType !== "all",
   ].filter(Boolean).length
 
   const mapClubs = useMemo(
