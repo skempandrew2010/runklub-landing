@@ -283,7 +283,7 @@ export default function ExplorePage() {
   }), [clubs, center, nearestRunDistByClub])
 
   const baseClubs = useMemo(() => center
-    ? clubsWithDistance.filter((c) => c.distance != null && c.distance <= NEARBY_RADIUS)
+    ? clubsWithDistance.filter((c) => c.distance == null || c.distance <= NEARBY_RADIUS)
     : clubsWithDistance, [center, clubsWithDistance])
 
   const filteredClubs = useMemo(() => baseClubs
