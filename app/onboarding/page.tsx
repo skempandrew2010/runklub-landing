@@ -63,9 +63,27 @@ export default function OnboardingPage() {
   const [runType, setRunType] = useState<string | null>(null)
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) { router.push("/login"); return }
       setUserId(user.id)
+
+      // Resume with whatever this account already has instead of wiping it —
+      // returning users who never finished onboarding get routed back here on
+      // every login, so treat existing values as the starting point, not a
+      // blank slate that a stray "Continue" click could downgrade to member.
+      const { data: prof } = await supabase.from("profiles")
+        .select("role, pace_range, run_type, onboarding_complete")
+        .eq("id", user.id)
+        .single()
+
+      if (prof?.onboarding_complete) {
+        router.replace(prof.role === "manager" ? "/director" : "/today")
+        return
+      }
+
+      if (prof?.role === "manager" || prof?.role === "member") setRole(prof.role)
+      if (prof?.pace_range) setPace(prof.pace_range)
+      if (prof?.run_type) setRunType(prof.run_type)
     })
   }, [router])
 

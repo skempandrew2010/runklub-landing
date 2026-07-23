@@ -7,6 +7,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Bell, Ruler, Activity, Pencil, Check, X, Trophy, Users, ShieldCheck, Zap, ExternalLink, ChevronRight } from "lucide-react"
 import { isNativeApp } from "@/utils/platform"
+import { PLANS, PLAN_ORDER } from "@/lib/plans"
 
 type Profile = {
   id: string
@@ -391,6 +392,46 @@ export default function ProfilePage() {
                 </button>
               )}
             </div>
+          </div>
+        )}
+
+        {/* SUBSCRIPTION TIERS — directors only, so they know what each plan unlocks */}
+        {profile?.role === "manager" && (
+          <div>
+            <h2 className="text-xs font-bold text-white/40 tracking-widest uppercase px-1 mb-2">Subscription Tiers</h2>
+            <div className="bg-[#1e2d12] rounded-2xl overflow-hidden divide-y divide-[#2e3d1a]">
+              {PLAN_ORDER.map((id) => {
+                const plan = PLANS[id]
+                const isCurrent = myClubs.some((c) => ((c as any).tier || "free") === id)
+                return (
+                  <div key={id} className="px-4 py-3.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-white">{plan.name}</span>
+                        {isCurrent && (
+                          <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-[#c5f135] text-[#1a2110]">CURRENT</span>
+                        )}
+                      </div>
+                      <span className="text-sm font-black text-[#c5f135] shrink-0">
+                        {plan.price ? `$${plan.price.monthly}/mo` : "Free"}
+                      </span>
+                    </div>
+                    {plan.tagline && <p className="text-xs text-white/40 mt-0.5">{plan.tagline}</p>}
+                    <ul className="mt-2 space-y-1">
+                      {plan.features.map((feature) => (
+                        <li key={feature} className="flex items-start gap-1.5 text-xs text-white/60">
+                          <Check className="w-3 h-3 text-[#c5f135] shrink-0 mt-0.5" />
+                          <span>{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )
+              })}
+            </div>
+            <p className="px-1 mt-2 text-xs text-white/30">
+              Full comparison at <Link href="/pricing" className="text-[#c5f135] hover:underline">runklub.fit/pricing</Link>.
+            </p>
           </div>
         )}
 
