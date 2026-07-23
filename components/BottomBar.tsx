@@ -27,7 +27,7 @@ export default function BottomBar() {
   const isManager = role === "manager"
 
   const tabs = [
-    { href: "/",          label: "Discover",                          Icon: Compass },
+    { href: "/explore",   label: "Discover",                          Icon: Compass },
     { href: "/dashboard", label: "My Klubs",                          Icon: Users },
     { href: "/today",     label: "Today",                             Icon: CalendarCheck },
     { href: "/director",  label: isManager ? "Director" : "Messages", Icon: isManager ? Trophy : MessageSquare },

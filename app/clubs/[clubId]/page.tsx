@@ -81,7 +81,7 @@ export default async function ClubPage({ params }: Props) {
     return (
       <div className="min-h-screen bg-[#1a2110] flex flex-col items-center justify-center gap-3">
         <p className="text-white/40 text-sm">Club not found.</p>
-        <Link href="/" className="text-[#c5f135] text-sm font-semibold hover:underline">
+        <Link href="/explore" className="text-[#c5f135] text-sm font-semibold hover:underline">
           ← Discover clubs
         </Link>
       </div>

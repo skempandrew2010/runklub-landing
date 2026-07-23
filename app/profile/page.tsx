@@ -305,7 +305,7 @@ export default function ProfilePage() {
             {allKlubs.length === 0 ? (
               <div className="px-4 py-5 text-sm text-white/40 text-center">
                 No klubs yet —{" "}
-                <Link href="/" className="text-[#c5f135] hover:underline">discover clubs</Link>
+                <Link href="/explore" className="text-[#c5f135] hover:underline">discover clubs</Link>
               </div>
             ) : (
               allKlubs.map((club) => {
@@ -336,7 +336,7 @@ export default function ProfilePage() {
               })
             )}
             <div className="px-4 py-3">
-              <Link href="/" className="text-xs text-[#c5f135] font-semibold hover:underline">
+              <Link href="/explore" className="text-xs text-[#c5f135] font-semibold hover:underline">
                 + Discover more klubs
               </Link>
             </div>

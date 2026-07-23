@@ -523,7 +523,7 @@ export default function HubPage() {
                   <div className="bg-[#1e2d12] rounded-2xl p-6 text-center border border-[#2e3d1a]">
                     <p className="text-white/50 text-sm font-medium">No klubs yet.</p>
                     <Link
-                      href="/"
+                      href="/explore"
                       className="mt-4 inline-block px-4 py-2 bg-[#c5f135] text-[#1a2110] text-xs font-black rounded-full hover:bg-[#d4ff45] transition"
                     >
                       Discover Klubs

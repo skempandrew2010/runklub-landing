@@ -2109,7 +2109,7 @@ function MemberView({ userId, profile }: { userId: string; profile: Profile }) {
             <MessageSquare className="w-10 h-10 text-white/20 mx-auto mb-3" />
             <p className="text-white/80 text-sm font-medium">No upcoming runs</p>
             <p className="text-white/30 text-xs mt-1 mb-5">Join a club to see event chats here.</p>
-            <Link href="/" className="px-5 py-2.5 bg-[#c5f135] text-[#1a2110] text-sm font-black rounded-full">
+            <Link href="/explore" className="px-5 py-2.5 bg-[#c5f135] text-[#1a2110] text-sm font-black rounded-full">
               Discover Clubs
             </Link>
           </div>
