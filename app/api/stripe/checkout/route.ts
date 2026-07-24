@@ -102,6 +102,21 @@ export async function POST(req: NextRequest) {
       })
       customerId = customer.id
       await admin.from("profiles").update({ stripe_customer_id: customerId }).eq("id", user.id)
+    } else {
+      // Guard against duplicate subscriptions for this club: don't trust our
+      // own clubs.tier alone, since a failed/delayed webhook can leave it
+      // stale while Stripe already has an active subscription. Ask Stripe
+      // directly, keyed off the clubId we stamp into subscription metadata.
+      const existingSubs = await getStripe().subscriptions.list({ customer: customerId, limit: 100 })
+      const duplicate = existingSubs.data.find(
+        (sub) => sub.metadata?.clubId === clubId && ["active", "trialing", "past_due"].includes(sub.status)
+      )
+      if (duplicate) {
+        return NextResponse.json(
+          { error: "This klub already has an active subscription. Manage it from your billing portal instead of starting a new checkout." },
+          { status: 400 }
+        )
+      }
     }
 
     const appUrl = process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
