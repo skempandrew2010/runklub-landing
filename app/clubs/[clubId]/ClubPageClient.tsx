@@ -618,14 +618,27 @@ export default function ClubPageClient({
           )}
         </div>
 
-        {/* ── LEADERBOARD ── */}
+        {/* ── LEADERBOARD (members only) ── */}
         <div ref={leaderboardRef}>
-          <Leaderboard
-            title="Leaderboard"
-            userId={userId}
-            fetchRows={(scope) => getClubLeaderboard(club.id, scope)}
-            guestCopy="Sign in to see who's leading this klub."
-          />
+          {isSubscribed ? (
+            <Leaderboard
+              title="Leaderboard"
+              userId={userId}
+              fetchRows={(scope) => getClubLeaderboard(club.id, scope)}
+              guestCopy="Sign in to see who's leading this klub."
+            />
+          ) : (
+            <div>
+              <div className="flex items-center justify-between px-1 mb-3">
+                <h2 className="text-xs font-bold text-white/40 uppercase tracking-widest">Leaderboard</h2>
+              </div>
+              <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-6 text-center">
+                <p className="text-white/40 text-sm">
+                  {userId ? "Join this klub to see the leaderboard." : "Sign in and join this klub to see the leaderboard."}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ── CHAT SIGN-IN PROMPT (guests only) ── */}
