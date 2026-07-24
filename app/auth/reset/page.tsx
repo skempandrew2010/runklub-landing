@@ -71,7 +71,7 @@ export default function ResetPasswordPage() {
   const inputClass = "w-full bg-white/8 border border-white/15 rounded-2xl px-5 py-4 text-white placeholder-white/30 focus:outline-none focus:border-[#c5f135]/60 transition text-base"
 
   return (
-    <div className="fixed inset-0 bg-[#111a0a] flex flex-col items-center justify-center" style={{ paddingTop: "env(safe-area-inset-top)" }}>
+    <div className="relative min-h-screen bg-[#111a0a] flex flex-col items-center justify-center" style={{ paddingTop: "env(safe-area-inset-top)" }}>
       <div className="w-full max-w-sm px-6 flex flex-col items-center">
 
         <div className="mb-10 text-center">

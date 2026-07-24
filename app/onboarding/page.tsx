@@ -144,7 +144,7 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="fixed inset-0 bg-[#111a0a] flex flex-col px-6 py-10 overflow-y-auto">
+    <div className="relative min-h-screen bg-[#111a0a] flex flex-col px-6 py-10 overflow-y-auto">
       <div className="w-full max-w-sm mx-auto flex flex-col min-h-full">
 
         {/* Back + skip row */}
