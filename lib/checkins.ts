@@ -15,6 +15,31 @@ export async function checkInToClub(clubId: string) {
   return { data: data as CheckInResult | null, error }
 }
 
+export type LeaderboardScope = "month" | "all"
+
+export type LeaderboardRow = {
+  user_id: string
+  display_name: string | null
+  avatar_url: string | null
+  checkin_count: number
+  first_checkin_at: string
+  rank: number
+  // Only populated by the city-scoped leaderboard — a club-scoped row is
+  // implicitly "1 of 1" so it's omitted rather than always 1/1.
+  clubs_visited?: number
+  total_clubs?: number
+}
+
+export async function getClubLeaderboard(clubId: string, scope: LeaderboardScope) {
+  const { data, error } = await supabase.rpc("get_club_leaderboard", { p_club_id: clubId, p_scope: scope })
+  return { data: (data as LeaderboardRow[]) || [], error }
+}
+
+export async function getCityLeaderboard(cityId: string, scope: LeaderboardScope) {
+  const { data, error } = await supabase.rpc("get_city_leaderboard", { p_city_id: cityId, p_scope: scope })
+  return { data: (data as LeaderboardRow[]) || [], error }
+}
+
 export type CityProgress = {
   city_id: string
   city_name: string

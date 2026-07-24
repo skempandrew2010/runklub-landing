@@ -7,9 +7,10 @@ import { Heart, MapPin, Clock, Users, ArrowLeft, Zap, ShieldCheck, ExternalLink,
 import { getTagStyle } from "@/utils/tagStyle"
 import { localDateStr } from "@/utils/dates"
 import { getDistanceMiles } from "@/utils/distance"
-import { checkInToClub, getClubStampArt, getUserPassportProgress } from "@/lib/checkins"
+import { checkInToClub, getClubLeaderboard, getClubStampArt, getUserPassportProgress } from "@/lib/checkins"
 import RunChatPanel from "@/components/RunChatPanel"
 import CheckInMoment, { type CheckInMomentProps } from "@/components/CheckInMoment"
+import Leaderboard from "@/components/Leaderboard"
 import { track } from "@vercel/analytics"
 
 type MomentData = Omit<CheckInMomentProps, "onDone">
@@ -110,6 +111,7 @@ export default function ClubPageClient({
   // Refs for section-visibility tracking
   const runsRef = useRef<HTMLDivElement>(null)
   const descRef = useRef<HTMLParagraphElement>(null)
+  const leaderboardRef = useRef<HTMLDivElement>(null)
 
   // Track page view on mount
   useEffect(() => {
@@ -134,6 +136,7 @@ export default function ClubPageClient({
     }
     observe(runsRef, "club_section_viewed", { section: "runs" })
     observe(descRef, "club_section_viewed", { section: "description" })
+    observe(leaderboardRef, "club_section_viewed", { section: "leaderboard" })
     return () => observers.forEach((o) => o.disconnect())
   }, [club.id, club.name])
 
@@ -613,6 +616,16 @@ export default function ClubPageClient({
               })}
             </div>
           )}
+        </div>
+
+        {/* ── LEADERBOARD ── */}
+        <div ref={leaderboardRef}>
+          <Leaderboard
+            title="Leaderboard"
+            userId={userId}
+            fetchRows={(scope) => getClubLeaderboard(club.id, scope)}
+            guestCopy="Sign in to see who's leading this klub."
+          />
         </div>
 
         {/* ── CHAT SIGN-IN PROMPT (guests only) ── */}

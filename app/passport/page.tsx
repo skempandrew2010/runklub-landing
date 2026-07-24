@@ -3,16 +3,18 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Stamp, Flame, MapPin, Users2, CalendarCheck, ChevronLeft, ChevronRight, Home, Plane, Trophy } from "lucide-react"
+import { Stamp, Flame, MapPin, Users2, CalendarCheck, ChevronLeft, ChevronRight, Home, Plane, Trophy, BarChart3 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import {
   getPassportData,
   getUserPassportProgress,
   getPassportBook,
+  getCityLeaderboard,
   computeCheckinStreak,
   type CityProgress,
   type BookPage,
 } from "@/lib/checkins"
+import Leaderboard from "@/components/Leaderboard"
 
 const GRADIENTS = [
   "from-[#2d5a1b] to-[#111a0a]", "from-[#1b3d5a] to-[#111a0a]",
@@ -230,8 +232,9 @@ function StampSlot({ slot, isNew }: { slot: BookPage["slots"][number]; isNew: bo
   )
 }
 
-function PassportBookPage({ page, justUnlocked }: { page: BookPage; justUnlocked: JustUnlocked }) {
+function PassportBookPage({ page, justUnlocked, userId }: { page: BookPage; justUnlocked: JustUnlocked; userId: string | null }) {
   const cityIsNew = justUnlocked.cityIds.includes(page.city_id)
+  const [showLeaderboard, setShowLeaderboard] = useState(false)
   return (
     <div className="rk-book-page shrink-0 w-full px-1">
       <div className="relative rk-book-page-surface bg-[#1e2d12] rounded-2xl p-5 min-h-[360px]">
@@ -244,7 +247,7 @@ function PassportBookPage({ page, justUnlocked }: { page: BookPage; justUnlocked
               <span className="text-xs font-black text-[#c5f135]">{cityAbbr(page.city_name)}</span>
             )}
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <h2 className="text-base font-black text-white leading-tight truncate">
               {page.city_name}{page.city_state ? `, ${page.city_state}` : ""}
             </h2>
@@ -252,13 +255,32 @@ function PassportBookPage({ page, justUnlocked }: { page: BookPage; justUnlocked
               {page.stamped_count}/{page.total_count} klubs {page.is_complete && <span className="text-[#c5f135] font-bold">· Complete!</span>}
             </p>
           </div>
+          <button
+            onClick={() => setShowLeaderboard((v) => !v)}
+            className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[10px] font-bold transition ${
+              showLeaderboard ? "bg-[#c5f135] text-[#1a2110] border-[#c5f135]" : "text-white/50 border-[#2e3d1a] hover:border-white/30"
+            }`}
+          >
+            <BarChart3 className="w-3 h-3" />
+            Leaderboard
+          </button>
         </div>
 
-        <div className="grid grid-cols-4 gap-x-3 gap-y-5">
-          {page.slots.map((slot) => (
-            <StampSlot key={slot.club_id} slot={slot} isNew={justUnlocked.clubIds.includes(slot.club_id)} />
-          ))}
-        </div>
+        {showLeaderboard ? (
+          <Leaderboard
+            title={`${page.city_name} Leaderboard`}
+            userId={userId}
+            fetchRows={(scope) => getCityLeaderboard(page.city_id, scope)}
+            guestCopy="Sign in to see who's leading in this city."
+            emptyCopy={(scope) => scope === "month" ? "No check-ins yet this month — be the first!" : "No check-ins yet in this city."}
+          />
+        ) : (
+          <div className="grid grid-cols-4 gap-x-3 gap-y-5">
+            {page.slots.map((slot) => (
+              <StampSlot key={slot.club_id} slot={slot} isNew={justUnlocked.clubIds.includes(slot.club_id)} />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -444,7 +466,7 @@ export default function PassportPage() {
                   className="rk-book-scroller flex overflow-x-auto -mx-1"
                 >
                   {book.map((page) => (
-                    <PassportBookPage key={page.city_id} page={page} justUnlocked={justUnlocked} />
+                    <PassportBookPage key={page.city_id} page={page} justUnlocked={justUnlocked} userId={userId} />
                   ))}
                 </div>
               </section>
