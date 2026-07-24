@@ -22,13 +22,18 @@ export default function LoginPage() {
   useEffect(() => {
     const t1 = setTimeout(() => setSplashVisible(false), 1200)
     const t2 = setTimeout(async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session) {
-        const { data: prof } = await supabase.from("profiles").select("role").eq("id", session.user.id).single()
-        router.replace(prof?.role === "admin" ? "/admin/claims" : "/today")
-      } else {
-        setMode("landing")
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session) {
+          const { data: prof } = await supabase.from("profiles").select("role").eq("id", session.user.id).single()
+          router.replace(prof?.role === "admin" ? "/admin/claims" : "/today")
+          return
+        }
+      } catch {
+        // Restrictive storage contexts (e.g. Safari Private Browsing) can make
+        // getSession() throw — fall through to the guest landing either way.
       }
+      setMode("landing")
     }, 1600)
     return () => { clearTimeout(t1); clearTimeout(t2) }
   }, [router])

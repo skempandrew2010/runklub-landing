@@ -44,14 +44,20 @@ export default function ShellWrapper({ children }: { children: React.ReactNode }
       return
     }
 
-    supabase.auth.getUser().then(({ data, error }) => {
-      if (error || !data.user) {
-        // Invalid / expired refresh token — clear stale session and redirect
-        supabase.auth.signOut().finally(() => router.replace("/login"))
-      } else {
-        setAuthed(true)
-      }
-    })
+    supabase.auth.getUser()
+      .then(({ data, error }) => {
+        if (error || !data.user) {
+          // Invalid / expired refresh token — clear stale session and redirect
+          supabase.auth.signOut().finally(() => router.replace("/login"))
+        } else {
+          setAuthed(true)
+        }
+      })
+      .catch(() => {
+        // Restrictive storage contexts (e.g. Safari Private Browsing) can make
+        // getUser() throw — don't strand the user on the loading spinner.
+        router.replace("/login")
+      })
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!session) {
