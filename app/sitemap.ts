@@ -16,12 +16,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     )
     const { data: clubs } = await supabase
       .from("clubs")
-      .select("id, updated_at")
+      .select("id, created_at")
       .eq("is_public", true)
 
     const clubUrls: MetadataRoute.Sitemap = (clubs ?? []).map((club) => ({
       url: `${BASE_URL}/clubs/${club.id}`,
-      lastModified: new Date(club.updated_at),
+      lastModified: new Date(club.created_at),
       changeFrequency: "weekly" as const,
       priority: 0.8,
     }))
