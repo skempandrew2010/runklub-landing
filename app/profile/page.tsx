@@ -48,6 +48,7 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false)
   const [roleChanging, setRoleChanging] = useState(false)
   const [openingPortal, setOpeningPortal] = useState(false)
+  const [subscribingClubId, setSubscribingClubId] = useState<string | null>(null)
   const [nativeApp, setNativeApp] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -106,6 +107,34 @@ export default function ProfilePage() {
     setProfile((p) => p ? { ...p, display_name: editName, username: editUsername, location: editLocation } : p)
     setSaving(false)
     setEditing(false)
+  }
+
+  const startCheckout = async (clubId: string) => {
+    setSubscribingClubId(clubId)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { router.push("/login"); return }
+
+      const res = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ clubId, tier: "starter", interval: "monthly" }),
+      })
+
+      const data = await res.json()
+      if (data.url) {
+        window.location.href = data.url
+      } else {
+        alert(data.error ?? "Could not start checkout")
+        setSubscribingClubId(null)
+      }
+    } catch {
+      alert("Could not start checkout. Try again.")
+      setSubscribingClubId(null)
+    }
   }
 
   const openBillingPortal = async () => {
@@ -343,26 +372,36 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* MANAGE SUBSCRIPTIONS — only shown if user has at least one paid club */}
-        {myClubs.some((c) => (c as any).tier && (c as any).tier !== "free") && (
+        {/* MANAGE SUBSCRIPTIONS — shown for anyone who owns/manages a klub, even on Free */}
+        {myClubs.length > 0 && (
           <div>
             <h2 className="text-xs font-bold text-white/40 tracking-widest uppercase px-1 mb-2">Subscriptions</h2>
             <div className="bg-[#1e2d12] rounded-2xl overflow-hidden divide-y divide-[#2e3d1a]">
-              {myClubs
-                .filter((c) => (c as any).tier && (c as any).tier !== "free")
-                .map((club) => {
-                  const tier = (club as any).tier as string
-                  const isPremium = tier === "growth" || tier === "enterprise"
-                  return (
-                    <div key={club.id} className="flex items-center gap-3 px-4 py-3.5">
-                      {isPremium
-                        ? <Zap className="w-4 h-4 text-[#c5f135] shrink-0" />
-                        : <ShieldCheck className="w-4 h-4 text-[#c5f135] shrink-0" />
-                      }
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-white truncate">{club.name}</p>
-                        <p className="text-xs text-white/40 capitalize">{tier} plan</p>
-                      </div>
+              {myClubs.map((club) => {
+                const tier = ((club as any).tier as string) || "free"
+                const isFree = tier === "free"
+                const isPremium = tier === "growth" || tier === "enterprise"
+                return (
+                  <div key={club.id} className="flex items-center gap-3 px-4 py-3.5">
+                    {isPremium
+                      ? <Zap className="w-4 h-4 text-[#c5f135] shrink-0" />
+                      : <ShieldCheck className="w-4 h-4 text-white/30 shrink-0" />
+                    }
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-white truncate">{club.name}</p>
+                      <p className="text-xs text-white/40 capitalize">{tier} plan</p>
+                    </div>
+                    {isFree ? (
+                      !nativeApp && (
+                        <button
+                          onClick={() => startCheckout(club.id)}
+                          disabled={subscribingClubId === club.id}
+                          className="text-xs font-black px-3 py-1.5 rounded-full shrink-0 bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45] transition disabled:opacity-50"
+                        >
+                          {subscribingClubId === club.id ? "Redirecting…" : "Subscribe"}
+                        </button>
+                      )
+                    ) : (
                       <span className={`text-xs font-black px-2.5 py-1 rounded-full shrink-0
                         ${isPremium
                           ? "bg-[#c5f135] text-[#1a2110]"
@@ -370,9 +409,10 @@ export default function ProfilePage() {
                         }`}>
                         {tier.toUpperCase()}
                       </span>
-                    </div>
-                  )
-                })}
+                    )}
+                  </div>
+                )
+              })}
               {nativeApp ? (
                 <p className="px-4 py-3.5 text-xs text-white/40">
                   Manage billing & subscriptions at{" "}
