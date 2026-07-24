@@ -3,10 +3,9 @@
 import { useEffect, useState, useCallback } from "react"
 import { supabase } from "@/lib/supabase"
 import { localDateStr } from "@/utils/dates"
-import { CalendarCheck, ChevronRight, Users, Zap, CheckCircle2, Flame } from "lucide-react"
+import { CalendarCheck, ChevronRight, Users, Zap, CheckCircle2 } from "lucide-react"
 import Link from "next/link"
 import type { Achievement } from "@/lib/streaks"
-import { nextAchievement as computeNext } from "@/lib/streaks"
 import MemberChatInbox from "@/components/MemberChatInbox"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -31,8 +30,6 @@ type Run = {
 type ScheduleRun = Run & { dayLabel: string }
 
 type Stats = { totalRuns: number; currentStreak: number; longestStreak: number }
-
-type NextAch = { achievement: Achievement; progress: number; target: number } | null
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -110,72 +107,6 @@ function SectionHeader({ title, sub }: { title: string; sub?: string }) {
   )
 }
 
-function StatsStrip({
-  stats,
-  nextAch,
-  unlocked,
-}: {
-  stats: Stats
-  nextAch: NextAch
-  unlocked: Achievement[]
-}) {
-  const latestUnlock = unlocked.length > 0 ? unlocked[unlocked.length - 1] : null
-  const pct = nextAch ? Math.round((nextAch.progress / nextAch.target) * 100) : 100
-
-  return (
-    <div className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-4 mb-6">
-      <p className="text-[10px] font-black text-white/30 uppercase tracking-widest mb-3">Your Stats</p>
-      <div className="flex gap-3">
-        <div className="flex-1 bg-[#0e150a] rounded-xl px-3 py-3 text-center border border-[#2e3d1a]">
-          <p className="text-2xl font-black leading-none">
-            {stats.currentStreak > 0
-              ? <span className="text-[#c5f135]">{stats.currentStreak}</span>
-              : <span className="text-white/20">—</span>
-            }
-          </p>
-          <p className="text-[9px] font-bold text-white/30 uppercase tracking-widest mt-1">
-            {stats.currentStreak > 0 ? "Wk Streak" : "No Streak"}
-          </p>
-          {stats.currentStreak > 0 && (
-            <div className="flex justify-center mt-1">
-              <Flame className="w-3 h-3 text-orange-400" />
-            </div>
-          )}
-        </div>
-        <div className="flex-1 bg-[#0e150a] rounded-xl px-3 py-3 text-center border border-[#2e3d1a]">
-          <p className="text-2xl font-black text-[#c5f135] leading-none">{stats.totalRuns}</p>
-          <p className="text-[9px] font-bold text-white/30 uppercase tracking-widest mt-1">Runs</p>
-        </div>
-        <div className="flex-1 bg-[#0e150a] rounded-xl px-3 py-3 text-center border border-[#2e3d1a]">
-          <p className="text-2xl leading-none">{latestUnlock ? latestUnlock.emoji : "🎯"}</p>
-          <p className="text-[9px] font-bold text-white/30 uppercase tracking-widest mt-1 truncate">
-            {latestUnlock ? latestUnlock.name : "First Run"}
-          </p>
-        </div>
-      </div>
-      {nextAch && (
-        <div className="mt-3">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[10px] text-white/40">
-              {nextAch.achievement.emoji} Next:{" "}
-              <span className="text-white/60 font-bold">{nextAch.achievement.name}</span>
-            </span>
-            <span className="text-[10px] text-white/30">
-              {nextAch.progress}/{nextAch.target}
-            </span>
-          </div>
-          <div className="h-1 bg-[#2e3d1a] rounded-full overflow-hidden">
-            <div
-              className="h-full bg-[#c5f135] rounded-full transition-all"
-              style={{ width: `${pct}%` }}
-            />
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
 function AchievementToast({
   achievement,
   onDismiss,
@@ -215,7 +146,6 @@ export default function HubPage() {
   // Gamification state
   const [stats, setStats] = useState<Stats | null>(null)
   const [unlocked, setUnlocked] = useState<Achievement[]>([])
-  const [nextAch, setNextAch] = useState<NextAch>(null)
   const [checkedInIds, setCheckedInIds] = useState<Set<string>>(new Set())
   const [checkingInId, setCheckingInId] = useState<string | null>(null)
   const [newAchievement, setNewAchievement] = useState<Achievement | null>(null)
@@ -232,7 +162,6 @@ export default function HubPage() {
       const data = await res.json()
       setStats(data.stats)
       setUnlocked(data.unlocked ?? [])
-      setNextAch(data.next)
       setCheckedInIds(new Set(data.checkedInRunIds ?? []))
     } catch {
       // non-blocking
@@ -406,7 +335,6 @@ export default function HubPage() {
         setCheckedInIds((prev) => new Set([...prev, runId]))
         if (data.stats) {
           setStats(data.stats)
-          setNextAch(computeNext(data.stats))
           if (data.unlocked) {
             setUnlocked((prev) => {
               const ids = new Set(prev.map((a) => a.id))
@@ -512,11 +440,6 @@ export default function HubPage() {
           <div className="flex flex-col md:grid md:grid-cols-[1fr_320px] md:gap-10 md:items-start">
             {/* ── RIGHT SIDEBAR ── */}
             <div className="order-1 md:order-2 space-y-8 mb-8 md:mb-0">
-              {/* Stats strip */}
-              {stats && (
-                <StatsStrip stats={stats} nextAch={nextAch} unlocked={unlocked} />
-              )}
-
               {/* Messages (members only — directors manage chats from their Director dashboard) */}
               {!isManager && (
                 <section>
@@ -539,38 +462,48 @@ export default function HubPage() {
                     </Link>
                   </div>
                 ) : (
-                  <div className="flex gap-3 overflow-x-auto pb-2 -mx-6 px-6 scrollbar-none md:overflow-visible md:mx-0 md:px-0 md:grid md:grid-cols-3 md:gap-3 md:pb-0">
-                    {myKlubs.map((club) => (
-                      <Link
-                        key={club.id}
-                        href={`/clubs/${club.id}`}
-                        className="flex flex-col items-center gap-2 shrink-0 w-[76px] md:w-auto group"
-                      >
-                        <div
-                          className={`rk-card-hover w-[60px] h-[60px] md:w-full md:aspect-square md:h-auto rounded-2xl overflow-hidden flex items-center justify-center border border-[#3d5220] group-hover:border-[#c5f135]/60 bg-gradient-to-br ${getGradient(club.name)}`}
+                  <div className="rounded-2xl overflow-hidden border border-[#2e3d1a] bg-[#1e2d12] divide-y divide-[#2e3d1a]">
+                    {myKlubs.map((club) => {
+                      const nextRun = runs.find((r) => r.club_id === club.id)
+                      return (
+                        <Link
+                          key={club.id}
+                          href={`/clubs/${club.id}`}
+                          className="flex items-center gap-3 px-4 py-3.5 hover:bg-[#243018] transition group"
                         >
-                          {club.image_url ? (
-                            <img
-                              src={club.image_url}
-                              alt=""
-                              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-                            />
-                          ) : (
-                            <span className="text-base font-black text-white/30 select-none">
-                              {club.name
-                                .split(" ")
-                                .map((w) => w[0])
-                                .join("")
-                                .slice(0, 2)
-                                .toUpperCase()}
-                            </span>
-                          )}
-                        </div>
-                        <span className="text-[10px] text-white/55 text-center leading-tight line-clamp-2 font-medium w-full">
-                          {club.name}
-                        </span>
-                      </Link>
-                    ))}
+                          <div
+                            className={`w-11 h-11 rounded-xl shrink-0 overflow-hidden flex items-center justify-center border border-[#3d5220] group-hover:border-[#c5f135]/60 bg-gradient-to-br ${getGradient(club.name)}`}
+                          >
+                            {club.image_url ? (
+                              <img
+                                src={club.image_url}
+                                alt=""
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <span className="text-xs font-black text-white/30">
+                                {club.name
+                                  .split(" ")
+                                  .map((w) => w[0])
+                                  .join("")
+                                  .slice(0, 2)
+                                  .toUpperCase()}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-white truncate">{club.name}</p>
+                            <p className="text-xs text-white/40 mt-0.5 truncate">
+                              {club.city}
+                              {club.city && nextRun && " · "}
+                              {nextRun && `Next: ${formatDay(nextRun.date)} ${formatTime(nextRun.time)}`}
+                              {!club.city && !nextRun && "No upcoming runs"}
+                            </p>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-white/20 group-hover:text-white/40 transition shrink-0" />
+                        </Link>
+                      )
+                    })}
                   </div>
                 )}
               </section>
