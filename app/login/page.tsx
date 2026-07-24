@@ -21,21 +21,35 @@ export default function LoginPage() {
   // Splash → then either redirect (logged in) or show landing
   useEffect(() => {
     const t1 = setTimeout(() => setSplashVisible(false), 1200)
-    const t2 = setTimeout(async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession()
-        if (session) {
-          const { data: prof } = await supabase.from("profiles").select("role").eq("id", session.user.id).single()
-          router.replace(prof?.role === "admin" ? "/admin/claims" : "/today")
-          return
+    let settled = false
+    const showLanding = () => { if (!settled) { settled = true; setMode("landing") } }
+
+    const t2 = setTimeout(() => {
+      (async () => {
+        try {
+          const { data: { session } } = await supabase.auth.getSession()
+          if (session) {
+            const { data: prof } = await supabase.from("profiles").select("role").eq("id", session.user.id).single()
+            if (!settled) {
+              settled = true
+              router.replace(prof?.role === "admin" ? "/admin/claims" : "/today")
+            }
+            return
+          }
+        } catch {
+          // Restrictive storage contexts (e.g. Safari Private Browsing) can make
+          // getSession() throw — fall through to the guest landing either way.
         }
-      } catch {
-        // Restrictive storage contexts (e.g. Safari Private Browsing) can make
-        // getSession() throw — fall through to the guest landing either way.
-      }
-      setMode("landing")
+        showLanding()
+      })()
     }, 1600)
-    return () => { clearTimeout(t1); clearTimeout(t2) }
+
+    // Guaranteed fallback — a hung (not rejected) auth check, e.g. from lock
+    // contention with the refresh-token check in lib/supabase.ts, must never
+    // leave the user stuck on the splash screen forever.
+    const t3 = setTimeout(showLanding, 4500)
+
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3) }
   }, [router])
 
   const handleLogin = async () => {
