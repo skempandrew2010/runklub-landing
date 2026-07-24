@@ -16,6 +16,8 @@ import {
 } from "@/lib/checkins"
 import Leaderboard from "@/components/Leaderboard"
 
+const BADGE_ROW_LIMIT = 5 // grid-cols-4 → 5 rows = 20 badges max before truncating
+
 const GRADIENTS = [
   "from-[#2d5a1b] to-[#111a0a]", "from-[#1b3d5a] to-[#111a0a]",
   "from-[#5a3d1b] to-[#111a0a]", "from-[#3d1b5a] to-[#111a0a]",
@@ -257,10 +259,15 @@ function PassportBookPage({ page, justUnlocked, userId }: { page: BookPage; just
         </div>
 
         <div className="grid grid-cols-4 gap-x-3 gap-y-5">
-          {page.slots.map((slot) => (
+          {page.slots.slice(0, BADGE_ROW_LIMIT * 4).map((slot) => (
             <StampSlot key={slot.club_id} slot={slot} isNew={justUnlocked.clubIds.includes(slot.club_id)} />
           ))}
         </div>
+        {page.slots.length > BADGE_ROW_LIMIT * 4 && (
+          <p className="text-center text-xs text-white/30 font-semibold mt-4">
+            +{page.slots.length - BADGE_ROW_LIMIT * 4} more
+          </p>
+        )}
       </div>
 
       <div className="bg-[#1e2d12] rounded-2xl p-5 min-h-[360px] flex-1 min-w-0">
