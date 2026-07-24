@@ -7,6 +7,7 @@ import { CalendarCheck, ChevronRight, Users, Zap, CheckCircle2, Flame } from "lu
 import Link from "next/link"
 import type { Achievement } from "@/lib/streaks"
 import { nextAchievement as computeNext } from "@/lib/streaks"
+import MemberChatInbox from "@/components/MemberChatInbox"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -516,6 +517,14 @@ export default function HubPage() {
                 <StatsStrip stats={stats} nextAch={nextAch} unlocked={unlocked} />
               )}
 
+              {/* Messages (members only — directors manage chats from their Director dashboard) */}
+              {!isManager && (
+                <section>
+                  <SectionHeader title="Messages" sub="Chats from your upcoming runs" />
+                  <MemberChatInbox userId={userId} />
+                </section>
+              )}
+
               {/* My Klubs */}
               <section>
                 <SectionHeader title="My Klubs" />
@@ -538,13 +547,13 @@ export default function HubPage() {
                         className="flex flex-col items-center gap-2 shrink-0 w-[76px] md:w-auto group"
                       >
                         <div
-                          className={`w-[60px] h-[60px] md:w-full md:aspect-square md:h-auto rounded-2xl overflow-hidden flex items-center justify-center border border-[#3d5220] group-hover:border-[#c5f135]/60 transition-colors bg-gradient-to-br ${getGradient(club.name)}`}
+                          className={`rk-card-hover w-[60px] h-[60px] md:w-full md:aspect-square md:h-auto rounded-2xl overflow-hidden flex items-center justify-center border border-[#3d5220] group-hover:border-[#c5f135]/60 bg-gradient-to-br ${getGradient(club.name)}`}
                         >
                           {club.image_url ? (
                             <img
                               src={club.image_url}
                               alt=""
-                              className="w-full h-full object-cover"
+                              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
                             />
                           ) : (
                             <span className="text-base font-black text-white/30 select-none">

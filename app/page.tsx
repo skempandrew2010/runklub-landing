@@ -61,7 +61,7 @@ export default function RootPage() {
           <span className="text-[#c5f135] italic">Find your pace.</span>
         </h1>
         <p className="mt-6 text-white/50 text-base sm:text-lg max-w-md leading-relaxed">
-          RunKlub connects runners with local run clubs, from free community runs to coached training programs. Show up, meet people, run faster.
+          RunKlub connects runners with local run klubs, from free community runs to coached training programs. Show up, meet people, run faster.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 mt-10">
           <Link href="/explore" className="px-8 py-4 bg-[#c5f135] text-[#1a2110] font-black rounded-full text-lg hover:bg-[#d4fb4d] transition">
@@ -78,7 +78,7 @@ export default function RootPage() {
         <FadeIn>
           <h2 className="text-2xl font-black text-white mb-4">What is RunKlub?</h2>
           <p className="text-white/50 leading-relaxed text-base">
-            RunKlub is a platform for run clubs and the runners who love them. Whether you&apos;re a casual jogger looking for weekend company or a competitive runner chasing a PR, there&apos;s a club for you. We make it easy for clubs to share their schedule, grow their community, and keep their members coming back, and easy for runners to find exactly the right crew.
+            RunKlub is a platform for run klubs and the runners who love them. Whether you&apos;re a casual jogger looking for weekend company or a competitive runner chasing a PR, there&apos;s a klub for you. We make it easy for klubs to share their schedule, grow their community, and keep their members coming back, and easy for runners to find exactly the right crew.
           </p>
         </FadeIn>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mt-10">
@@ -107,7 +107,7 @@ export default function RootPage() {
               Andrew and Sean met at St. Olaf College, where they ran together on the cross country and track and field teams for four years. Both earned All-American honors along the way, Andrew on the cross country course and Sean on the track. After graduating, they ended up in Boulder, CO, one of the best running cities in the country.
             </p>
             <p>
-              The idea for RunKlub came from a frustrating experience. Andrew was in Las Vegas for the Rock and Roll Half Marathon and wanted to find a local run club to get some miles in during the days leading up to the race. No matter where he looked, he could not find what he needed. It was not the first time either. He had run into the same wall while traveling before, knowing clubs were out there but having no easy way to find them.
+              The idea for RunKlub came from a frustrating experience. Andrew was in Las Vegas for the Rock and Roll Half Marathon and wanted to find a local run klub to get some miles in during the days leading up to the race. No matter where he looked, he could not find what he needed. It was not the first time either. He had run into the same wall while traveling before, knowing klubs were out there but having no easy way to find them.
             </p>
             <p>
               When he got back to Boulder, he asked Sean if he wanted to help him build a solution. They got to work, and RunKlub was born. The goal is simple: no runner, whether at home or on the road, should ever struggle to find their people.
@@ -167,7 +167,7 @@ export default function RootPage() {
               <p className="text-3xl font-black text-white mb-0.5">$0</p>
               <p className="text-xs text-white/30 mb-5">forever</p>
               <ul className="space-y-2.5 flex-1">
-                {["Public club listing", "Unlimited run posts", "Run chat for members", "Push notifications"].map((f) => (
+                {["Public klub listing", "Unlimited run posts", "Run chat for members", "Push notifications"].map((f) => (
                   <li key={f} className="flex items-start gap-2 text-sm text-white/55">
                     <span className="text-[#c5f135]/60 shrink-0 mt-px">✓</span>{f}
                   </li>
@@ -237,7 +237,7 @@ export default function RootPage() {
         </div>
 
         <FadeIn delay={100}>
-          <p className="text-xs text-white/25 text-center mt-6">All plans include a free club page. No contract, cancel anytime.</p>
+          <p className="text-xs text-white/25 text-center mt-6">All plans include a free klub page. No contract, cancel anytime.</p>
         </FadeIn>
       </section>
 
@@ -247,7 +247,7 @@ export default function RootPage() {
           <h2 className="text-3xl font-black text-white mb-4">Ready to find your crew?</h2>
           <p className="text-white/40 text-sm mb-8">Join hundreds of runners already using RunKlub.</p>
           <Link href="/explore" className="inline-block px-10 py-4 bg-[#c5f135] text-[#1a2110] font-black rounded-full text-lg hover:bg-[#d4fb4d] transition">
-            Browse Run Clubs
+            Browse Run Klubs
           </Link>
         </FadeIn>
       </section>

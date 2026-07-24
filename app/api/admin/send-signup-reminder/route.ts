@@ -42,7 +42,7 @@ function buildSignupReminderEmail(name: string, onboardingLink: string): { subje
               Hey ${safeName}, you signed up for <strong style="color:#ffffff;">RunKlub</strong> but didn&rsquo;t quite finish setting up your account.
             </p>
             <p style="margin:0 0 28px;font-size:15px;line-height:1.7;color:rgba(255,255,255,0.7);">
-              It only takes a minute to finish — set your location and pace and you&rsquo;ll be ready to find run clubs and runs near you.
+              It only takes a minute to finish — set your location and pace and you&rsquo;ll be ready to find run klubs and runs near you.
             </p>
             <table cellpadding="0" cellspacing="0">
               <tr>
@@ -70,7 +70,7 @@ function buildSignupReminderEmail(name: string, onboardingLink: string): { subje
 </body>
 </html>`
 
-  const text = `You're almost in\n\nHey ${name}, you signed up for RunKlub but didn't quite finish setting up your account.\n\nIt only takes a minute to finish — set your location and pace and you'll be ready to find run clubs and runs near you.\n\n${onboardingLink}\n\n— Andrew & Sean\nRunKlub`
+  const text = `You're almost in\n\nHey ${name}, you signed up for RunKlub but didn't quite finish setting up your account.\n\nIt only takes a minute to finish — set your location and pace and you'll be ready to find run klubs and runs near you.\n\n${onboardingLink}\n\n— Andrew & Sean\nRunKlub`
 
   return { subject, html, text }
 }

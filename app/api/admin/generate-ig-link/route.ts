@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
       .eq("id", club_id)
       .single()
 
-    if (lookupError || !club) return NextResponse.json({ error: "Club not found" }, { status: 404 })
+    if (lookupError || !club) return NextResponse.json({ error: "Klub not found" }, { status: 404 })
 
     // Reuse the existing token — only generate a new one if there isn't one yet.
     // Generating a fresh token on every click would invalidate any link already sent.

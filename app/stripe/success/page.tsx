@@ -9,10 +9,10 @@ const TIER_CONTENT: Record<string, { icon: "zap" | "shield"; features: string[] 
   starter: {
     icon: "shield",
     features: [
-      "Verified badge on your club profile",
+      "Verified badge on your klub profile",
       "Weekly email reminder of the week's runs",
       "One-tap Instagram post from a ready-made template",
-      "Optionally charge members to join your club",
+      "Optionally charge members to join your klub",
       "Access to race benefits & sponsor perks",
     ],
   },
@@ -21,7 +21,7 @@ const TIER_CONTENT: Record<string, { icon: "zap" | "shield"; features: string[] 
     features: [
       "Everything in Starter",
       "One branch with unlimited locations",
-      "Club update emails 3× a week",
+      "Klub update emails 3× a week",
       "Up to 10 coaches",
       "Priority verified placement in search",
       "Free sponsor banners",
@@ -34,7 +34,7 @@ const TIER_CONTENT: Record<string, { icon: "zap" | "shield"; features: string[] 
       "Unlimited branches",
       "Daily email updates for members",
       "Unlimited coaches",
-      "First club shown in city search",
+      "First klub shown in city search",
       "Priority in the sponsor & race network",
     ],
   },
@@ -63,7 +63,7 @@ function SuccessContent() {
         Welcome to {planName}!
       </h1>
       <p className="text-sm text-white/50 max-w-xs leading-relaxed mb-8">
-        Your club is now on the {planName} plan. Everything below is active and ready to go.
+        Your klub is now on the {planName} plan. Everything below is active and ready to go.
       </p>
 
       <div className="w-full max-w-xs bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-4 mb-8 text-left">
@@ -84,7 +84,7 @@ function SuccessContent() {
         onClick={() => router.push(clubId ? `/director` : "/director")}
         className="flex items-center gap-2 px-6 py-3 bg-[#c5f135] text-[#1a2110] font-black text-sm rounded-full hover:bg-[#d4ff45] transition"
       >
-        Go to Club Dashboard
+        Go to Klub Dashboard
         <ArrowRight className="w-4 h-4" />
       </button>
     </div>

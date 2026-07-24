@@ -137,7 +137,7 @@ export default function SubmitClubForm() {
 
       {/* IMAGE UPLOAD */}
       <div>
-        <span className={labelClass}>Club Photo / Logo</span>
+        <span className={labelClass}>Klub Photo / Logo</span>
         <div className="mt-1.5">
           {imagePreview ? (
             <div className="relative w-full h-44 rounded-xl overflow-hidden group">
@@ -159,7 +159,7 @@ export default function SubmitClubForm() {
               className="w-full h-32 rounded-xl border-2 border-dashed border-[#2e3d1a] hover:border-[#c5f135]/40 flex flex-col items-center justify-center gap-2 text-white/30 hover:text-white/60 transition"
             >
               <ImagePlus className="w-7 h-7" />
-              <span className="text-xs font-medium">Upload club photo or logo</span>
+              <span className="text-xs font-medium">Upload klub photo or logo</span>
             </button>
           )}
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
@@ -168,7 +168,7 @@ export default function SubmitClubForm() {
 
       {/* CLUB NAME */}
       <label className="block">
-        <span className={labelClass}>Club Name *</span>
+        <span className={labelClass}>Klub Name *</span>
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -183,9 +183,9 @@ export default function SubmitClubForm() {
         <div className="flex items-start gap-2">
           <MapPin className="w-4 h-4 text-[#c5f135] mt-0.5 shrink-0" />
           <div>
-            <p className="text-sm font-bold text-white">Where does your club usually meet?</p>
+            <p className="text-sm font-bold text-white">Where does your klub usually meet?</p>
             <p className="text-xs text-white/40 mt-0.5">
-              Used to show your club on the map and help runners find you by location.
+              Used to show your klub on the map and help runners find you by location.
             </p>
           </div>
         </div>
@@ -222,7 +222,7 @@ export default function SubmitClubForm() {
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="Tell runners what makes your club unique — pace, vibe, routes…"
+          placeholder="Tell runners what makes your klub unique — pace, vibe, routes…"
           rows={3}
           className={inputClass + " resize-none"}
         />
@@ -236,7 +236,7 @@ export default function SubmitClubForm() {
           <input
             value={instagramHandle}
             onChange={(e) => setInstagramHandle(e.target.value.replace(/^@/, ""))}
-            placeholder="yourclubhandle"
+            placeholder="yourklubhandle"
             className="w-full bg-[#222d14] border border-[#2e3d1a] rounded-xl pl-8 pr-4 py-3 text-white text-sm placeholder-white/30 focus:outline-none focus:border-[#c5f135]/60 transition"
           />
         </div>
@@ -248,7 +248,7 @@ export default function SubmitClubForm() {
         <input
           value={website}
           onChange={(e) => setWebsite(e.target.value)}
-          placeholder="https://yourclub.com"
+          placeholder="https://yourklub.com"
           className={inputClass}
         />
       </label>
@@ -260,7 +260,7 @@ export default function SubmitClubForm() {
           type="email"
           value={contactEmail}
           onChange={(e) => setContactEmail(e.target.value)}
-          placeholder="director@theirclub.com"
+          placeholder="director@theirklub.com"
           className={inputClass}
         />
       </label>
@@ -297,7 +297,7 @@ export default function SubmitClubForm() {
         disabled={loading || !name || !city}
         className="w-full bg-[#c5f135] text-[#1a2110] font-black text-sm py-3.5 rounded-xl hover:bg-[#d4ff45] transition disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {loading ? "Submitting…" : "Submit Run Club"}
+        {loading ? "Submitting…" : "Submit Run Klub"}
       </button>
     </form>
   )

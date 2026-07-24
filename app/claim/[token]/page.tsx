@@ -94,7 +94,7 @@ export default function ClaimTokenPage() {
           {loadState === "loading" && (
             <div className="flex flex-col items-center gap-3 pt-10">
               <div className="w-6 h-6 border-2 border-[#c5f135]/30 border-t-[#c5f135] rounded-full animate-spin" />
-              <p className="text-white/40 text-sm">Loading your club…</p>
+              <p className="text-white/40 text-sm">Loading your klub…</p>
             </div>
           )}
 
@@ -118,7 +118,7 @@ export default function ClaimTokenPage() {
               <p className="text-4xl">✅</p>
               <h2 className="text-xl font-black text-white">Already claimed</h2>
               <p className="text-white/40 text-sm leading-relaxed">
-                This club has already been claimed. If that wasn&apos;t you, contact us.
+                This klub has already been claimed. If that wasn&apos;t you, contact us.
               </p>
               <Link href="/explore" className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#c5f135] text-[#1a2110] font-black text-sm rounded-full hover:bg-[#d4ff45] transition">
                 Explore RunKlub <ArrowRight className="w-4 h-4" />
@@ -150,7 +150,7 @@ export default function ClaimTokenPage() {
 
               {/* Club card */}
               <div className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-5 mb-8">
-                <p className="text-xs font-bold text-[#c5f135]/60 uppercase tracking-widest mb-1">Your club</p>
+                <p className="text-xs font-bold text-[#c5f135]/60 uppercase tracking-widest mb-1">Your klub</p>
                 <h1 className="text-2xl font-black text-white leading-tight">{club.name}</h1>
                 {club.city && (
                   <p className="text-sm text-white/40 flex items-center gap-1 mt-1">
@@ -160,7 +160,7 @@ export default function ClaimTokenPage() {
               </div>
 
               <div className="mb-6">
-                <h2 className="text-xl font-black text-white mb-2">Claim your club</h2>
+                <h2 className="text-xl font-black text-white mb-2">Claim your klub</h2>
                 <p className="text-sm text-white/40 leading-relaxed">
                   Confirm your details and we&apos;ll set you up as the director so you can post runs and manage your page.
                 </p>

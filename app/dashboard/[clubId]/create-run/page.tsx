@@ -289,7 +289,7 @@ function CreateRunContent() {
             <div>
               <p className="text-xs font-semibold text-white/50 mb-0.5">Workout</p>
               <p className="text-[11px] text-white/25">
-                {workoutTypes.length > 0 ? "Pick from your workout library" : "Add workouts in the club manager to link them here"}
+                {workoutTypes.length > 0 ? "Pick from your workout library" : "Add workouts in the klub manager to link them here"}
               </p>
             </div>
             {workoutTypes.length > 0 && (
@@ -342,7 +342,7 @@ function CreateRunContent() {
             <div className="space-y-2">
               <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Pace Group</p>
               {paceGroups.length === 0 ? (
-                <p className="text-xs text-white/30 italic">No pace groups set up yet — add them in the club manager.</p>
+                <p className="text-xs text-white/30 italic">No pace groups set up yet — add them in the klub manager.</p>
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {paceGroups.map((pg) => {
@@ -365,7 +365,7 @@ function CreateRunContent() {
             <div className="space-y-2">
               <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Coach</p>
               {coaches.length === 0 ? (
-                <p className="text-xs text-white/30 italic">No coaches set up yet — add them in the club manager.</p>
+                <p className="text-xs text-white/30 italic">No coaches set up yet — add them in the klub manager.</p>
               ) : (
                 <div className="flex flex-wrap gap-2">
                   <button type="button" onClick={() => setSelectedCoachId("")}

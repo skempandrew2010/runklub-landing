@@ -301,7 +301,7 @@ export default function AdminClaimsPage() {
   const buildIgMessage = (club: UnclaimedClub) => {
     const city = club.city ?? "your city"
     const link = `https://www.runklub.fit/welcome?t=${club.claim_token}`
-    return `Hey ${club.name}! I'm Andrew — my friend Sean and I built RunKlub, a free app for people to find run clubs near them. Your club is already on there and I'd love to get you properly set up so more runners in ${city} can find you.\n\nClaim your page here: ${link}\n\nFeel free to DM back if you have any questions!`
+    return `Hey ${club.name}! I'm Andrew — my friend Sean and I built RunKlub, a free app for people to find run klubs near them. Your klub is already on there and I'd love to get you properly set up so more runners in ${city} can find you.\n\nClaim your page here: ${link}\n\nFeel free to DM back if you have any questions!`
   }
 
   const handleIgClick = async (club: UnclaimedClub, igHandle: string) => {
@@ -327,7 +327,7 @@ export default function AdminClaimsPage() {
   }
   const buildIgReminderMessage = (club: ReminderClub) => {
     const link = `https://www.runklub.fit/welcome?t=${club.claim_token}`
-    return `Hey ${club.name}! Just following up — I reached out a little while ago about getting your club set up on RunKlub. Your page is still there whenever you're ready.\n\nHere's the link again: ${link}\n\nFeel free to DM back if you have any questions!`
+    return `Hey ${club.name}! Just following up — I reached out a little while ago about getting your klub set up on RunKlub. Your page is still there whenever you're ready.\n\nHere's the link again: ${link}\n\nFeel free to DM back if you have any questions!`
   }
 
   const handleIgReminderClick = async (club: ReminderClub, igHandle: string) => {
@@ -516,7 +516,7 @@ export default function AdminClaimsPage() {
         <div className="mb-6 flex items-start justify-between gap-3">
           <div>
             <p className="text-xs font-bold text-[#c5f135]/60 uppercase tracking-widest mb-1">Admin</p>
-            <h1 className="text-2xl font-black text-white">Club Management</h1>
+            <h1 className="text-2xl font-black text-white">Klub Management</h1>
           </div>
           <div className="flex flex-col items-end gap-1 mt-1 shrink-0">
             <button
@@ -529,7 +529,7 @@ export default function AdminClaimsPage() {
               onClick={() => router.push("/admin/club-model/manager")}
               className="text-xs text-white/30 hover:text-white/70 transition"
             >
-              Club Model Prototype →
+              Klub Model Prototype →
             </button>
           </div>
         </div>
@@ -564,7 +564,7 @@ export default function AdminClaimsPage() {
             onClick={() => { setTab("clubs"); if (!editableClubsLoaded) loadEditableClubs() }}
             className={`px-4 py-2 rounded-full text-sm font-bold transition ${tab === "clubs" ? "bg-[#c5f135] text-[#1a2110]" : "bg-[#1e2d12] border border-[#2e3d1a] text-white/50 hover:text-white"}`}
           >
-            Clubs
+            Klubs
           </button>
           <button
             onClick={() => { setTab("reminders"); if (!reminderClubsLoaded) loadReminderClubs() }}
@@ -595,7 +595,7 @@ export default function AdminClaimsPage() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/25 pointer-events-none" />
                 <input
                   type="text"
-                  placeholder="Search by club, city, name or email…"
+                  placeholder="Search by klub, city, name or email…"
                   value={claimsSearch}
                   onChange={(e) => setClaimsSearch(e.target.value)}
                   className="w-full bg-[#1e2d12] border border-[#2e3d1a] rounded-xl pl-9 pr-4 py-2.5 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#c5f135]/50 transition"
@@ -672,7 +672,7 @@ export default function AdminClaimsPage() {
                         <button
                           onClick={() => openDelete({ id: club.id, name: club.name })}
                           className="p-1.5 rounded-lg text-white/20 hover:text-red-400 hover:bg-red-400/10 transition"
-                          title="Delete club"
+                          title="Delete klub"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -692,7 +692,7 @@ export default function AdminClaimsPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/25 pointer-events-none" />
               <input
                 type="text"
-                placeholder="Search by club or city…"
+                placeholder="Search by klub or city…"
                 value={inviteSearch}
                 onChange={(e) => setInviteSearch(e.target.value)}
                 className="w-full bg-[#1e2d12] border border-[#2e3d1a] rounded-xl pl-9 pr-4 py-2.5 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#c5f135]/50 transition"
@@ -700,7 +700,7 @@ export default function AdminClaimsPage() {
             </div>
             {filteredInvitedClubs.length === 0 && (
               <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-8 text-center">
-                <p className="text-white/40 text-sm">{inviteSearch ? "No clubs match your search." : "No invites sent yet."}</p>
+                <p className="text-white/40 text-sm">{inviteSearch ? "No klubs match your search." : "No invites sent yet."}</p>
               </div>
             )}
             {filteredInvitedClubs.length > 0 && (
@@ -727,7 +727,7 @@ export default function AdminClaimsPage() {
                           <button
                             onClick={() => openDelete({ id: club.id, name: club.name })}
                             className="p-1.5 rounded-lg text-white/20 hover:text-red-400 hover:bg-red-400/10 transition"
-                            title="Delete club"
+                            title="Delete klub"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -804,7 +804,7 @@ export default function AdminClaimsPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/25 pointer-events-none" />
               <input
                 type="text"
-                placeholder="Search by club or city…"
+                placeholder="Search by klub or city…"
                 value={inviteSearch}
                 onChange={(e) => setInviteSearch(e.target.value)}
                 className="w-full bg-[#1e2d12] border border-[#2e3d1a] rounded-xl pl-9 pr-4 py-2.5 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#c5f135]/50 transition"
@@ -812,7 +812,7 @@ export default function AdminClaimsPage() {
             </div>
             {filteredNotInvitedClubs.length === 0 && (
               <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-8 text-center">
-                <p className="text-white/40 text-sm">{inviteSearch ? "No clubs match your search." : "All unclaimed clubs have been contacted."}</p>
+                <p className="text-white/40 text-sm">{inviteSearch ? "No klubs match your search." : "All unclaimed klubs have been contacted."}</p>
               </div>
             )}
             {filteredNotInvitedClubs.length > 0 && (
@@ -832,7 +832,7 @@ export default function AdminClaimsPage() {
                         <button
                           onClick={() => openDelete({ id: club.id, name: club.name })}
                           className="shrink-0 p-1.5 rounded-lg text-white/20 hover:text-red-400 hover:bg-red-400/10 transition"
-                          title="Delete club"
+                          title="Delete klub"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -840,7 +840,7 @@ export default function AdminClaimsPage() {
                       <div className="flex gap-2">
                         <input
                           type="text"
-                          placeholder="director@theirclub.com, another@email.com"
+                          placeholder="director@theirklub.com, another@email.com"
                           value={inviteEmails[club.id] ?? (club.contact_email || "")}
                           onChange={(e) => setInviteEmails((prev) => ({ ...prev, [club.id]: e.target.value }))}
                           disabled={isSent}
@@ -957,7 +957,7 @@ export default function AdminClaimsPage() {
                 </div>
               ) : (
                 <div>
-                  <h2 className="text-xs font-bold text-white/30 uppercase tracking-widest mb-3">Per Club</h2>
+                  <h2 className="text-xs font-bold text-white/30 uppercase tracking-widest mb-3">Per Klub</h2>
                   <div className="space-y-2">
                     {funnelClubs.map((club) => {
                       const stage =
@@ -1002,7 +1002,7 @@ export default function AdminClaimsPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/25 pointer-events-none" />
               <input
                 type="text"
-                placeholder="Search by club or city…"
+                placeholder="Search by klub or city…"
                 value={editSearch}
                 onChange={(e) => setEditSearch(e.target.value)}
                 className="w-full bg-[#1e2d12] border border-[#2e3d1a] rounded-xl pl-9 pr-4 py-2.5 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#c5f135]/50 transition"
@@ -1150,7 +1150,7 @@ export default function AdminClaimsPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/25 pointer-events-none" />
               <input
                 type="text"
-                placeholder="Search by club or city…"
+                placeholder="Search by klub or city…"
                 value={reminderSearch}
                 onChange={(e) => setReminderSearch(e.target.value)}
                 className="w-full bg-[#1e2d12] border border-[#2e3d1a] rounded-xl pl-9 pr-4 py-2.5 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#c5f135]/50 transition"
@@ -1267,7 +1267,7 @@ export default function AdminClaimsPage() {
 
               if (filtered.length === 0) return (
                 <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-8 text-center">
-                  <p className="text-white/40 text-sm">{reminderSearch ? "No clubs match your search." : "No outstanding signups to follow up on."}</p>
+                  <p className="text-white/40 text-sm">{reminderSearch ? "No klubs match your search." : "No outstanding signups to follow up on."}</p>
                 </div>
               )
 
@@ -1279,7 +1279,7 @@ export default function AdminClaimsPage() {
                         <h2 className="text-xs font-bold text-white/30 uppercase tracking-widest">Opened but didn't submit</h2>
                         <span className="text-xs font-black text-[#c5f135]/60">{warm.length}</span>
                       </div>
-                      <p className="text-xs text-white/25 mb-3 -mt-1">These clubs visited their claim page but didn't complete signup — warm leads.</p>
+                      <p className="text-xs text-white/25 mb-3 -mt-1">These klubs visited their claim page but didn't complete signup — warm leads.</p>
                       <div className="space-y-2">
                         {warm.map((club) => <ReminderCard key={club.id} club={club} />)}
                       </div>
@@ -1291,7 +1291,7 @@ export default function AdminClaimsPage() {
                         <h2 className="text-xs font-bold text-white/30 uppercase tracking-widest">Invited, haven't opened</h2>
                         <span className="text-xs font-black text-white/20">{cold.length}</span>
                       </div>
-                      <p className="text-xs text-white/25 mb-3 -mt-1">These clubs received an invite but haven't clicked the link yet.</p>
+                      <p className="text-xs text-white/25 mb-3 -mt-1">These klubs received an invite but haven't clicked the link yet.</p>
                       <div className="space-y-2">
                         {cold.map((club) => <ReminderCard key={club.id} club={club} />)}
                       </div>
@@ -1308,12 +1308,12 @@ export default function AdminClaimsPage() {
           <>
             <div className="bg-red-500/10 border border-red-500/20 rounded-2xl px-4 py-3 mb-5">
               <p className="text-xs text-red-400/80 leading-relaxed">
-                These clubs were marked as having incorrect contact info. Enter a corrected email or use Instagram to reach them. Sending an invite will automatically clear the bad contact flag.
+                These klubs were marked as having incorrect contact info. Enter a corrected email or use Instagram to reach them. Sending an invite will automatically clear the bad contact flag.
               </p>
             </div>
             {badContactClubs.length === 0 ? (
               <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-8 text-center">
-                <p className="text-white/40 text-sm">No bad contact clubs.</p>
+                <p className="text-white/40 text-sm">No bad contact klubs.</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -1342,7 +1342,7 @@ export default function AdminClaimsPage() {
                           <button
                             onClick={() => openDelete({ id: club.id, name: club.name })}
                             className="p-1.5 rounded-lg text-white/20 hover:text-red-400 hover:bg-red-400/10 transition"
-                            title="Delete club"
+                            title="Delete klub"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -1416,7 +1416,7 @@ export default function AdminClaimsPage() {
               <p className="text-xs font-black text-[#c5f135] uppercase tracking-widest mb-1">Active Trial</p>
               <h2 className="text-lg font-black text-white mb-1">Enterprise trial — all 26 real directors</h2>
               <p className="text-sm text-white/40 mb-5">
-                Trial expires <strong className="text-white/60">48 hours from activation</strong>. After expiry, run the reset SQL in Supabase to downgrade all clubs back to free.
+                Trial expires <strong className="text-white/60">48 hours from activation</strong>. After expiry, run the reset SQL in Supabase to downgrade all klubs back to free.
               </p>
 
               <div className="bg-[#0e150a] border border-[#2e3d1a] rounded-xl p-4 mb-5 font-mono text-xs text-white/50 overflow-x-auto">
@@ -1523,9 +1523,9 @@ export default function AdminClaimsPage() {
         <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={closeDelete} />
         <div className="relative bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-6 w-full max-w-sm space-y-4">
           <div>
-            <p className="text-xs font-bold text-red-400/70 uppercase tracking-widest mb-1">Delete Club</p>
+            <p className="text-xs font-bold text-red-400/70 uppercase tracking-widest mb-1">Delete Klub</p>
             <p className="text-lg font-black text-white">{deleteTarget.name}</p>
-            <p className="text-xs text-white/40 mt-1">This permanently deletes the club and all its runs. This cannot be undone.</p>
+            <p className="text-xs text-white/40 mt-1">This permanently deletes the klub and all its runs. This cannot be undone.</p>
           </div>
           <div>
             <label className="text-xs text-white/50 font-semibold mb-1.5 block">Enter your password to confirm</label>
@@ -1642,7 +1642,7 @@ function ClaimCard({
 
         {claim.clubs?.instagram_handle && (
           <div>
-            <p className="text-white/30 font-semibold mb-0.5">Club Instagram</p>
+            <p className="text-white/30 font-semibold mb-0.5">Klub Instagram</p>
             <a
               href={`https://instagram.com/${claim.clubs.instagram_handle}`}
               target="_blank"
@@ -1718,14 +1718,14 @@ function ClaimCard({
                   rel="noopener noreferrer"
                   className="flex items-center gap-1.5 px-4 py-2 border border-[#2e3d1a] text-white/30 rounded-full text-xs font-semibold hover:text-white/60 transition ml-auto"
                 >
-                  View club <ExternalLink className="w-3 h-3" />
+                  View klub <ExternalLink className="w-3 h-3" />
                 </a>
               )}
               {claim.club_id && onDelete && (
                 <button
-                  onClick={() => onDelete({ id: claim.club_id!, name: claim.clubs?.name ?? claim.club_name ?? "this club" })}
+                  onClick={() => onDelete({ id: claim.club_id!, name: claim.clubs?.name ?? claim.club_name ?? "this klub" })}
                   className="p-2 rounded-full border border-[#2e3d1a] text-white/20 hover:text-red-400 hover:border-red-400/30 transition"
-                  title="Delete club"
+                  title="Delete klub"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
@@ -1740,10 +1740,10 @@ function ClaimCard({
                 rel="noopener noreferrer"
                 className="flex items-center gap-1.5 px-4 py-2 border border-[#2e3d1a] text-white/30 rounded-full text-xs font-semibold hover:text-white/60 transition"
               >
-                View club <ExternalLink className="w-3 h-3" />
+                View klub <ExternalLink className="w-3 h-3" />
               </a>
               <button
-                onClick={() => onDelete({ id: claim.club_id!, name: claim.clubs?.name ?? claim.club_name ?? "this club" })}
+                onClick={() => onDelete({ id: claim.club_id!, name: claim.clubs?.name ?? claim.club_name ?? "this klub" })}
                 className="flex items-center gap-1.5 px-4 py-2 border border-red-400/20 text-red-400/50 rounded-full text-xs font-semibold hover:text-red-400 hover:border-red-400/40 transition ml-auto"
               >
                 <Trash2 className="w-3.5 h-3.5" />

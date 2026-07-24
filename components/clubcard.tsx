@@ -146,7 +146,7 @@ export default function ClubCard({
       {/* Club image */}
       <div className={`relative w-16 h-16 rounded-2xl overflow-hidden shrink-0 bg-gradient-to-br ${gradient} flex items-center justify-center`}>
         {club.image_url ? (
-          <Image src={club.image_url} alt={club.name} fill sizes="64px" className="object-cover" />
+          <Image src={club.image_url} alt={club.name} fill sizes="64px" className="object-cover transition-transform duration-300 group-hover:scale-110" />
         ) : (
           <span className="text-lg font-black text-white/20 select-none">{initials}</span>
         )}
@@ -177,7 +177,7 @@ export default function ClubCard({
                       : "bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45]"
                   }`}
                 >
-                  {isSubscribed ? "Joined" : "Join Club"}
+                  {isSubscribed ? "Joined" : "Join Klub"}
                 </button>
               )}
               {onNotInterested && (
@@ -194,7 +194,7 @@ export default function ClubCard({
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); onDelete({ id: club.id, name: club.name }) }}
-                  title="Delete club"
+                  title="Delete klub"
                   className="group/del w-8 h-8 rounded-full flex items-center justify-center hover:bg-red-400/10 transition mt-0.5"
                 >
                   <Trash2 className="w-4 h-4 text-white/20 group-hover/del:text-red-400 transition" />

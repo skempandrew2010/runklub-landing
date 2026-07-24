@@ -125,11 +125,11 @@ export async function POST(req: NextRequest) {
       .eq("user_id", user.id)
       .single()
 
-    if (!club) return NextResponse.json({ error: "Club not found or unauthorized" }, { status: 403 })
+    if (!club) return NextResponse.json({ error: "Klub not found or unauthorized" }, { status: 403 })
 
     if (club.tier !== "growth" && club.tier !== "enterprise") {
       return NextResponse.json(
-        { error: "Newsletters are a Growth feature. Upgrade your club to send one.", code: "growth_required" },
+        { error: "Newsletters are a Growth feature. Upgrade your klub to send one.", code: "growth_required" },
         { status: 403 }
       )
     }
@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
       .eq("club_id", club_id)
 
     if (!subs || subs.length === 0) {
-      return NextResponse.json({ error: "This club has no followers yet" }, { status: 400 })
+      return NextResponse.json({ error: "This klub has no followers yet" }, { status: 400 })
     }
 
     const subIds = subs.map((s: any) => s.user_id as string)

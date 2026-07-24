@@ -28,10 +28,10 @@ export default function MemberClubManagement() {
     <div className="min-h-screen bg-[#1a2110]">
       <div className="bg-[#1e2d12] border-b border-[#2e3d1a]">
         <div className="max-w-2xl mx-auto px-6 py-8">
-          <p className="text-xs font-bold text-[#c5f135]/60 uppercase tracking-widest mb-1">Club Management</p>
-          <h1 className="text-2xl font-black text-white">Your paid training clubs</h1>
+          <p className="text-xs font-bold text-[#c5f135]/60 uppercase tracking-widest mb-1">Klub Management</p>
+          <h1 className="text-2xl font-black text-white">Your paid training klubs</h1>
           <p className="text-sm text-white/40 mt-1">
-            Full pace-group schedules and messages for every club you&rsquo;re a paying training member of.
+            Full pace-group schedules and messages for every klub you&rsquo;re a paying training member of.
           </p>
         </div>
       </div>
@@ -42,10 +42,10 @@ export default function MemberClubManagement() {
             <Dumbbell className="w-10 h-10 text-white/15 mx-auto mb-3" />
             <p className="text-white/50 text-sm font-medium">You&rsquo;re not part of a paid training program yet.</p>
             <p className="text-white/25 text-xs mt-1 mb-4">
-              Join a club that offers structured pace-group training to see it here.
+              Join a klub that offers structured pace-group training to see it here.
             </p>
             <Link href="/explore" className="inline-block px-5 py-2.5 bg-[#c5f135] text-[#1a2110] text-sm font-black rounded-full hover:bg-[#d4ff45] transition">
-              Discover clubs
+              Discover klubs
             </Link>
           </div>
         ) : (
@@ -60,7 +60,7 @@ export default function MemberClubManagement() {
                       selected === i ? "bg-[#c5f135] text-[#1a2110]" : "bg-[#1e2d12] border border-[#2e3d1a] text-white/60 hover:text-white"
                     }`}
                   >
-                    {m.club?.name ?? "Club"}
+                    {m.club?.name ?? "Klub"}
                   </button>
                 ))}
               </div>
@@ -105,7 +105,7 @@ function MembershipDetail({ membership }: { membership: MyMembership }) {
   return (
     <div className="space-y-4">
       <div className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-4">
-        <p className="text-lg font-black text-white">{club?.name ?? "Club"}</p>
+        <p className="text-lg font-black text-white">{club?.name ?? "Klub"}</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
           <div>
             <p className="text-xs font-bold text-white/60 uppercase mb-0.5">Pace group</p>

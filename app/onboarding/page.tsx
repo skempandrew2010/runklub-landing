@@ -172,9 +172,9 @@ export default function OnboardingPage() {
               <div className="w-16 h-16 rounded-2xl bg-[#1e3a12] flex items-center justify-center mb-5">
                 <MapPin className="w-8 h-8 text-[#c5f135]" />
               </div>
-              <h1 className="text-3xl font-black text-white mb-2">Find clubs near you</h1>
+              <h1 className="text-3xl font-black text-white mb-2">Find klubs near you</h1>
               <p className="text-white/50 text-base leading-relaxed">
-                We'll show you run clubs in your area. Your location is never shared.
+                We'll show you run klubs in your area. Your location is never shared.
               </p>
             </div>
 
@@ -242,9 +242,9 @@ export default function OnboardingPage() {
                     <Trophy className={`w-6 h-6 ${role === "manager" ? "text-[#c5f135]" : "text-white/40"}`} />
                   </div>
                   <div className="flex-1">
-                    <p className="text-base font-black text-white">I'm a Director of a club</p>
+                    <p className="text-base font-black text-white">I'm a Director of a klub</p>
                     <p className="text-sm text-white/50 mt-1 leading-relaxed">
-                      I run or direct a run club and want to manage members, schedule runs, and grow my community.
+                      I run or direct a run klub and want to manage members, schedule runs, and grow my community.
                     </p>
                   </div>
                   {role === "manager" && <Check className="w-5 h-5 text-[#c5f135] shrink-0 mt-0.5" />}
@@ -266,9 +266,9 @@ export default function OnboardingPage() {
                     <Users className={`w-6 h-6 ${role === "member" ? "text-[#c5f135]" : "text-white/40"}`} />
                   </div>
                   <div className="flex-1">
-                    <p className="text-base font-black text-white">I'm a Runner looking for a club</p>
+                    <p className="text-base font-black text-white">I'm a Runner looking for a klub</p>
                     <p className="text-sm text-white/50 mt-1 leading-relaxed">
-                      I want to find run clubs near me, join group runs, and connect with other runners.
+                      I want to find run klubs near me, join group runs, and connect with other runners.
                     </p>
                   </div>
                   {role === "member" && <Check className="w-5 h-5 text-[#c5f135] shrink-0 mt-0.5" />}
@@ -362,7 +362,7 @@ export default function OnboardingPage() {
               </div>
               <h1 className="text-3xl font-black text-white mb-3">Connect Strava</h1>
               <p className="text-white/50 text-base leading-relaxed mb-2">
-                Sync your runs, track miles, and share achievements with your club.
+                Sync your runs, track miles, and share achievements with your klub.
               </p>
               <p className="text-white/25 text-sm">Optional — you can always connect later.</p>
             </div>
@@ -395,8 +395,8 @@ export default function OnboardingPage() {
               <h1 className="text-3xl font-black text-white mb-3">You're all set!</h1>
               <p className="text-white/50 text-base leading-relaxed">
                 {role === "manager"
-                  ? "Head to your Director page to create your club and schedule your first run."
-                  : "Explore clubs near you, follow your favorites, and show up to your first run."}
+                  ? "Head to your Director page to create your klub and schedule your first run."
+                  : "Explore klubs near you, follow your favorites, and show up to your first run."}
               </p>
             </div>
 
@@ -404,7 +404,7 @@ export default function OnboardingPage() {
               onClick={saveAndFinish}
               className="mt-6 w-full bg-[#c5f135] text-[#1a2110] font-black text-base py-4 rounded-2xl flex items-center justify-center gap-2 hover:bg-[#d4ff45] transition"
             >
-              {role === "manager" ? "Go to Director" : "Explore Clubs"} <ArrowRight className="w-4 h-4" />
+              {role === "manager" ? "Go to Director" : "Explore Klubs"} <ArrowRight className="w-4 h-4" />
             </button>
           </div>
         )}

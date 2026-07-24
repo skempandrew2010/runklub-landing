@@ -42,7 +42,7 @@ function buildInviteEmail(clubName: string, city: string | null, claimLink: stri
               ${safeClub} is on RunKlub 👟
             </h1>
             <p style="margin:0 0 12px;font-size:15px;line-height:1.7;color:rgba(255,255,255,0.7);">
-              Hey! We&rsquo;re Andrew and Sean — we built RunKlub as a free way for people to find run clubs near them. We found <strong style="color:#ffffff;">${safeClub}</strong>${safeCity} and added it, so your page is already live with your schedule and location.
+              Hey! We&rsquo;re Andrew and Sean — we built RunKlub as a free way for people to find run klubs near them. We found <strong style="color:#ffffff;">${safeClub}</strong>${safeCity} and added it, so your page is already live with your schedule and location.
             </p>
             <p style="margin:0 0 12px;font-size:15px;line-height:1.7;color:rgba(255,255,255,0.7);">
               Claim it and you can post runs, update your info, and start showing up for runners in your city who are out there looking for a group. Takes less than a minute to set up.
@@ -103,7 +103,7 @@ function buildInviteEmail(clubName: string, city: string | null, claimLink: stri
 
   const text = `${clubName} is on RunKlub 👟
 
-Hey! We're Andrew and Sean — we built RunKlub as a free way for people to find run clubs near them. We found ${clubName}${city ? ` in ${city}` : ""} and added it, so your page is already live.
+Hey! We're Andrew and Sean — we built RunKlub as a free way for people to find run klubs near them. We found ${clubName}${city ? ` in ${city}` : ""} and added it, so your page is already live.
 
 Claim it and you can post runs, update your info, and start showing up for runners in your city who are looking for a group. Takes less than a minute.
 
@@ -141,8 +141,8 @@ export async function POST(req: NextRequest) {
       .eq("id", club_id)
       .single()
 
-    if (!club) return NextResponse.json({ error: "Club not found" }, { status: 404 })
-    if (club.claim_token_used_at) return NextResponse.json({ error: "Club already claimed" }, { status: 409 })
+    if (!club) return NextResponse.json({ error: "Klub not found" }, { status: 404 })
+    if (club.claim_token_used_at) return NextResponse.json({ error: "Klub already claimed" }, { status: 409 })
 
     // Parse and validate emails (supports comma-separated)
     const rawEmails = overrideEmail?.trim() || club.contact_email?.trim()

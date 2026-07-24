@@ -34,9 +34,9 @@ export default function TermsPage() {
           <section className="space-y-3">
             <h2 className="text-base font-bold text-white">2. What RunKlub Is</h2>
             <p>
-              RunKlub is a discovery and management platform for run clubs. It allows runners to find local
-              clubs, view upcoming run events, and connect with their running community. Club managers can
-              list their clubs, schedule runs, and communicate with members.
+              RunKlub is a discovery and management platform for run klubs. It allows runners to find local
+              klubs, view upcoming run events, and connect with their running community. Klub managers can
+              list their klubs, schedule runs, and communicate with members.
             </p>
             <p>
               RunKlub is a platform only. We do not organize, lead, or supervise any runs or events listed
@@ -54,11 +54,11 @@ export default function TermsPage() {
           </section>
 
           <section className="space-y-3">
-            <h2 className="text-base font-bold text-white">4. Club Listings and Content</h2>
+            <h2 className="text-base font-bold text-white">4. Klub Listings and Content</h2>
             <p>
-              Club managers are solely responsible for the accuracy of their club information, run event
+              Klub managers are solely responsible for the accuracy of their klub information, run event
               details, meeting locations, and any other content they post. RunKlub does not verify or
-              endorse any club listing or event. Always confirm event details directly with the organizer
+              endorse any klub listing or event. Always confirm event details directly with the organizer
               before attending.
             </p>
             <p>
@@ -71,7 +71,7 @@ export default function TermsPage() {
             <h2 className="text-base font-bold text-white">5. Prohibited Conduct</h2>
             <p>You agree not to:</p>
             <ul className="list-disc pl-5 space-y-1.5">
-              <li>Post false, misleading, or fraudulent club or event information</li>
+              <li>Post false, misleading, or fraudulent klub or event information</li>
               <li>Harass, threaten, or harm other users</li>
               <li>Use the Service to send unsolicited messages or spam</li>
               <li>Attempt to access accounts or data you are not authorized to access</li>
@@ -85,7 +85,7 @@ export default function TermsPage() {
             <p>
               Running involves physical risk. RunKlub is not responsible for any injury, accident, loss,
               or harm that occurs in connection with any run event found through the Service. Participants
-              attend events at their own risk. Club organizers are responsible for communicating any
+              attend events at their own risk. Klub organizers are responsible for communicating any
               relevant safety information to attendees.
             </p>
           </section>

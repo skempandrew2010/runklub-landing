@@ -164,7 +164,7 @@ export async function generateRunCard(run: RunShareData): Promise<Blob> {
 
   ctx.font = F(27, "600")
   ctx.fillStyle = "rgba(255,255,255,0.28)"
-  ctx.fillText("RUN CLUB", nameX, ay + 102)
+  ctx.fillText("RUN KLUB", nameX, ay + 102)
 
   // ── SECTION DIVIDER ───────────────────────────────────────────────────────
   const divGrad = ctx.createLinearGradient(PAD, 0, W - PAD, 0)

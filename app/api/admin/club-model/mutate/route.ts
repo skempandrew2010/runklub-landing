@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
       const { data: club } = await admin.from("clubs").select("id, tier").eq("id", clubId).eq("user_id", user.id).single()
       if (!club) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
       if (!["starter", "growth", "enterprise"].includes(club.tier ?? "")) {
-        return NextResponse.json({ error: "This club needs a Starter, Growth, or Enterprise plan" }, { status: 403 })
+        return NextResponse.json({ error: "This klub needs a Starter, Growth, or Enterprise plan" }, { status: 403 })
       }
       tier = club.tier
     }

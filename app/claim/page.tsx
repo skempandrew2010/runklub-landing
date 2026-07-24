@@ -89,7 +89,7 @@ export default function ClaimPage() {
               <div>
                 <h2 className="text-2xl font-black text-white mb-2">You&apos;re on the list</h2>
                 <p className="text-white/50 text-sm leading-relaxed max-w-xs mx-auto">
-                  We&apos;ll be in touch within 24 hours to verify your club and get you set up on RunKlub.
+                  We&apos;ll be in touch within 24 hours to verify your klub and get you set up on RunKlub.
                 </p>
               </div>
               <Link
@@ -107,10 +107,10 @@ export default function ClaimPage() {
                   For directors
                 </p>
                 <h1 className="text-3xl font-black text-white leading-tight mb-3">
-                  Claim your run club
+                  Claim your run klub
                 </h1>
                 <p className="text-sm text-white/40 leading-relaxed">
-                  Get your club on the map, post runs, and connect with members — all in one place.
+                  Get your klub on the map, post runs, and connect with members — all in one place.
                 </p>
               </div>
 
@@ -119,7 +119,7 @@ export default function ClaimPage() {
                 {/* Club Name */}
                 <div>
                   <label className={labelClass}>
-                    Club Name <span className="text-red-400/70">*</span>
+                    Klub Name <span className="text-red-400/70">*</span>
                   </label>
                   <input
                     type="text"
@@ -190,7 +190,7 @@ export default function ClaimPage() {
                     </span>
                     <input
                       type="text"
-                      placeholder="yourclub"
+                      placeholder="yourklub"
                       value={instagram}
                       onChange={(e) => setInstagram(e.target.value.replace(/^@/, ""))}
                       className={inputClass + " pl-9"}
@@ -206,7 +206,7 @@ export default function ClaimPage() {
                   </label>
                   <input
                     type="url"
-                    placeholder="https://yourclub.com"
+                    placeholder="https://yourklub.com"
                     value={website}
                     onChange={(e) => setWebsite(e.target.value)}
                     className={inputClass}

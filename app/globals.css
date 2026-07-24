@@ -56,3 +56,40 @@ body {
 .animate-run-soon {
   animation: run-soon-pulse 2.5s ease-in-out infinite;
 }
+
+/* ── Site-wide micro-interactions ──────────────────────────────────────── */
+/* Baseline press feedback for every button/link, so buttons feel responsive
+   even before any per-component hover styling. Lower specificity than
+   Tailwind utility classes (e.g. an explicit active:scale-95), so
+   already-tuned buttons keep their own values. */
+button:not(:disabled) {
+  transition: transform 150ms ease-out, filter 150ms ease-out, opacity 150ms ease-out;
+}
+button:not(:disabled):active {
+  transform: scale(0.97);
+}
+
+a {
+  transition: opacity 150ms ease-out, filter 150ms ease-out;
+}
+a:active {
+  opacity: 0.85;
+}
+
+/* Page content fades in on route change */
+@keyframes page-enter {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-page-enter {
+  animation: page-enter 220ms ease-out both;
+}
+
+/* Reusable hover-lift for clickable cards */
+.rk-card-hover {
+  transition: transform 150ms ease-out, border-color 150ms ease-out, box-shadow 150ms ease-out;
+}
+.rk-card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}

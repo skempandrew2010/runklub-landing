@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (!club) return NextResponse.json({ error: "Invalid or expired link" }, { status: 404 })
-    if (club.claim_token_used_at) return NextResponse.json({ error: "Club already claimed" }, { status: 410 })
+    if (club.claim_token_used_at) return NextResponse.json({ error: "Klub already claimed" }, { status: 410 })
 
     // Find the approved claim to get the email to sign in as
     const { data: claim } = await getAdminSupabase()
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
       .maybeSingle()
 
     const email = claim?.contact_email ?? club.contact_email
-    if (!email) return NextResponse.json({ error: "No email on file for this club" }, { status: 400 })
+    if (!email) return NextResponse.json({ error: "No email on file for this klub" }, { status: 400 })
 
     const redirectTo = `${BASE_URL}/welcome`
 

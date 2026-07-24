@@ -19,9 +19,9 @@ export default function PricingPage() {
 
         <div className="text-center mb-10">
           <p className="text-xs font-bold text-[#c5f135]/60 uppercase tracking-widest mb-2">Pricing</p>
-          <h1 className="text-3xl sm:text-4xl font-black text-white">Plans for clubs of any size</h1>
+          <h1 className="text-3xl sm:text-4xl font-black text-white">Plans for klubs of any size</h1>
           <p className="text-sm text-white/50 mt-3 max-w-md mx-auto">
-            Start free. Upgrade when your club is ready for more locations, more members, and more visibility.
+            Start free. Upgrade when your klub is ready for more locations, more members, and more visibility.
           </p>
         </div>
 

@@ -8,8 +8,8 @@ import { localDateStr } from "@/utils/dates"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import {
-  ArrowLeft, Send, Trophy, Users, CalendarPlus,
-  MessageSquare, MapPin, Ruler, ExternalLink,
+  ArrowLeft, Trophy, Users, CalendarPlus,
+  MessageSquare, MapPin,
   Zap, ShieldCheck,
   Globe, Lock, Check, X, Link2, Pencil, Trash2,
   ChevronDown, ChevronRight,
@@ -20,6 +20,7 @@ import WorkoutsTab from "@/app/admin/club-model/manager/WorkoutsTab"
 import { Card, SectionTitle, Button, Input } from "@/app/admin/club-model/manager/ui"
 import { isNativeApp } from "@/utils/platform"
 import RunFormPanel from "./RunFormPanel"
+import RunChatPanel from "@/components/RunChatPanel"
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -96,174 +97,8 @@ function formatDay(dateStr: string) {
   return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
 }
 
-function formatChatTime(iso: string) {
-  const d = new Date(iso)
-  const diffMin = Math.floor((Date.now() - d.getTime()) / 60000)
-  if (diffMin < 1) return "now"
-  if (diffMin < 60) return `${diffMin}m`
-  const diffH = Math.floor(diffMin / 60)
-  if (diffH < 24) return `${diffH}h`
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
-}
-
 function clubAbbr(name: string) {
   return name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
-}
-
-// ── Chat Panel ─────────────────────────────────────────────────────────────────
-
-function ChatPanel({
-  run,
-  userId,
-  profile,
-  onClose,
-}: {
-  run: RunWithClub
-  userId: string
-  profile: Profile
-  onClose: () => void
-}) {
-  const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [input, setInput] = useState("")
-  const [sending, setSending] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const bottomRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLTextAreaElement>(null)
-
-  const loadMessages = useCallback(async () => {
-    const { data } = await supabase
-      .from("run_chats")
-      .select("*, profiles(display_name, avatar_url)")
-      .eq("run_id", run.id)
-      .order("created_at", { ascending: true })
-    setMessages((data || []) as ChatMessage[])
-    setLoading(false)
-  }, [run.id])
-
-  useEffect(() => {
-    loadMessages()
-    const channel = supabase
-      .channel(`run-chat-${run.id}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "run_chats", filter: `run_id=eq.${run.id}` }, () => loadMessages())
-      .subscribe()
-    return () => { supabase.removeChannel(channel) }
-  }, [run.id, loadMessages])
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [messages])
-
-  const sendMessage = async () => {
-    const text = input.trim()
-    if (!text || sending || text.length > 500) return
-    setSending(true)
-    setInput("")
-    await supabase.from("run_chats").insert({ run_id: run.id, user_id: userId, message: text })
-    setSending(false)
-    inputRef.current?.focus()
-  }
-
-  const clubName = run.clubs?.name || "Club"
-
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-[#111a0a]">
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-[#2e3d1a] bg-[#1a2110] shrink-0">
-        <button onClick={onClose} className="text-white/80 hover:text-white transition p-1">
-          <ArrowLeft className="w-5 h-5" />
-        </button>
-        <div className="w-9 h-9 rounded-xl overflow-hidden shrink-0 flex items-center justify-center bg-[#2e3d1a]">
-          {run.clubs?.image_url
-            ? <img src={run.clubs.image_url} alt="" className="w-full h-full object-cover" />
-            : <span className="text-xs font-black text-[#c5f135]">{clubAbbr(clubName)}</span>
-          }
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold text-white truncate">{run.title}</p>
-          <p className="text-xs text-white/80 truncate">{clubName} · {formatDay(run.date)} at {formatTime(run.time)}</p>
-        </div>
-      </div>
-
-      {(run.distance || run.meeting_point || run.route_url) && (
-        <div className="shrink-0 px-4 py-3 border-b border-[#2e3d1a] bg-[#141f0d] flex flex-wrap gap-2">
-          {run.distance && (
-            <div className="flex items-center gap-1.5 bg-[#1e2d12] rounded-full px-3 py-1.5 text-xs font-medium text-white">
-              <Ruler className="w-3.5 h-3.5 text-[#c5f135] shrink-0" />{run.distance}
-            </div>
-          )}
-          {run.meeting_point && (
-            <div className="flex items-center gap-1.5 bg-[#1e2d12] rounded-full px-3 py-1.5 text-xs font-medium text-white max-w-[60%]">
-              <MapPin className="w-3.5 h-3.5 text-[#c5f135] shrink-0" />
-              <span className="truncate">{run.meeting_point}</span>
-            </div>
-          )}
-          {run.route_url && (
-            <a href={run.route_url} target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-1.5 bg-[#c5f135]/10 border border-[#c5f135]/30 rounded-full px-3 py-1.5 text-xs font-bold text-[#c5f135] hover:bg-[#c5f135]/20 transition">
-              <ExternalLink className="w-3.5 h-3.5 shrink-0" />View Route
-            </a>
-          )}
-        </div>
-      )}
-
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-        {loading ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="w-6 h-6 border-2 border-[#c5f135]/30 border-t-[#c5f135] rounded-full animate-spin" />
-          </div>
-        ) : messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center pb-20">
-            <MessageSquare className="w-10 h-10 text-white/15 mb-3" />
-            <p className="text-white/80 text-sm font-medium">No messages yet</p>
-            <p className="text-white/25 text-xs mt-1">Be the first to say something!</p>
-          </div>
-        ) : (
-          messages.map((msg) => {
-            const isMe = msg.user_id === userId
-            const name = msg.profiles?.display_name || "Runner"
-            const initial = name[0]?.toUpperCase() || "?"
-            return (
-              <div key={msg.id} className={`flex gap-2.5 ${isMe ? "flex-row-reverse" : "flex-row"}`}>
-                {!isMe && (
-                  <div className="w-7 h-7 rounded-full bg-[#2e3d1a] flex items-center justify-center shrink-0 mt-auto overflow-hidden">
-                    {msg.profiles?.avatar_url
-                      ? <img src={msg.profiles.avatar_url} alt="" className="w-full h-full object-cover" />
-                      : <span className="text-xs font-bold text-[#c5f135]">{initial}</span>
-                    }
-                  </div>
-                )}
-                <div className={`max-w-[72%] flex flex-col gap-0.5 ${isMe ? "items-end" : "items-start"}`}>
-                  {!isMe && <p className="text-[10px] text-white/35 px-1 font-medium">{name}</p>}
-                  <div className={`px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed ${isMe ? "bg-[#c5f135] text-[#1a2110] font-medium rounded-br-sm" : "bg-[#1e2d12] text-white rounded-bl-sm"}`}>
-                    {msg.message}
-                  </div>
-                  <p className="text-[10px] text-white/25 px-1">{formatChatTime(msg.created_at)}</p>
-                </div>
-              </div>
-            )
-          })
-        )}
-        <div ref={bottomRef} />
-      </div>
-
-      <div className="shrink-0 px-4 py-3 border-t border-[#2e3d1a] bg-[#1a2110] flex items-end gap-3">
-        <textarea
-          ref={inputRef}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage() } }}
-          placeholder="Message…"
-          maxLength={500}
-          rows={1}
-          className="flex-1 bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl px-4 py-3 text-white text-sm placeholder-white/25 focus:outline-none focus:border-[#c5f135]/50 resize-none transition"
-          style={{ maxHeight: "120px" }}
-        />
-        <button onClick={sendMessage} disabled={!input.trim() || sending}
-          className="w-10 h-10 rounded-full bg-[#c5f135] flex items-center justify-center shrink-0 hover:bg-[#d4ff45] transition disabled:opacity-30">
-          <Send className="w-4 h-4 text-[#1a2110]" />
-        </button>
-      </div>
-    </div>
-  )
 }
 
 // ── Manager View ───────────────────────────────────────────────────────────────
@@ -278,7 +113,7 @@ const ALL_TABS = [
 
 type TabKey = (typeof ALL_TABS)[number]["key"]
 
-function ManagerView({ userId, profile }: { userId: string; profile: Profile }) {
+function ManagerView({ userId }: { userId: string }) {
   const router = useRouter()
   const [tab, setTab] = useState<TabKey>("runs")
   const [runPanel, setRunPanel] = useState<null | "create" | string>(null)
@@ -465,7 +300,7 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
 
   const generateMembersRuns = async (clubIdOverride?: string) => {
     const clubId = clubIdOverride ?? selectedClubId
-    if (!clubId) { setGenerateStatus("No club selected"); return }
+    if (!clubId) { setGenerateStatus("No klub selected"); return }
 
     setGenerating(true)
     setGenerateStatus("")
@@ -491,7 +326,7 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
         .from("region_days").select("id, region_id, day_of_week")
         .in("region_id", regions.map((r) => r.id)).eq("meets", true)
       if (rdErr) throw rdErr
-      if (!regionDays?.length) { setGenerateStatus("No days selected in Setup — toggle the days your club meets"); return }
+      if (!regionDays?.length) { setGenerateStatus("No days selected in Setup — toggle the days your klub meets"); return }
 
       // Fetch configured meeting times for each active day
       const rdIds = regionDays.map((rd) => rd.id)
@@ -781,7 +616,7 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
   const handleDelete = async () => {
     if (!selectedClubId) return
     const club = myClubs.find((c) => c.id === selectedClubId)
-    if (!confirm(`Delete ${club?.name ?? "this club"}? This cannot be undone.`)) return
+    if (!confirm(`Delete ${club?.name ?? "this klub"}? This cannot be undone.`)) return
     await supabase.from("clubs").delete().eq("id", selectedClubId)
     const remaining = myClubs.filter((c) => c.id !== selectedClubId)
     setMyClubs(remaining)
@@ -797,7 +632,22 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
   }
 
   if (selectedRun) {
-    return <ChatPanel run={selectedRun} userId={userId} profile={profile} onClose={() => setSelectedRun(null)} />
+    return (
+      <RunChatPanel
+        run={{
+          id: selectedRun.id,
+          title: selectedRun.title,
+          date: selectedRun.date,
+          time: selectedRun.time,
+          distance: selectedRun.distance,
+          meeting_point: selectedRun.meeting_point,
+          clubName: selectedRun.clubs?.name || "Klub",
+          clubImageUrl: selectedRun.clubs?.image_url,
+        }}
+        userId={userId}
+        onClose={() => setSelectedRun(null)}
+      />
+    )
   }
 
   if (loading) {
@@ -813,10 +663,10 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
       <div className="min-h-screen bg-[#1a2110]">
         <div className="max-w-2xl mx-auto px-5 py-20 text-center">
           <Trophy className="w-12 h-12 text-white/15 mx-auto mb-4" />
-          <p className="text-white/80 text-base font-semibold">No clubs yet</p>
-          <p className="text-white/30 text-sm mt-1 mb-6">Create your first run club to get started.</p>
+          <p className="text-white/80 text-base font-semibold">No klubs yet</p>
+          <p className="text-white/30 text-sm mt-1 mb-6">Create your first run klub to get started.</p>
           <Link href="/submit-club" className="px-6 py-3 bg-[#c5f135] text-[#1a2110] text-sm font-black rounded-full hover:bg-[#d4ff45] transition">
-            + Create a Club
+            + Create a Klub
           </Link>
         </div>
       </div>
@@ -832,9 +682,9 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
   const isPaid = !isFree
 
   const UPSELL_INFO: Record<"starter" | "growth" | "enterprise", { name: string; price: string; trial: boolean; headline: string; features: string[] }> = {
-    starter:    { name: "Starter",    price: "$24.99/mo", trial: true,  headline: "More tools for your club",  features: ["Private member-only runs", "Weekly email reminders", "Charge members to join", "Workout library", "Verified badge"] },
-    growth:     { name: "Growth",     price: "$49.99/mo", trial: false, headline: "Scale up your club",        features: ["Everything in Starter", "One branch + unlimited locations", "Up to 10 coaches", "Priority placement"] },
-    enterprise: { name: "Enterprise", price: "$99.99/mo", trial: false, headline: "Take your club to the top", features: ["Everything in Growth", "Unlimited branches", "First in city search", "Event payments at 1%"] },
+    starter:    { name: "Starter",    price: "$24.99/mo", trial: true,  headline: "More tools for your klub",  features: ["Private member-only runs", "Weekly email reminders", "Charge members to join", "Workout library", "Verified badge"] },
+    growth:     { name: "Growth",     price: "$49.99/mo", trial: false, headline: "Scale up your klub",        features: ["Everything in Starter", "One branch + unlimited locations", "Up to 10 coaches", "Priority placement"] },
+    enterprise: { name: "Enterprise", price: "$99.99/mo", trial: false, headline: "Take your klub to the top", features: ["Everything in Growth", "Unlimited branches", "First in city search", "Event payments at 1%"] },
   }
 
   const makeUpgradeCard = (targetTier: "starter" | "growth" | "enterprise", highlighted: boolean) => {
@@ -1011,7 +861,7 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
       {/* Club switcher */}
       {myClubs.length > 1 && (
         <div className="bg-[#111a0a] border-b border-[#2e3d1a] px-4 py-2.5 flex items-center gap-2 overflow-x-auto scrollbar-none">
-          <p className="text-[10px] font-bold text-white/25 uppercase tracking-widest shrink-0 mr-1">My Clubs</p>
+          <p className="text-[10px] font-bold text-white/25 uppercase tracking-widest shrink-0 mr-1">My Klubs</p>
           {myClubs.map((club) => (
             <button key={club.id} onClick={() => setSelectedClubId(club.id)}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition ${
@@ -1030,7 +880,7 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
       <header className="bg-[#1e2d12] border-b border-[#2e3d1a]">
         <div className="max-w-5xl mx-auto px-6 py-5 flex items-center justify-between gap-4 flex-wrap">
           <div>
-            <p className="text-xs font-bold text-[#c5f135]/60 uppercase tracking-widest">Club Manager</p>
+            <p className="text-xs font-bold text-[#c5f135]/60 uppercase tracking-widest">Klub Manager</p>
             <div className="flex items-center gap-2 flex-wrap mt-0.5">
               <h1 className="text-xl font-black text-white">{selectedClub.name}</h1>
               {isStarter && (
@@ -1103,7 +953,7 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
           {/* Tier preview — admin mode only (append ?admin=1 to URL) */}
           {isAdminMode && (() => {
             const TIER_PLANS: Record<"free" | "starter" | "growth" | "enterprise", { price: string; features: string[] }> = {
-              free:       { price: "Free",        features: ["Public club listing", "Unlimited run posts", "Run chat for members", "Basic analytics"] },
+              free:       { price: "Free",        features: ["Public klub listing", "Unlimited run posts", "Run chat for members", "Basic analytics"] },
               starter:    { price: "$24.99/mo",   features: ["1-month free trial", "Private member-only runs", "Weekly email reminders", "Charge members to join", "Workout library", "Verified badge + invite by email"] },
               growth:     { price: "$49.99/mo",   features: ["Everything in Starter", "One branch + unlimited locations", "Pace groups", "Up to 10 coaches", "Priority placement in search"] },
               enterprise: { price: "$99.99/mo",   features: ["Everything in Growth", "Unlimited branches", "First in city search", "Training schedules", "Event payments at 1% fee"] },
@@ -1752,7 +1602,7 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
                           </div>
                           <div>
                             <label className="block text-[10px] font-bold text-white/80 uppercase tracking-widest mb-1.5">Message</label>
-                            <textarea value={newsletterBody} onChange={(e) => setNewsletterBody(e.target.value)} placeholder="Write your message to club followers…" rows={5}
+                            <textarea value={newsletterBody} onChange={(e) => setNewsletterBody(e.target.value)} placeholder="Write your message to klub followers…" rows={5}
                               className="w-full bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2.5 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#c5f135]/50 transition resize-none" />
                           </div>
                           {newsletterError && <p className="text-red-400/80 text-xs">{newsletterError}</p>}
@@ -1902,12 +1752,12 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
           {tab === "settings" && runPanel === null && (
             <div className="space-y-6">
               <Card>
-                <SectionTitle>Club Visibility</SectionTitle>
+                <SectionTitle>Klub Visibility</SectionTitle>
                 <button onClick={toggleClubVisibility}
                   className="w-full flex items-center gap-3 p-3 rounded-xl bg-[#1a2110] border border-[#2e3d1a] hover:border-[#c5f135]/20 transition text-left">
                   {selectedClub.is_public ? <Globe className="w-4 h-4 text-[#c5f135] shrink-0" /> : <Lock className="w-4 h-4 text-white/80 shrink-0" />}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-white">Club Visibility</p>
+                    <p className="text-sm font-medium text-white">Klub Visibility</p>
                     <p className="text-xs text-white/80 mt-0.5">{selectedClub.is_public ? "Visible on the discover map" : "Hidden — only members can find you"}</p>
                   </div>
                   <span className={`text-xs font-black px-2.5 py-1 rounded-full shrink-0 ${selectedClub.is_public ? "bg-[#c5f135]/10 text-[#c5f135] border border-[#c5f135]/30" : "bg-white/5 text-white/80 border border-white/15"}`}>
@@ -1918,13 +1768,13 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
 
               <Card>
                 <div className="flex items-center justify-between mb-3">
-                  <SectionTitle>Club Details</SectionTitle>
+                  <SectionTitle>Klub Details</SectionTitle>
                   <button onClick={() => setEditing(!editing)} className="text-xs font-bold text-white/80 hover:text-white transition">{editing ? "Cancel" : "Edit"}</button>
                 </div>
                 {editing ? (
                   <div className="space-y-3">
                     <div>
-                      <label className="block text-xs font-semibold text-white/80 mb-1.5">Club Photo</label>
+                      <label className="block text-xs font-semibold text-white/80 mb-1.5">Klub Photo</label>
                       <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => {
                         const file = e.target.files?.[0]
                         if (!file) return
@@ -1948,7 +1798,7 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
                       )}
                     </div>
                     {([
-                      { label: "Club Name", field: "name" as const, placeholder: "e.g. Boulder Trail Runners" },
+                      { label: "Klub Name", field: "name" as const, placeholder: "e.g. Boulder Trail Runners" },
                       { label: "City", field: "city" as const, placeholder: "e.g. Boulder, CO" },
                       { label: "Location", field: "location" as const, placeholder: "Meeting address or landmark" },
                       { label: "Meeting Day", field: "day" as const, placeholder: "e.g. Saturday" },
@@ -1967,13 +1817,13 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
                       <label className="block text-xs font-semibold text-white/80 mb-1">Instagram <span className="font-normal text-white/25">(optional)</span></label>
                       <div className="relative">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 text-sm pointer-events-none">@</span>
-                        <input value={editForm.instagram} onChange={(e) => setEditForm({ ...editForm, instagram: e.target.value.replace(/^@/, "") })} placeholder="yourclubhandle"
+                        <input value={editForm.instagram} onChange={(e) => setEditForm({ ...editForm, instagram: e.target.value.replace(/^@/, "") })} placeholder="yourklubhandle"
                           className="w-full bg-[#1a2110] border border-[#2e3d1a] rounded-xl pl-7 pr-3 py-2 text-sm text-white placeholder-white/20 focus:outline-none focus:border-[#c5f135]/50 transition" />
                       </div>
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-white/80 mb-1">Website <span className="font-normal text-white/25">(optional)</span></label>
-                      <Input value={editForm.website} onChange={(e) => setEditForm({ ...editForm, website: e.target.value })} placeholder="https://yourclub.com" />
+                      <Input value={editForm.website} onChange={(e) => setEditForm({ ...editForm, website: e.target.value })} placeholder="https://yourklub.com" />
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-white/80 mb-1.5">Membership</label>
@@ -2028,134 +1878,14 @@ function ManagerView({ userId, profile }: { userId: string; profile: Profile }) 
 
               <div className="border border-red-500/20 rounded-2xl p-5 bg-red-500/5">
                 <p className="text-xs font-bold text-red-400/70 uppercase tracking-widest mb-3">Danger Zone</p>
-                <p className="text-xs text-white/80 mb-4">Deleting your club is permanent and cannot be undone. All runs, members, and data will be lost.</p>
-                <Button variant="danger" onClick={handleDelete}>Delete this club</Button>
+                <p className="text-xs text-white/80 mb-4">Deleting your klub is permanent and cannot be undone. All runs, members, and data will be lost.</p>
+                <Button variant="danger" onClick={handleDelete}>Delete this klub</Button>
               </div>
             </div>
           )}
 
         </div>{/* end content */}
       </div>{/* end sidebar+content */}
-    </div>
-  )
-}
-
-// ── Member View ────────────────────────────────────────────────────────────────
-
-function MemberView({ userId, profile }: { userId: string; profile: Profile }) {
-  const [runs, setRuns] = useState<RunChatPreview[]>([])
-  const [loading, setLoading] = useState(true)
-  const [selectedRun, setSelectedRun] = useState<RunWithClub | null>(null)
-
-  useEffect(() => {
-    const load = async () => {
-      const { data: subs } = await supabase.from("subscriptions").select("club_id").eq("user_id", userId)
-      const clubIds = (subs || []).map((s: any) => s.club_id)
-      if (clubIds.length === 0) { setLoading(false); return }
-
-      const today = localDateStr()
-      const { data: runsData } = await supabase.from("runs").select("*, clubs(name, image_url)").in("club_id", clubIds).eq("kind", "run").gte("date", today).order("date").order("time")
-      if (!runsData || runsData.length === 0) { setLoading(false); return }
-
-      const runIds = runsData.map((r: any) => r.id)
-      const { data: chats } = await supabase.from("run_chats").select("*, profiles(display_name, avatar_url)").in("run_id", runIds).order("created_at", { ascending: false })
-      const chatsByRun: Record<string, ChatMessage[]> = {}
-      for (const msg of (chats || []) as ChatMessage[]) {
-        if (!chatsByRun[msg.run_id]) chatsByRun[msg.run_id] = []
-        chatsByRun[msg.run_id].push(msg)
-      }
-
-      const withPreviews: RunChatPreview[] = (runsData as RunWithClub[]).map((r) => ({
-        ...r,
-        message_count: chatsByRun[r.id]?.length || 0,
-        last_message: chatsByRun[r.id]?.[0] || null,
-      }))
-
-      withPreviews.sort((a, b) => {
-        if (a.last_message && b.last_message) return new Date(b.last_message.created_at).getTime() - new Date(a.last_message.created_at).getTime()
-        if (a.last_message) return -1
-        if (b.last_message) return 1
-        return a.date.localeCompare(b.date)
-      })
-
-      setRuns(withPreviews)
-      setLoading(false)
-    }
-    load()
-  }, [userId])
-
-  if (selectedRun) {
-    return <ChatPanel run={selectedRun} userId={userId} profile={profile} onClose={() => setSelectedRun(null)} />
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#1a2110] flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-[#c5f135]/30 border-t-[#c5f135] rounded-full animate-spin" />
-      </div>
-    )
-  }
-
-  return (
-    <div className="min-h-screen bg-[#1a2110]">
-      <div className="max-w-lg mx-auto px-4 py-8">
-        <div className="mb-6">
-          <h1 className="text-2xl font-black text-white">Messages</h1>
-          <p className="text-sm text-white/80 mt-0.5">Chats from your upcoming runs.</p>
-        </div>
-
-        {runs.length === 0 ? (
-          <div className="bg-[#1e2d12] rounded-2xl p-8 text-center">
-            <MessageSquare className="w-10 h-10 text-white/20 mx-auto mb-3" />
-            <p className="text-white/80 text-sm font-medium">No upcoming runs</p>
-            <p className="text-white/30 text-xs mt-1 mb-5">Join a club to see event chats here.</p>
-            <Link href="/explore" className="px-5 py-2.5 bg-[#c5f135] text-[#1a2110] text-sm font-black rounded-full">
-              Discover Clubs
-            </Link>
-          </div>
-        ) : (
-          <div className="bg-[#1e2d12] rounded-2xl overflow-hidden divide-y divide-[#2e3d1a]">
-            {runs.map((run) => {
-              const clubName = run.clubs?.name || "Club"
-              const dayLabel = formatDay(run.date)
-              const isToday = dayLabel === "Today"
-              return (
-                <button key={run.id} onClick={() => setSelectedRun(run)}
-                  className="w-full flex items-center gap-3.5 px-4 py-4 hover:bg-[#2e3d1a]/40 transition text-left">
-                  <div className="w-11 h-11 rounded-xl bg-[#2e3d1a] shrink-0 overflow-hidden flex items-center justify-center">
-                    {run.clubs?.image_url
-                      ? <img src={run.clubs.image_url} alt="" className="w-full h-full object-cover" />
-                      : <span className="text-xs font-black text-[#c5f135]">{clubAbbr(clubName)}</span>
-                    }
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2 mb-0.5">
-                      <p className="text-sm font-bold text-white truncate">{run.title}</p>
-                      <span className="shrink-0 text-[10px] text-white/30">
-                        {run.last_message ? formatChatTime(run.last_message.created_at) : <span className={isToday ? "text-[#c5f135] font-semibold" : ""}>{dayLabel}</span>}
-                      </span>
-                    </div>
-                    <p className="text-xs text-white/80 truncate">{clubName} · {isToday ? "Today" : dayLabel} at {formatTime(run.time)}</p>
-                    {run.last_message ? (
-                      <p className="text-xs text-white/80 truncate mt-1">
-                        <span className="text-white/80 font-medium">{run.last_message.profiles?.display_name || "Runner"}:</span>{" "}{run.last_message.message}
-                      </p>
-                    ) : (
-                      <p className="text-xs text-white/20 truncate mt-1">No messages yet</p>
-                    )}
-                  </div>
-                  {run.message_count > 0 && (
-                    <div className="shrink-0 w-5 h-5 rounded-full bg-[#c5f135] flex items-center justify-center">
-                      <span className="text-[9px] font-black text-[#1a2110]">{run.message_count > 9 ? "9+" : run.message_count}</span>
-                    </div>
-                  )}
-                </button>
-              )
-            })}
-          </div>
-        )}
-        <div className="h-8" />
-      </div>
     </div>
   )
 }
@@ -2174,6 +1904,8 @@ export default function DirectorPage() {
       if (!user) { router.push("/login"); return }
       setUser(user)
       const { data: prof } = await supabase.from("profiles").select("id, display_name, avatar_url, role").eq("id", user.id).single()
+      // Director dashboard is manager-only — members' chats now live in the Hub
+      if (prof?.role !== "manager") { router.replace("/today"); return }
       setProfile(prof)
       setLoading(false)
     }
@@ -2188,9 +1920,7 @@ export default function DirectorPage() {
     )
   }
 
-  if (!user) return null
+  if (!user || !profile) return null
 
-  return profile?.role === "manager"
-    ? <ManagerView userId={user.id} profile={profile} />
-    : <MemberView userId={user.id} profile={profile!} />
+  return <ManagerView userId={user.id} />
 }

@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     // Validate inputs
     const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
     if (!clubId || !UUID_RE.test(clubId)) {
-      return NextResponse.json({ error: "Invalid club ID" }, { status: 400 })
+      return NextResponse.json({ error: "Invalid klub ID" }, { status: 400 })
     }
     if (!tier || !(tier in TIER_PRICE_ENV)) {
       return NextResponse.json({ error: "Invalid plan" }, { status: 400 })
@@ -51,14 +51,14 @@ export async function POST(req: NextRequest) {
       .eq("user_id", user.id)
       .single()
 
-    if (!club) return NextResponse.json({ error: "Club not found" }, { status: 404 })
+    if (!club) return NextResponse.json({ error: "Klub not found" }, { status: 404 })
 
     // Prevent downgrade or same-tier checkout
     const currentRank = TIER_RANK[club.tier as string] ?? 0
     const targetRank  = TIER_RANK[tier] ?? 0
     if (targetRank <= currentRank) {
       return NextResponse.json(
-        { error: `Your club is already on the ${club.tier} plan or higher` },
+        { error: `Your klub is already on the ${club.tier} plan or higher` },
         { status: 400 }
       )
     }

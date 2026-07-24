@@ -56,7 +56,7 @@ export default function MemberViewPage() {
         <h1 className="text-2xl font-black text-white mb-1">Runs visible to you</h1>
         <p className="text-sm text-white/60 mb-6">
           Signed in as <span className="font-bold text-white/70">{email ?? "…"}</span>. This is exactly what the
-          database&rsquo;s row-level security lets this account see for the test club — not a cached or
+          database&rsquo;s row-level security lets this account see for the test klub — not a cached or
           admin-bypassed view.
         </p>
 
@@ -66,7 +66,7 @@ export default function MemberViewPage() {
           ) : runs.length === 0 ? (
             <p className="text-sm text-white/50">
               No runs visible. Either none exist yet, or this account isn&rsquo;t an active member /
-              owner / admin for this club.
+              owner / admin for this klub.
             </p>
           ) : (
             <div className="space-y-2">

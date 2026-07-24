@@ -190,7 +190,7 @@ function JoinContent() {
         <p className="text-xs font-bold text-[#c5f135]/60 uppercase tracking-widest mb-1">
           {inviteToken ? "You're invited" : "Admin prototype"}
         </p>
-        <h1 className="text-2xl font-black text-white mb-1">Join the club</h1>
+        <h1 className="text-2xl font-black text-white mb-1">Join the klub</h1>
         <p className="text-sm text-white/60 mb-6">
           {inviteToken ? "Pick your pace group and branch to get matched." : "Simulates a prospective member signing up and getting matched."}
         </p>
@@ -270,7 +270,7 @@ function JoinContent() {
               <p className="text-xs font-bold text-[#c5f135] uppercase tracking-widest mb-1">Matched — pending approval</p>
               <h2 className="text-lg font-black text-white">Welcome, {name.trim()}</h2>
               <p className="text-xs text-white/60 mt-1">
-                A manager needs to approve you before you can see this club&rsquo;s runs.
+                A manager needs to approve you before you can see this klub&rsquo;s runs.
               </p>
             </div>
 
@@ -340,7 +340,7 @@ function JoinContent() {
                   href="/admin/club-model/member-view"
                   className="block text-center text-xs text-white/50 hover:text-white/70"
                 >
-                  Check whether I can see this club&rsquo;s runs yet →
+                  Check whether I can see this klub&rsquo;s runs yet →
                 </Link>
               </>
             )}

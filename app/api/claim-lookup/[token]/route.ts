@@ -57,7 +57,7 @@ function buildSetupEmail(clubName: string, magicLinkUrl: string): { html: string
               One click to set up ${safeClub} 👟
             </h1>
             <p style="margin:0 0 28px;font-size:15px;line-height:1.7;color:rgba(255,255,255,0.7);">
-              Your claim was approved. Click below to sign in and your club will be linked to your account automatically.
+              Your claim was approved. Click below to sign in and your klub will be linked to your account automatically.
             </p>
             <table cellpadding="0" cellspacing="0">
               <tr>
@@ -90,7 +90,7 @@ function buildSetupEmail(clubName: string, magicLinkUrl: string): { html: string
 
   const text = `One click to set up ${clubName} 👟
 
-Your claim was approved. Click the link below to sign in — your club will be linked automatically.
+Your claim was approved. Click the link below to sign in — your klub will be linked automatically.
 
 ${magicLinkUrl}
 
@@ -180,7 +180,7 @@ export async function POST(
       .single()
 
     if (!club) return NextResponse.json({ error: "Invalid link" }, { status: 404 })
-    if (club.claim_token_used_at) return NextResponse.json({ error: "This club has already been claimed" }, { status: 410 })
+    if (club.claim_token_used_at) return NextResponse.json({ error: "This klub has already been claimed" }, { status: 410 })
 
     const email = contact_email.trim().toLowerCase()
 
@@ -194,7 +194,7 @@ export async function POST(
       .maybeSingle()
 
     if (existingPending) {
-      return NextResponse.json({ error: "A claim is already pending for this club" }, { status: 409 })
+      return NextResponse.json({ error: "A claim is already pending for this klub" }, { status: 409 })
     }
 
     const { error: insertError } = await getAdminSupabase().from("club_claims").insert({
@@ -288,7 +288,7 @@ async function sendPendingNotifications(clubName: string, directorEmail: string,
             <h1 style="margin:0 0 16px;font-size:22px;font-weight:900;color:#ffffff;">New claim pending review</h1>
             <table cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:28px;">
               <tr>
-                <td style="padding:4px 0;font-size:14px;color:rgba(255,255,255,0.4);width:100px;">Club</td>
+                <td style="padding:4px 0;font-size:14px;color:rgba(255,255,255,0.4);width:100px;">Klub</td>
                 <td style="padding:4px 0;font-size:14px;color:#ffffff;font-weight:700;">${safeClub}</td>
               </tr>
               <tr>
@@ -337,9 +337,9 @@ async function sendPendingNotifications(clubName: string, directorEmail: string,
       ? getResend().emails.send({
           from: FROM,
           to: adminEmails,
-          subject: `Club claim pending review — ${clubName}`,
+          subject: `Klub claim pending review — ${clubName}`,
           html: adminHtml,
-          text: `New club claim pending review\n\nClub: ${clubName}\nName: ${directorName}\nEmail: ${directorEmail}\n\nReview: ${reviewUrl}`,
+          text: `New klub claim pending review\n\nKlub: ${clubName}\nName: ${directorName}\nEmail: ${directorEmail}\n\nReview: ${reviewUrl}`,
         })
       : Promise.resolve(),
   ])

@@ -175,7 +175,7 @@ function buildScheduleEmail(
           <td style="padding:20px 32px;border-top:1px solid #2e3d1a;">
             <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.25);line-height:1.6;">
               You&rsquo;re receiving this as a member of ${esc(clubName)} on RunKlub.<br>
-              <a href="${clubUrl}" style="color:rgba(197,241,53,0.45);text-decoration:none;">View club</a>
+              <a href="${clubUrl}" style="color:rgba(197,241,53,0.45);text-decoration:none;">View klub</a>
               &nbsp;&mdash;&nbsp;
               <a href="${BASE_URL}/explore" style="color:rgba(197,241,53,0.45);text-decoration:none;">RunKlub</a>
             </p>
@@ -209,7 +209,7 @@ export async function POST(req: NextRequest) {
 
     const { data: club } = await adminSupabase
       .from("clubs").select("id, name, tier").eq("id", club_id).eq("user_id", user.id).single()
-    if (!club) return NextResponse.json({ error: "Club not found or unauthorized" }, { status: 403 })
+    if (!club) return NextResponse.json({ error: "Klub not found or unauthorized" }, { status: 403 })
 
     if (club.tier !== "growth" && club.tier !== "enterprise") {
       return NextResponse.json(

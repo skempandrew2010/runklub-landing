@@ -69,12 +69,12 @@ export default function WelcomeContent() {
       fetch(`/api/claim-lookup/${claimToken}`)
         .then(r => r.json())
         .then(data => {
-          if (data.error === "used") { setErrorMsg("This club has already been claimed."); setMode("error"); return }
+          if (data.error === "used") { setErrorMsg("This klub has already been claimed."); setMode("error"); return }
           if (!data.club) { setErrorMsg("This invite link is invalid or has expired."); setMode("error"); return }
           setClubName(data.club.name)
           setMode("claim_form")
         })
-        .catch(() => { setErrorMsg("Could not load club info. Please try again."); setMode("error") })
+        .catch(() => { setErrorMsg("Could not load klub info. Please try again."); setMode("error") })
     })
 
     // Handles magic link sign-in from approval email
@@ -154,7 +154,7 @@ export default function WelcomeContent() {
         {(mode === "loading" || mode === "activating") && (
           <>
             <div className="w-10 h-10 border-2 border-[#c5f135]/30 border-t-[#c5f135] rounded-full animate-spin mx-auto" />
-            <p className="text-white/60 text-sm">{mode === "activating" ? "Linking your club…" : "Loading…"}</p>
+            <p className="text-white/60 text-sm">{mode === "activating" ? "Linking your klub…" : "Loading…"}</p>
           </>
         )}
 
@@ -205,7 +205,7 @@ export default function WelcomeContent() {
                 disabled={!name.trim() || !email.trim() || password.length < 6 || submitting}
                 className="w-full bg-[#c5f135] text-[#1a2110] font-black text-base py-4 rounded-2xl hover:bg-[#d4ff45] transition disabled:opacity-40"
               >
-                {submitting ? "Submitting…" : "Claim my club"}
+                {submitting ? "Submitting…" : "Claim my klub"}
               </button>
             </form>
           </>
@@ -243,7 +243,7 @@ export default function WelcomeContent() {
             </div>
             <div>
               <p className="text-white font-black text-xl mb-2">You&rsquo;re all set!</p>
-              <p className="text-white/50 text-sm">Your club is linked. Taking you there now…</p>
+              <p className="text-white/50 text-sm">Your klub is linked. Taking you there now…</p>
             </div>
           </>
         )}

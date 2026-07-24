@@ -74,7 +74,7 @@ export default function ClubList({
   if (clubs.length === 0) {
     return (
       <div className="px-6 py-16 text-center">
-        <p className="text-white/40 text-sm font-medium">No clubs found</p>
+        <p className="text-white/40 text-sm font-medium">No klubs found</p>
         <p className="text-white/25 text-xs mt-1">Try adjusting your filters</p>
       </div>
     )

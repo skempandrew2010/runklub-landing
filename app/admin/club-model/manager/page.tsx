@@ -40,7 +40,7 @@ export default function ClubModelManagerPage() {
         <div className="max-w-5xl mx-auto px-6 py-5 flex items-center justify-between">
           <div>
             <p className="text-xs font-bold text-[#c5f135]/60 uppercase tracking-widest">Admin prototype</p>
-            <h1 className="text-xl font-black text-white">Club Manager Dashboard</h1>
+            <h1 className="text-xl font-black text-white">Klub Manager Dashboard</h1>
           </div>
           <div className="flex flex-col items-end gap-1">
             <Link href="/admin/club-model/join" className="text-sm font-bold text-[#c5f135] hover:text-[#d4fb4d]">

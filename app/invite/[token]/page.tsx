@@ -75,7 +75,7 @@ export default function InvitePage() {
   }
 
   const club = invite?.clubs
-  const clubName = club?.name ?? "this club"
+  const clubName = club?.name ?? "this klub"
   const initials = clubName.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase()
 
   if (state === "loading") {
@@ -94,7 +94,7 @@ export default function InvitePage() {
           <h1 className="text-xl font-black text-white mb-2">Invite not found</h1>
           <p className="text-white/50 text-sm mb-6">This invite link is invalid or has already been used.</p>
           <Link href="/explore" className="px-6 py-3 bg-[#c5f135] text-[#1a2110] text-sm font-black rounded-full">
-            Explore Clubs
+            Explore Klubs
           </Link>
         </div>
       </div>
@@ -121,7 +121,7 @@ export default function InvitePage() {
           <h1 className="text-xl font-black text-white mb-2">Invite revoked</h1>
           <p className="text-white/50 text-sm mb-6">This invite is no longer active.</p>
           <Link href="/explore" className="px-6 py-3 bg-[#c5f135] text-[#1a2110] text-sm font-black rounded-full">
-            Explore Clubs
+            Explore Klubs
           </Link>
         </div>
       </div>
@@ -136,7 +136,7 @@ export default function InvitePage() {
           <h1 className="text-xl font-black text-white mb-2">Already joined!</h1>
           <p className="text-white/50 text-sm mb-6">You're already a member of {clubName}.</p>
           <Link href={`/clubs/${invite.club_id}`} className="px-6 py-3 bg-[#c5f135] text-[#1a2110] text-sm font-black rounded-full">
-            View Club
+            View Klub
           </Link>
         </div>
       </div>

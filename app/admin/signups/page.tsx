@@ -88,7 +88,7 @@ export default function AdminSignupsPage() {
           onClick={() => router.push("/admin/claims")}
           className="flex items-center gap-1.5 text-xs text-white/30 hover:text-white/70 transition mb-4"
         >
-          <ArrowLeft className="w-3.5 h-3.5" /> Club Management
+          <ArrowLeft className="w-3.5 h-3.5" /> Klub Management
         </button>
         <div className="mb-6">
           <p className="text-xs font-bold text-[#c5f135]/60 uppercase tracking-widest mb-1">Admin</p>

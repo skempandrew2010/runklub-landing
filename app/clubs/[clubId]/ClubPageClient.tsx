@@ -1,12 +1,27 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { supabase } from "@/lib/supabase"
-import { Heart, MapPin, Clock, Users, ArrowLeft, Zap, ShieldCheck, ExternalLink, MessageSquare, Send } from "lucide-react"
+import { Heart, MapPin, Clock, Users, ArrowLeft, Zap, ShieldCheck, ExternalLink, MessageSquare, Stamp } from "lucide-react"
 import { getTagStyle } from "@/utils/tagStyle"
 import { localDateStr } from "@/utils/dates"
+import { getDistanceMiles } from "@/utils/distance"
+import { checkInToClub } from "@/lib/checkins"
+import RunChatPanel from "@/components/RunChatPanel"
 import { track } from "@vercel/analytics"
+
+const CHECKIN_RADIUS_MILES = 0.3
+// Klubs without a precise pin fall back to their city's centroid — much
+// looser tolerance since a centroid can be miles from the actual meeting spot.
+const METRO_CHECKIN_RADIUS_MILES = 25
+
+function getCurrentPosition(): Promise<GeolocationPosition> {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) { reject(new Error("Geolocation not supported")); return }
+    navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 10000 })
+  })
+}
 
 export type Club = {
   id: string
@@ -20,6 +35,8 @@ export type Club = {
   is_public: boolean
   membership_type?: "free" | "optional_paid" | "paid_required" | null
   website?: string | null
+  latitude?: number | null
+  longitude?: number | null
 }
 
 export type Run = {
@@ -31,186 +48,6 @@ export type Run = {
   meeting_point: string | null
   tags: string[] | null
   members_only?: boolean
-}
-
-type ChatMessage = {
-  id: string
-  run_id: string
-  user_id: string
-  message: string
-  created_at: string
-  profiles: { display_name: string | null; avatar_url: string | null } | null
-}
-
-type UserProfile = { display_name: string | null; avatar_url: string | null }
-
-function formatChatTime(iso: string) {
-  const d = new Date(iso)
-  const diffMin = Math.floor((Date.now() - d.getTime()) / 60000)
-  if (diffMin < 1) return "now"
-  if (diffMin < 60) return `${diffMin}m`
-  const diffH = Math.floor(diffMin / 60)
-  if (diffH < 24) return `${diffH}h`
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
-}
-
-function ClubChatPanel({
-  run,
-  club,
-  userId,
-  userProfile,
-  onClose,
-}: {
-  run: Run
-  club: Club
-  userId: string
-  userProfile: UserProfile | null
-  onClose: () => void
-}) {
-  const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [input, setInput] = useState("")
-  const [sending, setSending] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const bottomRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLTextAreaElement>(null)
-
-  const loadMessages = useCallback(async () => {
-    const { data } = await supabase
-      .from("run_chats")
-      .select("*, profiles(display_name, avatar_url)")
-      .eq("run_id", run.id)
-      .order("created_at", { ascending: true })
-    setMessages((data || []) as ChatMessage[])
-    setLoading(false)
-  }, [run.id])
-
-  useEffect(() => {
-    loadMessages()
-    const channel = supabase
-      .channel(`club-run-chat-${run.id}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "run_chats", filter: `run_id=eq.${run.id}` }, () => loadMessages())
-      .subscribe()
-    return () => { supabase.removeChannel(channel) }
-  }, [run.id, loadMessages])
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [messages])
-
-  const sendMessage = async () => {
-    const text = input.trim()
-    if (!text || sending || text.length > 500) return
-    setSending(true)
-    setInput("")
-    await supabase.from("run_chats").insert({ run_id: run.id, user_id: userId, message: text })
-    setSending(false)
-    inputRef.current?.focus()
-  }
-
-  const initials = club.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
-
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-[#111a0a]" style={{ paddingTop: "env(safe-area-inset-top)" }}>
-      {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-[#2e3d1a] bg-[#1a2110] shrink-0">
-        <button onClick={onClose} className="text-white/50 hover:text-white transition p-1">
-          <ArrowLeft className="w-5 h-5" />
-        </button>
-        <div className="w-9 h-9 rounded-xl overflow-hidden shrink-0 flex items-center justify-center bg-[#2e3d1a]">
-          {club.image_url
-            ? <img src={club.image_url} alt="" className="w-full h-full object-cover" />
-            : <span className="text-xs font-black text-[#c5f135]">{initials}</span>
-          }
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold text-white truncate">{run.title}</p>
-          <p className="text-xs text-white/40 truncate">
-            {club.name} · {new Date(run.date + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} at {formatTime(run.time)}
-          </p>
-        </div>
-      </div>
-
-      {/* Run details strip */}
-      {(run.distance || run.meeting_point) && (
-        <div className="shrink-0 px-4 py-2.5 border-b border-[#2e3d1a] bg-[#141f0d] flex flex-wrap gap-2">
-          {run.distance && (
-            <span className="flex items-center gap-1.5 bg-[#1e2d12] rounded-full px-3 py-1.5 text-xs font-medium text-white/70">
-              {run.distance}
-            </span>
-          )}
-          {run.meeting_point && (
-            <span className="flex items-center gap-1.5 bg-[#1e2d12] rounded-full px-3 py-1.5 text-xs font-medium text-white/70 max-w-[60%]">
-              <MapPin className="w-3 h-3 text-[#c5f135] shrink-0" />
-              <span className="truncate">{run.meeting_point}</span>
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-        {loading ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="w-6 h-6 border-2 border-[#c5f135]/30 border-t-[#c5f135] rounded-full animate-spin" />
-          </div>
-        ) : messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center pb-20">
-            <MessageSquare className="w-10 h-10 text-white/15 mb-3" />
-            <p className="text-white/40 text-sm font-medium">No messages yet</p>
-            <p className="text-white/25 text-xs mt-1">Ask a question about this run!</p>
-          </div>
-        ) : (
-          messages.map((msg) => {
-            const isMe = msg.user_id === userId
-            const name = msg.profiles?.display_name || "Runner"
-            const initial = name[0]?.toUpperCase() || "?"
-            return (
-              <div key={msg.id} className={`flex gap-2.5 ${isMe ? "flex-row-reverse" : "flex-row"}`}>
-                {!isMe && (
-                  <div className="w-7 h-7 rounded-full bg-[#2e3d1a] flex items-center justify-center shrink-0 mt-auto overflow-hidden">
-                    {msg.profiles?.avatar_url
-                      ? <img src={msg.profiles.avatar_url} alt="" className="w-full h-full object-cover" />
-                      : <span className="text-xs font-bold text-[#c5f135]">{initial}</span>
-                    }
-                  </div>
-                )}
-                <div className={`max-w-[72%] flex flex-col gap-0.5 ${isMe ? "items-end" : "items-start"}`}>
-                  {!isMe && <p className="text-[10px] text-white/35 px-1 font-medium">{name}</p>}
-                  <div className={`px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed ${isMe ? "bg-[#c5f135] text-[#1a2110] font-medium rounded-br-sm" : "bg-[#1e2d12] text-white rounded-bl-sm"}`}>
-                    {msg.message}
-                  </div>
-                  <p className="text-[10px] text-white/25 px-1">{formatChatTime(msg.created_at)}</p>
-                </div>
-              </div>
-            )
-          })
-        )}
-        <div ref={bottomRef} />
-      </div>
-
-      {/* Input */}
-      <div className="shrink-0 px-4 py-3 border-t border-[#2e3d1a] bg-[#1a2110] flex items-end gap-3" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
-        <textarea
-          ref={inputRef}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage() } }}
-          placeholder="Ask about this run…"
-          maxLength={500}
-          rows={1}
-          className="flex-1 bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl px-4 py-3 text-white text-sm placeholder-white/25 focus:outline-none focus:border-[#c5f135]/50 resize-none transition"
-          style={{ maxHeight: "120px" }}
-        />
-        <button
-          onClick={sendMessage}
-          disabled={!input.trim() || sending}
-          className="w-10 h-10 rounded-full bg-[#c5f135] flex items-center justify-center shrink-0 hover:bg-[#d4ff45] transition disabled:opacity-30"
-        >
-          <Send className="w-4 h-4 text-[#1a2110]" />
-        </button>
-      </div>
-    </div>
-  )
 }
 
 const GRADIENTS = [
@@ -236,11 +73,13 @@ export default function ClubPageClient({
   runs,
   memberCount: initialMemberCount,
   isClaimed,
+  cityFallback,
 }: {
   club: Club
   runs: Run[]
   memberCount: number
   isClaimed: boolean
+  cityFallback: { lat: number; lng: number } | null
 }) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -257,9 +96,12 @@ export default function ClubPageClient({
   const [requestingJoin, setRequestingJoin] = useState(false)
   const [joinBanner, setJoinBanner] = useState(false)
   const [activeChatRun, setActiveChatRun] = useState<Run | null>(null)
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
+  const [chattableRunIds, setChattableRunIds] = useState<Set<string>>(new Set())
   const [isPaidMember, setIsPaidMember] = useState(false)
   const [memberOnlyRuns, setMemberOnlyRuns] = useState<Run[]>([])
+  const [checkingIn, setCheckingIn] = useState(false)
+  const [justCheckedIn, setJustCheckedIn] = useState(false)
+  const [checkInError, setCheckInError] = useState<string | null>(null)
 
   // Refs for section-visibility tracking
   const runsRef = useRef<HTMLDivElement>(null)
@@ -297,16 +139,16 @@ export default function ClubPageClient({
       const user = authData.user
       setUserId(user?.id ?? null)
       if (user) {
-        const [{ data: sub }, { data: existingClaim }, { data: prof }, { data: joinReq }] = await Promise.all([
+        const [{ data: sub }, { data: existingClaim }, { data: joinReq }, { data: chattable }] = await Promise.all([
           supabase.from("subscriptions").select("id, member_type").eq("user_id", user.id).eq("club_id", club.id).maybeSingle(),
           supabase.from("club_claims").select("id, status").eq("user_id", user.id).eq("club_id", club.id).maybeSingle(),
-          supabase.from("profiles").select("display_name, avatar_url").eq("id", user.id).single(),
           supabase.from("membership_requests").select("status").eq("user_id", user.id).eq("club_id", club.id).maybeSingle(),
+          supabase.rpc("my_chattable_run_ids"),
         ])
         setIsSubscribed(!!sub)
         if (existingClaim) setClaimStatus("pending")
         if (joinReq) setJoinRequestStatus(joinReq.status as any)
-        if (prof) setUserProfile(prof)
+        setChattableRunIds(new Set(((chattable as { run_id: string }[]) || []).map((r) => r.run_id)))
 
         const paid = (sub as any)?.member_type === "paid"
         setIsPaidMember(paid)
@@ -355,6 +197,60 @@ export default function ClubPageClient({
       track("club_followed", { clubId: club.id, clubName: club.name })
     }
     setSubscribing(false)
+  }
+
+  const handleCheckIn = async () => {
+    if (!userId) { router.push("/login"); return }
+
+    const checkinTarget = club.latitude != null && club.longitude != null
+      ? { lat: club.latitude, lng: club.longitude, radiusMiles: CHECKIN_RADIUS_MILES }
+      : cityFallback
+        ? { lat: cityFallback.lat, lng: cityFallback.lng, radiusMiles: METRO_CHECKIN_RADIUS_MILES }
+        : null
+
+    if (!checkinTarget) {
+      setCheckInError("This klub hasn't set a location yet, so check-in isn't available.")
+      return
+    }
+
+    setCheckingIn(true)
+    setCheckInError(null)
+
+    try {
+      const pos = await getCurrentPosition()
+      const distance = getDistanceMiles(pos.coords.latitude, pos.coords.longitude, checkinTarget.lat, checkinTarget.lng)
+      if (distance > checkinTarget.radiusMiles) {
+        setCheckInError("You need to be at the klub to check in.")
+        setCheckingIn(false)
+        return
+      }
+    } catch {
+      setCheckInError("Enable location access to check in.")
+      setCheckingIn(false)
+      return
+    }
+
+    const { data, error } = await checkInToClub(club.id)
+    setCheckingIn(false)
+
+    if (error || !data) {
+      setCheckInError("Check-in failed. Try again.")
+      return
+    }
+
+    setJustCheckedIn(true)
+    track("club_checked_in", { clubId: club.id, clubName: club.name })
+    setTimeout(() => setJustCheckedIn(false), 4000)
+
+    if (data.club_first || data.city_first) {
+      try {
+        const raw = sessionStorage.getItem("runklub_just_unlocked")
+        const unlocked = raw ? JSON.parse(raw) : { clubIds: [], cityIds: [] }
+        if (data.club_first) unlocked.clubIds.push(club.id)
+        if (data.city_first && data.city_id) unlocked.cityIds.push(data.city_id)
+        sessionStorage.setItem("runklub_just_unlocked", JSON.stringify(unlocked))
+      } catch { /* sessionStorage unavailable — unlock animation is a nice-to-have */ }
+    }
   }
 
   const handleRequestJoin = async () => {
@@ -499,8 +395,27 @@ export default function ClubPageClient({
                   : "bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45]"
               }`}
             >
-              {subscribing ? "…" : isSubscribed ? "Joined" : "Join Club"}
+              {subscribing ? "…" : isSubscribed ? "Joined" : "Join Klub"}
             </button>
+          )}
+
+          {userId && (
+            <button
+              onClick={handleCheckIn}
+              disabled={checkingIn}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-black transition disabled:opacity-50 ${
+                justCheckedIn
+                  ? "bg-[#c5f135]/15 border border-[#c5f135]/30 text-[#c5f135]"
+                  : "bg-[#1e2d12] border border-[#2e3d1a] text-white/70 hover:border-[#c5f135]/40 hover:text-white"
+              }`}
+            >
+              <Stamp className="w-4 h-4" />
+              {checkingIn ? "…" : justCheckedIn ? "Checked In!" : "Check In"}
+            </button>
+          )}
+
+          {checkInError && (
+            <p className="text-xs text-red-400/80 leading-relaxed w-full">{checkInError}</p>
           )}
 
           {club.instagram_handle && (
@@ -532,7 +447,7 @@ export default function ClubPageClient({
 
           {!userId && (
             <p className="text-xs text-white/30 leading-relaxed w-full">
-              Sign in to follow this club and get run updates.
+              Sign in to follow this klub and get run updates.
             </p>
           )}
         </div>
@@ -561,7 +476,7 @@ export default function ClubPageClient({
             <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-amber-400/5 border border-amber-400/15 mb-3">
               <span className="text-amber-400/70 text-xs leading-relaxed mt-px">ℹ</span>
               <p className="text-xs text-white/40 leading-relaxed">
-                This club hasn&apos;t been claimed yet — verify run details on their{" "}
+                This klub hasn&apos;t been claimed yet — verify run details on their{" "}
                 {club.instagram_handle && (
                   <a
                     href={`https://www.instagram.com/${club.instagram_handle}/`}
@@ -603,7 +518,7 @@ export default function ClubPageClient({
                     className={`relative rounded-2xl border px-4 py-4 ${isToday ? "bg-[#c5f135]/5 border-[#c5f135]/25" : "bg-[#1e2d12] border-[#2e3d1a]"}`}
                   >
                     <div className="flex items-start gap-3">
-                      {userId && (
+                      {userId && chattableRunIds.has(run.id) && (
                         <button
                           onClick={() => setActiveChatRun(run)}
                           className="absolute top-3 right-3 w-8 h-8 rounded-full bg-[#2e3d1a] flex items-center justify-center text-white/30 hover:text-[#c5f135] hover:bg-[#3d5220] transition"
@@ -678,14 +593,14 @@ export default function ClubPageClient({
         {!isClaimed && userId && claimStatus === "idle" && !showClaimForm && (
           <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-5 flex items-center justify-between gap-4">
             <div>
-              <p className="text-sm font-bold text-white">Is this your club?</p>
+              <p className="text-sm font-bold text-white">Is this your klub?</p>
               <p className="text-xs text-white/40 mt-0.5">Claim it to manage runs and connect with members.</p>
             </div>
             <button
               onClick={() => { setShowClaimForm(true); track("club_claim_opened", { clubId: club.id, clubName: club.name }) }}
               className="shrink-0 px-4 py-2 rounded-full border border-[#c5f135]/40 text-[#c5f135] text-xs font-black hover:bg-[#c5f135]/10 transition"
             >
-              Claim Club
+              Claim Klub
             </button>
           </div>
         )}
@@ -693,13 +608,13 @@ export default function ClubPageClient({
         {!isClaimed && userId && showClaimForm && claimStatus === "idle" && (
           <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-5 space-y-4">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-bold text-white">Claim this club</p>
+              <p className="text-sm font-bold text-white">Claim this klub</p>
               <button onClick={() => setShowClaimForm(false)} className="text-white/30 hover:text-white/60 transition text-xs">
                 Cancel
               </button>
             </div>
             <p className="text-xs text-white/40 leading-relaxed">
-              We'll review your claim and link your account as the club manager. We may reach out to verify.
+              We'll review your claim and link your account as the klub manager. We may reach out to verify.
             </p>
             <div>
               <label className="block text-xs font-semibold text-white/50 mb-1.5">Your Instagram handle <span className="font-normal text-white/25">(helps us verify)</span></label>
@@ -741,7 +656,7 @@ export default function ClubPageClient({
                 {claimStatus === "submitted" ? "Claim submitted!" : "Claim pending review"}
               </p>
               <p className="text-xs text-white/40 mt-0.5">
-                We'll review and reach out to link your account as the club manager.
+                We'll review and reach out to link your account as the klub manager.
               </p>
             </div>
           </div>
@@ -750,7 +665,7 @@ export default function ClubPageClient({
         {/* CTA for unauthenticated users */}
         {!userId && (
           <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-6 text-center">
-            <p className="text-white font-bold text-sm mb-1">Want to join this club?</p>
+            <p className="text-white font-bold text-sm mb-1">Want to join this klub?</p>
             <p className="text-white/40 text-xs mb-4">Create a free account to follow runs and connect with members.</p>
             <button
               onClick={() => router.push("/login")}
@@ -764,11 +679,18 @@ export default function ClubPageClient({
 
       {/* ── RUN CHAT PANEL ── */}
       {activeChatRun && userId && (
-        <ClubChatPanel
-          run={activeChatRun}
-          club={club}
+        <RunChatPanel
+          run={{
+            id: activeChatRun.id,
+            title: activeChatRun.title,
+            date: activeChatRun.date,
+            time: activeChatRun.time,
+            distance: activeChatRun.distance,
+            meeting_point: activeChatRun.meeting_point,
+            clubName: club.name,
+            clubImageUrl: club.image_url,
+          }}
           userId={userId}
-          userProfile={userProfile}
           onClose={() => setActiveChatRun(null)}
         />
       )}

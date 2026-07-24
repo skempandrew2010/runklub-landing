@@ -17,7 +17,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: "regular",       name: "Regular",           description: "10 runs checked in",            emoji: "⚡" },
   { id: "dedicated",     name: "Dedicated",         description: "25 runs checked in",            emoji: "💪" },
   { id: "half_century",  name: "Half Century",      description: "50 runs checked in",            emoji: "🏅" },
-  { id: "century_club",  name: "Century Club",      description: "100 runs checked in",           emoji: "💯" },
+  { id: "century_club",  name: "Century Klub",      description: "100 runs checked in",           emoji: "💯" },
   { id: "on_a_roll",     name: "On A Roll",         description: "2-week streak",                 emoji: "🔥" },
   { id: "monthly",       name: "Monthly Warrior",   description: "4-week streak",                 emoji: "📅" },
   { id: "quarter",       name: "Quarter Strong",    description: "12-week streak",                emoji: "🏆" },

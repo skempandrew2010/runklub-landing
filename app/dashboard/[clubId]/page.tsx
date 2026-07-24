@@ -197,7 +197,7 @@ export default function ClubManagerPage() {
   }
 
   const handleDelete = async () => {
-    if (!confirm("Delete this club? This cannot be undone.")) return
+    if (!confirm("Delete this klub? This cannot be undone.")) return
     await supabase.from("clubs").delete().eq("id", clubId)
     router.push("/director")
   }
@@ -258,7 +258,7 @@ export default function ClubManagerPage() {
   if (!club) {
     return (
       <div className="min-h-screen bg-[#1a2110] flex flex-col items-center justify-center gap-3">
-        <p className="text-white/40 text-sm">Club not found.</p>
+        <p className="text-white/40 text-sm">Klub not found.</p>
         <button onClick={() => router.push("/director")} className="text-[#c5f135] text-sm font-semibold hover:underline">
           ← Back to Director
         </button>
@@ -493,7 +493,7 @@ export default function ClubManagerPage() {
 
         {/* ── CLUB SETTINGS ── */}
         <div>
-          <h2 className="text-xs font-bold text-white/40 tracking-widest uppercase px-1 mb-3">Club Settings</h2>
+          <h2 className="text-xs font-bold text-white/40 tracking-widest uppercase px-1 mb-3">Klub Settings</h2>
           <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] overflow-hidden">
             <button
               onClick={toggleClubVisibility}
@@ -504,7 +504,7 @@ export default function ClubManagerPage() {
                 : <Lock className="w-4 h-4 text-white/50 shrink-0" />
               }
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-white">Club Visibility</p>
+                <p className="text-sm font-medium text-white">Klub Visibility</p>
                 <p className="text-xs text-white/40 mt-0.5">
                   {club.is_public ? "Visible on the discover map" : "Hidden — toggle runs public to share them"}
                 </p>
@@ -523,14 +523,14 @@ export default function ClubManagerPage() {
               className="w-full flex items-center gap-3 px-4 py-4 hover:bg-[#2e3d1a]/40 transition text-left border-b border-[#2e3d1a]"
             >
               <Pencil className="w-4 h-4 text-white/50 shrink-0" />
-              <span className="flex-1 text-sm font-medium text-white">Edit Club Details</span>
+              <span className="flex-1 text-sm font-medium text-white">Edit Klub Details</span>
               <span className="text-xs text-white/30">{editing ? "Cancel" : "Edit"}</span>
             </button>
 
             {editing && (
               <div className="px-4 py-4 space-y-3 border-b border-[#2e3d1a]">
                 {[
-                  { label: "Club Name", field: "name" as const, placeholder: "e.g. Boulder Trail Runners" },
+                  { label: "Klub Name", field: "name" as const, placeholder: "e.g. Boulder Trail Runners" },
                   { label: "City", field: "city" as const, placeholder: "e.g. Boulder, CO" },
                   { label: "Location", field: "location" as const, placeholder: "Meeting address" },
                 ].map(({ label, field, placeholder }) => (
@@ -551,7 +551,7 @@ export default function ClubManagerPage() {
                     <input
                       value={editForm.instagram}
                       onChange={(e) => setEditForm({ ...editForm, instagram: e.target.value.replace(/^@/, "") })}
-                      placeholder="yourclubhandle"
+                      placeholder="yourklubhandle"
                       className="w-full bg-[#1a2110] border border-[#2e3d1a] rounded-xl pl-7 pr-3 py-2.5 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#c5f135]/50 transition"
                     />
                   </div>
@@ -572,7 +572,7 @@ export default function ClubManagerPage() {
               className="w-full flex items-center gap-3 px-4 py-4 hover:bg-red-500/10 transition text-left"
             >
               <Trash2 className="w-4 h-4 text-red-400/70 shrink-0" />
-              <span className="text-sm font-medium text-red-400/70">Delete Club</span>
+              <span className="text-sm font-medium text-red-400/70">Delete Klub</span>
             </button>
           </div>
         </div>

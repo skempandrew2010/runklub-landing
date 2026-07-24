@@ -22,7 +22,7 @@ function buildInviteEmail(name: string | null, joinLink: string): { subject: str
   const safe = (s: string) => s.replace(/</g, "&lt;").replace(/>/g, "&gt;")
   const greeting = name ? `Hey ${safe(name)},` : "Hey,"
 
-  const subject = "You're invited to join the club on RunKlub"
+  const subject = "You're invited to join the klub on RunKlub"
 
   const html = `<!DOCTYPE html>
 <html>
@@ -42,7 +42,7 @@ function buildInviteEmail(name: string | null, joinLink: string): { subject: str
               You&rsquo;re invited 👟
             </h1>
             <p style="margin:0 0 12px;font-size:15px;line-height:1.7;color:rgba(13,13,13,0.7);">
-              ${greeting} your club manager invited you to join the club on RunKlub. Pick your pace, your
+              ${greeting} your klub manager invited you to join the klub on RunKlub. Pick your pace, your
               region, and you&rsquo;ll be matched with the right group and coach.
             </p>
             <table cellpadding="0" cellspacing="0" style="margin-top:16px;">
@@ -50,7 +50,7 @@ function buildInviteEmail(name: string | null, joinLink: string): { subject: str
                 <td style="border-radius:999px;background:#C8F23C;">
                   <a href="${joinLink}" target="_blank"
                     style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:900;font-family:'Arial Black',Arial,sans-serif;color:#0D0D0D;text-decoration:none;border-radius:999px;">
-                    Join the club →
+                    Join the klub →
                   </a>
                 </td>
               </tr>
@@ -70,7 +70,7 @@ function buildInviteEmail(name: string | null, joinLink: string): { subject: str
 </body>
 </html>`
 
-  const text = `You're invited\n\n${greeting} your club manager invited you to join the club on RunKlub. Pick your pace, your region, and you'll be matched with the right group and coach.\n\n${joinLink}\n\nRunKlub — Find people you actually want to run with.`
+  const text = `You're invited\n\n${greeting} your klub manager invited you to join the klub on RunKlub. Pick your pace, your region, and you'll be matched with the right group and coach.\n\n${joinLink}\n\nRunKlub — Find people you actually want to run with.`
 
   return { subject, html, text }
 }
@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
     const isManagerTester = user.id === TEST_MANAGER_USER_ID
     if (!isAdmin && !isManagerTester) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     if (!isAdmin && !(await getClubModelTier(admin))) {
-      return NextResponse.json({ error: "This club needs a Starter, Pro, or Premium plan" }, { status: 403 })
+      return NextResponse.json({ error: "This klub needs a Starter, Pro, or Premium plan" }, { status: 403 })
     }
 
     const { email, name } = await req.json()

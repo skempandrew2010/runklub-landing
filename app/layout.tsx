@@ -24,7 +24,7 @@ export const metadata: Metadata = {
     default: "RunKlub — Find Your Run Crew",
     template: "%s | RunKlub",
   },
-  description: "Discover run clubs near you, find upcoming group runs, and connect with runners in your city. Free to join.",
+  description: "Discover run klubs near you, find upcoming group runs, and connect with runners in your city. Free to join.",
   metadataBase: new URL(BASE_URL),
   manifest: "/manifest.json",
   appleWebApp: {
@@ -40,12 +40,12 @@ export const metadata: Metadata = {
     type: "website",
     url: BASE_URL,
     title: "RunKlub — Find Your Run Crew",
-    description: "Discover run clubs near you, find upcoming group runs, and connect with runners in your city. Free to join.",
+    description: "Discover run klubs near you, find upcoming group runs, and connect with runners in your city. Free to join.",
   },
   twitter: {
     card: "summary_large_image",
     title: "RunKlub — Find Your Run Crew",
-    description: "Discover run clubs near you, find upcoming group runs, and connect with runners in your city. Free to join.",
+    description: "Discover run klubs near you, find upcoming group runs, and connect with runners in your city. Free to join.",
   },
 };
 

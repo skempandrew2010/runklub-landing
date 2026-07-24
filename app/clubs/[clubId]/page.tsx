@@ -22,12 +22,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     .eq("id", clubId)
     .maybeSingle()
 
-  if (!club) return { title: "Club Not Found" }
+  if (!club) return { title: "Klub Not Found" }
 
   const title = `${club.name}${club.city ? ` · ${club.city}` : ""}`
   const description =
     club.description ??
-    `Join ${club.name} on RunKlub${club.city ? ` in ${club.city}` : ""}. Find upcoming runs, follow the club, and connect with other runners.`
+    `Join ${club.name} on RunKlub${club.city ? ` in ${club.city}` : ""}. Find upcoming runs, follow the klub, and connect with other runners.`
 
   return {
     title,
@@ -59,7 +59,7 @@ export default async function ClubPage({ params }: Props) {
   const [{ data: club }, { data: runs }, { count: memberCount }] = await Promise.all([
     getSupabase()
       .from("clubs")
-      .select("id, name, city, location, description, instagram_handle, image_url, tier, is_public, user_id, membership_type, website")
+      .select("id, name, city, location, description, instagram_handle, image_url, tier, is_public, user_id, membership_type, website, latitude, longitude")
       .eq("id", clubId)
       .maybeSingle(),
     getSupabase()
@@ -80,12 +80,26 @@ export default async function ClubPage({ params }: Props) {
   if (!club) {
     return (
       <div className="min-h-screen bg-[#1a2110] flex flex-col items-center justify-center gap-3">
-        <p className="text-white/40 text-sm">Club not found.</p>
+        <p className="text-white/40 text-sm">Klub not found.</p>
         <Link href="/explore" className="text-[#c5f135] text-sm font-semibold hover:underline">
-          ← Discover clubs
+          ← Discover klubs
         </Link>
       </div>
     )
+  }
+
+  // Klubs without a precise pin fall back to their city's centroid for check-in
+  let cityFallback: { lat: number; lng: number } | null = null
+  if ((club.latitude == null || club.longitude == null) && club.city) {
+    const cityName = club.city.split(",")[0].trim()
+    const { data: cityRow } = await getSupabase()
+      .from("cities")
+      .select("lat, lng")
+      .eq("name", cityName)
+      .maybeSingle()
+    if (cityRow?.lat != null && cityRow?.lng != null) {
+      cityFallback = { lat: cityRow.lat, lng: cityRow.lng }
+    }
   }
 
   const isClaimed = club.user_id !== null
@@ -136,6 +150,7 @@ export default async function ClubPage({ params }: Props) {
         runs={runs ?? []}
         memberCount={memberCount ?? 0}
         isClaimed={isClaimed}
+        cityFallback={cityFallback}
       />
     </>
   )

@@ -28,8 +28,8 @@ export default function PrivacyPage() {
             <ul className="list-disc pl-5 space-y-1.5">
               <li><span className="text-white/80 font-medium">Account information</span> — your email address and display name when you sign up</li>
               <li><span className="text-white/80 font-medium">Profile data</span> — optional avatar image and any profile details you choose to add</li>
-              <li><span className="text-white/80 font-medium">Club and run data</span> — club names, descriptions, meeting locations, run events, and related content you create</li>
-              <li><span className="text-white/80 font-medium">Location data</span> — city or address you provide when creating a club or run, used to place pins on our map. We do not collect your device's live GPS location.</li>
+              <li><span className="text-white/80 font-medium">Klub and run data</span> — klub names, descriptions, meeting locations, run events, and related content you create</li>
+              <li><span className="text-white/80 font-medium">Location data</span> — city or address you provide when creating a klub or run, used to place pins on our map. We do not collect your device's live GPS location.</li>
               <li><span className="text-white/80 font-medium">Usage data</span> — basic analytics such as pages visited, to help us improve the Service</li>
             </ul>
           </section>
@@ -39,8 +39,8 @@ export default function PrivacyPage() {
             <p>We use the information we collect to:</p>
             <ul className="list-disc pl-5 space-y-1.5">
               <li>Operate and provide the RunKlub platform</li>
-              <li>Display your club and run listings to other users</li>
-              <li>Send transactional emails (e.g. email newsletters sent to club members by club managers, when opted in)</li>
+              <li>Display your klub and run listings to other users</li>
+              <li>Send transactional emails (e.g. email newsletters sent to klub members by klub managers, when opted in)</li>
               <li>Improve and debug the Service</li>
               <li>Respond to support requests</li>
             </ul>

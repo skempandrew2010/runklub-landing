@@ -128,7 +128,7 @@ export default function SearchBar({ city, setCity, onSearch, clubs, onSelectClub
           if (e.key === "Escape") { setOpen(false) }
         }}
         onFocus={() => hasResults && setOpen(true)}
-        placeholder="Search clubs or cities..."
+        placeholder="Search klubs or cities..."
         className="w-full pl-10 pr-8 py-2.5 bg-[#222d14] border border-[#2e3d1a] rounded-full text-white placeholder-white/40 text-sm focus:outline-none focus:border-[#c5f135]/60 focus:ring-1 focus:ring-[#c5f135]/30 transition"
       />
       {inputValue && (
@@ -146,7 +146,7 @@ export default function SearchBar({ city, setCity, onSearch, clubs, onSelectClub
           {/* Club results */}
           {matchingClubs.length > 0 && (
             <>
-              <p className="px-4 pt-3 pb-1 text-[10px] font-bold text-white/30 uppercase tracking-widest">Clubs</p>
+              <p className="px-4 pt-3 pb-1 text-[10px] font-bold text-white/30 uppercase tracking-widest">Klubs</p>
               {matchingClubs.map((club) => {
                 const initials = club.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
                 const gradient = getGradient(club.name)

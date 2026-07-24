@@ -501,7 +501,7 @@ export default function MapView({ city, runs, clubs, onCityCoords, onBoundsChang
                 href={`/clubs/${selectedClubPin.id}`}
                 style={{ display: "block", textAlign: "center", padding: "7px 0", borderRadius: 8, background: "#2e3d1a", color: "#c5f135", fontWeight: 700, fontSize: 12, textDecoration: "none" }}
               >
-                View club →
+                View klub →
               </a>
             </div>
           </div>

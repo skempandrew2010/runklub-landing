@@ -24,7 +24,7 @@ useEffect(() => {
     <main className="min-h-screen bg-[#1a2110]">
       <div className="max-w-lg mx-auto px-4 py-8">
         <h1 className="text-2xl font-black text-white mb-1">Coaches Corner</h1>
-        <p className="text-sm text-white/40 mb-8">Add your run club to the map.</p>
+        <p className="text-sm text-white/40 mb-8">Add your run klub to the map.</p>
         <SubmitClubForm />
       </div>
     </main>

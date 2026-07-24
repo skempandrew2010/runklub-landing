@@ -88,7 +88,7 @@ export async function POST(
       .eq("id", clubId)
       .single()
 
-    if (!club) return NextResponse.json({ error: "Club not found" }, { status: 404 })
+    if (!club) return NextResponse.json({ error: "Klub not found" }, { status: 404 })
 
     // For clubs with user_id set, enforce strict ownership
     if (club.user_id !== null && club.user_id !== user.id) {

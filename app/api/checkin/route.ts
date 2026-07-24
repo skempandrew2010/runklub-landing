@@ -33,6 +33,14 @@ export async function POST(req: NextRequest) {
     )
     if (insertErr) throw insertErr
 
+    // Also roll this up into the Passport klub/city stamps — best-effort,
+    // shouldn't fail the run check-in if it errors
+    const { error: passportErr } = await db.rpc("checkin_to_club_admin", {
+      p_user_id: user.id,
+      p_club_id: run.club_id,
+    })
+    if (passportErr) console.error("Passport rollup failed:", passportErr)
+
     // Compute updated stats
     const { data: allCheckins } = await db
       .from("run_checkins")

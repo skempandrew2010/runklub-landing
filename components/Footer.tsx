@@ -7,7 +7,7 @@ export default function Footer() {
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
         <div>
           <p className="text-sm font-black text-white">Run<span className="text-[#c5f135]">Klub</span></p>
-          <p className="text-xs text-white/30 mt-0.5">Find verified run clubs anywhere.</p>
+          <p className="text-xs text-white/30 mt-0.5">Find verified run klubs anywhere.</p>
         </div>
         <div className="flex items-center gap-3 flex-wrap justify-center">
           <a

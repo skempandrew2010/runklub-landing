@@ -40,8 +40,8 @@ function buildReminderEmail(
     : `Quick follow-up from Andrew &amp; Sean — <strong style="color:#ffffff;">${safeClub}</strong>${safeCity} still has an unclaimed page on RunKlub. Runners in your city are out there looking for a group right now.`
 
   const body2 = isWarm
-    ? `Once you&rsquo;re in you can post your runs, update your schedule, and start showing up for people in your city who are looking for exactly what your club offers.`
-    : `Claim it for free and you can post runs, keep your schedule current, and get in front of people who are already searching for a club to join.`
+    ? `Once you&rsquo;re in you can post your runs, update your schedule, and start showing up for people in your city who are looking for exactly what your klub offers.`
+    : `Claim it for free and you can post runs, keep your schedule current, and get in front of people who are already searching for a klub to join.`
 
   const ctaLabel = isWarm ? `Finish setting up ${safeClub} →` : `Claim ${safeClub} →`
 
@@ -123,11 +123,11 @@ export async function POST(req: NextRequest) {
       .eq("id", club_id)
       .single()
 
-    if (!club) return NextResponse.json({ error: "Club not found" }, { status: 404 })
-    if (!club.contact_email) return NextResponse.json({ error: "No email address on file for this club" }, { status: 400 })
-    if (club.claim_token_used_at || club.user_id) return NextResponse.json({ error: "Club has already completed signup" }, { status: 409 })
-    if (!club.invite_sent_at) return NextResponse.json({ error: "No invite has been sent to this club yet" }, { status: 400 })
-    if (!club.claim_token) return NextResponse.json({ error: "No claim token found for this club" }, { status: 400 })
+    if (!club) return NextResponse.json({ error: "Klub not found" }, { status: 404 })
+    if (!club.contact_email) return NextResponse.json({ error: "No email address on file for this klub" }, { status: 400 })
+    if (club.claim_token_used_at || club.user_id) return NextResponse.json({ error: "Klub has already completed signup" }, { status: 409 })
+    if (!club.invite_sent_at) return NextResponse.json({ error: "No invite has been sent to this klub yet" }, { status: 400 })
+    if (!club.claim_token) return NextResponse.json({ error: "No claim token found for this klub" }, { status: 400 })
 
     const stage: "opened" | "invited" = club.invite_link_clicked_at ? "opened" : "invited"
     const claimLink = `${BASE_URL}/welcome?t=${club.claim_token}`

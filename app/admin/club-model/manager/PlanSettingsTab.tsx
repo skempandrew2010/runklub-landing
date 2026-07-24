@@ -42,9 +42,9 @@ export default function PlanSettingsTab({ clubId }: { clubId: string }) {
   return (
     <div className="space-y-6">
       <Card>
-        <SectionTitle>Test this club&rsquo;s plan</SectionTitle>
+        <SectionTitle>Test this klub&rsquo;s plan</SectionTitle>
         <p className="text-sm text-white/50 mb-4">
-          This is a test-only switch for this one prototype club — it changes what you can do in the rest of this
+          This is a test-only switch for this one prototype klub — it changes what you can do in the rest of this
           dashboard instantly, so you can walk through each plan&rsquo;s limits. Switching to Free will lock you out of
           this dashboard (refresh the page to see it take effect).
         </p>

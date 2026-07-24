@@ -113,7 +113,7 @@ async function sendAdminNotification(clubName: string, directorEmail: string) {
             </h1>
             <table cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:28px;">
               <tr>
-                <td style="padding:4px 0;font-size:14px;color:rgba(255,255,255,0.4);width:100px;">Club</td>
+                <td style="padding:4px 0;font-size:14px;color:rgba(255,255,255,0.4);width:100px;">Klub</td>
                 <td style="padding:4px 0;font-size:14px;color:#ffffff;font-weight:700;">${safeClub}</td>
               </tr>
               <tr>
@@ -146,12 +146,12 @@ async function sendAdminNotification(clubName: string, directorEmail: string) {
 </body>
 </html>`
 
-  const text = `New club claim pending review\n\nClub: ${clubName}\nClaimed by: ${directorEmail}\n\nReview it here: ${reviewUrl}\n\n— RunKlub Admin`
+  const text = `New klub claim pending review\n\nKlub: ${clubName}\nClaimed by: ${directorEmail}\n\nReview it here: ${reviewUrl}\n\n— RunKlub Admin`
 
   await getResend().emails.send({
     from: FROM,
     to: adminEmails,
-    subject: `Club claim pending review — ${clubName}`,
+    subject: `Klub claim pending review — ${clubName}`,
     html,
     text,
   })
@@ -182,7 +182,7 @@ export async function POST(req: NextRequest) {
 
       if (!club) return NextResponse.json({ error: "Invalid or expired invite link" }, { status: 404 })
       if (club.claim_token_used_at) {
-        return NextResponse.json({ error: "This club has already been claimed" }, { status: 409 })
+        return NextResponse.json({ error: "This klub has already been claimed" }, { status: 409 })
       }
 
       // Check if a pending claim already exists for this user + club (idempotent)
@@ -200,7 +200,7 @@ export async function POST(req: NextRequest) {
       if (!existing) {
         const { data: existingProfile } = await getAdminSupabase()
           .from("profiles").select("role").eq("id", user.id).maybeSingle()
-        const shouldSetRole = !existingProfile?.role || existingProfile.role === "user"
+        const shouldSetRole = existingProfile?.role !== "manager"
 
         const { error: insertError } = await getAdminSupabase().from("club_claims").insert({
           club_id:       club.id,
@@ -258,9 +258,9 @@ export async function POST(req: NextRequest) {
       .eq("id", claim.club_id)
       .single()
 
-    if (!club) return NextResponse.json({ error: "Club not found" }, { status: 404 })
+    if (!club) return NextResponse.json({ error: "Klub not found" }, { status: 404 })
     if (club.user_id && club.user_id !== user.id) {
-      return NextResponse.json({ error: "Club already has an owner" }, { status: 409 })
+      return NextResponse.json({ error: "Klub already has an owner" }, { status: 409 })
     }
 
     const { data: existingProfile } = await getAdminSupabase()
@@ -269,7 +269,7 @@ export async function POST(req: NextRequest) {
       .eq("id", user.id)
       .maybeSingle()
 
-    const shouldSetRole = !existingProfile?.role || existingProfile.role === "user"
+    const shouldSetRole = existingProfile?.role !== "manager"
 
     await Promise.all([
       getAdminSupabase()

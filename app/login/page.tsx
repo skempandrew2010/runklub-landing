@@ -117,7 +117,7 @@ export default function LoginPage() {
             <div className="w-full space-y-2.5 mb-8">
               {[
                 { emoji: "👟", title: "Running is easier with others", sub: "Stay consistent, push harder, and actually show up." },
-                { emoji: "🗺️", title: "Explore your city through clubs", sub: "Discover routes and neighborhoods you'd never find alone." },
+                { emoji: "🗺️", title: "Explore your city through klubs", sub: "Discover routes and neighborhoods you'd never find alone." },
                 { emoji: "🤝", title: "Meet people through movement", sub: "The best friendships start at mile one." },
               ].map(({ emoji, title, sub }) => (
                 <div key={title} className="flex items-start gap-3.5 bg-white/4 rounded-2xl px-4 py-3.5">

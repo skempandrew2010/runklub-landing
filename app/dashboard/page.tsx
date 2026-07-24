@@ -85,9 +85,9 @@ export default function DashboardPage() {
 
         {/* MY CLUBS */}
         <div>
-          <h2 className="text-2xl font-black mb-4 text-white">My Clubs</h2>
+          <h2 className="text-2xl font-black mb-4 text-white">My Klubs</h2>
           {myClubs.length === 0 && (
-            <p className="text-white/60">You haven’t created any clubs yet.</p>
+            <p className="text-white/60">You haven’t created any klubs yet.</p>
           )}
           {myClubs.map((club) => (
             <div key={club.id} className="w-full mb-4">
@@ -96,7 +96,7 @@ export default function DashboardPage() {
                 href={`/dashboard/${club.id}`}
                 className="inline-block bg-[#c5f135] text-[#1a2110] px-4 py-1 rounded font-bold uppercase tracking-wider text-sm mt-2"
               >
-                Manage Club
+                Manage Klub
               </Link>
             </div>
           ))}
@@ -104,9 +104,9 @@ export default function DashboardPage() {
 
         {/* FAVORITE CLUBS */}
         <div>
-          <h2 className="text-2xl font-black mb-4 text-white">Favorite Clubs</h2>
+          <h2 className="text-2xl font-black mb-4 text-white">Favorite Klubs</h2>
           {favorites.length === 0 && (
-            <p className="text-white/60">You haven’t subscribed to any clubs yet.</p>
+            <p className="text-white/60">You haven’t subscribed to any klubs yet.</p>
           )}
           {favorites.map((club) => (
             <div key={club.id} className="w-full mb-4">

@@ -37,7 +37,7 @@ function buildInviteEmail(clubName: string, inviterName: string, inviteUrl: stri
               You've been invited to join ${safeClub}
             </h1>
             <p style="margin:0 0 20px;font-size:15px;line-height:1.8;color:rgba(255,255,255,0.75);">
-              ${safeInviter} has invited ${safeRecipient ? safeRecipient : "you"} to join <strong style="color:#ffffff;">${safeClub}</strong> on RunKlub — a running community app to connect with local run clubs and discover group runs near you.
+              ${safeInviter} has invited ${safeRecipient ? safeRecipient : "you"} to join <strong style="color:#ffffff;">${safeClub}</strong> on RunKlub — a running community app to connect with local run klubs and discover group runs near you.
             </p>
           </td>
         </tr>
@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
       .eq("user_id", user.id)
       .single()
 
-    if (!club) return NextResponse.json({ error: "Club not found or unauthorized" }, { status: 403 })
+    if (!club) return NextResponse.json({ error: "Klub not found or unauthorized" }, { status: 403 })
 
     // Check if already a member
     const { data: existingMember } = await adminSupabase.auth.admin.listUsers({ perPage: 1000 })
@@ -144,7 +144,7 @@ export async function POST(req: NextRequest) {
       .eq("id", user.id)
       .single()
 
-    const inviterName = profile?.display_name || "A club director"
+    const inviterName = profile?.display_name || "A klub director"
     const inviteUrl = `${BASE_URL}/invite/${invite.token}`
     const { html, text } = buildInviteEmail(club.name, inviterName, inviteUrl, name?.trim() || undefined)
 

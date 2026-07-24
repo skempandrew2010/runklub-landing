@@ -67,7 +67,7 @@ function buildApprovalEmail(
               <strong style="color:#ffffff;">${safeClub}</strong> has been approved on RunKlub.
             </p>
             <p style="margin:0 0 28px;font-size:15px;line-height:1.7;color:rgba(255,255,255,0.7);">
-              Click below to set up your account and get your club live — it only takes a moment.
+              Click below to set up your account and get your klub live — it only takes a moment.
             </p>
             <!-- CTA -->
             <table cellpadding="0" cellspacing="0">
@@ -135,7 +135,7 @@ function buildApprovalEmail(
 
 ${clubName} has been approved on RunKlub! 🎉
 
-Click the link below to sign in and get your club live — ${clubName} will be automatically linked to your account.
+Click the link below to sign in and get your klub live — ${clubName} will be automatically linked to your account.
 
 ${magicLinkUrl}
 
@@ -211,7 +211,7 @@ export async function PATCH(
       // Director already signed in — link the club and grant role
       const { data: existingProfile } = await getAdminSupabase()
         .from("profiles").select("role").eq("id", claim.user_id).maybeSingle()
-      const shouldSetRole = !existingProfile?.role || existingProfile.role === "user"
+      const shouldSetRole = existingProfile?.role !== "manager"
 
       await Promise.all([
         getAdminSupabase().from("clubs")
@@ -225,7 +225,7 @@ export async function PATCH(
 
       // Send the director a confirmation email
       if (claim.contact_email && claim.club_id) {
-        const clubName = claim.club_name ?? "your club"
+        const clubName = claim.club_name ?? "your klub"
         const clubUrl = `${BASE_URL}/clubs/${claim.club_id}`
         const safeName = (claim.contact_name ?? "there").replace(/</g, "&lt;").replace(/>/g, "&gt;")
         const safeClub = clubName.replace(/</g, "&lt;").replace(/>/g, "&gt;")
@@ -276,7 +276,7 @@ export async function PATCH(
 </body>
 </html>`
 
-        const text = `Hey ${claim.contact_name ?? "there"},\n\n${clubName} has been approved on RunKlub! 🎉\n\nSign in and go to your club: ${clubUrl}\n\nQuestions? Reply to this email.\n— The RunKlub team`
+        const text = `Hey ${claim.contact_name ?? "there"},\n\n${clubName} has been approved on RunKlub! 🎉\n\nSign in and go to your klub: ${clubUrl}\n\nQuestions? Reply to this email.\n— The RunKlub team`
 
         await getResend().emails.send({
           from: FROM,
@@ -295,7 +295,7 @@ export async function PATCH(
 
     if (claim.contact_email && claim.club_id) {
       const name = claim.contact_name ?? "there"
-      const clubName = claim.club_name ?? "your club"
+      const clubName = claim.club_name ?? "your klub"
 
       const magicLinkUrl = await generateMagicLink(claim.contact_email, claim.club_id)
       const { html, text } = buildApprovalEmail(name, clubName, magicLinkUrl)

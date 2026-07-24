@@ -75,7 +75,9 @@ export default function ShellWrapper({ children }: { children: React.ReactNode }
   return (
     <>
       {!hideShell && <NavBar />}
-      {children}
+      <div key={pathname} className="animate-page-enter">
+        {children}
+      </div>
       {!hideShell && <Footer />}
     </>
   )

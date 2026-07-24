@@ -13,13 +13,13 @@ export default function NotFound() {
       </div>
       <h1 className="text-xl font-bold text-white mb-2">Page not found</h1>
       <p className="text-white/40 text-sm max-w-xs mb-8">
-        This page doesn&apos;t exist or may have been moved. Head back to discover run clubs near you.
+        This page doesn&apos;t exist or may have been moved. Head back to discover run klubs near you.
       </p>
       <Link
         href="/explore"
         className="px-6 py-3 bg-[#c5f135] text-[#1a2110] font-black text-sm rounded-2xl hover:bg-[#d4ff45] transition"
       >
-        Discover Clubs
+        Discover Klubs
       </Link>
     </div>
   )

@@ -19,6 +19,10 @@ import { getTagStyle } from "@/utils/tagStyle"
 type SortOption = "closest" | "popular" | "newest"
 type ClubWithExtras = Club & { distance?: number; nearestRunDist?: number; memberCount?: number }
 
+// Non-public test club — visible in local dev so it can be used for testing, hidden in production
+const TEST_CLUB_ID = "58293726-a7d4-4395-9ad3-e72ee5b76d01"
+const isLocalDev = process.env.NODE_ENV === "development"
+
 type WeekRun = {
   id: string
   title: string
@@ -88,6 +92,7 @@ export default function ExplorePage() {
   const [allWeekRuns, setAllWeekRuns] = useState<WeekRun[]>([])
   const [weekRunsLoading, setWeekRunsLoading] = useState(false)
   const [mapBounds, setMapBounds] = useState<{ north: number; south: number; east: number; west: number } | null>(null)
+  const [cityCentroids, setCityCentroids] = useState<Record<string, { lat: number; lng: number }>>({})
   const [userSubscribedIds, setUserSubscribedIds] = useState<Set<string>>(new Set())
   const [notInterestedIds, setNotInterestedIds] = useState<Set<string>>(() => {
     if (typeof window !== "undefined") {
@@ -177,10 +182,19 @@ export default function ExplorePage() {
       weekAhead.setDate(weekAhead.getDate() + 7)
       const weekStr = localDateStr(weekAhead)
 
-      const [{ data: clubData }, { data: runsData }] = await Promise.all([
-        supabase.from("clubs").select("id, name, city, latitude, longitude, location, image_url, tier, membership_type, created_at, user_id, subscriptions(count)").eq("is_public", true),
+      const clubsQuery = supabase.from("clubs").select("id, name, city, latitude, longitude, location, image_url, tier, membership_type, created_at, user_id, subscriptions(count)")
+
+      const [{ data: clubData }, { data: runsData }, { data: citiesData }] = await Promise.all([
+        isLocalDev ? clubsQuery.or(`is_public.eq.true,id.eq.${TEST_CLUB_ID}`) : clubsQuery.eq("is_public", true),
         supabase.from("runs").select("id, title, date, time, distance, meeting_point, city, run_lat, run_lng, tags, club_id").gte("date", todayStr).lte("date", weekStr).eq("is_public", true).order("date", { ascending: true }).order("time", { ascending: true }),
+        supabase.from("cities").select("name, lat, lng"),
       ])
+
+      const centroids: Record<string, { lat: number; lng: number }> = {}
+      for (const c of citiesData || []) {
+        if (c.lat != null && c.lng != null) centroids[c.name] = { lat: c.lat, lng: c.lng }
+      }
+      setCityCentroids(centroids)
 
       const loadedClubs = (clubData || []).map((club: any) => ({
         ...club,
@@ -324,9 +338,18 @@ export default function ExplorePage() {
   const mapClubs = useMemo(
     () =>
       clubs
-        .filter((c) => c.latitude != null && c.longitude != null)
-        .map((c) => ({ id: c.id, name: c.name, lat: c.latitude!, lng: c.longitude!, image_url: c.image_url ?? null })),
-    [clubs]
+        .map((c) => {
+          if (c.latitude != null && c.longitude != null) {
+            return { id: c.id, name: c.name, lat: c.latitude, lng: c.longitude, image_url: c.image_url ?? null }
+          }
+          // No precise pin — fall back to the club's city centroid so it still shows up on the map
+          const cityName = c.city?.split(",")[0]?.trim()
+          const centroid = cityName ? cityCentroids[cityName] : undefined
+          if (!centroid) return null
+          return { id: c.id, name: c.name, lat: centroid.lat, lng: centroid.lng, image_url: c.image_url ?? null }
+        })
+        .filter((c): c is { id: string; name: string; lat: number; lng: number; image_url: string | null } => c !== null),
+    [clubs, cityCentroids]
   )
 
   const ownedClubIds = useMemo(
@@ -412,11 +435,11 @@ export default function ExplorePage() {
       <div>
         <p className="text-sm text-white/50">
           <span className="font-bold text-white">{filteredClubs.length}</span>{" "}
-          {filteredClubs.length === 1 ? "club" : "clubs"}
+          {filteredClubs.length === 1 ? "klub" : "klubs"}
           {nearbyLabel ? ` ${nearbyLabel}` : ""}
         </p>
         {!center && (
-          <p className="text-xs text-white/25 mt-0.5">Search a city or share your location to see clubs near you</p>
+          <p className="text-xs text-white/25 mt-0.5">Search a city or share your location to see klubs near you</p>
         )}
       </div>
       <div className="relative shrink-0">
@@ -472,14 +495,14 @@ export default function ExplorePage() {
             onClick={() => setVisibleCount((n) => n + PAGE_SIZE)}
             className="w-full py-3 rounded-2xl border border-[#2e3d1a] bg-[#1e2d12] text-sm font-bold text-white/60 hover:text-white hover:border-[#c5f135]/40 transition"
           >
-            Show {Math.min(PAGE_SIZE, remaining)} more clubs
+            Show {Math.min(PAGE_SIZE, remaining)} more klubs
           </button>
         </div>
       )}
       {notInterestedIds.size > 0 && (
         <div className="px-5 pb-4 text-center">
           <button onClick={clearNotInterested} className="text-xs text-white/25 hover:text-white/50 transition">
-            {notInterestedIds.size} club{notInterestedIds.size !== 1 ? "s" : ""} hidden — show again
+            {notInterestedIds.size} klub{notInterestedIds.size !== 1 ? "s" : ""} hidden — show again
           </button>
         </div>
       )}
@@ -626,9 +649,9 @@ export default function ExplorePage() {
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={closeDelete} />
           <div className="relative bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-6 w-full max-w-sm space-y-4">
             <div>
-              <p className="text-xs font-bold text-red-400/70 uppercase tracking-widest mb-1">Delete Club</p>
+              <p className="text-xs font-bold text-red-400/70 uppercase tracking-widest mb-1">Delete Klub</p>
               <p className="text-lg font-black text-white">{deleteTarget.name}</p>
-              <p className="text-xs text-white/40 mt-1">This permanently deletes the club and all its runs. This cannot be undone.</p>
+              <p className="text-xs text-white/40 mt-1">This permanently deletes the klub and all its runs. This cannot be undone.</p>
             </div>
             <div>
               <label className="text-xs text-white/50 font-semibold mb-1.5 block">Enter your password to confirm</label>

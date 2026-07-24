@@ -24,7 +24,7 @@ export default function CommunityPage() {
           <p className="text-sm text-white/70 leading-relaxed">
             RunKlub exists to make running more accessible and community-driven. These guidelines
             exist to keep it a welcoming, honest, and safe place for everyone — whether you're a
-            runner looking for a crew or a club manager building your community.
+            runner looking for a crew or a klub manager building your community.
           </p>
         </div>
 
@@ -36,12 +36,12 @@ export default function CommunityPage() {
               <h2 className="text-base font-bold text-white">Be Accurate</h2>
             </div>
             <p>
-              Only list clubs and runs that are real. Provide accurate meeting times, locations,
+              Only list klubs and runs that are real. Provide accurate meeting times, locations,
               and descriptions. If details change, update them promptly — other runners are
               counting on that information to show up at the right place and time.
             </p>
             <p>
-              Don't impersonate other clubs, use another club's name or branding, or create
+              Don't impersonate other klubs, use another klub's name or branding, or create
               listings for events you don't organize.
             </p>
           </section>
@@ -53,7 +53,7 @@ export default function CommunityPage() {
             </div>
             <p>
               RunKlub is for every runner — regardless of pace, experience, background, age, gender,
-              or ability. Clubs listed here should be welcoming to new runners and respectful of all
+              or ability. Klubs listed here should be welcoming to new runners and respectful of all
               members and visitors.
             </p>
             <p>
@@ -68,7 +68,7 @@ export default function CommunityPage() {
               <h2 className="text-base font-bold text-white">Be Respectful</h2>
             </div>
             <p>
-              Treat other runners and club managers with respect. Run chats and club descriptions
+              Treat other runners and klub managers with respect. Run chats and klub descriptions
               should be free of harassment, personal attacks, threats, and offensive content.
             </p>
             <p>
@@ -84,8 +84,8 @@ export default function CommunityPage() {
             </div>
             <p>
               Don't use RunKlub to mass-promote unrelated products, services, or events. Run chats
-              are for coordinating runs — not for advertising. Club email newsletters should only
-              be sent to members who have opted in and should contain relevant club information.
+              are for coordinating runs — not for advertising. Klub email newsletters should only
+              be sent to members who have opted in and should contain relevant klub information.
             </p>
           </section>
 
@@ -95,7 +95,7 @@ export default function CommunityPage() {
               <h2 className="text-base font-bold text-white">Prioritize Safety</h2>
             </div>
             <p>
-              As a club manager, you are responsible for communicating relevant safety information
+              As a klub manager, you are responsible for communicating relevant safety information
               to attendees — including route conditions, terrain, and any physical requirements.
               Be honest about pace and difficulty so runners can make informed decisions.
             </p>
