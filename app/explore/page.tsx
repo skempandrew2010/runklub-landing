@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo, useRef } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import SearchBar from "@/components/searchbar"
 import Filters, { DEFAULT_FILTERS, type FilterOptions } from "@/components/filters"
 import dynamic from "next/dynamic"
@@ -60,7 +60,9 @@ function formatTime(t: string) {
 
 export default function ExplorePage() {
   const router = useRouter()
-  const [city, setCity] = useState("")
+  const searchParams = useSearchParams()
+  // Deep link from Passport goal boxes: /explore?city=Denver, CO
+  const [city, setCity] = useState(() => searchParams.get("city") ?? "")
   const [, setHoveredClub] = useState<string | null>(null)
   const [selectedClub, setSelectedClub] = useState<ClubWithExtras | null>(null)
   const [clubs, setClubs] = useState<ClubWithExtras[]>([])

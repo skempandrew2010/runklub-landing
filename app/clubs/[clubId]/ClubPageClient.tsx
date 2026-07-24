@@ -7,9 +7,12 @@ import { Heart, MapPin, Clock, Users, ArrowLeft, Zap, ShieldCheck, ExternalLink,
 import { getTagStyle } from "@/utils/tagStyle"
 import { localDateStr } from "@/utils/dates"
 import { getDistanceMiles } from "@/utils/distance"
-import { checkInToClub } from "@/lib/checkins"
+import { checkInToClub, getClubStampArt, getUserPassportProgress } from "@/lib/checkins"
 import RunChatPanel from "@/components/RunChatPanel"
+import CheckInMoment, { type CheckInMomentProps } from "@/components/CheckInMoment"
 import { track } from "@vercel/analytics"
+
+type MomentData = Omit<CheckInMomentProps, "onDone">
 
 const CHECKIN_RADIUS_MILES = 0.3
 // Klubs without a precise pin fall back to their city's centroid — much
@@ -101,6 +104,7 @@ export default function ClubPageClient({
   const [memberOnlyRuns, setMemberOnlyRuns] = useState<Run[]>([])
   const [checkingIn, setCheckingIn] = useState(false)
   const [justCheckedIn, setJustCheckedIn] = useState(false)
+  const [checkInMoment, setCheckInMoment] = useState<MomentData | null>(null)
   const [checkInError, setCheckInError] = useState<string | null>(null)
 
   // Refs for section-visibility tracking
@@ -251,6 +255,44 @@ export default function ClubPageClient({
         sessionStorage.setItem("runklub_just_unlocked", JSON.stringify(unlocked))
       } catch { /* sessionStorage unavailable — unlock animation is a nice-to-have */ }
     }
+
+    const [stampUrl, progress] = await Promise.all([
+      getClubStampArt(club.id),
+      getUserPassportProgress(),
+    ])
+    const justStampedCity = data.city_id ? progress.find((c) => c.city_id === data.city_id) ?? null : null
+    const nearest = progress.find((c) => c.is_nearest_incomplete) ?? null
+    const totalStamps = progress.reduce((sum, c) => sum + c.stamped_clubs, 0)
+    const justStampedCityComplete = !!justStampedCity?.is_complete && data.city_first
+    const isMilestone = totalStamps > 0 && totalStamps % 5 === 0
+
+    // Share card only fires on a fresh stamp — city completion or every 5th
+    // distinct klub — never on a repeat visit
+    let shareCardUrl: string | null = null
+    if (data.club_first && (justStampedCityComplete || isMilestone)) {
+      const params = new URLSearchParams({
+        type: justStampedCityComplete ? "complete" : "milestone",
+        clubName: club.name,
+        cityName: justStampedCity?.city_name ?? "",
+        cityState: justStampedCity?.city_state ?? "",
+        stampNumber: String(totalStamps),
+        totalCount: String(justStampedCity?.total_clubs ?? 0),
+      })
+      if (stampUrl) params.set("stampUrl", stampUrl)
+      shareCardUrl = `/api/passport/share-card?${params.toString()}`
+    }
+
+    setCheckInMoment({
+      clubName: club.name,
+      clubStampUrl: stampUrl,
+      isFirstTime: data.club_first,
+      clubCount: data.club_count,
+      totalStamps,
+      justStampedCityComplete,
+      justStampedCityName: justStampedCity?.city_name ?? null,
+      nearestIncomplete: nearest ? { cityName: nearest.city_name, remaining: nearest.remaining } : null,
+      shareCardUrl,
+    })
   }
 
   const handleRequestJoin = async () => {
@@ -693,6 +735,11 @@ export default function ClubPageClient({
           userId={userId}
           onClose={() => setActiveChatRun(null)}
         />
+      )}
+
+      {/* ── CHECK-IN MOMENT ── */}
+      {checkInMoment && (
+        <CheckInMoment {...checkInMoment} onDone={() => setCheckInMoment(null)} />
       )}
     </div>
   )
