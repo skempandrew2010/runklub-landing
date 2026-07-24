@@ -21,6 +21,7 @@ import { Card, SectionTitle, Button, Input } from "@/app/admin/club-model/manage
 import { isNativeApp } from "@/utils/platform"
 import RunFormPanel from "./RunFormPanel"
 import RunChatPanel from "@/components/RunChatPanel"
+import { PLANS } from "@/lib/plans"
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -139,6 +140,7 @@ function ManagerView({ userId }: { userId: string }) {
   const [scheduleResult, setScheduleResult] = useState<{ sent: number; skipped: number; total: number } | null>(null)
   const [scheduleError, setScheduleError] = useState("")
   const [upgrading, setUpgrading] = useState(false)
+  const [billingInterval, setBillingInterval] = useState<"monthly" | "yearly">("monthly")
   const [nativeApp, setNativeApp] = useState(false)
   const [tierOverride, setTierOverride] = useState<"free" | "starter" | "growth" | "enterprise" | null>(null)
   const [isAdminMode, setIsAdminMode] = useState(false)
@@ -466,7 +468,7 @@ function ManagerView({ userId }: { userId: string }) {
     }
   }
 
-  const startCheckout = async (tier: "starter" | "growth" | "enterprise") => {
+  const startCheckout = async (tier: "starter" | "growth" | "enterprise", interval: "monthly" | "yearly" = "monthly") => {
     if (!selectedClubId) return
     setUpgrading(true)
     try {
@@ -475,7 +477,7 @@ function ManagerView({ userId }: { userId: string }) {
       const res = await fetch("/api/stripe/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ clubId: selectedClubId, tier }),
+        body: JSON.stringify({ clubId: selectedClubId, tier, interval }),
       })
       const json = await res.json()
       if (json.url) { window.location.href = json.url } else { alert(json.error ?? "Could not start checkout"); setUpgrading(false) }
@@ -1862,16 +1864,45 @@ function ManagerView({ userId }: { userId: string }) {
                   <span className="text-sm font-bold text-white capitalize">{selectedClub.tier || "Free"}</span>
                 </div>
                 {!nativeApp ? (
-                  <div className="flex gap-2 flex-wrap">
-                    {!isEnterprise && (
-                      <Button onClick={() => startCheckout(isGrowth ? "enterprise" : isStarter ? "growth" : "starter")} disabled={upgrading}>
-                        {upgrading ? "Redirecting…" : isGrowth ? "Upgrade to Enterprise" : isStarter ? "Upgrade to Growth" : "Start free trial"}
-                      </Button>
-                    )}
-                    <Link href="/profile">
-                      <Button variant="ghost">Manage subscription</Button>
-                    </Link>
-                  </div>
+                  <>
+                    {!isEnterprise && (() => {
+                      const nextTier = isGrowth ? "enterprise" : isStarter ? "growth" : "starter"
+                      const nextPlan = PLANS[nextTier]
+                      const price = billingInterval === "monthly" ? nextPlan.price?.monthly : nextPlan.price?.yearly
+                      return (
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="flex bg-[#1a2110] border border-[#2e3d1a] rounded-full p-0.5">
+                            {(["monthly", "yearly"] as const).map((iv) => (
+                              <button
+                                key={iv}
+                                onClick={() => setBillingInterval(iv)}
+                                className={`px-3 py-1.5 rounded-full text-xs font-bold transition capitalize ${
+                                  billingInterval === iv ? "bg-[#c5f135] text-[#1a2110]" : "text-white/50 hover:text-white"
+                                }`}
+                              >
+                                {iv}
+                              </button>
+                            ))}
+                          </div>
+                          {price != null && (
+                            <span className="text-xs text-white/50">
+                              ${price}/{billingInterval === "monthly" ? "mo" : "yr"} for {nextPlan.name}
+                            </span>
+                          )}
+                        </div>
+                      )
+                    })()}
+                    <div className="flex gap-2 flex-wrap">
+                      {!isEnterprise && (
+                        <Button onClick={() => startCheckout(isGrowth ? "enterprise" : isStarter ? "growth" : "starter", billingInterval)} disabled={upgrading}>
+                          {upgrading ? "Redirecting…" : isGrowth ? "Upgrade to Enterprise" : isStarter ? "Upgrade to Growth" : "Start free trial"}
+                        </Button>
+                      )}
+                      <Link href="/profile">
+                        <Button variant="ghost">Manage subscription</Button>
+                      </Link>
+                    </div>
+                  </>
                 ) : (
                   <p className="text-xs text-white/80">Manage your subscription at <span className="text-[#c5f135] font-semibold">runklub.fit</span> on the web.</p>
                 )}

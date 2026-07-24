@@ -14,17 +14,28 @@ function getSupabaseAdmin() {
 // Tiers the director can upgrade into, in ascending order.
 const TIER_RANK: Record<string, number> = { free: 0, starter: 1, growth: 2, enterprise: 3 }
 
-// Maps each paid tier to its Stripe price ID env var.
-// STRIPE_PRO_PRICE_ID is kept as a fallback for existing growth deployments.
-const TIER_PRICE_ENV: Record<string, string | undefined> = {
-  starter:    process.env.STRIPE_STARTER_PRICE_ID,
-  growth:     process.env.STRIPE_GROWTH_PRICE_ID ?? process.env.STRIPE_PRO_PRICE_ID,
-  enterprise: process.env.STRIPE_ENTERPRISE_PRICE_ID,
+type Interval = "monthly" | "yearly"
+
+// Maps each paid tier + billing interval to its Stripe price ID env var.
+// STRIPE_PRO_PRICE_ID is kept as a fallback for existing growth/monthly deployments.
+const TIER_PRICE_ENV: Record<string, Record<Interval, string | undefined>> = {
+  starter: {
+    monthly: process.env.STRIPE_STARTER_MONTHLY_PRICE_ID,
+    yearly:  process.env.STRIPE_STARTER_YEARLY_PRICE_ID,
+  },
+  growth: {
+    monthly: process.env.STRIPE_GROWTH_MONTHLY_PRICE_ID ?? process.env.STRIPE_PRO_PRICE_ID,
+    yearly:  process.env.STRIPE_GROWTH_YEARLY_PRICE_ID,
+  },
+  enterprise: {
+    monthly: process.env.STRIPE_ENTERPRISE_MONTHLY_PRICE_ID,
+    yearly:  process.env.STRIPE_ENTERPRISE_YEARLY_PRICE_ID,
+  },
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const { clubId, tier } = await req.json()
+    const { clubId, tier, interval } = await req.json()
 
     // Validate inputs
     const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -34,6 +45,7 @@ export async function POST(req: NextRequest) {
     if (!tier || !(tier in TIER_PRICE_ENV)) {
       return NextResponse.json({ error: "Invalid plan" }, { status: 400 })
     }
+    const billingInterval: Interval = interval === "yearly" ? "yearly" : "monthly"
 
     // Verify caller identity
     const token = req.headers.get("authorization")?.replace("Bearer ", "")
@@ -64,9 +76,9 @@ export async function POST(req: NextRequest) {
     }
 
     // Resolve price ID — fail loudly if not configured so ops can catch it
-    const priceId = TIER_PRICE_ENV[tier]
+    const priceId = TIER_PRICE_ENV[tier][billingInterval]
     if (!priceId) {
-      console.error(`Stripe price ID not configured for tier: ${tier}`)
+      console.error(`Stripe price ID not configured for tier: ${tier} (${billingInterval})`)
       return NextResponse.json(
         { error: `Pricing not yet configured for the ${tier} plan — contact support` },
         { status: 500 }
@@ -99,10 +111,10 @@ export async function POST(req: NextRequest) {
       mode: "subscription",
       line_items: [{ price: priceId, quantity: 1 }],
       // metadata on the session itself (used by checkout.session.completed)
-      metadata: { clubId, tier, userId: user.id },
+      metadata: { clubId, tier, interval: billingInterval, userId: user.id },
       // metadata on the subscription so renewals (customer.subscription.updated)
       // can read the tier without re-querying the original session
-      subscription_data: { metadata: { clubId, tier, userId: user.id } },
+      subscription_data: { metadata: { clubId, tier, interval: billingInterval, userId: user.id } },
       success_url: `${appUrl}/stripe/success?club_id=${clubId}&tier=${tier}`,
       cancel_url:  `${appUrl}/stripe/cancel?club_id=${clubId}`,
       allow_promotion_codes: true,
