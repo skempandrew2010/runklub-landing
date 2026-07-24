@@ -393,12 +393,15 @@ export default function HubPage() {
           </div>
           {!loading && userId && (
             <div className="flex items-center gap-3 shrink-0">
-              <div className="text-center px-5 py-3.5 rounded-2xl bg-[#2e3d1a] border border-[#3d5220] min-w-[80px]">
+              <Link
+                href={myKlubs.length > 0 ? `/clubs/${myKlubs[0].id}` : "/explore"}
+                className="text-center px-5 py-3.5 rounded-2xl bg-[#2e3d1a] border border-[#3d5220] min-w-[80px] hover:border-[#c5f135]/40 transition"
+              >
                 <p className="text-2xl font-black text-white leading-none">{myKlubs.length}</p>
                 <p className="text-[10px] font-bold text-white/35 uppercase tracking-widest mt-1">
                   Klubs
                 </p>
-              </div>
+              </Link>
               <div className="text-center px-5 py-3.5 rounded-2xl bg-[#2e3d1a] border border-[#3d5220] min-w-[80px]">
                 <p className="text-2xl font-black text-[#c5f135] leading-none">
                   {stats?.totalRuns ?? "—"}
