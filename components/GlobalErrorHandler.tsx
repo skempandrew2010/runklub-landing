@@ -19,9 +19,27 @@ function sendError(payload: object) {
   }
 }
 
+// A stale chunk hash from a page loaded before the latest deploy — the fix is
+// always a fresh reload, never the generic crash screen (guarded against
+// looping in case the reload itself races another deploy).
+function isChunkLoadError(message: string | null | undefined) {
+  return !!message && /Failed to (fetch|load) (dynamically imported module|chunk)|ChunkLoadError|Loading chunk .* failed|Importing a module script failed/i.test(message)
+}
+
+function reloadForStaleChunk() {
+  try {
+    const key = "rk_chunk_reload_at"
+    const last = Number(sessionStorage.getItem(key) || 0)
+    if (Date.now() - last < 10000) return
+    sessionStorage.setItem(key, String(Date.now()))
+  } catch { /* sessionStorage unavailable — reload once is still safe */ }
+  window.location.reload()
+}
+
 export function GlobalErrorHandler() {
   useEffect(() => {
     const onError = (e: ErrorEvent) => {
+      if (isChunkLoadError(e.message)) { reloadForStaleChunk(); return }
       sendError({
         type: "uncaught",
         message: e.message,
@@ -31,9 +49,11 @@ export function GlobalErrorHandler() {
     }
 
     const onUnhandledRejection = (e: PromiseRejectionEvent) => {
+      const message = String(e.reason?.message ?? e.reason)
+      if (isChunkLoadError(message)) { reloadForStaleChunk(); return }
       sendError({
         type: "unhandledRejection",
-        message: String(e.reason),
+        message,
         stack: e.reason?.stack,
         url: window.location.href,
       })
@@ -71,6 +91,7 @@ export class ErrorBoundary extends Component<Props, State> {
       context: info.componentStack,
       url: typeof window !== "undefined" ? window.location.href : "ssr",
     })
+    if (isChunkLoadError(error.message)) reloadForStaleChunk()
   }
 
   render() {
