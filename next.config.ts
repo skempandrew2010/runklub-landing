@@ -20,7 +20,7 @@ const securityHeaders = [
       "font-src 'self' data:",
       "connect-src 'self' https://*.supabase.co https://*.mapbox.com wss://*.supabase.co https://api.stripe.com",
       "frame-src https://js.stripe.com https://hooks.stripe.com",
-      "worker-src blob:",
+      "worker-src 'self' blob:",
       "frame-ancestors 'none'",
     ].join("; "),
   },
