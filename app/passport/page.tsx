@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Stamp, Flame, MapPin, Users2, CalendarCheck, ChevronLeft, ChevronRight, Home, Plane, Trophy, BarChart3 } from "lucide-react"
+import { Stamp, Flame, MapPin, Users2, CalendarCheck, ChevronLeft, ChevronRight, Home, Plane, Trophy } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import {
   getPassportData,
@@ -234,10 +234,9 @@ function StampSlot({ slot, isNew }: { slot: BookPage["slots"][number]; isNew: bo
 
 function PassportBookPage({ page, justUnlocked, userId }: { page: BookPage; justUnlocked: JustUnlocked; userId: string | null }) {
   const cityIsNew = justUnlocked.cityIds.includes(page.city_id)
-  const [showLeaderboard, setShowLeaderboard] = useState(false)
   return (
-    <div className="rk-book-page shrink-0 w-full px-1">
-      <div className="relative rk-book-page-surface bg-[#1e2d12] rounded-2xl p-5 min-h-[360px]">
+    <div className="rk-book-page shrink-0 w-full px-1 flex flex-col md:flex-row gap-4 items-stretch">
+      <div className="relative rk-book-page-surface bg-[#1e2d12] rounded-2xl p-5 min-h-[360px] flex-1 min-w-0">
         <div className="absolute inset-y-0 left-0 w-6 rk-book-spine rounded-l-2xl pointer-events-none" />
         <div className="flex items-center gap-3 mb-5">
           <div className={`relative w-11 h-11 rounded-full overflow-hidden flex items-center justify-center border-2 border-[#3d5220] bg-[#0e150a] shrink-0 ${cityIsNew ? "ring-2 ring-[#c5f135] animate-pulse" : ""}`}>
@@ -255,32 +254,23 @@ function PassportBookPage({ page, justUnlocked, userId }: { page: BookPage; just
               {page.stamped_count}/{page.total_count} klubs {page.is_complete && <span className="text-[#c5f135] font-bold">· Complete!</span>}
             </p>
           </div>
-          <button
-            onClick={() => setShowLeaderboard((v) => !v)}
-            className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[10px] font-bold transition ${
-              showLeaderboard ? "bg-[#c5f135] text-[#1a2110] border-[#c5f135]" : "text-white/50 border-[#2e3d1a] hover:border-white/30"
-            }`}
-          >
-            <BarChart3 className="w-3 h-3" />
-            Leaderboard
-          </button>
         </div>
 
-        {showLeaderboard ? (
-          <Leaderboard
-            title={`${page.city_name} Leaderboard`}
-            userId={userId}
-            fetchRows={(scope) => getCityLeaderboard(page.city_id, scope)}
-            guestCopy="Sign in to see who's leading in this city."
-            emptyCopy={(scope) => scope === "month" ? "No check-ins yet this month — be the first!" : "No check-ins yet in this city."}
-          />
-        ) : (
-          <div className="grid grid-cols-4 gap-x-3 gap-y-5">
-            {page.slots.map((slot) => (
-              <StampSlot key={slot.club_id} slot={slot} isNew={justUnlocked.clubIds.includes(slot.club_id)} />
-            ))}
-          </div>
-        )}
+        <div className="grid grid-cols-4 gap-x-3 gap-y-5">
+          {page.slots.map((slot) => (
+            <StampSlot key={slot.club_id} slot={slot} isNew={justUnlocked.clubIds.includes(slot.club_id)} />
+          ))}
+        </div>
+      </div>
+
+      <div className="bg-[#1e2d12] rounded-2xl p-5 min-h-[360px] flex-1 min-w-0">
+        <Leaderboard
+          title={`${page.city_name} Leaderboard`}
+          userId={userId}
+          fetchRows={(scope) => getCityLeaderboard(page.city_id, scope)}
+          guestCopy="Sign in to see who's leading in this city."
+          emptyCopy={(scope) => scope === "month" ? "No check-ins yet this month — be the first!" : "No check-ins yet in this city."}
+        />
       </div>
     </div>
   )
