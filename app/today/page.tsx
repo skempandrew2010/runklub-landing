@@ -5,7 +5,6 @@ import { supabase } from "@/lib/supabase"
 import { localDateStr } from "@/utils/dates"
 import { CalendarCheck, ChevronRight, Users, Zap } from "lucide-react"
 import Link from "next/link"
-import MemberChatInbox from "@/components/MemberChatInbox"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -432,14 +431,6 @@ export default function HubPage() {
                 </div>
               )}
             </section>
-
-            {/* ── MESSAGES (members only — directors manage chats from their Director dashboard) ── */}
-            {!isManager && (
-              <section>
-                <SectionHeader title="Messages" sub="Chats from your upcoming runs" />
-                <MemberChatInbox userId={userId} />
-              </section>
-            )}
 
             {/* ── MY TRAINING SCHEDULE ── */}
             {scheduleRuns.length > 0 && (
