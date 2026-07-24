@@ -114,6 +114,7 @@ export default function HubPage() {
   const [managedKlubs, setManagedKlubs] = useState<Club[]>([])
   const [runs, setRuns] = useState<Run[]>([])
   const [scheduleRuns, setScheduleRuns] = useState<ScheduleRun[]>([])
+  const [hasPaidMembership, setHasPaidMembership] = useState(false)
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
 
@@ -161,14 +162,14 @@ export default function HubPage() {
         supabase.from("clubs").select("id, name, image_url, city, user_id").eq("user_id", user.id),
         supabase
           .from("subscriptions")
-          .select("clubs(id, name, image_url, city, user_id)")
+          .select("member_type, clubs(id, name, image_url, city, user_id)")
           .eq("user_id", user.id),
       ])
 
       const coachClubs: Club[] = coachRes.data || []
-      const subClubs: Club[] = ((subsRes.data || []) as any[])
-        .map((s) => s.clubs)
-        .filter(Boolean)
+      const subRows = (subsRes.data || []) as any[]
+      const subClubs: Club[] = subRows.map((s) => s.clubs).filter(Boolean)
+      setHasPaidMembership(subRows.some((s) => s.member_type === "paid"))
       const clubMap = new Map<string, Club>()
       ;[...coachClubs, ...subClubs].forEach((c) => {
         if (!clubMap.has(c.id)) clubMap.set(c.id, c)
@@ -432,13 +433,13 @@ export default function HubPage() {
               )}
             </section>
 
-            {/* ── MY TRAINING SCHEDULE ── */}
-            {scheduleRuns.length > 0 && (
-              <section>
-                <SectionHeader
-                  title="My Training Schedule"
-                  sub={`Week of ${weekLabel()}`}
-                />
+            {/* ── MY TRAINING SCHEDULE (paid members only) ── */}
+            <section>
+              <SectionHeader
+                title="My Training Schedule"
+                sub={`Week of ${weekLabel()}`}
+              />
+              {scheduleRuns.length > 0 ? (
                 <div className="space-y-3">
                   {scheduleRuns.map((run) => {
                     const isToday = run.date === todayStr
@@ -489,8 +490,25 @@ export default function HubPage() {
                     )
                   })}
                 </div>
-              </section>
-            )}
+              ) : hasPaidMembership ? (
+                <div className="bg-[#1e2d12] rounded-2xl p-8 text-center border border-[#2e3d1a]">
+                  <p className="text-white/40 text-sm">Nothing scheduled this week.</p>
+                </div>
+              ) : (
+                <div className="bg-[#1e2d12] rounded-2xl p-6 text-center border border-[#c5f135]/20">
+                  <p className="text-white font-bold text-sm mb-1">Unlock a personalized training schedule</p>
+                  <p className="text-white/40 text-xs mb-4">
+                    Paid members get a custom weekly plan matched to their pace group.
+                  </p>
+                  <Link
+                    href="/explore"
+                    className="inline-block px-5 py-2.5 bg-[#c5f135] text-[#1a2110] text-xs font-black rounded-full hover:bg-[#d4ff45] transition"
+                  >
+                    Find a Paid Klub
+                  </Link>
+                </div>
+              )}
+            </section>
 
             {/* ── UPCOMING COMMUNITY RUNS ── */}
             <section>
