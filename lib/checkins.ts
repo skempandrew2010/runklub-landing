@@ -1,20 +1,6 @@
 import { supabase } from "@/lib/supabase"
 import { localDateStr } from "@/utils/dates"
 
-export type CheckInResult = {
-  club_first: boolean
-  club_count: number
-  city_first: boolean
-  city_count: number | null
-  city_id: string | null
-  is_home: boolean
-}
-
-export async function checkInToClub(clubId: string) {
-  const { data, error } = await supabase.rpc("checkin_to_club", { p_club_id: clubId })
-  return { data: data as CheckInResult | null, error }
-}
-
 export type LeaderboardScope = "month" | "all"
 
 export type LeaderboardRow = {

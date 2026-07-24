@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
 
     // Also roll this up into the Passport klub/city stamps — best-effort,
     // shouldn't fail the run check-in if it errors
-    const { error: passportErr } = await db.rpc("checkin_to_club_admin", {
+    const { data: passportData, error: passportErr } = await db.rpc("checkin_to_club_admin", {
       p_user_id: user.id,
       p_club_id: run.club_id,
     })
@@ -64,7 +64,14 @@ export async function POST(req: NextRequest) {
       ? ACHIEVEMENTS.find((a) => a.id === newAchievementId) ?? null
       : null
 
-    return NextResponse.json({ ok: true, stats, unlocked, newAchievement })
+    return NextResponse.json({
+      ok: true,
+      stats,
+      unlocked,
+      newAchievement,
+      clubId: run.club_id,
+      passport: passportErr ? null : passportData,
+    })
   } catch (err: any) {
     console.error("checkin error:", err)
     return NextResponse.json({ error: err.message ?? "Internal server error" }, { status: 500 })

@@ -634,7 +634,8 @@ function ManagerView({ userId }: { userId: string }) {
   if (selectedRun) {
     return (
       <RunChatPanel
-        run={{
+        target={{
+          type: "run",
           id: selectedRun.id,
           title: selectedRun.title,
           date: selectedRun.date,

@@ -2,30 +2,15 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import Link from "next/link"
 import { supabase } from "@/lib/supabase"
-import { Heart, MapPin, Clock, Users, ArrowLeft, Zap, ShieldCheck, ExternalLink, MessageSquare, Stamp } from "lucide-react"
+import { Heart, MapPin, Clock, Users, ArrowLeft, ShieldCheck, ExternalLink, MessageSquare, ChevronRight } from "lucide-react"
 import { getTagStyle } from "@/utils/tagStyle"
 import { localDateStr } from "@/utils/dates"
-import { getDistanceMiles } from "@/utils/distance"
-import { checkInToClub, getClubLeaderboard, getClubStampArt, getUserPassportProgress } from "@/lib/checkins"
+import { getClubLeaderboard } from "@/lib/checkins"
 import RunChatPanel from "@/components/RunChatPanel"
-import CheckInMoment, { type CheckInMomentProps } from "@/components/CheckInMoment"
 import Leaderboard from "@/components/Leaderboard"
 import { track } from "@vercel/analytics"
-
-type MomentData = Omit<CheckInMomentProps, "onDone">
-
-const CHECKIN_RADIUS_MILES = 0.3
-// Klubs without a precise pin fall back to their city's centroid — much
-// looser tolerance since a centroid can be miles from the actual meeting spot.
-const METRO_CHECKIN_RADIUS_MILES = 25
-
-function getCurrentPosition(): Promise<GeolocationPosition> {
-  return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) { reject(new Error("Geolocation not supported")); return }
-    navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 10000 })
-  })
-}
 
 export type Club = {
   id: string
@@ -77,13 +62,11 @@ export default function ClubPageClient({
   runs,
   memberCount: initialMemberCount,
   isClaimed,
-  cityFallback,
 }: {
   club: Club
   runs: Run[]
   memberCount: number
   isClaimed: boolean
-  cityFallback: { lat: number; lng: number } | null
 }) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -99,14 +82,9 @@ export default function ClubPageClient({
   const [joinRequestStatus, setJoinRequestStatus] = useState<"none" | "pending" | "approved" | "rejected">("none")
   const [requestingJoin, setRequestingJoin] = useState(false)
   const [joinBanner, setJoinBanner] = useState(false)
-  const [activeChatRun, setActiveChatRun] = useState<Run | null>(null)
-  const [chattableRunIds, setChattableRunIds] = useState<Set<string>>(new Set())
+  const [showClubChat, setShowClubChat] = useState(false)
   const [isPaidMember, setIsPaidMember] = useState(false)
   const [memberOnlyRuns, setMemberOnlyRuns] = useState<Run[]>([])
-  const [checkingIn, setCheckingIn] = useState(false)
-  const [justCheckedIn, setJustCheckedIn] = useState(false)
-  const [checkInMoment, setCheckInMoment] = useState<MomentData | null>(null)
-  const [checkInError, setCheckInError] = useState<string | null>(null)
 
   // Refs for section-visibility tracking
   const runsRef = useRef<HTMLDivElement>(null)
@@ -146,16 +124,14 @@ export default function ClubPageClient({
       const user = authData.user
       setUserId(user?.id ?? null)
       if (user) {
-        const [{ data: sub }, { data: existingClaim }, { data: joinReq }, { data: chattable }] = await Promise.all([
+        const [{ data: sub }, { data: existingClaim }, { data: joinReq }] = await Promise.all([
           supabase.from("subscriptions").select("id, member_type").eq("user_id", user.id).eq("club_id", club.id).maybeSingle(),
           supabase.from("club_claims").select("id, status").eq("user_id", user.id).eq("club_id", club.id).maybeSingle(),
           supabase.from("membership_requests").select("status").eq("user_id", user.id).eq("club_id", club.id).maybeSingle(),
-          supabase.rpc("my_chattable_run_ids"),
         ])
         setIsSubscribed(!!sub)
         if (existingClaim) setClaimStatus("pending")
         if (joinReq) setJoinRequestStatus(joinReq.status as any)
-        setChattableRunIds(new Set(((chattable as { run_id: string }[]) || []).map((r) => r.run_id)))
 
         const paid = (sub as any)?.member_type === "paid"
         setIsPaidMember(paid)
@@ -204,98 +180,6 @@ export default function ClubPageClient({
       track("club_followed", { clubId: club.id, clubName: club.name })
     }
     setSubscribing(false)
-  }
-
-  const handleCheckIn = async () => {
-    if (!userId) { router.push("/login"); return }
-
-    const checkinTarget = club.latitude != null && club.longitude != null
-      ? { lat: club.latitude, lng: club.longitude, radiusMiles: CHECKIN_RADIUS_MILES }
-      : cityFallback
-        ? { lat: cityFallback.lat, lng: cityFallback.lng, radiusMiles: METRO_CHECKIN_RADIUS_MILES }
-        : null
-
-    if (!checkinTarget) {
-      setCheckInError("This klub hasn't set a location yet, so check-in isn't available.")
-      return
-    }
-
-    setCheckingIn(true)
-    setCheckInError(null)
-
-    try {
-      const pos = await getCurrentPosition()
-      const distance = getDistanceMiles(pos.coords.latitude, pos.coords.longitude, checkinTarget.lat, checkinTarget.lng)
-      if (distance > checkinTarget.radiusMiles) {
-        setCheckInError("You need to be at the klub to check in.")
-        setCheckingIn(false)
-        return
-      }
-    } catch {
-      setCheckInError("Enable location access to check in.")
-      setCheckingIn(false)
-      return
-    }
-
-    const { data, error } = await checkInToClub(club.id)
-    setCheckingIn(false)
-
-    if (error || !data) {
-      setCheckInError("Check-in failed. Try again.")
-      return
-    }
-
-    setJustCheckedIn(true)
-    track("club_checked_in", { clubId: club.id, clubName: club.name })
-    setTimeout(() => setJustCheckedIn(false), 4000)
-
-    if (data.club_first || data.city_first) {
-      try {
-        const raw = sessionStorage.getItem("runklub_just_unlocked")
-        const unlocked = raw ? JSON.parse(raw) : { clubIds: [], cityIds: [] }
-        if (data.club_first) unlocked.clubIds.push(club.id)
-        if (data.city_first && data.city_id) unlocked.cityIds.push(data.city_id)
-        sessionStorage.setItem("runklub_just_unlocked", JSON.stringify(unlocked))
-      } catch { /* sessionStorage unavailable — unlock animation is a nice-to-have */ }
-    }
-
-    const [stampUrl, progress] = await Promise.all([
-      getClubStampArt(club.id),
-      getUserPassportProgress(),
-    ])
-    const justStampedCity = data.city_id ? progress.find((c) => c.city_id === data.city_id) ?? null : null
-    const nearest = progress.find((c) => c.is_nearest_incomplete) ?? null
-    const totalStamps = progress.reduce((sum, c) => sum + c.stamped_clubs, 0)
-    const justStampedCityComplete = !!justStampedCity?.is_complete && data.city_first
-    const isMilestone = totalStamps > 0 && totalStamps % 5 === 0
-
-    // Share card only fires on a fresh stamp — city completion or every 5th
-    // distinct klub — never on a repeat visit
-    let shareCardUrl: string | null = null
-    if (data.club_first && (justStampedCityComplete || isMilestone)) {
-      const params = new URLSearchParams({
-        type: justStampedCityComplete ? "complete" : "milestone",
-        clubName: club.name,
-        cityName: justStampedCity?.city_name ?? "",
-        cityState: justStampedCity?.city_state ?? "",
-        stampNumber: String(totalStamps),
-        totalCount: String(justStampedCity?.total_clubs ?? 0),
-      })
-      if (stampUrl) params.set("stampUrl", stampUrl)
-      shareCardUrl = `/api/passport/share-card?${params.toString()}`
-    }
-
-    setCheckInMoment({
-      clubName: club.name,
-      clubStampUrl: stampUrl,
-      isFirstTime: data.club_first,
-      clubCount: data.club_count,
-      totalStamps,
-      justStampedCityComplete,
-      justStampedCityName: justStampedCity?.city_name ?? null,
-      nearestIncomplete: nearest ? { cityName: nearest.city_name, remaining: nearest.remaining } : null,
-      shareCardUrl,
-    })
   }
 
   const handleRequestJoin = async () => {
@@ -444,25 +328,6 @@ export default function ClubPageClient({
             </button>
           )}
 
-          {userId && (
-            <button
-              onClick={handleCheckIn}
-              disabled={checkingIn}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-black transition disabled:opacity-50 ${
-                justCheckedIn
-                  ? "bg-[#c5f135]/15 border border-[#c5f135]/30 text-[#c5f135]"
-                  : "bg-[#1e2d12] border border-[#2e3d1a] text-white/70 hover:border-[#c5f135]/40 hover:text-white"
-              }`}
-            >
-              <Stamp className="w-4 h-4" />
-              {checkingIn ? "…" : justCheckedIn ? "Checked In!" : "Check In"}
-            </button>
-          )}
-
-          {checkInError && (
-            <p className="text-xs text-red-400/80 leading-relaxed w-full">{checkInError}</p>
-          )}
-
           {club.instagram_handle && (
             <a
               href={`https://instagram.com/${club.instagram_handle}`}
@@ -558,19 +423,12 @@ export default function ClubPageClient({
                 const d = new Date(run.date + "T00:00:00")
                 const isToday = run.date === todayStr
                 return (
-                  <div
+                  <Link
                     key={run.id}
-                    className={`relative rounded-2xl border px-4 py-4 ${isToday ? "bg-[#c5f135]/5 border-[#c5f135]/25" : "bg-[#1e2d12] border-[#2e3d1a]"}`}
+                    href={`/runs/${run.id}`}
+                    className={`block rounded-2xl border px-4 py-4 hover:border-[#c5f135]/40 transition ${isToday ? "bg-[#c5f135]/5 border-[#c5f135]/25" : "bg-[#1e2d12] border-[#2e3d1a]"}`}
                   >
                     <div className="flex items-start gap-3">
-                      {userId && chattableRunIds.has(run.id) && (
-                        <button
-                          onClick={() => setActiveChatRun(run)}
-                          className="absolute top-3 right-3 w-8 h-8 rounded-full bg-[#2e3d1a] flex items-center justify-center text-white/30 hover:text-[#c5f135] hover:bg-[#3d5220] transition"
-                        >
-                          <MessageSquare className="w-3.5 h-3.5" />
-                        </button>
-                      )}
                       <div className={`shrink-0 rounded-xl px-2.5 py-1.5 text-center min-w-[48px] ${isToday ? "bg-[#c5f135]/20" : "bg-[#2e3d1a]"}`}>
                         <p className={`text-[9px] font-bold uppercase tracking-wider ${isToday ? "text-[#c5f135]" : "text-white/40"}`}>
                           {isToday ? "TODAY" : d.toLocaleDateString("en-US", { weekday: "short" }).toUpperCase()}
@@ -610,13 +468,43 @@ export default function ClubPageClient({
                           </div>
                         )}
                       </div>
+                      <ChevronRight className="w-4 h-4 text-white/20 shrink-0 mt-1" />
                     </div>
-                  </div>
+                  </Link>
                 )
               })}
             </div>
           )}
         </div>
+
+        {/* ── MESSAGES ── */}
+        {userId && isSubscribed ? (
+          <button
+            onClick={() => setShowClubChat(true)}
+            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-[#1e2d12] border border-[#2e3d1a] hover:border-[#c5f135]/30 transition text-left"
+          >
+            <div className="w-9 h-9 rounded-full bg-[#2e3d1a] flex items-center justify-center shrink-0">
+              <MessageSquare className="w-4 h-4 text-[#c5f135]" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-white">Messages</p>
+              <p className="text-xs text-white/40 mt-0.5">Group chat, or message a member privately</p>
+            </div>
+          </button>
+        ) : !userId ? (
+          <button
+            onClick={() => router.push("/login")}
+            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-[#1e2d12] border border-[#2e3d1a] hover:border-[#c5f135]/30 transition text-left"
+          >
+            <div className="w-8 h-8 rounded-full bg-[#2e3d1a] flex items-center justify-center shrink-0">
+              <MessageSquare className="w-4 h-4 text-white/30" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-white/60">Sign in to chat</p>
+              <p className="text-xs text-white/30 mt-0.5">Message the klub or ask about upcoming runs</p>
+            </div>
+          </button>
+        ) : null}
 
         {/* ── LEADERBOARD (members only) ── */}
         <div ref={leaderboardRef}>
@@ -640,22 +528,6 @@ export default function ClubPageClient({
             </div>
           )}
         </div>
-
-        {/* ── CHAT SIGN-IN PROMPT (guests only) ── */}
-        {!userId && upcomingRuns.length > 0 && (
-          <button
-            onClick={() => router.push("/login")}
-            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-[#1e2d12] border border-[#2e3d1a] hover:border-[#c5f135]/30 transition text-left"
-          >
-            <div className="w-8 h-8 rounded-full bg-[#2e3d1a] flex items-center justify-center shrink-0">
-              <MessageSquare className="w-4 h-4 text-white/30" />
-            </div>
-            <div>
-              <p className="text-sm font-bold text-white/60">Sign in to chat</p>
-              <p className="text-xs text-white/30 mt-0.5">Ask questions about upcoming runs</p>
-            </div>
-          </button>
-        )}
 
         {/* ── CLAIM THIS CLUB ── */}
         {!isClaimed && userId && claimStatus === "idle" && !showClaimForm && (
@@ -745,27 +617,18 @@ export default function ClubPageClient({
         )}
       </div>
 
-      {/* ── RUN CHAT PANEL ── */}
-      {activeChatRun && userId && (
+      {/* ── CLUB CHAT PANEL ── */}
+      {showClubChat && userId && (
         <RunChatPanel
-          run={{
-            id: activeChatRun.id,
-            title: activeChatRun.title,
-            date: activeChatRun.date,
-            time: activeChatRun.time,
-            distance: activeChatRun.distance,
-            meeting_point: activeChatRun.meeting_point,
+          target={{
+            type: "club",
+            id: club.id,
             clubName: club.name,
             clubImageUrl: club.image_url,
           }}
           userId={userId}
-          onClose={() => setActiveChatRun(null)}
+          onClose={() => setShowClubChat(false)}
         />
-      )}
-
-      {/* ── CHECK-IN MOMENT ── */}
-      {checkInMoment && (
-        <CheckInMoment {...checkInMoment} onDone={() => setCheckInMoment(null)} />
       )}
     </div>
   )

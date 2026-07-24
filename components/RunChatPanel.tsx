@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase"
 import { ArrowLeft, MapPin, MessageSquare, Send } from "lucide-react"
 
 export type RunChatTarget = {
+  type: "run"
   id: string
   title: string
   date: string
@@ -15,9 +16,19 @@ export type RunChatTarget = {
   clubImageUrl?: string | null
 }
 
+export type ClubChatTarget = {
+  type: "club"
+  id: string
+  clubName: string
+  clubImageUrl?: string | null
+}
+
+export type ChatTarget = RunChatTarget | ClubChatTarget
+
 type ChatMessage = {
   id: string
-  run_id: string
+  run_id: string | null
+  club_id: string | null
   user_id: string
   recipient_id: string | null
   message: string
@@ -47,11 +58,11 @@ function initialsOf(name: string) {
 }
 
 export default function RunChatPanel({
-  run,
+  target,
   userId,
   onClose,
 }: {
-  run: RunChatTarget
+  target: ChatTarget
   userId: string
   onClose: () => void
 }) {
@@ -63,25 +74,27 @@ export default function RunChatPanel({
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
+  const targetColumn = target.type === "run" ? "run_id" : "club_id"
+
   const loadMessages = useCallback(async () => {
     setLoading(true)
-    let query = supabase.from("run_chats").select("*, profiles(display_name, avatar_url)").eq("run_id", run.id)
+    let query = supabase.from("run_chats").select("*, profiles(display_name, avatar_url)").eq(targetColumn, target.id)
     query = dm
       ? query.or(`and(user_id.eq.${userId},recipient_id.eq.${dm.userId}),and(user_id.eq.${dm.userId},recipient_id.eq.${userId})`)
       : query.is("recipient_id", null)
     const { data } = await query.order("created_at", { ascending: true })
     setMessages((data || []) as ChatMessage[])
     setLoading(false)
-  }, [run.id, dm, userId])
+  }, [targetColumn, target.id, dm, userId])
 
   useEffect(() => {
     loadMessages()
     const channel = supabase
-      .channel(`run-chat-${run.id}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "run_chats", filter: `run_id=eq.${run.id}` }, () => loadMessages())
+      .channel(`${target.type}-chat-${target.id}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "run_chats", filter: `${targetColumn}=eq.${target.id}` }, () => loadMessages())
       .subscribe()
     return () => { supabase.removeChannel(channel) }
-  }, [run.id, loadMessages])
+  }, [target.type, target.id, targetColumn, loadMessages])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -92,7 +105,13 @@ export default function RunChatPanel({
     if (!text || sending || text.length > 500) return
     setSending(true)
     setInput("")
-    await supabase.from("run_chats").insert({ run_id: run.id, user_id: userId, recipient_id: dm?.userId ?? null, message: text })
+    await supabase.from("run_chats").insert({
+      run_id: target.type === "run" ? target.id : null,
+      club_id: target.type === "club" ? target.id : null,
+      user_id: userId,
+      recipient_id: dm?.userId ?? null,
+      message: text,
+    })
     setSending(false)
     inputRef.current?.focus()
   }
@@ -102,7 +121,7 @@ export default function RunChatPanel({
     setDm({ userId: msg.user_id, name: msg.profiles?.display_name || "Runner", avatarUrl: msg.profiles?.avatar_url ?? null })
   }
 
-  const clubInitials = initialsOf(run.clubName)
+  const clubInitials = initialsOf(target.clubName)
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-[#111a0a]" style={{ paddingTop: "env(safe-area-inset-top)" }}>
@@ -127,33 +146,42 @@ export default function RunChatPanel({
         ) : (
           <>
             <div className="w-9 h-9 rounded-xl overflow-hidden shrink-0 flex items-center justify-center bg-[#2e3d1a]">
-              {run.clubImageUrl
-                ? <img src={run.clubImageUrl} alt="" className="w-full h-full object-cover" />
+              {target.clubImageUrl
+                ? <img src={target.clubImageUrl} alt="" className="w-full h-full object-cover" />
                 : <span className="text-xs font-black text-[#c5f135]">{clubInitials}</span>
               }
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-white truncate">{run.title}</p>
-              <p className="text-xs text-white/40 truncate">
-                {run.clubName} · {new Date(run.date + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} at {formatTime(run.time)}
-              </p>
+              {target.type === "run" ? (
+                <>
+                  <p className="text-sm font-bold text-white truncate">{target.title}</p>
+                  <p className="text-xs text-white/40 truncate">
+                    {target.clubName} · {new Date(target.date + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} at {formatTime(target.time)}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-bold text-white truncate">{target.clubName}</p>
+                  <p className="text-xs text-white/40 truncate">Klub Chat</p>
+                </>
+              )}
             </div>
           </>
         )}
       </div>
 
       {/* Run details strip — group view only */}
-      {!dm && (run.distance || run.meeting_point) && (
+      {!dm && target.type === "run" && (target.distance || target.meeting_point) && (
         <div className="shrink-0 px-4 py-2.5 border-b border-[#2e3d1a] bg-[#141f0d] flex flex-wrap gap-2">
-          {run.distance && (
+          {target.distance && (
             <span className="flex items-center gap-1.5 bg-[#1e2d12] rounded-full px-3 py-1.5 text-xs font-medium text-white/70">
-              {run.distance}
+              {target.distance}
             </span>
           )}
-          {run.meeting_point && (
+          {target.meeting_point && (
             <span className="flex items-center gap-1.5 bg-[#1e2d12] rounded-full px-3 py-1.5 text-xs font-medium text-white/70 max-w-[60%]">
               <MapPin className="w-3 h-3 text-[#c5f135] shrink-0" />
-              <span className="truncate">{run.meeting_point}</span>
+              <span className="truncate">{target.meeting_point}</span>
             </span>
           )}
         </div>
@@ -169,7 +197,9 @@ export default function RunChatPanel({
           <div className="flex flex-col items-center justify-center h-full text-center pb-20">
             <MessageSquare className="w-10 h-10 text-white/15 mb-3" />
             <p className="text-white/40 text-sm font-medium">{dm ? `No messages with ${dm.name} yet` : "No messages yet"}</p>
-            <p className="text-white/25 text-xs mt-1">{dm ? "Say hi!" : "Ask a question about this run! Tap a name to message them privately."}</p>
+            <p className="text-white/25 text-xs mt-1">
+              {dm ? "Say hi!" : target.type === "run" ? "Ask a question about this run! Tap a name to message them privately." : "Ask a question or say hi! Tap a name to message them privately."}
+            </p>
           </div>
         ) : (
           messages.map((msg) => {
@@ -220,7 +250,7 @@ export default function RunChatPanel({
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage() } }}
-          placeholder={dm ? `Message ${dm.name}…` : "Ask about this run…"}
+          placeholder={dm ? `Message ${dm.name}…` : target.type === "run" ? "Ask about this run…" : "Message the klub…"}
           maxLength={500}
           rows={1}
           className="flex-1 bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl px-4 py-3 text-white text-sm placeholder-white/25 focus:outline-none focus:border-[#c5f135]/50 resize-none transition"

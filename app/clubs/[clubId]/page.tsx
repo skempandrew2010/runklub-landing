@@ -88,20 +88,6 @@ export default async function ClubPage({ params }: Props) {
     )
   }
 
-  // Klubs without a precise pin fall back to their city's centroid for check-in
-  let cityFallback: { lat: number; lng: number } | null = null
-  if ((club.latitude == null || club.longitude == null) && club.city) {
-    const cityName = club.city.split(",")[0].trim()
-    const { data: cityRow } = await getSupabase()
-      .from("cities")
-      .select("lat, lng")
-      .eq("name", cityName)
-      .maybeSingle()
-    if (cityRow?.lat != null && cityRow?.lng != null) {
-      cityFallback = { lat: cityRow.lat, lng: cityRow.lng }
-    }
-  }
-
   const isClaimed = club.user_id !== null
   const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXT_PUBLIC_BASE_URL ?? "https://runklub.fit"
 
@@ -150,7 +136,6 @@ export default async function ClubPage({ params }: Props) {
         runs={runs ?? []}
         memberCount={memberCount ?? 0}
         isClaimed={isClaimed}
-        cityFallback={cityFallback}
       />
     </>
   )

@@ -3,9 +3,8 @@
 import { useEffect, useState, useCallback } from "react"
 import { supabase } from "@/lib/supabase"
 import { localDateStr } from "@/utils/dates"
-import { CalendarCheck, ChevronRight, Users, Zap, CheckCircle2 } from "lucide-react"
+import { CalendarCheck, ChevronRight, Users, Zap } from "lucide-react"
 import Link from "next/link"
-import type { Achievement } from "@/lib/streaks"
 import MemberChatInbox from "@/components/MemberChatInbox"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -107,30 +106,6 @@ function SectionHeader({ title, sub }: { title: string; sub?: string }) {
   )
 }
 
-function AchievementToast({
-  achievement,
-  onDismiss,
-}: {
-  achievement: Achievement
-  onDismiss: () => void
-}) {
-  useEffect(() => {
-    const t = setTimeout(onDismiss, 4000)
-    return () => clearTimeout(t)
-  }, [onDismiss])
-  return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
-      <div className="flex items-center gap-3 bg-[#c5f135] text-[#1a2110] px-5 py-3.5 rounded-2xl shadow-xl">
-        <span className="text-2xl">{achievement.emoji}</span>
-        <div>
-          <p className="text-xs font-black uppercase tracking-wide">Achievement Unlocked!</p>
-          <p className="text-sm font-bold">{achievement.name}</p>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function HubPage() {
@@ -143,13 +118,7 @@ export default function HubPage() {
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
 
-  // Gamification state
   const [stats, setStats] = useState<Stats | null>(null)
-  const [unlocked, setUnlocked] = useState<Achievement[]>([])
-  const [checkedInIds, setCheckedInIds] = useState<Set<string>>(new Set())
-  const [checkingInId, setCheckingInId] = useState<string | null>(null)
-  const [newAchievement, setNewAchievement] = useState<Achievement | null>(null)
-  const [sessionToken, setSessionToken] = useState<string | null>(null)
 
   const todayStr = localDateStr()
 
@@ -161,8 +130,6 @@ export default function HubPage() {
       if (!res.ok) return
       const data = await res.json()
       setStats(data.stats)
-      setUnlocked(data.unlocked ?? [])
-      setCheckedInIds(new Set(data.checkedInRunIds ?? []))
     } catch {
       // non-blocking
     }
@@ -179,7 +146,6 @@ export default function HubPage() {
         return
       }
       setUserId(user.id)
-      setSessionToken(session.access_token)
 
       const { data: profile } = await supabase
         .from("profiles")
@@ -317,40 +283,6 @@ export default function HubPage() {
     load()
   }, [loadStats])
 
-  const checkIn = useCallback(
-    async (runId: string) => {
-      if (!sessionToken || checkingInId) return
-      setCheckingInId(runId)
-      try {
-        const res = await fetch("/api/checkin", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${sessionToken}`,
-          },
-          body: JSON.stringify({ run_id: runId }),
-        })
-        const data = await res.json()
-        if (!res.ok) return
-        setCheckedInIds((prev) => new Set([...prev, runId]))
-        if (data.stats) {
-          setStats(data.stats)
-          if (data.unlocked) {
-            setUnlocked((prev) => {
-              const ids = new Set(prev.map((a) => a.id))
-              const fresh = (data.unlocked as Achievement[]).filter((a) => !ids.has(a.id))
-              return [...prev, ...fresh]
-            })
-          }
-        }
-        if (data.newAchievement) setNewAchievement(data.newAchievement)
-      } finally {
-        setCheckingInId(null)
-      }
-    },
-    [sessionToken, checkingInId]
-  )
-
   const isManager = role === "manager"
   const firstName = displayName?.split(" ")[0] ?? null
 
@@ -440,96 +372,32 @@ export default function HubPage() {
         )}
 
         {!loading && userId && (
-          <div className="flex flex-col md:grid md:grid-cols-[1fr_320px] md:gap-10 md:items-start">
-            {/* ── RIGHT SIDEBAR ── */}
-            <div className="order-1 md:order-2 space-y-8 mb-8 md:mb-0">
-              {/* Messages (members only — directors manage chats from their Director dashboard) */}
-              {!isManager && (
-                <section>
-                  <SectionHeader title="Messages" sub="Chats from your upcoming runs" />
-                  <MemberChatInbox userId={userId} />
-                </section>
-              )}
-
-              {/* My Klubs */}
-              <section>
-                <SectionHeader title="My Klubs" />
-                {myKlubs.length === 0 ? (
-                  <div className="bg-[#1e2d12] rounded-2xl p-6 text-center border border-[#2e3d1a]">
-                    <p className="text-white/50 text-sm font-medium">No klubs yet.</p>
-                    <Link
-                      href="/explore"
-                      className="mt-4 inline-block px-4 py-2 bg-[#c5f135] text-[#1a2110] text-xs font-black rounded-full hover:bg-[#d4ff45] transition"
-                    >
-                      Discover Klubs
-                    </Link>
-                  </div>
-                ) : (
-                  <div className="rounded-2xl overflow-hidden border border-[#2e3d1a] bg-[#1e2d12] divide-y divide-[#2e3d1a]">
-                    {myKlubs.map((club) => {
-                      const nextRun = runs.find((r) => r.club_id === club.id)
-                      return (
-                        <Link
-                          key={club.id}
-                          href={`/clubs/${club.id}`}
-                          className="flex items-center gap-3 px-4 py-3.5 hover:bg-[#243018] transition group"
-                        >
-                          <div
-                            className={`w-11 h-11 rounded-xl shrink-0 overflow-hidden flex items-center justify-center border border-[#3d5220] group-hover:border-[#c5f135]/60 bg-gradient-to-br ${getGradient(club.name)}`}
-                          >
-                            {club.image_url ? (
-                              <img
-                                src={club.image_url}
-                                alt=""
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <span className="text-xs font-black text-white/30">
-                                {club.name
-                                  .split(" ")
-                                  .map((w) => w[0])
-                                  .join("")
-                                  .slice(0, 2)
-                                  .toUpperCase()}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-bold text-white truncate">{club.name}</p>
-                            <p className="text-xs text-white/40 mt-0.5 truncate">
-                              {club.city}
-                              {club.city && nextRun && " · "}
-                              {nextRun && `Next: ${formatDay(nextRun.date)} ${formatTime(nextRun.time)}`}
-                              {!club.city && !nextRun && "No upcoming runs"}
-                            </p>
-                          </div>
-                          <ChevronRight className="w-4 h-4 text-white/20 group-hover:text-white/40 transition shrink-0" />
-                        </Link>
-                      )
-                    })}
-                  </div>
-                )}
-              </section>
-
-              {/* Director */}
-              {isManager && managedKlubs.length > 0 && (
-                <section>
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-1 h-5 rounded-full bg-[#c5f135] shrink-0" />
-                    <h2 className="text-sm font-black text-white tracking-tight">Director</h2>
-                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#c5f135]/10 border border-[#c5f135]/20">
-                      <Zap className="w-2.5 h-2.5 text-[#c5f135]" />
-                      <span className="text-[10px] font-black text-[#c5f135]">
-                        {managedKlubs.length}
-                      </span>
-                    </div>
-                    <div className="flex-1 h-px bg-[#2e3d1a]" />
-                  </div>
-                  <div className="rounded-2xl overflow-hidden border border-[#c5f135]/15 bg-[#c5f135]/[0.03] divide-y divide-[#2e3d1a]">
-                    {managedKlubs.map((club) => (
-                      <div key={club.id} className="px-4 py-4 flex items-center gap-3">
+          <div className="space-y-10">
+            {/* ── MY KLUBS (first) ── */}
+            <section>
+              <SectionHeader title="My Klubs" />
+              {myKlubs.length === 0 ? (
+                <div className="bg-[#1e2d12] rounded-2xl p-6 text-center border border-[#2e3d1a]">
+                  <p className="text-white/50 text-sm font-medium">No klubs yet.</p>
+                  <Link
+                    href="/explore"
+                    className="mt-4 inline-block px-4 py-2 bg-[#c5f135] text-[#1a2110] text-xs font-black rounded-full hover:bg-[#d4ff45] transition"
+                  >
+                    Discover Klubs
+                  </Link>
+                </div>
+              ) : (
+                <div className="rounded-2xl overflow-hidden border border-[#2e3d1a] bg-[#1e2d12] divide-y divide-[#2e3d1a]">
+                  {myKlubs.map((club) => {
+                    const nextRun = runs.find((r) => r.club_id === club.id)
+                    return (
+                      <Link
+                        key={club.id}
+                        href={`/clubs/${club.id}`}
+                        className="flex items-center gap-3 px-4 py-3.5 hover:bg-[#243018] transition group"
+                      >
                         <div
-                          className={`w-11 h-11 rounded-xl shrink-0 overflow-hidden flex items-center justify-center border border-[#3d5220] bg-gradient-to-br ${getGradient(club.name)}`}
+                          className={`w-11 h-11 rounded-xl shrink-0 overflow-hidden flex items-center justify-center border border-[#3d5220] group-hover:border-[#c5f135]/60 bg-gradient-to-br ${getGradient(club.name)}`}
                         >
                           {club.image_url ? (
                             <img
@@ -550,204 +418,212 @@ export default function HubPage() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-bold text-white truncate">{club.name}</p>
-                          {club.city && (
-                            <p className="text-xs text-white/40 mt-0.5">{club.city}</p>
+                          <p className="text-xs text-white/40 mt-0.5 truncate">
+                            {club.city}
+                            {club.city && nextRun && " · "}
+                            {nextRun && `Next: ${formatDay(nextRun.date)} ${formatTime(nextRun.time)}`}
+                            {!club.city && !nextRun && "No upcoming runs"}
+                          </p>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-white/20 group-hover:text-white/40 transition shrink-0" />
+                      </Link>
+                    )
+                  })}
+                </div>
+              )}
+            </section>
+
+            {/* ── MESSAGES (members only — directors manage chats from their Director dashboard) ── */}
+            {!isManager && (
+              <section>
+                <SectionHeader title="Messages" sub="Chats from your upcoming runs" />
+                <MemberChatInbox userId={userId} />
+              </section>
+            )}
+
+            {/* ── MY TRAINING SCHEDULE ── */}
+            {scheduleRuns.length > 0 && (
+              <section>
+                <SectionHeader
+                  title="My Training Schedule"
+                  sub={`Week of ${weekLabel()}`}
+                />
+                <div className="space-y-3">
+                  {scheduleRuns.map((run) => {
+                    const isToday = run.date === todayStr
+                    return (
+                      <Link
+                        key={run.id}
+                        href={`/runs/${run.id}`}
+                        className={`block bg-[#1e2d12] border rounded-2xl overflow-hidden hover:border-[#c5f135]/40 transition ${
+                          isToday ? "border-[#c5f135]/30" : "border-[#2e3d1a]"
+                        }`}
+                      >
+                        <div className="px-4 pt-3 pb-1 flex items-center justify-between">
+                          <p
+                            className={`text-[10px] font-black uppercase tracking-widest ${
+                              isToday ? "text-[#c5f135]" : "text-white/35"
+                            }`}
+                          >
+                            {run.dayLabel}
+                          </p>
+                          <span className="text-[9px] font-black text-white/30 uppercase tracking-wide">
+                            {run.is_in_person ? "Group · In Person" : "On Your Own"}
+                          </span>
+                        </div>
+                        <div className="px-4 pb-3">
+                          <div className="flex items-end justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-xl font-black text-white leading-tight">
+                                {formatTime(run.time)}
+                              </p>
+                              <div className="flex items-center gap-2 flex-wrap mt-1">
+                                {run.distance && (
+                                  <span className="text-xs text-white/50">{run.distance}</span>
+                                )}
+                                {run.meeting_point && (
+                                  <span className="text-xs text-white/50">{run.meeting_point}</span>
+                                )}
+                              </div>
+                            </div>
+                            <ChevronRight className="w-4 h-4 text-white/20 shrink-0" />
+                          </div>
+                          {run.description && (
+                            <p className="text-xs text-white/50 mt-2 leading-relaxed">
+                              {run.description}
+                            </p>
                           )}
                         </div>
-                        <Link
-                          href="/director"
-                          className="flex items-center gap-1.5 px-3.5 py-2 bg-[#c5f135] text-[#1a2110] text-xs font-black rounded-full shrink-0 hover:bg-[#d4ff45] transition"
-                        >
-                          Manage <ChevronRight className="w-3 h-3" />
-                        </Link>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              )}
-            </div>
+                      </Link>
+                    )
+                  })}
+                </div>
+              </section>
+            )}
 
-            {/* ── LEFT / MAIN ── */}
-            <div className="order-2 md:order-1 space-y-10">
-              {/* ── MY TRAINING SCHEDULE ── */}
-              {scheduleRuns.length > 0 && (
-                <section>
-                  <SectionHeader
-                    title="My Training Schedule"
-                    sub={`Week of ${weekLabel()}`}
-                  />
-                  <div className="space-y-3">
-                    {scheduleRuns.map((run) => {
-                      const isToday = run.date === todayStr
-                      const canCheckIn = isToday && run.is_in_person
-                      const checkedIn = checkedInIds.has(run.id)
-                      const isChecking = checkingInId === run.id
-                      return (
-                        <div
-                          key={run.id}
-                          className={`bg-[#1e2d12] border rounded-2xl overflow-hidden ${
-                            isToday ? "border-[#c5f135]/30" : "border-[#2e3d1a]"
+            {/* ── UPCOMING COMMUNITY RUNS ── */}
+            <section>
+              <SectionHeader title="Upcoming Runs" />
+              {runs.length === 0 ? (
+                <div className="bg-[#1e2d12] rounded-2xl p-10 text-center border border-[#2e3d1a]">
+                  <CalendarCheck className="w-10 h-10 text-white/15 mx-auto mb-3" />
+                  <p className="text-white/50 text-sm font-medium">No upcoming runs.</p>
+                  <p className="text-white/25 text-xs mt-1">
+                    {myKlubs.length === 0
+                      ? "Join a klub to see their upcoming runs."
+                      : "Check back when your klubs post their next run."}
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-[#1e2d12] rounded-2xl overflow-hidden border border-[#2e3d1a] divide-y divide-[#2e3d1a]">
+                  {runs.map((run) => {
+                    const isToday = run.date === todayStr
+                    const dayLabel = formatDay(run.date)
+                    const meta = [run.club_name, formatTime(run.time), run.distance]
+                      .filter(Boolean)
+                      .join(" · ")
+                    return (
+                      <Link
+                        key={run.id}
+                        href={`/runs/${run.id}`}
+                        className="flex items-center gap-3 px-4 py-3.5 hover:bg-[#243018] transition"
+                      >
+                        <div className="w-9 h-9 rounded-xl bg-[#2e3d1a] shrink-0 overflow-hidden flex items-center justify-center">
+                          {run.club_image ? (
+                            <img
+                              src={run.club_image}
+                              alt=""
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <span className="text-[10px] font-black text-white/40">
+                              {run.club_name
+                                ?.split(" ")
+                                .map((w: string) => w[0])
+                                .join("")
+                                .slice(0, 2)
+                                .toUpperCase()}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-white truncate">{run.title}</p>
+                          <p className="text-xs text-white/40 truncate mt-0.5">{meta}</p>
+                        </div>
+                        <span
+                          className={`shrink-0 text-[10px] font-bold ${
+                            isToday ? "text-[#c5f135]" : "text-white/30"
                           }`}
                         >
-                          <div className="px-4 pt-3 pb-1 flex items-center justify-between">
-                            <p
-                              className={`text-[10px] font-black uppercase tracking-widest ${
-                                isToday ? "text-[#c5f135]" : "text-white/35"
-                              }`}
-                            >
-                              {run.dayLabel}
-                            </p>
-                            <span className="text-[9px] font-black text-white/30 uppercase tracking-wide">
-                              {run.is_in_person ? "Group · In Person" : "On Your Own"}
-                            </span>
-                          </div>
-                          <div className="px-4 pb-3">
-                            <div className="flex items-end justify-between gap-3">
-                              <div className="min-w-0">
-                                <p className="text-xl font-black text-white leading-tight">
-                                  {formatTime(run.time)}
-                                </p>
-                                <div className="flex items-center gap-2 flex-wrap mt-1">
-                                  {run.distance && (
-                                    <span className="text-xs text-white/50">{run.distance}</span>
-                                  )}
-                                  {run.meeting_point && (
-                                    <span className="text-xs text-white/50">{run.meeting_point}</span>
-                                  )}
-                                </div>
-                              </div>
-                              {canCheckIn && (
-                                <button
-                                  onClick={() => !checkedIn && checkIn(run.id)}
-                                  disabled={isChecking}
-                                  className={`shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-full text-[11px] font-black transition ${
-                                    checkedIn
-                                      ? "bg-[#c5f135]/15 text-[#c5f135] border border-[#c5f135]/30 cursor-default"
-                                      : "bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45] active:scale-95"
-                                  }`}
-                                >
-                                  {checkedIn ? (
-                                    <>
-                                      <CheckCircle2 className="w-3.5 h-3.5" /> Checked In
-                                    </>
-                                  ) : isChecking ? (
-                                    "…"
-                                  ) : (
-                                    "Check In"
-                                  )}
-                                </button>
-                              )}
-                            </div>
-                            {run.description && (
-                              <p className="text-xs text-white/50 mt-2 leading-relaxed">
-                                {run.description}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </section>
+                          {dayLabel}
+                        </span>
+                        <ChevronRight className="w-4 h-4 text-white/20 shrink-0" />
+                      </Link>
+                    )
+                  })}
+                </div>
               )}
+            </section>
 
-              {/* ── UPCOMING COMMUNITY RUNS ── */}
+            {/* ── DIRECTOR ── */}
+            {isManager && managedKlubs.length > 0 && (
               <section>
-                <SectionHeader title="Upcoming Runs" />
-                {runs.length === 0 ? (
-                  <div className="bg-[#1e2d12] rounded-2xl p-10 text-center border border-[#2e3d1a]">
-                    <CalendarCheck className="w-10 h-10 text-white/15 mx-auto mb-3" />
-                    <p className="text-white/50 text-sm font-medium">No upcoming runs.</p>
-                    <p className="text-white/25 text-xs mt-1">
-                      {myKlubs.length === 0
-                        ? "Join a klub to see their upcoming runs."
-                        : "Check back when your klubs post their next run."}
-                    </p>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-1 h-5 rounded-full bg-[#c5f135] shrink-0" />
+                  <h2 className="text-sm font-black text-white tracking-tight">Director</h2>
+                  <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#c5f135]/10 border border-[#c5f135]/20">
+                    <Zap className="w-2.5 h-2.5 text-[#c5f135]" />
+                    <span className="text-[10px] font-black text-[#c5f135]">
+                      {managedKlubs.length}
+                    </span>
                   </div>
-                ) : (
-                  <div className="bg-[#1e2d12] rounded-2xl overflow-hidden border border-[#2e3d1a] divide-y divide-[#2e3d1a]">
-                    {runs.map((run) => {
-                      const isToday = run.date === todayStr
-                      const dayLabel = formatDay(run.date)
-                      const canCheckIn = isToday && run.is_in_person
-                      const checkedIn = checkedInIds.has(run.id)
-                      const isChecking = checkingInId === run.id
-                      const meta = [run.club_name, formatTime(run.time), run.distance]
-                        .filter(Boolean)
-                        .join(" · ")
-                      return (
-                        <div key={run.id} className="flex items-center gap-3 px-4 py-3.5">
-                          <div className="w-9 h-9 rounded-xl bg-[#2e3d1a] shrink-0 overflow-hidden flex items-center justify-center">
-                            {run.club_image ? (
-                              <img
-                                src={run.club_image}
-                                alt=""
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <span className="text-[10px] font-black text-white/40">
-                                {run.club_name
-                                  ?.split(" ")
-                                  .map((w: string) => w[0])
-                                  .join("")
-                                  .slice(0, 2)
-                                  .toUpperCase()}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-bold text-white truncate">{run.title}</p>
-                            <p className="text-xs text-white/40 truncate mt-0.5">{meta}</p>
-                          </div>
-                          {canCheckIn ? (
-                            <button
-                              onClick={() => !checkedIn && checkIn(run.id)}
-                              disabled={isChecking}
-                              className={`shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[10px] font-black transition ${
-                                checkedIn
-                                  ? "bg-[#c5f135]/15 text-[#c5f135] border border-[#c5f135]/30 cursor-default"
-                                  : "bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45] active:scale-95"
-                              }`}
-                            >
-                              {checkedIn ? (
-                                <>
-                                  <CheckCircle2 className="w-3 h-3" /> Done
-                                </>
-                              ) : isChecking ? (
-                                "…"
-                              ) : (
-                                "Check In"
-                              )}
-                            </button>
-                          ) : (
-                            <span
-                              className={`shrink-0 text-[10px] font-bold ${
-                                isToday ? "text-[#c5f135]" : "text-white/30"
-                              }`}
-                            >
-                              {dayLabel}
-                            </span>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
+                  <div className="flex-1 h-px bg-[#2e3d1a]" />
+                </div>
+                <div className="rounded-2xl overflow-hidden border border-[#c5f135]/15 bg-[#c5f135]/[0.03] divide-y divide-[#2e3d1a]">
+                  {managedKlubs.map((club) => (
+                    <div key={club.id} className="px-4 py-4 flex items-center gap-3">
+                      <div
+                        className={`w-11 h-11 rounded-xl shrink-0 overflow-hidden flex items-center justify-center border border-[#3d5220] bg-gradient-to-br ${getGradient(club.name)}`}
+                      >
+                        {club.image_url ? (
+                          <img
+                            src={club.image_url}
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-xs font-black text-white/30">
+                            {club.name
+                              .split(" ")
+                              .map((w) => w[0])
+                              .join("")
+                              .slice(0, 2)
+                              .toUpperCase()}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-white truncate">{club.name}</p>
+                        {club.city && (
+                          <p className="text-xs text-white/40 mt-0.5">{club.city}</p>
+                        )}
+                      </div>
+                      <Link
+                        href="/director"
+                        className="flex items-center gap-1.5 px-3.5 py-2 bg-[#c5f135] text-[#1a2110] text-xs font-black rounded-full shrink-0 hover:bg-[#d4ff45] transition"
+                      >
+                        Manage <ChevronRight className="w-3 h-3" />
+                      </Link>
+                    </div>
+                  ))}
+                </div>
               </section>
-            </div>
+            )}
           </div>
         )}
 
         <div className="h-8" />
       </div>
-
-      {/* ── ACHIEVEMENT TOAST ── */}
-      {newAchievement && (
-        <AchievementToast
-          achievement={newAchievement}
-          onDismiss={() => setNewAchievement(null)}
-        />
-      )}
     </div>
   )
 }
