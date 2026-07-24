@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, useRef } from "react"
+import { useState, useEffect, useMemo, useRef, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import SearchBar from "@/components/searchbar"
 import Filters, { DEFAULT_FILTERS, type FilterOptions } from "@/components/filters"
@@ -59,6 +59,14 @@ function formatTime(t: string) {
 }
 
 export default function ExplorePage() {
+  return (
+    <Suspense fallback={null}>
+      <ExplorePageInner />
+    </Suspense>
+  )
+}
+
+function ExplorePageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   // Deep link from Passport goal boxes: /explore?city=Denver, CO

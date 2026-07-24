@@ -130,6 +130,8 @@ function GoalBox({
         <p className="text-xs text-white/70 mb-2">
           {city.is_complete ? (
             <span className="text-[#c5f135] font-bold">Complete! 🎉</span>
+          ) : city.remaining === 1 ? (
+            <span className="text-[#c5f135] font-bold">Find a club to complete this city</span>
           ) : (
             <><span className="text-[#c5f135] font-bold">{city.remaining}</span> to go</>
           )}
