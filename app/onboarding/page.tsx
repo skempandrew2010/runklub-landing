@@ -177,7 +177,7 @@ export default function OnboardingPage() {
               ← Back
             </button>
           ) : <div />}
-          {(step === 3 || step === 4) && (
+          {step === 4 && (
             <button onClick={advance} className="text-white/40 hover:text-white text-sm transition">
               Skip →
             </button>
@@ -411,16 +411,11 @@ export default function OnboardingPage() {
             <div className="space-y-3 mt-6">
               <button
                 onClick={advance}
-                disabled={avatarUploading}
+                disabled={avatarUploading || !avatarPreview}
                 className="w-full bg-[#c5f135] text-[#1a2110] font-black text-base py-4 rounded-2xl flex items-center justify-center gap-2 hover:bg-[#d4ff45] transition disabled:opacity-40"
               >
                 Continue <ArrowRight className="w-4 h-4" />
               </button>
-              {!avatarPreview && (
-                <button onClick={advance} className="w-full border border-white/10 text-white/50 font-semibold py-4 rounded-2xl hover:border-white/25 hover:text-white/80 transition">
-                  Skip for now
-                </button>
-              )}
             </div>
           </div>
         )}
