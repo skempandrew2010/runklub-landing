@@ -200,7 +200,7 @@ export default function LoginPage() {
               </div>
               <button onClick={handleGoogleAuth} className="w-full flex items-center justify-center gap-2 border border-white/15 rounded-2xl py-3.5 text-white/80 text-sm font-semibold hover:bg-white/5 transition">
                 <GoogleIcon />
-                Google
+                Continue with Google
               </button>
             </div>
           )}
@@ -263,7 +263,7 @@ export default function LoginPage() {
               </div>
               <button onClick={handleGoogleAuth} className="w-full flex items-center justify-center gap-2 border border-white/15 rounded-2xl py-3.5 text-white/80 text-sm font-semibold hover:bg-white/5 transition">
                 <GoogleIcon />
-                Google
+                Continue with Google
               </button>
 
               <button onClick={() => { setMode("landing"); setError("") }} className="w-full text-white/40 text-sm py-2 hover:text-white/70 transition">
