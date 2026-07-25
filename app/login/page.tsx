@@ -195,7 +195,7 @@ export default function LoginPage() {
 
               <div className="flex items-center gap-3 my-2">
                 <div className="flex-1 h-px bg-white/10" />
-                <span className="text-white/25 text-xs">or continue with</span>
+                <span className="text-white/25 text-xs">or</span>
                 <div className="flex-1 h-px bg-white/10" />
               </div>
               <button onClick={handleGoogleAuth} className="w-full flex items-center justify-center gap-2 border border-white/15 rounded-2xl py-3.5 text-white/80 text-sm font-semibold hover:bg-white/5 transition">
@@ -258,7 +258,7 @@ export default function LoginPage() {
 
               <div className="flex items-center gap-3 my-2">
                 <div className="flex-1 h-px bg-white/10" />
-                <span className="text-white/25 text-xs">or continue with</span>
+                <span className="text-white/25 text-xs">or</span>
                 <div className="flex-1 h-px bg-white/10" />
               </div>
               <button onClick={handleGoogleAuth} className="w-full flex items-center justify-center gap-2 border border-white/15 rounded-2xl py-3.5 text-white/80 text-sm font-semibold hover:bg-white/5 transition">
