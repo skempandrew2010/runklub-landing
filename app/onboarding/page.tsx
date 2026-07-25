@@ -1,17 +1,17 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { supabase } from "@/lib/supabase"
 import { useRouter } from "next/navigation"
-import { MapPin, ArrowRight, Check, ChevronRight, Trophy, Users } from "lucide-react"
+import { MapPin, ArrowRight, Check, ChevronRight, Trophy, Users, Camera } from "lucide-react"
 import { track } from "@vercel/analytics"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type Loc = { lat: number; lng: number }
 type Role = "manager" | "member"
-type Step = 0 | 1 | 2 | 3 | 4  // 0=location, 1=role, 2=profile, 3=strava, 4=finish
+type Step = 0 | 1 | 2 | 3 | 4 | 5  // 0=location, 1=role, 2=profile, 3=photo, 4=strava, 5=finish
 
-const TOTAL_STEPS = 5
+const TOTAL_STEPS = 6
 
 // ─── Pace options ─────────────────────────────────────────────────────────────
 const PACE_OPTIONS = [
@@ -62,6 +62,11 @@ export default function OnboardingPage() {
   const [pace, setPace] = useState<string | null>(null)
   const [runType, setRunType] = useState<string | null>(null)
 
+  // Step 3 — profile photo
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
+  const [avatarUploading, setAvatarUploading] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
+
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) { router.push("/login"); return }
@@ -72,7 +77,7 @@ export default function OnboardingPage() {
       // every login, so treat existing values as the starting point, not a
       // blank slate that a stray "Continue" click could downgrade to member.
       const { data: prof } = await supabase.from("profiles")
-        .select("role, pace_range, run_type, onboarding_complete")
+        .select("role, pace_range, run_type, avatar_url, onboarding_complete")
         .eq("id", user.id)
         .single()
 
@@ -84,11 +89,12 @@ export default function OnboardingPage() {
       if (prof?.role === "manager" || prof?.role === "member") setRole(prof.role)
       if (prof?.pace_range) setPace(prof.pace_range)
       if (prof?.run_type) setRunType(prof.run_type)
+      if (prof?.avatar_url) setAvatarPreview(prof.avatar_url)
     })
   }, [router])
 
   // Track each step as users reach it — shows funnel drop-off
-  const STEP_NAMES = ["location", "role", "profile", "strava", "finish"]
+  const STEP_NAMES = ["location", "role", "profile", "photo", "strava", "finish"]
   useEffect(() => {
     track("onboarding_step", { step, name: STEP_NAMES[step] })
   }, [step]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -133,7 +139,7 @@ export default function OnboardingPage() {
   }
 
   // ── Advance step ──
-  const advance = () => setStep((s) => Math.min(s + 1, 4) as Step)
+  const advance = () => setStep((s) => Math.min(s + 1, 5) as Step)
   const back = () => setStep((s) => Math.max(0, s - 1) as Step)
 
   // ── Step 2: save profile then advance ──
@@ -141,6 +147,23 @@ export default function OnboardingPage() {
     if (!userId || !pace || !runType) return
     await supabase.from("profiles").update({ pace_range: pace, run_type: runType }).eq("id", userId)
     advance()
+  }
+
+  // ── Step 3: upload profile photo ──
+  const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !userId) return
+    setAvatarUploading(true)
+    const ext = file.name.split(".").pop()
+    const path = `${userId}/avatar.${ext}`
+    const { error } = await supabase.storage.from("club-images").upload(path, file, { upsert: true })
+    if (!error) {
+      const { data: { publicUrl } } = supabase.storage.from("club-images").getPublicUrl(path)
+      await supabase.from("profiles").update({ avatar_url: publicUrl, updated_at: new Date().toISOString() }).eq("id", userId)
+      setAvatarPreview(`${publicUrl}?t=${Date.now()}`)
+      track("onboarding_photo_added")
+    }
+    setAvatarUploading(false)
   }
 
   return (
@@ -154,7 +177,7 @@ export default function OnboardingPage() {
               ← Back
             </button>
           ) : <div />}
-          {step === 3 && (
+          {(step === 3 || step === 4) && (
             <button onClick={advance} className="text-white/40 hover:text-white text-sm transition">
               Skip →
             </button>
@@ -351,9 +374,61 @@ export default function OnboardingPage() {
         )}
 
         {/* ═══════════════════════════════════════════════════════════════
-            STEP 3 — Connect Strava
+            STEP 3 — Profile Photo
         ═══════════════════════════════════════════════════════════════ */}
         {step === 3 && (
+          <div className="flex flex-col flex-1 animate-[fadeUp_0.4s_ease-out]">
+            <div className="mb-8">
+              <h1 className="text-3xl font-black text-white mb-2">Add a profile photo</h1>
+              <p className="text-white/50 text-base leading-relaxed">
+                Klubs are more fun when people can see who's showing up. Add a photo so members recognize you on runs.
+              </p>
+            </div>
+
+            <div className="flex-1 flex flex-col items-center justify-center">
+              <button
+                onClick={() => fileRef.current?.click()}
+                disabled={avatarUploading}
+                className="relative w-32 h-32 rounded-full overflow-hidden border-2 border-dashed border-white/20 flex items-center justify-center bg-[#1e2d12] hover:border-[#c5f135]/50 transition"
+              >
+                {avatarPreview ? (
+                  <img src={avatarPreview} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <Camera className="w-8 h-8 text-white/30" />
+                )}
+                {avatarUploading && (
+                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                    <div className="w-6 h-6 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                  </div>
+                )}
+              </button>
+              <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoSelect} />
+              <button onClick={() => fileRef.current?.click()} className="mt-4 text-[#c5f135] text-sm font-semibold hover:text-[#d4ff45] transition">
+                {avatarPreview ? "Change photo" : "Choose a photo"}
+              </button>
+            </div>
+
+            <div className="space-y-3 mt-6">
+              <button
+                onClick={advance}
+                disabled={avatarUploading}
+                className="w-full bg-[#c5f135] text-[#1a2110] font-black text-base py-4 rounded-2xl flex items-center justify-center gap-2 hover:bg-[#d4ff45] transition disabled:opacity-40"
+              >
+                Continue <ArrowRight className="w-4 h-4" />
+              </button>
+              {!avatarPreview && (
+                <button onClick={advance} className="w-full border border-white/10 text-white/50 font-semibold py-4 rounded-2xl hover:border-white/25 hover:text-white/80 transition">
+                  Skip for now
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ═══════════════════════════════════════════════════════════════
+            STEP 4 — Connect Strava
+        ═══════════════════════════════════════════════════════════════ */}
+        {step === 4 && (
           <div className="flex flex-col flex-1 animate-[fadeUp_0.4s_ease-out]">
             <div className="flex-1 flex flex-col items-center justify-center text-center px-2">
               <div className="w-20 h-20 rounded-full flex items-center justify-center mb-6 text-4xl"
@@ -384,9 +459,9 @@ export default function OnboardingPage() {
         )}
 
         {/* ═══════════════════════════════════════════════════════════════
-            STEP 4 — All set
+            STEP 5 — All set
         ═══════════════════════════════════════════════════════════════ */}
-        {step === 4 && (
+        {step === 5 && (
           <div className="flex flex-col flex-1 animate-[fadeUp_0.4s_ease-out]">
             <div className="flex-1 flex flex-col items-center justify-center text-center px-2">
               <div className="w-20 h-20 rounded-2xl bg-[#c5f135]/10 flex items-center justify-center mb-6">
