@@ -236,7 +236,7 @@ export default function ProfilePage() {
             <div className="relative shrink-0">
               <button
                 onClick={() => fileRef.current?.click()}
-                className="w-20 h-20 rounded-2xl flex items-center justify-center text-3xl font-black overflow-hidden hover:opacity-90 transition"
+                className="w-20 h-20 rounded-full flex items-center justify-center text-3xl font-black overflow-hidden hover:opacity-90 transition"
                 style={{ background: `linear-gradient(135deg, ${bgColor}, #1a2110)` }}
               >
                 {profile?.avatar_url ? (
