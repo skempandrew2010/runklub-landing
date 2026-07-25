@@ -29,19 +29,19 @@ function buildReminderEmail(
 
   const subject = isWarm
     ? `Still want to claim ${clubName} on RunKlub?`
-    : `Reminder: ${clubName}'s RunKlub page is waiting`
+    : `${clubName} is still waiting in the RunKlub Passport`
 
   const headline = isWarm
     ? `Still thinking about it? 👟`
-    : `Just following up 👟`
+    : `Just a quick follow-up 🗺️`
 
   const body1 = isWarm
     ? `You clicked the link for <strong style="color:#ffffff;">${safeClub}</strong>${safeCity} but didn&rsquo;t quite finish. Totally fine — here&rsquo;s the link again whenever you&rsquo;re ready.`
-    : `Quick follow-up from Andrew &amp; Sean — <strong style="color:#ffffff;">${safeClub}</strong>${safeCity} still has an unclaimed page on RunKlub. Runners in your city are out there looking for a group right now.`
+    : `Quick follow-up from Andrew &amp; Sean — we reached out a little while ago about <strong style="color:#ffffff;">${safeClub}</strong>${safeCity} being part of the RunKlub Passport. Your page is still there.`
 
   const body2 = isWarm
-    ? `Once you&rsquo;re in you can post your runs, update your schedule, and start showing up for people in your city who are looking for exactly what your klub offers.`
-    : `Claim it for free and you can post runs, keep your schedule current, and get in front of people who are already searching for a klub to join.`
+    ? `Once you&rsquo;re in you can keep your schedule current so that when runners show up to get their Passport stamp, they know exactly what to expect.`
+    : `The Passport is how we get people to actually try new clubs — runners collect stamps by checking in, and compete with friends to see who&rsquo;s been to the most. It&rsquo;s a real reason for someone to walk through your door for the first time.`
 
   const ctaLabel = isWarm ? `Finish setting up ${safeClub} →` : `Claim ${safeClub} →`
 
@@ -95,8 +95,8 @@ function buildReminderEmail(
 </html>`
 
   const text = isWarm
-    ? `Still thinking about it?\n\nYou clicked the link for ${clubName}${city ? ` in ${city}` : ""} but didn't quite finish. Here's the link again whenever you're ready:\n\n${claimLink}\n\nOnce you're in you can post your runs, update your schedule, and start showing up for people in your city who are looking for a group.\n\n— Andrew & Sean\nRunKlub`
-    : `Just following up\n\nQuick note from Andrew & Sean — ${clubName}${city ? ` in ${city}` : ""} still has an unclaimed page on RunKlub. Runners in your city are out there looking for a group right now.\n\n${claimLink}\n\nClaim it for free and you can post runs, keep your schedule current, and get in front of people who are already searching.\n\n— Andrew & Sean\nRunKlub`
+    ? `Still thinking about it?\n\nYou clicked the link for ${clubName}${city ? ` in ${city}` : ""} but didn't quite finish. Here's the link again whenever you're ready:\n\n${claimLink}\n\nOnce you're in you can keep your schedule current so that when runners show up to get their Passport stamp, they know what to expect.\n\n— Andrew & Sean\nRunKlub`
+    : `Just a quick follow-up\n\nHey — Andrew & Sean here. We reached out a little while ago about ${clubName}${city ? ` in ${city}` : ""} being part of the RunKlub Passport. Your page is still there.\n\nThe Passport is how we get people to actually try new clubs — runners collect stamps by checking in, and compete with friends to see who's been to the most. It's a real reason for someone to walk through your door for the first time.\n\n${claimLink}\n\nFeel free to reply if you have any questions.\n\n— Andrew & Sean\nRunKlub`
 
   return { subject, html, text }
 }

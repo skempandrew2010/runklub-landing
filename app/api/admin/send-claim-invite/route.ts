@@ -39,16 +39,19 @@ function buildInviteEmail(clubName: string, city: string | null, claimLink: stri
         <tr>
           <td style="padding:32px 32px 12px;">
             <h1 style="margin:0 0 16px;font-size:24px;font-weight:900;color:#ffffff;line-height:1.3;">
-              ${safeClub} is on RunKlub 👟
+              ${safeClub} is in the RunKlub Passport 🗺️
             </h1>
             <p style="margin:0 0 12px;font-size:15px;line-height:1.7;color:rgba(255,255,255,0.7);">
-              Hey! We&rsquo;re Andrew and Sean — we built RunKlub as a free way for people to find run klubs near them. We found <strong style="color:#ffffff;">${safeClub}</strong>${safeCity} and added it, so your page is already live with your schedule and location.
+              Hey! We&rsquo;re Andrew and Sean. We built RunKlub around a simple idea — most runners stick to one club (or no club) because they never really discover what else is out there. We wanted to fix that.
             </p>
             <p style="margin:0 0 12px;font-size:15px;line-height:1.7;color:rgba(255,255,255,0.7);">
-              Claim it and you can post runs, update your info, and start showing up for runners in your city who are out there looking for a group. Takes less than a minute to set up.
+              The way we do it is through the <strong style="color:#ffffff;">RunKlub Passport</strong>. Runners collect stamps by checking in at clubs around their city and compete with friends to see who&rsquo;s been to the most. It gives people a real reason to try somewhere new — and to keep coming back.
+            </p>
+            <p style="margin:0 0 12px;font-size:15px;line-height:1.7;color:rgba(255,255,255,0.7);">
+              <strong style="color:#ffffff;">${safeClub}</strong>${safeCity} is already in the Passport. Claim your page and you can keep your schedule and info current, so when motivated runners show up to check in, they know exactly what to expect.
             </p>
             <p style="margin:0 0 28px;font-size:15px;line-height:1.7;color:rgba(255,255,255,0.7);">
-              If you want to chat first, just reply to this — we&rsquo;re always happy to hop on a quick call.
+              Takes less than a minute to set up. If you want to chat first, just reply — we&rsquo;re always happy to.
             </p>
             <!-- CTA -->
             <table cellpadding="0" cellspacing="0">
@@ -68,13 +71,13 @@ function buildInviteEmail(clubName: string, city: string | null, claimLink: stri
         <tr>
           <td style="padding:28px 32px;border-top:1px solid #2e3d1a;">
             <p style="margin:0 0 12px;font-size:12px;font-weight:700;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:0.1em;">
-              What you get
+              What it means for your club
             </p>
             <table cellpadding="0" cellspacing="0" width="100%">
               ${[
-                ["📍", "One place for your club info — schedule, location, and details all in one spot"],
-                ["👟", "Get discovered — runners in your city searching for a club will find you"],
-                ["📲", "Keep your community up to date — members get notified every time you post a run or event"],
+                ["🗺️", "Featured in the Passport — your club shows up as a destination runners are actively trying to visit"],
+                ["👟", "New faces at your runs — Passport runners explore clubs they&rsquo;d never have found otherwise"],
+                ["📲", "Control your page — keep your schedule current so people know when and where to show up"],
               ].map(([icon, text]) => `
               <tr>
                 <td style="padding:5px 0;font-size:14px;color:rgba(255,255,255,0.6);">
@@ -101,15 +104,17 @@ function buildInviteEmail(clubName: string, city: string | null, claimLink: stri
 </body>
 </html>`
 
-  const text = `${clubName} is on RunKlub 👟
+  const text = `${clubName} is in the RunKlub Passport 🗺️
 
-Hey! We're Andrew and Sean — we built RunKlub as a free way for people to find run klubs near them. We found ${clubName}${city ? ` in ${city}` : ""} and added it, so your page is already live.
+Hey! We're Andrew and Sean. We built RunKlub around a simple idea — most runners stick to one club (or no club) because they never really discover what else is out there. We wanted to fix that.
 
-Claim it and you can post runs, update your info, and start showing up for runners in your city who are looking for a group. Takes less than a minute.
+The way we do it is through the RunKlub Passport. Runners collect stamps by checking in at clubs around their city and compete with friends to see who's been to the most. It gives people a real reason to try somewhere new — and to keep coming back.
+
+${clubName}${city ? ` in ${city}` : ""} is already in the Passport. Claim your page and you can keep your schedule current so that when motivated runners show up to check in, they know what to expect.
 
 ${claimLink}
 
-If you want to chat first, just reply to this — we're always happy to hop on a quick call.
+Takes less than a minute. If you want to chat first, just reply — we're always happy to.
 
 — Andrew & Sean
 RunKlub`
@@ -176,7 +181,7 @@ export async function POST(req: NextRequest) {
     const { error: emailError } = await getResend().emails.send({
       from: FROM,
       to: emails,
-      subject: `Claim ${club.name} on RunKlub`,
+      subject: `${club.name} is in the RunKlub Passport`,
       html,
       text,
     })
