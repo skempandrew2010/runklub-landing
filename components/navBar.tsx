@@ -11,6 +11,7 @@ export default function Navbar() {
   const pathname = usePathname()
   const [user, setUser] = useState<any>(null)
   const [role, setRole] = useState<string>("member")
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [loaded, setLoaded] = useState(false)
   const [hasUnread, setHasUnread] = useState(false)
 
@@ -28,9 +29,10 @@ export default function Navbar() {
       setUser(user)
       if (user) {
         const [profileRes] = await Promise.all([
-          supabase.from("profiles").select("role").eq("id", user.id).single(),
+          supabase.from("profiles").select("role, avatar_url").eq("id", user.id).single(),
         ])
         if (profileRes.data?.role) setRole(profileRes.data.role)
+        setAvatarUrl(profileRes.data?.avatar_url ?? null)
 
         // Check for unread messages across the user's runs
         const lastSeen = localStorage.getItem("director_last_seen") ?? "1970-01-01T00:00:00.000Z"
@@ -67,7 +69,7 @@ export default function Navbar() {
     load()
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
-      if (!session?.user) { setRole("member"); setHasUnread(false) }
+      if (!session?.user) { setRole("member"); setHasUnread(false); setAvatarUrl(null) }
     })
     return () => listener.subscription.unsubscribe()
   }, [])
@@ -140,7 +142,11 @@ export default function Navbar() {
               href="/profile"
               className={`flex flex-col items-center justify-center gap-1 px-2 sm:px-4 py-2 rounded-xl transition ${profileActive ? "bg-[#c5f135]/10" : "hover:bg-[#2e3d1a]"}`}
             >
-              {initials ? (
+              {avatarUrl ? (
+                <div className={`w-6 h-6 rounded-full overflow-hidden ${profileActive ? "ring-2 ring-[#c5f135]" : ""}`}>
+                  <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+                </div>
+              ) : initials ? (
                 <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black ${profileActive ? "bg-[#c5f135] text-[#1a2110]" : "bg-[#2e3d1a] border border-[#3d5220] text-[#c5f135]"}`}>
                   {initials}
                 </div>
