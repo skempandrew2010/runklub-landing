@@ -100,6 +100,15 @@ export default function LoginPage() {
     router.push("/onboarding")
   }
 
+  const handleGoogleAuth = async () => {
+    setError("")
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
+    })
+    if (error) setError(error.message)
+  }
+
   const inputClass = "w-full bg-white/8 border border-white/15 rounded-2xl px-5 py-4 text-white placeholder-white/30 focus:outline-none focus:border-[#c5f135]/60 transition text-base"
 
   return (
@@ -172,6 +181,15 @@ export default function LoginPage() {
                   Forgot password?
                 </button>
               </div>
+
+              <div className="flex items-center gap-3 my-2">
+                <div className="flex-1 h-px bg-white/10" />
+                <span className="text-white/25 text-xs">or continue with</span>
+                <div className="flex-1 h-px bg-white/10" />
+              </div>
+              <button onClick={handleGoogleAuth} className="w-full flex items-center justify-center gap-2 border border-white/15 rounded-2xl py-3.5 text-white/80 text-sm font-semibold hover:bg-white/5 transition">
+                Google
+              </button>
             </div>
           )}
 
@@ -226,20 +244,14 @@ export default function LoginPage() {
                 <a href="/privacy" className="text-white/50 underline hover:text-white/70 transition">Privacy Policy</a>.
               </p>
 
-              {/* Social placeholders */}
               <div className="flex items-center gap-3 my-2">
                 <div className="flex-1 h-px bg-white/10" />
                 <span className="text-white/25 text-xs">or continue with</span>
                 <div className="flex-1 h-px bg-white/10" />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                {["Google", "Apple"].map((p) => (
-                  <button key={p} disabled className="flex items-center justify-center gap-2 border border-white/10 rounded-2xl py-3.5 text-white/30 text-sm font-semibold cursor-not-allowed">
-                    {p}
-                    <span className="text-[10px] text-white/20 font-normal">soon</span>
-                  </button>
-                ))}
-              </div>
+              <button onClick={handleGoogleAuth} className="w-full flex items-center justify-center gap-2 border border-white/15 rounded-2xl py-3.5 text-white/80 text-sm font-semibold hover:bg-white/5 transition">
+                Google
+              </button>
 
               <button onClick={() => { setMode("landing"); setError("") }} className="w-full text-white/40 text-sm py-2 hover:text-white/70 transition">
                 ← Back
