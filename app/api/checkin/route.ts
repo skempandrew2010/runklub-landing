@@ -38,6 +38,7 @@ export async function POST(req: NextRequest) {
     const { data: passportData, error: passportErr } = await db.rpc("checkin_to_club_admin", {
       p_user_id: user.id,
       p_club_id: run.club_id,
+      p_run_id: run.id,
     })
     if (passportErr) console.error("Passport rollup failed:", passportErr)
 
