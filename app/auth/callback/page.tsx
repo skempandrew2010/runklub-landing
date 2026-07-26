@@ -26,6 +26,15 @@ export default function AuthCallbackPage() {
         .eq("id", session.user.id)
         .single()
 
+      // First-time Google sign-in — pull their real name from the provider
+      // instead of leaving it at the email-prefix default from handle_new_user().
+      if (!profile?.onboarding_complete) {
+        const googleName = session.user.user_metadata?.full_name || session.user.user_metadata?.name
+        if (googleName) {
+          await supabase.from("profiles").update({ display_name: googleName }).eq("id", session.user.id)
+        }
+      }
+
       if (profile?.role === "admin") {
         router.replace("/admin/claims")
       } else {

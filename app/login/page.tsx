@@ -21,6 +21,7 @@ function GoogleIcon() {
 export default function LoginPage() {
   const router = useRouter()
   const [mode, setMode] = useState<Mode>("splash")
+  const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
@@ -103,11 +104,14 @@ export default function LoginPage() {
   }
 
   const handleSignup = async () => {
-    if (!email || !password) return
+    if (!name.trim() || !email || !password) return
     setLoading(true)
     setError("")
-    const { error } = await supabase.auth.signUp({ email, password })
+    const { data, error } = await supabase.auth.signUp({ email, password })
     if (error) { setError(error.message); setLoading(false); return }
+    if (data.user) {
+      await supabase.from("profiles").update({ display_name: name.trim() }).eq("id", data.user.id)
+    }
     router.push("/onboarding")
   }
 
@@ -238,7 +242,8 @@ export default function LoginPage() {
           {/* ── Signup form ── */}
           {mode === "signup" && (
             <div className="w-full space-y-3">
-              <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} autoFocus />
+              <input type="text" placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} className={inputClass} autoFocus />
+              <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} />
               <div className="relative">
                 <input type={showPassword ? "text" : "password"} placeholder="Password (6+ characters)" value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSignup()} className={inputClass + " pr-12"} />
                 <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60">
@@ -246,7 +251,7 @@ export default function LoginPage() {
                 </button>
               </div>
               {error && <p className="text-red-400 text-sm px-1">{error}</p>}
-              <button onClick={handleSignup} disabled={loading || !email || password.length < 6} className="w-full bg-[#c5f135] text-[#1a2110] font-black text-base py-4 rounded-2xl flex items-center justify-center gap-2 hover:bg-[#d4ff45] transition disabled:opacity-40 mt-1">
+              <button onClick={handleSignup} disabled={loading || !name.trim() || !email || password.length < 6} className="w-full bg-[#c5f135] text-[#1a2110] font-black text-base py-4 rounded-2xl flex items-center justify-center gap-2 hover:bg-[#d4ff45] transition disabled:opacity-40 mt-1">
                 {loading ? "Creating account…" : <><span>Get Started</span><ArrowRight className="w-4 h-4" /></>}
               </button>
               <p className="text-[11px] text-white/30 text-center leading-relaxed px-2">
