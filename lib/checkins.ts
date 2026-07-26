@@ -209,6 +209,22 @@ export async function getUserStatesProgress(): Promise<StateProgress[]> {
   return distinctStates.map((state) => ({ state, visited: visitedStates.has(state) }))
 }
 
+export type TierDefinition = {
+  slug: string
+  name: string
+  description: string | null
+  tier_rank: number
+}
+
+export async function getTierDefinitions(): Promise<TierDefinition[]> {
+  const { data } = await supabase
+    .from("badges")
+    .select("slug, name, description, tier_rank")
+    .eq("is_tier", true)
+    .order("tier_rank", { ascending: true })
+  return (data as TierDefinition[]) || []
+}
+
 export type EarnedBadge = {
   slug: string
   name: string
@@ -239,6 +255,24 @@ export async function getUserBadges(): Promise<EarnedBadge[]> {
       earned_at: r.earned_at,
       city: r.city,
     }))
+}
+
+export type TierLeaderboardRow = {
+  user_id: string
+  display_name: string | null
+  avatar_url: string | null
+  tier_name: string
+  tier_slug: string
+  tier_rank: number
+  cities_total: number
+  states_total: number
+  tier_earned_at: string
+  rank: number
+}
+
+export async function getTierLeaderboard(): Promise<TierLeaderboardRow[]> {
+  const { data } = await supabase.rpc("get_tier_leaderboard")
+  return (data as TierLeaderboardRow[]) || []
 }
 
 export type UserTier = {

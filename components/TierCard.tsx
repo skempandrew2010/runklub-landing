@@ -1,6 +1,7 @@
 "use client"
 
-import { Stamp, MapPin, Compass, Plane, Map as MapIcon, Globe, Share2 } from "lucide-react"
+import Link from "next/link"
+import { Stamp, MapPin, Compass, Plane, Map as MapIcon, Globe, Share2, ChevronRight } from "lucide-react"
 import type { ComponentType } from "react"
 import type { TierProgress } from "@/lib/checkins"
 
@@ -23,15 +24,18 @@ export default function TierCard({ progress, onShare }: { progress: TierProgress
   return (
     <div className="relative rounded-2xl p-5 mb-6 border border-[#c5f135]/25 bg-gradient-to-br from-[#28380f] via-[#1a2110] to-[#0e150a] overflow-hidden">
       <div className="flex items-center gap-4">
-        <div className="w-14 h-14 rounded-full flex items-center justify-center bg-[#c5f135]/10 border-2 border-[#c5f135]/40 shrink-0">
-          <CurrentIcon className="w-6 h-6 text-[#c5f135]" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-black text-white/30 uppercase tracking-widest">Current Tier</p>
-          <p className="text-xl font-black text-white leading-tight truncate">
-            {progress.current_tier ?? "Unranked"}
-          </p>
-        </div>
+        <Link href="/passport/tiers" className="flex items-center gap-4 flex-1 min-w-0 group">
+          <div className="w-14 h-14 rounded-full flex items-center justify-center bg-[#c5f135]/10 border-2 border-[#c5f135]/40 shrink-0">
+            <CurrentIcon className="w-6 h-6 text-[#c5f135]" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-black text-white/30 uppercase tracking-widest">Current Tier</p>
+            <p className="text-xl font-black text-white leading-tight truncate flex items-center gap-1 group-hover:text-[#c5f135] transition">
+              {progress.current_tier ?? "Unranked"}
+              <ChevronRight className="w-4 h-4 text-white/30 group-hover:text-[#c5f135] transition shrink-0" />
+            </p>
+          </div>
+        </Link>
         {onShare && (
           <button
             onClick={onShare}

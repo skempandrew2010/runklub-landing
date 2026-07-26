@@ -322,9 +322,12 @@ export default function ProfilePage() {
                     {tierProgress?.current_tier_slug && (() => {
                       const TierIcon = TIER_ICONS[tierProgress.current_tier_slug!]
                       return (
-                        <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-[#c5f135]/10 text-[#c5f135] border border-[#c5f135]/30 flex items-center gap-1">
+                        <Link
+                          href="/passport/tiers"
+                          className="px-2.5 py-1 rounded-full text-xs font-bold bg-[#c5f135]/10 text-[#c5f135] border border-[#c5f135]/30 flex items-center gap-1 hover:bg-[#c5f135]/20 transition"
+                        >
                           {TierIcon && <TierIcon className="w-3 h-3" />} {tierProgress.current_tier}
-                        </span>
+                        </Link>
                       )
                     })()}
                   </div>
