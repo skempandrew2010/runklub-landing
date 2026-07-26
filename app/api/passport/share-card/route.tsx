@@ -63,53 +63,80 @@ export async function GET(req: NextRequest) {
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            backgroundColor: "#0D0D0D",
+            backgroundImage:
+              "radial-gradient(circle at 85% 8%, rgba(200,242,60,0.16) 0%, rgba(200,242,60,0) 42%), linear-gradient(160deg, #16210c 0%, #0e1707 45%, #080f04 100%)",
             position: "relative",
           }}
         >
+          {/* top accent bar */}
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: WIDTH,
+              height: 14,
+              backgroundImage: "linear-gradient(90deg, #C8F23C 0%, rgba(200,242,60,0.5) 55%, rgba(200,242,60,0.05) 100%)",
+              display: "flex",
+            }}
+          />
+
+          {/* decorative rings, echoing a running track */}
+          <div style={{ position: "absolute", right: -260, top: 260, width: 760, height: 1040, borderRadius: "50%", border: "2.5px solid rgba(200,242,60,0.07)", display: "flex" }} />
+          <div style={{ position: "absolute", right: -350, top: 200, width: 940, height: 1160, borderRadius: "50%", border: "1.5px solid rgba(200,242,60,0.045)", display: "flex" }} />
+
+          <div style={{ display: "flex", fontFamily: "Syne", fontWeight: 600, fontSize: 32, color: "rgba(200,242,60,0.55)", letterSpacing: 6, marginBottom: 48 }}>
+            RUNKLUB PASSPORT
+          </div>
+
           {/* boarding-pass card */}
           <div
             style={{
-              width: 860,
+              width: 900,
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
-              backgroundColor: "#151a0d",
-              border: "3px solid rgba(200,242,60,0.35)",
-              borderRadius: 40,
-              paddingTop: 96,
-              paddingBottom: 96,
+              backgroundColor: "rgba(21,26,13,0.92)",
+              border: "3px solid rgba(200,242,60,0.4)",
+              borderRadius: 44,
+              paddingTop: 116,
+              paddingBottom: 116,
               position: "relative",
+              boxShadow: "0 40px 100px rgba(0,0,0,0.55)",
             }}
           >
             {/* perforation cutouts */}
-            <div style={{ position: "absolute", left: -30, top: "50%", width: 60, height: 60, borderRadius: "50%", backgroundColor: "#0D0D0D", display: "flex" }} />
-            <div style={{ position: "absolute", right: -30, top: "50%", width: 60, height: 60, borderRadius: "50%", backgroundColor: "#0D0D0D", display: "flex" }} />
+            <div style={{ position: "absolute", left: -32, top: "50%", width: 64, height: 64, borderRadius: "50%", backgroundColor: "#080f04", display: "flex" }} />
+            <div style={{ position: "absolute", right: -32, top: "50%", width: 64, height: 64, borderRadius: "50%", backgroundColor: "#080f04", display: "flex" }} />
 
-            <div style={{ display: "flex", fontSize: 150 }}>{TIER_EMOJI[tierSlug] ?? "🧭"}</div>
+            <div style={{ display: "flex", fontSize: 170 }}>{TIER_EMOJI[tierSlug] ?? "🧭"}</div>
 
-            <div style={{ display: "flex", fontFamily: "Syne", fontWeight: 600, fontSize: 34, color: "rgba(240,237,232,0.4)", marginTop: 44, letterSpacing: 4 }}>
+            <div style={{ display: "flex", fontFamily: "Syne", fontWeight: 600, fontSize: 36, color: "rgba(240,237,232,0.4)", marginTop: 52, letterSpacing: 4 }}>
               CURRENT TIER
             </div>
-            <div style={{ display: "flex", fontFamily: "Syne", fontWeight: 800, fontSize: 88, color: "#C8F23C", marginTop: 16 }}>
+            <div style={{ display: "flex", fontFamily: "Syne", fontWeight: 800, fontSize: 96, color: "#C8F23C", marginTop: 18 }}>
               {tierName}
             </div>
 
-            <div style={{ display: "flex", width: "80%", height: 2, backgroundColor: "rgba(240,237,232,0.15)", marginTop: 64, marginBottom: 64 }} />
+            <div style={{ display: "flex", width: "80%", height: 2, backgroundColor: "rgba(240,237,232,0.15)", marginTop: 72, marginBottom: 72 }} />
 
             <div style={{ display: "flex", width: "72%", justifyContent: "space-between" }}>
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                <div style={{ display: "flex", fontFamily: "Syne", fontWeight: 800, fontSize: 64, color: "#F0EDE8" }}>{citiesCount}</div>
-                <div style={{ display: "flex", fontFamily: "Syne", fontWeight: 600, fontSize: 28, color: "rgba(240,237,232,0.4)", marginTop: 8 }}>CITIES</div>
+                <div style={{ display: "flex", fontFamily: "Syne", fontWeight: 800, fontSize: 70, color: "#F0EDE8" }}>{citiesCount}</div>
+                <div style={{ display: "flex", fontFamily: "Syne", fontWeight: 600, fontSize: 30, color: "rgba(240,237,232,0.4)", marginTop: 10 }}>CITIES</div>
               </div>
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                <div style={{ display: "flex", fontFamily: "Syne", fontWeight: 800, fontSize: 64, color: "#F0EDE8" }}>{statesCount}</div>
-                <div style={{ display: "flex", fontFamily: "Syne", fontWeight: 600, fontSize: 28, color: "rgba(240,237,232,0.4)", marginTop: 8 }}>STATES</div>
+                <div style={{ display: "flex", fontFamily: "Syne", fontWeight: 800, fontSize: 70, color: "#F0EDE8" }}>{statesCount}</div>
+                <div style={{ display: "flex", fontFamily: "Syne", fontWeight: 600, fontSize: 30, color: "rgba(240,237,232,0.4)", marginTop: 10 }}>STATES</div>
               </div>
             </div>
           </div>
 
-          <div style={{ position: "absolute", bottom: 110, display: "flex", alignItems: "center" }}>
+          <div style={{ display: "flex", fontFamily: "Syne", fontWeight: 600, fontSize: 30, color: "rgba(240,237,232,0.35)", marginTop: 52 }}>
+            Find Your People. Find Your Pace.
+          </div>
+
+          <div style={{ position: "absolute", bottom: 100, display: "flex", alignItems: "center" }}>
             <span style={{ fontFamily: "Syne", fontWeight: 800, fontSize: 46, color: "#F0EDE8" }}>Run</span>
             <span style={{ fontFamily: "Syne", fontWeight: 800, fontSize: 46, color: "#C8F23C" }}>Klub</span>
           </div>
