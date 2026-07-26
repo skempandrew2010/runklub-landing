@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase"
 import { Club } from "@/types/club"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Bell, Ruler, Activity, Pencil, Check, X, Trophy, Users, ShieldCheck, Zap, ExternalLink, ChevronRight } from "lucide-react"
+import { Bell, Ruler, Activity, Pencil, Check, X, Trophy, Users, ShieldCheck, Zap, ExternalLink, ChevronRight, Home } from "lucide-react"
 import { isNativeApp } from "@/utils/platform"
 import { PLANS, PLAN_ORDER } from "@/lib/plans"
 import { getUserTierProgress, type TierProgress } from "@/lib/checkins"
@@ -20,6 +20,7 @@ type Profile = {
   distance_unit: string
   role: string | null
   notifications_enabled: boolean
+  home_club_id: string | null
 }
 
 const AVATAR_GRADIENTS = [
@@ -189,6 +190,13 @@ export default function ProfilePage() {
     await supabase.from("profiles").update({ role: newRole, updated_at: new Date().toISOString() }).eq("id", user.id)
     setProfile((p) => p ? { ...p, role: newRole } : p)
     setRoleChanging(false)
+  }
+
+  const setHomeClub = async (clubId: string) => {
+    if (!user) return
+    const next = profile?.home_club_id === clubId ? null : clubId
+    setProfile((p) => p ? { ...p, home_club_id: next } : p)
+    await supabase.from("profiles").update({ home_club_id: next, updated_at: new Date().toISOString() }).eq("id", user.id)
   }
 
   const uploadAvatar = async (file: File) => {
@@ -366,6 +374,17 @@ export default function ProfilePage() {
                       )}
                     </div>
                     <span className="flex-1 text-sm font-semibold text-white truncate">{club.name}</span>
+                    <button
+                      onClick={() => setHomeClub(club.id)}
+                      title={profile?.home_club_id === club.id ? "Home klub" : "Set as home klub"}
+                      className={`shrink-0 p-1.5 rounded-lg transition ${
+                        profile?.home_club_id === club.id
+                          ? "text-[#c5f135] bg-[#c5f135]/10"
+                          : "text-white/20 hover:text-white/50 hover:bg-white/5"
+                      }`}
+                    >
+                      <Home className="w-3.5 h-3.5" />
+                    </button>
                     <span className={`text-xs font-bold px-2.5 py-1 rounded-full shrink-0
                       ${club.role === "COACH"
                         ? "bg-[#c5f135]/10 text-[#c5f135] border border-[#c5f135]/30"
