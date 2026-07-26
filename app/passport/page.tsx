@@ -11,10 +11,15 @@ import {
   getPassportBook,
   getCityLeaderboard,
   computeCheckinStreak,
+  getUserTierProgress,
+  getUserStatesProgress,
   type CityProgress,
   type BookPage,
+  type TierProgress,
+  type StateProgress,
 } from "@/lib/checkins"
 import Leaderboard from "@/components/Leaderboard"
+import TierCard from "@/components/TierCard"
 
 const BADGE_ROW_LIMIT = 5 // grid-cols-4 → 5 rows = 20 badges max before truncating
 
@@ -192,6 +197,31 @@ function CompletedCitiesRow({ cities, onJump }: { cities: CityProgress[]; onJump
   )
 }
 
+function StatesRow({ states }: { states: StateProgress[] }) {
+  if (states.length === 0) return null
+  return (
+    <div className="mb-6">
+      <p className="text-[10px] font-black text-white/30 uppercase tracking-widest mb-3">
+        States ({states.filter((s) => s.visited).length}/{states.length})
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {states.map((s) => (
+          <span
+            key={s.state}
+            className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${
+              s.visited
+                ? "bg-[#c5f135]/10 border border-[#c5f135]/40 text-[#c5f135]"
+                : "border border-dashed border-white/15 text-white/25"
+            }`}
+          >
+            {s.state}
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function StampSlot({ slot, isNew }: { slot: BookPage["slots"][number]; isNew: boolean }) {
   const gradient = getGradient(slot.club_name)
   return (
@@ -294,6 +324,9 @@ export default function PassportPage() {
   const [justUnlocked, setJustUnlocked] = useState<JustUnlocked>({ clubIds: [], cityIds: [] })
   const [loading, setLoading] = useState(true)
   const [activePage, setActivePage] = useState(0)
+  const [tierProgress, setTierProgress] = useState<TierProgress | null>(null)
+  const [states, setStates] = useState<StateProgress[]>([])
+  const [sharing, setSharing] = useState(false)
   const scrollerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -306,16 +339,20 @@ export default function PassportPage() {
       }
       setUserId(user?.id ?? null)
       if (user) {
-        const [passportData, progressData, bookData] = await Promise.all([
+        const [passportData, progressData, bookData, tierData, statesData] = await Promise.all([
           getPassportData(),
           getUserPassportProgress(),
           getPassportBook(),
+          getUserTierProgress(),
+          getUserStatesProgress(),
         ])
         setCheckinDates(passportData.checkinDates)
         setTotalCheckins(passportData.totalCheckins)
         setClubStampCount(passportData.clubCheckIns.length)
         setProgress(progressData)
         setBook(bookData)
+        setTierProgress(tierData)
+        setStates(statesData)
 
         try {
           const raw = sessionStorage.getItem("runklub_just_unlocked")
@@ -351,6 +388,30 @@ export default function PassportPage() {
     const el = scrollerRef.current
     if (!el || el.clientWidth === 0) return
     setActivePage(Math.round(el.scrollLeft / el.clientWidth))
+  }
+
+  const handleShareTier = async () => {
+    if (!tierProgress?.current_tier_slug) return
+    setSharing(true)
+    try {
+      const params = new URLSearchParams({
+        type: "tier",
+        tierSlug: tierProgress.current_tier_slug,
+        tierName: tierProgress.current_tier ?? "Local",
+        citiesCount: String(tierProgress.cities_total),
+        statesCount: String(tierProgress.states_total),
+      })
+      const url = `/api/passport/share-card?${params.toString()}`
+      const res = await fetch(url)
+      const blob = await res.blob()
+      const file = new File([blob], "runklub-tier.png", { type: "image/png" })
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: "RunKlub" })
+      } else {
+        window.open(url, "_blank")
+      }
+    } catch { /* sharing failed — non-critical, user can retry */ }
+    setSharing(false)
   }
 
   return (
@@ -397,12 +458,17 @@ export default function PassportPage() {
           </div>
         ) : (
           <>
+            {tierProgress && (
+              <TierCard progress={tierProgress} onShare={sharing ? undefined : handleShareTier} />
+            )}
+
             <div className="grid grid-cols-2 gap-3 mb-6">
               <GoalBox label="Home City" city={homeCity} emptyHint="Check in at your home klub to set this goal." />
               <GoalBox label="Next City" city={nextCity} emptyHint="Discover a new city to chase next." />
             </div>
 
             <CompletedCitiesRow cities={completedCities} onJump={jumpToCity} />
+            <StatesRow states={states} />
 
             <PassportSummary
               streak={streak}

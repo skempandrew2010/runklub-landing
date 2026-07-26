@@ -166,6 +166,97 @@ export async function getPassportBook(): Promise<BookPage[]> {
     .sort((a, b) => b.stamped_count - a.stamped_count || a.city_name.localeCompare(b.city_name))
 }
 
+export type TierProgress = {
+  current_tier: string | null
+  current_tier_slug: string | null
+  next_tier: string | null
+  next_tier_slug: string | null
+  progress_current: number | null
+  progress_target: number | null
+  progress_metric: string | null
+  clubs_total: number
+  cities_total: number
+  states_total: number
+}
+
+export async function getUserTierProgress(): Promise<TierProgress | null> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+  const { data } = await supabase.rpc("get_user_tier_progress", { p_user_id: user.id })
+  return (data as TierProgress) ?? null
+}
+
+export type StateProgress = {
+  state: string
+  visited: boolean
+}
+
+/** Every US state that has at least one klub, flagged for whether this user has checked in there. */
+export async function getUserStatesProgress(): Promise<StateProgress[]> {
+  const { data: { user } } = await supabase.auth.getUser()
+  const [{ data: allStates }, { data: myCities }] = await Promise.all([
+    supabase.from("cities").select("state").not("state", "is", null),
+    user
+      ? supabase.from("city_checkins").select("cities(state)").eq("user_id", user.id)
+      : Promise.resolve({ data: [] as any[] }),
+  ])
+
+  const distinctStates = Array.from(new Set((allStates || []).map((r: any) => r.state as string))).sort()
+  const visitedStates = new Set(
+    (myCities || []).map((r: any) => r.cities?.state).filter(Boolean)
+  )
+
+  return distinctStates.map((state) => ({ state, visited: visitedStates.has(state) }))
+}
+
+export type EarnedBadge = {
+  slug: string
+  name: string
+  description: string | null
+  is_tier: boolean
+  tier_rank: number | null
+  earned_at: string
+  city: string | null
+}
+
+export async function getUserBadges(): Promise<EarnedBadge[]> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+  const { data } = await supabase
+    .from("user_badges")
+    .select("earned_at, city, badges(slug, name, description, is_tier, tier_rank)")
+    .eq("user_id", user.id)
+    .order("earned_at", { ascending: true })
+
+  return ((data as any[]) || [])
+    .filter((r) => r.badges)
+    .map((r) => ({
+      slug: r.badges.slug,
+      name: r.badges.name,
+      description: r.badges.description,
+      is_tier: r.badges.is_tier,
+      tier_rank: r.badges.tier_rank,
+      earned_at: r.earned_at,
+      city: r.city,
+    }))
+}
+
+export type UserTier = {
+  user_id: string
+  tier_name: string | null
+  tier_slug: string | null
+  tier_rank: number | null
+}
+
+/** Batch tier lookup for a list of user ids — used to show a tier badge next to names on leaderboards. */
+export async function getUsersCurrentTiers(userIds: string[]): Promise<Map<string, UserTier>> {
+  if (userIds.length === 0) return new Map()
+  const { data } = await supabase.rpc("get_users_current_tiers", { p_user_ids: userIds })
+  const map = new Map<string, UserTier>()
+  for (const row of (data as UserTier[]) || []) map.set(row.user_id, row)
+  return map
+}
+
 export async function getPassportData() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {

@@ -8,6 +8,8 @@ import { useRouter } from "next/navigation"
 import { Bell, Ruler, Activity, Pencil, Check, X, Trophy, Users, ShieldCheck, Zap, ExternalLink, ChevronRight } from "lucide-react"
 import { isNativeApp } from "@/utils/platform"
 import { PLANS, PLAN_ORDER } from "@/lib/plans"
+import { getUserTierProgress, type TierProgress } from "@/lib/checkins"
+import { TIER_ICONS } from "@/components/TierCard"
 
 type Profile = {
   id: string
@@ -50,6 +52,7 @@ export default function ProfilePage() {
   const [openingPortal, setOpeningPortal] = useState(false)
   const [subscribingClubId, setSubscribingClubId] = useState<string | null>(null)
   const [nativeApp, setNativeApp] = useState(false)
+  const [tierProgress, setTierProgress] = useState<TierProgress | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { setNativeApp(isNativeApp()) }, [])
@@ -89,6 +92,8 @@ export default function ProfilePage() {
         const { count } = await supabase.from("runs").select("*", { count: "exact", head: true }).in("club_id", clubIds)
         setSessionCount(count || 0)
       }
+
+      getUserTierProgress().then(setTierProgress)
 
       setLoading(false)
     }
@@ -306,6 +311,14 @@ export default function ProfilePage() {
                         RUNNER
                       </span>
                     )}
+                    {tierProgress?.current_tier_slug && (() => {
+                      const TierIcon = TIER_ICONS[tierProgress.current_tier_slug!]
+                      return (
+                        <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-[#c5f135]/10 text-[#c5f135] border border-[#c5f135]/30 flex items-center gap-1">
+                          {TierIcon && <TierIcon className="w-3 h-3" />} {tierProgress.current_tier}
+                        </span>
+                      )
+                    })()}
                   </div>
                 </>
               )}

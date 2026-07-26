@@ -1,7 +1,9 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import type { LeaderboardRow, LeaderboardScope } from "@/lib/checkins"
+import type { LeaderboardRow, LeaderboardScope, UserTier } from "@/lib/checkins"
+import { getUsersCurrentTiers } from "@/lib/checkins"
+import { TIER_ICONS } from "@/components/TierCard"
 
 const TOP_N = 10
 
@@ -43,7 +45,21 @@ function Avatar({ name, avatarUrl, ring }: { name: string; avatarUrl: string | n
   )
 }
 
-function LeaderboardRowItem({ row, isYou }: { row: LeaderboardRow; isYou: boolean }) {
+function TierBadge({ tier }: { tier: UserTier | undefined }) {
+  if (!tier?.tier_slug) return null
+  const Icon = TIER_ICONS[tier.tier_slug]
+  if (!Icon) return null
+  return (
+    <span
+      className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-[#c5f135]/10 border border-[#c5f135]/40 shrink-0"
+      title={tier.tier_name ?? undefined}
+    >
+      <Icon className="w-2.5 h-2.5 text-[#c5f135]" />
+    </span>
+  )
+}
+
+function LeaderboardRowItem({ row, isYou, tier }: { row: LeaderboardRow; isYou: boolean; tier?: UserTier }) {
   const name = row.display_name || "Runner"
   const showClubs = row.clubs_visited != null && row.total_clubs != null
   return (
@@ -55,9 +71,10 @@ function LeaderboardRowItem({ row, isYou }: { row: LeaderboardRow; isYou: boolea
       <RankBadge rank={row.rank} />
       <Avatar name={name} avatarUrl={row.avatar_url} ring={row.rank <= 3} />
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-bold text-white truncate">
-          {name}
-          {isYou && <span className="text-[#c5f135] font-black"> (You)</span>}
+        <p className="text-sm font-bold text-white truncate flex items-center gap-1.5">
+          <span className="truncate">{name}</span>
+          <TierBadge tier={tier} />
+          {isYou && <span className="text-[#c5f135] font-black shrink-0">(You)</span>}
         </p>
         {showClubs && (
           <p className="text-[10px] text-white/40 mt-0.5">{row.clubs_visited}/{row.total_clubs} klubs visited</p>
@@ -83,6 +100,7 @@ export default function Leaderboard({
 }) {
   const [scope, setScope] = useState<LeaderboardScope>("month")
   const [rows, setRows] = useState<LeaderboardRow[]>([])
+  const [tiers, setTiers] = useState<Map<string, UserTier>>(new Map())
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -90,7 +108,12 @@ export default function Leaderboard({
     let cancelled = false
     setLoading(true)
     fetchRows(scope).then(({ data }) => {
-      if (!cancelled) { setRows(data); setLoading(false) }
+      if (cancelled) return
+      setRows(data)
+      setLoading(false)
+      getUsersCurrentTiers(data.map((r) => r.user_id)).then((map) => {
+        if (!cancelled) setTiers(map)
+      })
     })
     return () => { cancelled = true }
     // fetchRows is expected to be stable-enough (bound over an id primitive) — including it
@@ -155,12 +178,12 @@ export default function Leaderboard({
       {!loading && rows.length > 0 && (
         <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-2 space-y-1">
           {visible.map((row) => (
-            <LeaderboardRowItem key={row.user_id} row={row} isYou={row.user_id === userId} />
+            <LeaderboardRowItem key={row.user_id} row={row} isYou={row.user_id === userId} tier={tiers.get(row.user_id)} />
           ))}
           {own && !ownVisible && (
             <>
               <div className="h-px bg-[#2e3d1a] my-1" />
-              <LeaderboardRowItem row={own} isYou />
+              <LeaderboardRowItem row={own} isYou tier={tiers.get(own.user_id)} />
             </>
           )}
         </div>

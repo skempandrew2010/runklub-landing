@@ -11,6 +11,7 @@ import { getTagStyle } from "@/utils/tagStyle"
 import { getClubStampArt, getUserPassportProgress } from "@/lib/checkins"
 import RunChatPanel from "@/components/RunChatPanel"
 import CheckInMoment, { type CheckInMomentProps } from "@/components/CheckInMoment"
+import BadgeUnlockModal, { type UnlockedBadge } from "@/components/BadgeUnlockModal"
 
 const CHECKIN_RADIUS_MILES = 0.3
 const METRO_CHECKIN_RADIUS_MILES = 25
@@ -74,6 +75,7 @@ export default function RunPageClient({
   const [checkingIn, setCheckingIn] = useState(false)
   const [checkInError, setCheckInError] = useState<string | null>(null)
   const [checkInMoment, setCheckInMoment] = useState<MomentData | null>(null)
+  const [pendingBadges, setPendingBadges] = useState<UnlockedBadge[]>([])
   const [showChat, setShowChat] = useState(false)
 
   useEffect(() => {
@@ -149,6 +151,8 @@ export default function RunPageClient({
 
     const passport = data.passport
     if (!passport) return
+
+    if (passport.new_badges?.length) setPendingBadges(passport.new_badges)
 
     if (passport.club_first || passport.city_first) {
       try {
@@ -322,6 +326,9 @@ export default function RunPageClient({
       )}
 
       {checkInMoment && <CheckInMoment {...checkInMoment} onDone={() => setCheckInMoment(null)} />}
+      {!checkInMoment && pendingBadges.length > 0 && (
+        <BadgeUnlockModal badges={pendingBadges} onDone={() => setPendingBadges([])} />
+      )}
     </div>
   )
 }
