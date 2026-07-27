@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Clock, MapPin, MessageSquare, CheckCircle2 } from "lucide-react"
+import { ArrowLeft, Clock, MapPin, MessageSquare, CheckCircle2, ExternalLink } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { getDistanceMiles } from "@/utils/distance"
 import { localDateStr } from "@/utils/dates"
@@ -42,6 +42,8 @@ export type Run = {
   time: string
   distance: string | null
   meeting_point: string | null
+  city: string | null
+  external_url: string | null
   description: string | null
   tags: string[] | null
   is_in_person: boolean
@@ -239,9 +241,13 @@ export default function RunPageClient({
             )}
           </div>
 
-          {run.meeting_point && (
+          {run.meeting_point ? (
             <p className="flex items-center gap-1.5 text-sm text-white/50 mb-3">
               <MapPin className="w-3.5 h-3.5 text-[#c5f135] shrink-0" /> {run.meeting_point}
+            </p>
+          ) : run.city && (
+            <p className="flex items-center gap-1.5 text-sm text-white/50 mb-3">
+              <MapPin className="w-3.5 h-3.5 text-[#c5f135] shrink-0" /> {run.city}
             </p>
           )}
 
@@ -257,6 +263,17 @@ export default function RunPageClient({
                 </span>
               ))}
             </div>
+          )}
+
+          {run.external_url && (
+            <a
+              href={run.external_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-black bg-[#1a2110] border border-[#c5f135]/30 text-[#c5f135] hover:border-[#c5f135]/60 transition mb-2"
+            >
+              <ExternalLink className="w-4 h-4" /> RSVP / Manage this run
+            </a>
           )}
 
           {canCheckIn && (

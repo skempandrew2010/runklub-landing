@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useMemo } from "react"
+import { useRouter } from "next/navigation"
 import Map, { Marker, Popup, NavigationControl, Source, Layer } from "react-map-gl/mapbox"
 import "mapbox-gl/dist/mapbox-gl.css"
 import mapboxSdk from "@mapbox/mapbox-sdk/services/geocoding"
@@ -128,6 +129,7 @@ function clusterGroups(groups: LocationGroup[], zoom: number, radiusPx: number):
 }
 
 export default function MapView({ city, runs, clubs, onCityCoords, onBoundsChange, ownedClubIds }: MapViewProps) {
+  const router = useRouter()
   const [viewState, setViewState] = useState({ latitude: 40.015, longitude: -105.2705, zoom: 11 })
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null)
   const [selectedGroup, setSelectedGroup] = useState<LocationGroup | null>(null)
@@ -559,7 +561,9 @@ export default function MapView({ city, runs, clubs, onCityCoords, onBoundsChang
                 {selectedGroup.runs.map((run, i) => (
                   <div
                     key={run.id}
-                    style={{ padding: "10px 14px", borderTop: i > 0 ? "1px solid #2e3d1a" : undefined }}
+                    onClick={() => router.push(`/runs/${run.id}`)}
+                    className="run-popup-row"
+                    style={{ padding: "10px 14px", borderTop: i > 0 ? "1px solid #2e3d1a" : undefined, cursor: "pointer" }}
                   >
                     {!allSameClub && (
                       <p style={{ margin: "0 0 3px", color: "#c5f135", fontWeight: 700, fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase" }}>

@@ -33,6 +33,16 @@ export async function POST(req: NextRequest) {
     )
     if (insertErr) throw insertErr
 
+    // Checking into a run no longer requires having joined the klub first —
+    // auto-enroll in its free community membership. Only inserts if the user
+    // isn't already a member (free or paid), so an existing paid membership
+    // is left untouched. Best-effort, shouldn't fail the check-in if it errors.
+    const { error: subErr } = await db.from("subscriptions").upsert(
+      { user_id: user.id, club_id: run.club_id },
+      { onConflict: "user_id,club_id", ignoreDuplicates: true }
+    )
+    if (subErr) console.error("Auto-membership enrollment failed:", subErr)
+
     // Also roll this up into the Passport klub/city stamps — best-effort,
     // shouldn't fail the run check-in if it errors
     const { data: passportData, error: passportErr } = await db.rpc("checkin_to_club_admin", {

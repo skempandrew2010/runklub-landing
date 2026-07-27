@@ -1036,9 +1036,9 @@ export default function AdminClaimsPage() {
                             <span className="text-xs text-white/50 font-semibold">{label}</span>
                             <button
                               onClick={() => setEditState((p) => ({ ...p, [key]: !p[key] }))}
-                              className={`relative w-10 h-5 rounded-full transition ${val ? "bg-[#c5f135]" : "bg-white/10"}`}
+                              className={`relative w-10 h-5 rounded-full transition-colors duration-300 ease-out ${val ? "bg-[#c5f135]" : "bg-white/10"}`}
                             >
-                              <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${val ? "left-5" : "left-0.5"}`} />
+                              <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${val ? "translate-x-[18px]" : "translate-x-0"}`} />
                             </button>
                           </div>
                         )

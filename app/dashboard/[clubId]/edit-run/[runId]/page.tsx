@@ -304,8 +304,8 @@ export default function EditRunPage() {
                 </p>
               </div>
             </div>
-            <div className={`relative w-11 h-6 rounded-full shrink-0 transition-colors duration-200 ${membersOnly ? "bg-[#2e3d1a]" : "bg-[#c5f135]"}`}>
-              <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all duration-200 ${membersOnly ? "left-0.5" : "left-[22px]"}`} />
+            <div className={`relative w-11 h-6 rounded-full shrink-0 transition-colors duration-300 ease-out ${membersOnly ? "bg-[#2e3d1a]" : "bg-[#c5f135]"}`}>
+              <div className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${membersOnly ? "translate-x-0" : "translate-x-[22px]"}`} />
             </div>
           </button>
 

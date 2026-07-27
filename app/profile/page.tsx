@@ -556,10 +556,10 @@ export default function ProfilePage() {
               <span className="flex-1 text-sm font-medium text-white">Notifications</span>
               <button
                 onClick={toggleNotifications}
-                className={`relative w-11 h-6 rounded-full transition-colors duration-200 shrink-0
+                className={`relative w-11 h-6 rounded-full transition-colors duration-300 ease-out shrink-0
                   ${profile?.notifications_enabled !== false ? "bg-[#c5f135]" : "bg-[#2e3d1a] border border-[#3d5220]"}`}
               >
-                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200
+                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]
                   ${profile?.notifications_enabled !== false ? "translate-x-6" : "translate-x-1"}`}
                 />
               </button>

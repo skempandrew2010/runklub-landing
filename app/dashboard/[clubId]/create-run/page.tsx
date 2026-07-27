@@ -5,7 +5,19 @@ import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { ArrowLeft, CalendarPlus, Repeat2, Globe, Lock } from "lucide-react"
 import mapboxSdk from "@mapbox/mapbox-sdk/services/geocoding"
+import { localDateStr } from "@/utils/dates"
 
+
+const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+const DAY_FULL = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+
+function nextDateForWeekday(target: number): string {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const diff = (target - today.getDay() + 7) % 7
+  today.setDate(today.getDate() + diff)
+  return localDateStr(today)
+}
 
 const TAG_GROUPS = [
   { label: "Pace", tags: ["Easy", "Moderate", "Fast", "All Paces"] },
@@ -54,8 +66,13 @@ function CreateRunContent() {
   const clubId = params?.clubId as string
   const router = useRouter()
 
+  const isQuickParam = searchParams.get("quick") === "1"
+
   // Core form
-  const [title, setTitle] = useState("")
+  const [quickMode, setQuickMode] = useState(isQuickParam)
+  const [showAdvanced, setShowAdvanced] = useState(false)
+  const [dayOfWeek, setDayOfWeek] = useState<number | null>(null)
+  const [title, setTitle] = useState(isQuickParam ? "Weekly Community Run" : "")
   const [date, setDate] = useState(searchParams.get("date") ?? "")
   const [time, setTime] = useState("")
   const [distance, setDistance] = useState("")
@@ -65,14 +82,18 @@ function CreateRunContent() {
   const [description, setDescription] = useState("")
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [isPublic, setIsPublic] = useState(true)
-  const [repeatWeekly, setRepeatWeekly] = useState(false)
-  const [repeatWeeks, setRepeatWeeks] = useState(4)
+  const [repeatWeekly, setRepeatWeekly] = useState(isQuickParam)
+  const [repeatWeeks, setRepeatWeeks] = useState(isQuickParam ? 12 : 4)
   const [loading, setLoading] = useState(false)
 
   // New fields
   const [selectedPaceGroupIds, setSelectedPaceGroupIds] = useState<string[]>([])
   const [selectedWorkoutTypeId, setSelectedWorkoutTypeId] = useState("")
   const [selectedCoachId, setSelectedCoachId] = useState("")
+
+  useEffect(() => {
+    if (dayOfWeek !== null) setDate(nextDateForWeekday(dayOfWeek))
+  }, [dayOfWeek])
 
   // Club model data
   const [paceGroups, setPaceGroups] = useState<PaceGroup[]>([])
@@ -219,20 +240,29 @@ function CreateRunContent() {
       <div className="max-w-lg mx-auto px-4 py-6">
 
         {/* Header */}
-        <div className="flex items-center gap-3 mb-6">
+        <div className="flex items-center gap-3 mb-2">
           <button onClick={() => router.push(`/director`)}
             className="w-9 h-9 rounded-full bg-[#1e2d12] border border-[#2e3d1a] flex items-center justify-center text-white/60 hover:text-white transition shrink-0">
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <h1 className="text-xl font-black text-white leading-tight">Schedule a Run</h1>
-            {date && (
+            <h1 className="text-xl font-black text-white leading-tight">{quickMode ? "Weekly Community Run" : "Schedule a Run"}</h1>
+            {quickMode ? (
+              <p className="text-xs text-white/40 mt-0.5">
+                {dayOfWeek !== null ? `Every ${DAY_FULL[dayOfWeek]}` : "The open run your klub does every week"}
+              </p>
+            ) : date && (
               <p className="text-xs text-white/40 mt-0.5">
                 {new Date(date + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
               </p>
             )}
           </div>
         </div>
+
+        <button type="button" onClick={() => setQuickMode((v) => !v)}
+          className="text-[11px] font-semibold text-[#c5f135]/70 hover:text-[#c5f135] underline underline-offset-2 mb-6">
+          {quickMode ? "Switch to full scheduling form" : "Just need a weekly community run? Quick create →"}
+        </button>
 
         {/* Template library */}
         {!dataLoading && templates.length > 0 && (
@@ -255,133 +285,58 @@ function CreateRunContent() {
 
           {/* Core details */}
           <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-4 space-y-4">
-            <div>
-              <label className={labelClass}>Run Title <span className="text-white/25 font-normal">(optional)</span></label>
-              <input value={title} onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. Saturday Morning 5K (optional)" className={inputClass} />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
+            {(!quickMode || showAdvanced) && (
               <div>
-                <label className={labelClass}>Date *</label>
-                <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required className={inputClass} />
+                <label className={labelClass}>Run Title <span className="text-white/25 font-normal">(optional)</span></label>
+                <input value={title} onChange={(e) => setTitle(e.target.value)}
+                  placeholder="e.g. Saturday Morning 5K (optional)" className={inputClass} />
               </div>
+            )}
+            {quickMode ? (
               <div>
-                <label className={labelClass}>Distance</label>
-                <input value={distance} onChange={(e) => setDistance(e.target.value)}
-                  placeholder="e.g. 5K, 10 mi" className={inputClass} />
+                <label className={labelClass}>Day of Week *</label>
+                <div className="grid grid-cols-7 gap-1.5">
+                  {DAY_LABELS.map((label, i) => (
+                    <button key={i} type="button" onClick={() => setDayOfWeek(i)}
+                      className={`py-2.5 rounded-xl text-xs font-bold border transition-all ${dayOfWeek === i ? "bg-[#c5f135] text-[#1a2110] border-[#c5f135]" : "bg-[#1a2110] text-white/50 border-[#2e3d1a] hover:border-[#c5f135]/40 hover:text-white/70"}`}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelClass}>Date *</label>
+                  <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required className={inputClass} />
+                </div>
+                <div>
+                  <label className={labelClass}>Distance</label>
+                  <input value={distance} onChange={(e) => setDistance(e.target.value)}
+                    placeholder="e.g. 5K, 10 mi" className={inputClass} />
+                </div>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelClass}>Time *</label>
                 <input type="time" value={time} onChange={(e) => setTime(e.target.value)} required className={inputClass} />
               </div>
+              {(!quickMode || showAdvanced) && (
+                <div>
+                  <label className={labelClass}>Route Link <span className="text-white/25 font-normal">(optional)</span></label>
+                  <input value={routeUrl} onChange={(e) => setRouteUrl(e.target.value)}
+                    placeholder="Strava link…" type="url" className={inputClass} />
+                </div>
+              )}
+            </div>
+            {quickMode && showAdvanced && (
               <div>
-                <label className={labelClass}>Route Link <span className="text-white/25 font-normal">(optional)</span></label>
-                <input value={routeUrl} onChange={(e) => setRouteUrl(e.target.value)}
-                  placeholder="Strava link…" type="url" className={inputClass} />
-              </div>
-            </div>
-          </div>
-
-          {/* Workout library */}
-          <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-4 space-y-3">
-            <div>
-              <p className="text-xs font-semibold text-white/50 mb-0.5">Workout</p>
-              <p className="text-[11px] text-white/25">
-                {workoutTypes.length > 0 ? "Pick from your workout library" : "Add workouts in the klub manager to link them here"}
-              </p>
-            </div>
-            {workoutTypes.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={() => setSelectedWorkoutTypeId("")}
-                  className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${!selectedWorkoutTypeId ? "bg-[#c5f135] text-[#1a2110] border-[#c5f135]" : "bg-transparent text-white/50 border-[#2e3d1a] hover:border-[#c5f135]/40"}`}>
-                  No workout
-                </button>
-                {workoutTypes.map((wt) => (
-                  <button key={wt.id} type="button"
-                    onClick={() => setSelectedWorkoutTypeId(selectedWorkoutTypeId === wt.id ? "" : wt.id)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${selectedWorkoutTypeId === wt.id ? "bg-[#c5f135] text-[#1a2110] border-[#c5f135]" : "bg-transparent text-white/50 border-[#2e3d1a] hover:border-[#c5f135]/40 hover:text-white/70"}`}>
-                    {wt.name}
-                  </button>
-                ))}
+                <label className={labelClass}>Distance</label>
+                <input value={distance} onChange={(e) => setDistance(e.target.value)}
+                  placeholder="e.g. 5K, 10 mi" className={inputClass} />
               </div>
             )}
-            <div>
-              <label className={labelClass}>Notes <span className="text-white/25 font-normal">(optional)</span></label>
-              <textarea value={description} onChange={(e) => setDescription(e.target.value)}
-                placeholder="Pace, terrain, workout details…" rows={3}
-                className={`${inputClass} resize-none`} />
-            </div>
-          </div>
-
-          {/* Groups & Visibility */}
-          <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-4 space-y-4">
-            <p className="text-xs font-semibold text-white/50">Groups</p>
-
-            {/* Community / Members Only */}
-            <button type="button" onClick={() => setIsPublic((v) => !v)}
-              className="w-full flex items-center justify-between gap-3 text-left bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-3">
-              <div className="flex items-center gap-3">
-                {isPublic
-                  ? <Globe className="w-4 h-4 text-[#c5f135] shrink-0" />
-                  : <Lock className="w-4 h-4 text-white/40 shrink-0" />}
-                <div>
-                  <p className="text-xs font-semibold text-white/70">{isPublic ? "Community Run" : "Members Only"}</p>
-                  <p className="text-[11px] text-white/30 mt-0.5">
-                    {isPublic ? "Open to everyone" : "Paying members only"}
-                  </p>
-                </div>
-              </div>
-              <div className={`relative w-11 h-6 rounded-full shrink-0 transition-colors duration-200 ${isPublic ? "bg-[#c5f135]" : "bg-[#2e3d1a]"}`}>
-                <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all duration-200 ${isPublic ? "left-[22px]" : "left-0.5"}`} />
-              </div>
-            </button>
-
-            {/* Pace groups */}
-            <div className="space-y-2">
-              <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Pace Group</p>
-              {paceGroups.length === 0 ? (
-                <p className="text-xs text-white/30 italic">No pace groups set up yet — add them in the klub manager.</p>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {paceGroups.map((pg) => {
-                    const active = selectedPaceGroupIds.includes(pg.id)
-                    return (
-                      <button key={pg.id} type="button" onClick={() => togglePaceGroup(pg.id)}
-                        className={`flex flex-col items-start px-3 py-2 rounded-xl text-xs font-semibold border transition-all ${active ? "bg-[#c5f135] text-[#1a2110] border-[#c5f135]" : "bg-[#1a2110] text-white/50 border-[#2e3d1a] hover:border-[#c5f135]/40 hover:text-white/70"}`}>
-                        <span>{pg.name}</span>
-                        <span className={`text-[10px] font-normal mt-0.5 ${active ? "text-[#1a2110]/60" : "text-white/30"}`}>
-                          {fmtPace(pg.pace_min)}–{fmtPace(pg.pace_max)} /mi
-                        </span>
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* Coach */}
-            <div className="space-y-2">
-              <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Coach</p>
-              {coaches.length === 0 ? (
-                <p className="text-xs text-white/30 italic">No coaches set up yet — add them in the klub manager.</p>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  <button type="button" onClick={() => setSelectedCoachId("")}
-                    className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${!selectedCoachId ? "bg-[#c5f135] text-[#1a2110] border-[#c5f135]" : "bg-[#1a2110] text-white/50 border-[#2e3d1a] hover:border-[#c5f135]/40"}`}>
-                    No coach
-                  </button>
-                  {coaches.map((coach) => (
-                    <button key={coach.id} type="button"
-                      onClick={() => setSelectedCoachId(selectedCoachId === coach.id ? "" : coach.id)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${selectedCoachId === coach.id ? "bg-[#c5f135] text-[#1a2110] border-[#c5f135]" : "bg-[#1a2110] text-white/50 border-[#2e3d1a] hover:border-[#c5f135]/40 hover:text-white/70"}`}>
-                      {coach.name}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
           </div>
 
           {/* Location */}
@@ -402,52 +357,173 @@ function CreateRunContent() {
             </div>
           </div>
 
-          {/* Tags */}
-          <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-4 space-y-3">
-            <div>
-              <p className="text-xs font-semibold text-white/50 mb-0.5">Run Tags <span className="text-white/25 font-normal">(optional)</span></p>
-              <p className="text-[11px] text-white/25">Help runners know what to expect</p>
-            </div>
-            {TAG_GROUPS.map((group) => (
-              <div key={group.label}>
-                <p className="text-[10px] font-bold text-[#c5f135]/50 uppercase tracking-widest mb-2">{group.label}</p>
-                <div className="flex flex-wrap gap-2">
-                  {group.tags.map((tag) => {
-                    const active = selectedTags.includes(tag)
-                    return (
-                      <button key={tag} type="button" onClick={() => toggleTag(tag)}
-                        className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all duration-100 ${active ? "bg-[#c5f135] text-[#1a2110] border-[#c5f135]" : "bg-transparent text-white/50 border-[#2e3d1a] hover:border-[#c5f135]/40 hover:text-white/70"}`}>
-                        {tag}
+          {quickMode && (
+            <button type="button" onClick={() => setShowAdvanced((v) => !v)}
+              className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-dashed border-[#2e3d1a] text-xs font-semibold text-white/40 hover:text-white/70 hover:border-[#c5f135]/30 transition">
+              {showAdvanced ? "Hide advanced options" : "+ Add workout, pace groups, coach, or tags"}
+            </button>
+          )}
+
+          {(!quickMode || showAdvanced) && (
+            <>
+              {/* Workout library */}
+              <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-4 space-y-3">
+                <div>
+                  <p className="text-xs font-semibold text-white/50 mb-0.5">Workout</p>
+                  <p className="text-[11px] text-white/25">
+                    {workoutTypes.length > 0 ? "Pick from your workout library" : "Add workouts in the klub manager to link them here"}
+                  </p>
+                </div>
+                {workoutTypes.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" onClick={() => setSelectedWorkoutTypeId("")}
+                      className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${!selectedWorkoutTypeId ? "bg-[#c5f135] text-[#1a2110] border-[#c5f135]" : "bg-transparent text-white/50 border-[#2e3d1a] hover:border-[#c5f135]/40"}`}>
+                      No workout
+                    </button>
+                    {workoutTypes.map((wt) => (
+                      <button key={wt.id} type="button"
+                        onClick={() => setSelectedWorkoutTypeId(selectedWorkoutTypeId === wt.id ? "" : wt.id)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${selectedWorkoutTypeId === wt.id ? "bg-[#c5f135] text-[#1a2110] border-[#c5f135]" : "bg-transparent text-white/50 border-[#2e3d1a] hover:border-[#c5f135]/40 hover:text-white/70"}`}>
+                        {wt.name}
                       </button>
-                    )
-                  })}
+                    ))}
+                  </div>
+                )}
+                <div>
+                  <label className={labelClass}>Notes <span className="text-white/25 font-normal">(optional)</span></label>
+                  <textarea value={description} onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Pace, terrain, workout details…" rows={3}
+                    className={`${inputClass} resize-none`} />
                 </div>
               </div>
-            ))}
-          </div>
+
+              {/* Groups & Visibility */}
+              <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-4 space-y-4">
+                <p className="text-xs font-semibold text-white/50">Groups</p>
+
+                {/* Community / Members Only */}
+                <button type="button" onClick={() => setIsPublic((v) => !v)}
+                  className="w-full flex items-center justify-between gap-3 text-left bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-3">
+                  <div className="flex items-center gap-3">
+                    {isPublic
+                      ? <Globe className="w-4 h-4 text-[#c5f135] shrink-0" />
+                      : <Lock className="w-4 h-4 text-white/40 shrink-0" />}
+                    <div>
+                      <p className="text-xs font-semibold text-white/70">{isPublic ? "Community Run" : "Members Only"}</p>
+                      <p className="text-[11px] text-white/30 mt-0.5">
+                        {isPublic ? "Open to everyone" : "Paying members only"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className={`relative w-11 h-6 rounded-full shrink-0 transition-colors duration-300 ease-out ${isPublic ? "bg-[#c5f135]" : "bg-[#2e3d1a]"}`}>
+                    <div className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${isPublic ? "translate-x-[22px]" : "translate-x-0"}`} />
+                  </div>
+                </button>
+
+                {/* Pace groups */}
+                <div className="space-y-2">
+                  <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Pace Group</p>
+                  {paceGroups.length === 0 ? (
+                    <p className="text-xs text-white/30 italic">No pace groups set up yet — add them in the klub manager.</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {paceGroups.map((pg) => {
+                        const active = selectedPaceGroupIds.includes(pg.id)
+                        return (
+                          <button key={pg.id} type="button" onClick={() => togglePaceGroup(pg.id)}
+                            className={`flex flex-col items-start px-3 py-2 rounded-xl text-xs font-semibold border transition-all ${active ? "bg-[#c5f135] text-[#1a2110] border-[#c5f135]" : "bg-[#1a2110] text-white/50 border-[#2e3d1a] hover:border-[#c5f135]/40 hover:text-white/70"}`}>
+                            <span>{pg.name}</span>
+                            <span className={`text-[10px] font-normal mt-0.5 ${active ? "text-[#1a2110]/60" : "text-white/30"}`}>
+                              {fmtPace(pg.pace_min)}–{fmtPace(pg.pace_max)} /mi
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Coach */}
+                <div className="space-y-2">
+                  <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Coach</p>
+                  {coaches.length === 0 ? (
+                    <p className="text-xs text-white/30 italic">No coaches set up yet — add them in the klub manager.</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" onClick={() => setSelectedCoachId("")}
+                        className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${!selectedCoachId ? "bg-[#c5f135] text-[#1a2110] border-[#c5f135]" : "bg-[#1a2110] text-white/50 border-[#2e3d1a] hover:border-[#c5f135]/40"}`}>
+                        No coach
+                      </button>
+                      {coaches.map((coach) => (
+                        <button key={coach.id} type="button"
+                          onClick={() => setSelectedCoachId(selectedCoachId === coach.id ? "" : coach.id)}
+                          className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${selectedCoachId === coach.id ? "bg-[#c5f135] text-[#1a2110] border-[#c5f135]" : "bg-[#1a2110] text-white/50 border-[#2e3d1a] hover:border-[#c5f135]/40 hover:text-white/70"}`}>
+                          {coach.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Tags */}
+              <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-4 space-y-3">
+                <div>
+                  <p className="text-xs font-semibold text-white/50 mb-0.5">Run Tags <span className="text-white/25 font-normal">(optional)</span></p>
+                  <p className="text-[11px] text-white/25">Help runners know what to expect</p>
+                </div>
+                {TAG_GROUPS.map((group) => (
+                  <div key={group.label}>
+                    <p className="text-[10px] font-bold text-[#c5f135]/50 uppercase tracking-widest mb-2">{group.label}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {group.tags.map((tag) => {
+                        const active = selectedTags.includes(tag)
+                        return (
+                          <button key={tag} type="button" onClick={() => toggleTag(tag)}
+                            className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all duration-100 ${active ? "bg-[#c5f135] text-[#1a2110] border-[#c5f135]" : "bg-transparent text-white/50 border-[#2e3d1a] hover:border-[#c5f135]/40 hover:text-white/70"}`}>
+                            {tag}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
 
           {/* Repeat weekly */}
           <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-4 space-y-4">
-            <button type="button" onClick={() => setRepeatWeekly((v) => !v)}
-              className="w-full flex items-center justify-between gap-3">
+            {quickMode ? (
               <div className="flex items-center gap-2.5">
-                <Repeat2 className={`w-4 h-4 shrink-0 transition-colors ${repeatWeekly ? "text-[#c5f135]" : "text-white/30"}`} />
+                <Repeat2 className="w-4 h-4 text-[#c5f135] shrink-0" />
                 <div className="text-left">
-                  <p className="text-xs font-semibold text-white/70">Repeat Weekly</p>
-                  <p className="text-[11px] text-white/30 mt-0.5">Schedule this run every week</p>
+                  <p className="text-xs font-semibold text-white/70">Repeats Every Week</p>
+                  <p className="text-[11px] text-white/30 mt-0.5">This is a standing weekly run</p>
                 </div>
               </div>
-              <div className={`relative w-11 h-6 rounded-full shrink-0 transition-colors duration-200 ${repeatWeekly ? "bg-[#c5f135]" : "bg-[#2e3d1a]"}`}>
-                <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all duration-200 ${repeatWeekly ? "left-[22px]" : "left-0.5"}`} />
-              </div>
-            </button>
+            ) : (
+              <button type="button" onClick={() => setRepeatWeekly((v) => !v)}
+                className="w-full flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <Repeat2 className={`w-4 h-4 shrink-0 transition-colors ${repeatWeekly ? "text-[#c5f135]" : "text-white/30"}`} />
+                  <div className="text-left">
+                    <p className="text-xs font-semibold text-white/70">Repeat Weekly</p>
+                    <p className="text-[11px] text-white/30 mt-0.5">Schedule this run every week</p>
+                  </div>
+                </div>
+                <div className={`relative w-11 h-6 rounded-full shrink-0 transition-colors duration-300 ease-out ${repeatWeekly ? "bg-[#c5f135]" : "bg-[#2e3d1a]"}`}>
+                  <div className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${repeatWeekly ? "translate-x-[22px]" : "translate-x-0"}`} />
+                </div>
+              </button>
+            )}
 
             {repeatWeekly && (
               <div className="space-y-3 pt-1">
                 <div>
                   <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest mb-2.5">Repeat for</p>
                   <div className="flex gap-2 flex-wrap">
-                    {[2, 3, 4, 5, 6, 8].map((n) => (
+                    {(quickMode ? [8, 12, 16, 26] : [2, 3, 4, 5, 6, 8]).map((n) => (
                       <button key={n} type="button" onClick={() => setRepeatWeeks(n)}
                         className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${repeatWeeks === n ? "bg-[#c5f135] text-[#1a2110] border-[#c5f135]" : "bg-transparent text-white/50 border-[#2e3d1a] hover:border-[#c5f135]/40 hover:text-white/70"}`}>
                         {n} weeks
@@ -481,14 +557,16 @@ function CreateRunContent() {
             )}
           </div>
 
-          <button type="submit" disabled={loading || !date || !time}
+          <button type="submit" disabled={loading || !date || !time || (quickMode && dayOfWeek === null)}
             className="w-full flex items-center justify-center gap-2 py-3.5 bg-[#c5f135] text-[#1a2110] text-sm font-black rounded-2xl disabled:opacity-40 hover:bg-[#d4ff45] transition">
             <CalendarPlus className="w-4 h-4" />
             {loading
               ? "Scheduling…"
-              : repeatWeekly
-                ? `Schedule ${repeatWeeks} Runs`
-                : "Schedule Run"}
+              : quickMode
+                ? "Create Weekly Run"
+                : repeatWeekly
+                  ? `Schedule ${repeatWeeks} Runs`
+                  : "Schedule Run"}
           </button>
         </form>
       </div>

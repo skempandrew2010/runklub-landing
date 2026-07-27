@@ -12,7 +12,7 @@ import {
   MessageSquare, MapPin,
   Zap, ShieldCheck,
   Globe, Lock, Check, X, Link2, Pencil, Trash2,
-  ChevronDown, ChevronRight,
+  ChevronDown, ChevronRight, Repeat2,
 } from "lucide-react"
 import RegionsLocationsTab from "@/app/admin/club-model/manager/RegionsLocationsTab"
 import PaceGroupsTab from "@/app/admin/club-model/manager/PaceGroupsTab"
@@ -117,7 +117,7 @@ type TabKey = (typeof ALL_TABS)[number]["key"]
 function ManagerView({ userId }: { userId: string }) {
   const router = useRouter()
   const [tab, setTab] = useState<TabKey>("runs")
-  const [runPanel, setRunPanel] = useState<null | "create" | string>(null)
+  const [runPanel, setRunPanel] = useState<null | "create" | "create-weekly" | string>(null)
   const [myClubs, setMyClubs] = useState<ClubWithCount[]>([])
   const [selectedClubId, setSelectedClubId] = useState<string | null>(null)
   const [allRuns, setAllRuns] = useState<RunChatPreview[]>([])
@@ -1013,24 +1013,35 @@ function ManagerView({ userId }: { userId: string }) {
             <RunFormPanel
               clubId={selectedClubId ?? ""}
               userId={userId}
-              runId={runPanel === "create" ? null : runPanel}
+              runId={runPanel === "create" || runPanel === "create-weekly" ? null : runPanel}
               tier={tier}
+              quickMode={runPanel === "create-weekly"}
               onClose={() => setRunPanel(null)}
               onSaved={handleRunSaved}
               onGoToSetup={() => { setRunPanel(null); setTab("setup") }}
+              onToggleQuickMode={() => setRunPanel(runPanel === "create-weekly" ? "create" : "create-weekly")}
             />
           )}
 
           {/* ── RUNS ── */}
           {tab === "runs" && runPanel === null && (
             <div className="space-y-4">
-              <button
-                onClick={() => setRunPanel("create")}
-                className="w-full flex items-center justify-between px-5 py-4 rounded-2xl bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45] transition"
-              >
-                <span className="text-sm font-black">Schedule a Run</span>
-                <CalendarPlus className="w-5 h-5" />
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setRunPanel("create")}
+                  className="flex-1 flex items-center justify-between px-5 py-4 rounded-2xl bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45] transition"
+                >
+                  <span className="text-sm font-black">Schedule a Run</span>
+                  <CalendarPlus className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={() => setRunPanel("create-weekly")}
+                  className="flex items-center justify-between gap-2 px-5 py-4 rounded-2xl bg-[#1e2d12] border border-[#2e3d1a] text-white/80 hover:border-[#c5f135]/40 hover:text-white transition"
+                >
+                  <span className="text-sm font-black">Weekly Run</span>
+                  <Repeat2 className="w-5 h-5" />
+                </button>
+              </div>
 
               <div className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-5">
                 <div className="flex items-center gap-2 mb-1">

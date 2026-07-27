@@ -37,7 +37,7 @@ export default async function RunPage({ params }: Props) {
   const { data: run } = await getSupabase()
     .from("runs")
     .select(
-      "id, club_id, title, date, time, distance, meeting_point, description, tags, is_in_person, members_only, run_lat, run_lng, clubs(id, name, image_url, latitude, longitude, city)"
+      "id, club_id, title, date, time, distance, meeting_point, city, external_url, description, tags, is_in_person, members_only, run_lat, run_lng, clubs(id, name, image_url, latitude, longitude, city)"
     )
     .eq("id", runId)
     .maybeSingle()
@@ -86,6 +86,8 @@ export default async function RunPage({ params }: Props) {
         time: run.time,
         distance: run.distance,
         meeting_point: run.meeting_point,
+        city: run.city,
+        external_url: run.external_url,
         description: run.description,
         tags: run.tags,
         is_in_person: run.is_in_person,

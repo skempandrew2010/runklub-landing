@@ -17,6 +17,8 @@ import Image from "next/image"
 import { getTagStyle } from "@/utils/tagStyle"
 
 type SortOption = "closest" | "popular" | "newest"
+type RunSortOption = "time" | "closest"
+type ExploreTab = "runs" | "klubs"
 type ClubWithExtras = Club & { distance?: number; nearestRunDist?: number; memberCount?: number }
 
 // Non-public test club — visible in local dev so it can be used for testing, hidden in production
@@ -89,6 +91,8 @@ function ExplorePageInner() {
   const [pendingAction, setPendingAction] = useState<null | (() => void)>(null)
   const [filters, setFilters] = useState<FilterOptions>(DEFAULT_FILTERS)
   const [sortBy, setSortBy] = useState<SortOption>("closest")
+  const [activeTab, setActiveTab] = useState<ExploreTab>("runs")
+  const [runSortBy, setRunSortBy] = useState<RunSortOption>("time")
   const PAGE_SIZE = 10
   const [visibleCount, setVisibleCount] = useState(() => {
     if (typeof window !== "undefined") {
@@ -189,7 +193,7 @@ function ExplorePageInner() {
       setWeekRunsLoading(true)
       const todayStr = localDateStr()
       const weekAhead = new Date()
-      weekAhead.setDate(weekAhead.getDate() + 7)
+      weekAhead.setDate(weekAhead.getDate() + 14)
       const weekStr = localDateStr(weekAhead)
 
       const clubsQuery = supabase.from("clubs").select("id, name, city, latitude, longitude, location, image_url, tier, membership_type, created_at, user_id, subscriptions(count)")
@@ -389,15 +393,30 @@ function ExplorePageInner() {
       })
     : allWeekRuns, [center, allWeekRuns, nearbyClubIds])
 
+  // weekRuns already arrives sorted by date, time (query order) — distance needs computing per-run
+  const sortedWeekRuns = useMemo(() => {
+    if (runSortBy !== "closest" || !center) return weekRuns
+    return [...weekRuns].sort((a, b) => {
+      const aLat = a.run_lat ?? a.club_lat, aLng = a.run_lng ?? a.club_lng
+      const bLat = b.run_lat ?? b.club_lat, bLng = b.run_lng ?? b.club_lng
+      const aDist = aLat != null && aLng != null ? getDistanceMiles(center.lat, center.lng, aLat, aLng) : null
+      const bDist = bLat != null && bLng != null ? getDistanceMiles(center.lat, center.lng, bLat, bLng) : null
+      if (aDist == null && bDist == null) return 0
+      if (aDist == null) return 1
+      if (bDist == null) return -1
+      return aDist - bDist
+    })
+  }, [weekRuns, runSortBy, center])
+
   const groupedWeekRuns = useMemo(() => {
     const result: Record<string, WeekRun[]> = {}
-    weekRuns.forEach((r) => {
+    sortedWeekRuns.forEach((r) => {
       const label = formatDate(r.date)
       if (!result[label]) result[label] = []
       result[label].push(r)
     })
     return result
-  }, [weekRuns])
+  }, [sortedWeekRuns])
 
   const locationLabel = cityCoords && city ? `near "${city}"` : "near you"
 
@@ -439,6 +458,55 @@ function ExplorePageInner() {
   )
 
   const nearbyLabel = cityCoords && city ? `near "${city}"` : userLocation ? "near you" : null
+
+  const tabSwitcher = (
+    <div className="px-5 pt-4">
+      <div className="relative inline-grid grid-cols-2 bg-[#1e2d12] border border-[#2e3d1a] rounded-full p-1">
+        <div
+          className={`absolute inset-y-1 left-1 w-[calc(50%-4px)] rounded-full bg-[#c5f135] transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
+            activeTab === "klubs" ? "translate-x-full" : "translate-x-0"
+          }`}
+        />
+        {(["runs", "klubs"] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`relative z-10 px-5 py-1.5 rounded-full text-sm font-bold capitalize transition-colors duration-300 ${
+              activeTab === tab ? "text-[#1a2110]" : "text-white/50 hover:text-white"
+            }`}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+
+  const runsCountRow = (
+    <div className="px-5 pt-4 pb-3 flex items-center justify-between gap-3">
+      <div>
+        <p className="text-sm text-white/50">
+          <span className="font-bold text-white">{sortedWeekRuns.length}</span>{" "}
+          {sortedWeekRuns.length === 1 ? "run" : "runs"}
+          {nearbyLabel ? ` ${nearbyLabel}` : ""} in the next 2 weeks
+        </p>
+        {!center && (
+          <p className="text-xs text-white/25 mt-0.5">Search a city or share your location to see runs near you</p>
+        )}
+      </div>
+      <div className="relative shrink-0">
+        <select
+          value={runSortBy}
+          onChange={(e) => setRunSortBy(e.target.value as RunSortOption)}
+          className="appearance-none bg-[#1e2d12] border border-[#2e3d1a] text-white/80 text-sm font-semibold rounded-full pl-4 pr-8 py-2 focus:outline-none focus:border-[#c5f135]/50 cursor-pointer"
+        >
+          <option value="time">Day &amp; Time</option>
+          <option value="closest" disabled={!center}>Closest</option>
+        </select>
+        <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/40 pointer-events-none" />
+      </div>
+    </div>
+  )
 
   const countRow = (
     <div className="px-5 pt-4 pb-3 flex items-center justify-between gap-3">
@@ -519,76 +587,87 @@ function ExplorePageInner() {
     </>
   )
 
-  const weekScheduleSection = (
-    <div className="px-6 py-8">
-      <div className="flex items-baseline justify-between mb-5">
-        <h2 className="text-base font-black text-white tracking-tight">Runs This Week</h2>
-        {center && (
-          <span className="text-[11px] text-white/30 font-medium">within 50 mi {locationLabel}</span>
-        )}
+  function renderRunRow(run: WeekRun, showDate: boolean) {
+    return (
+      <div key={run.id} onClick={() => router.push(`/runs/${run.id}`)} className="px-4 py-3.5 flex items-start gap-3 cursor-pointer hover:bg-[#2e3d1a]/50 transition-colors">
+        <div className="relative w-9 h-9 rounded-full bg-[#2e3d1a] shrink-0 overflow-hidden flex items-center justify-center">
+          {run.club_image ? (
+            <Image src={run.club_image} alt="" fill sizes="36px" className="object-cover" />
+          ) : (
+            <span className="text-[10px] font-black text-white/50">
+              {run.club_name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
+            </span>
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-bold text-white leading-tight">{run.title}</p>
+          <p className="text-[11px] text-[#c5f135]/80 font-medium mt-0.5">{run.club_name}</p>
+          <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5">
+            {showDate && (
+              <span className="flex items-center gap-1 text-xs text-white/50">
+                <CalendarCheck className="w-3 h-3" /> {formatDate(run.date)}
+              </span>
+            )}
+            <span className="flex items-center gap-1 text-xs text-white/50">
+              <Clock className="w-3 h-3" /> {formatTime(run.time)}
+            </span>
+            {run.meeting_point && (
+              <span className="flex items-center gap-1 text-xs text-white/50">
+                <MapPin className="w-3 h-3" /> {run.meeting_point}
+              </span>
+            )}
+            {run.distance && <span className="text-xs text-white/40">{run.distance}</span>}
+          </div>
+          {run.tags && run.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-2">
+              {run.tags.map((tag) => (
+                <span key={tag} className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${getTagStyle(tag)}`}>
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
+    )
+  }
+
+  const runsListSection = (
+    <div className="px-6 pb-8">
+      {center && (
+        <p className="text-[11px] text-white/30 font-medium mb-3">within 50 mi {locationLabel}</p>
+      )}
       {weekRunsLoading && (
         <div className="flex justify-center py-10">
           <div className="w-6 h-6 border-2 border-[#c5f135]/30 border-t-[#c5f135] rounded-full animate-spin" />
         </div>
       )}
-      {!weekRunsLoading && weekRuns.length === 0 && (
+      {!weekRunsLoading && sortedWeekRuns.length === 0 && (
         <div className="bg-[#1e2d12] rounded-2xl p-6 text-center">
           <CalendarCheck className="w-8 h-8 text-white/20 mx-auto mb-2" />
           <p className="text-white/40 text-sm">
-            {center ? "No runs scheduled nearby this week." : "No runs scheduled this week."}
+            {center ? "No runs scheduled nearby in the next 2 weeks." : "No runs scheduled in the next 2 weeks."}
           </p>
           {!center && (
             <p className="text-white/25 text-xs mt-1">Search a city or enable location to filter by distance.</p>
           )}
         </div>
       )}
-      {!weekRunsLoading && weekRuns.length > 0 && (
+      {!weekRunsLoading && sortedWeekRuns.length > 0 && runSortBy === "time" && (
         <div className="space-y-5">
           {Object.entries(groupedWeekRuns).map(([dateLabel, dayRuns]) => (
             <div key={dateLabel}>
               <p className="text-[11px] font-bold text-[#c5f135]/70 tracking-widest uppercase mb-2 px-1">{dateLabel}</p>
               <div className="bg-[#1e2d12] rounded-2xl overflow-hidden divide-y divide-[#2e3d1a]">
-                {dayRuns.map((run) => (
-                  <div key={run.id} onClick={() => { sessionStorage.setItem("explore-last-club", run.club_id); router.push(`/clubs/${run.club_id}`) }} className="px-4 py-3.5 flex items-start gap-3 cursor-pointer hover:bg-[#2e3d1a]/50 transition-colors">
-                    <div className="relative w-9 h-9 rounded-xl bg-[#2e3d1a] shrink-0 overflow-hidden flex items-center justify-center">
-                      {run.club_image ? (
-                        <Image src={run.club_image} alt="" fill sizes="36px" className="object-cover" />
-                      ) : (
-                        <span className="text-[10px] font-black text-white/50">
-                          {run.club_name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-white leading-tight">{run.title}</p>
-                      <p className="text-[11px] text-[#c5f135]/80 font-medium mt-0.5">{run.club_name}</p>
-                      <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5">
-                        <span className="flex items-center gap-1 text-xs text-white/50">
-                          <Clock className="w-3 h-3" /> {formatTime(run.time)}
-                        </span>
-                        {run.meeting_point && (
-                          <span className="flex items-center gap-1 text-xs text-white/50">
-                            <MapPin className="w-3 h-3" /> {run.meeting_point}
-                          </span>
-                        )}
-                        {run.distance && <span className="text-xs text-white/40">{run.distance}</span>}
-                      </div>
-                      {run.tags && run.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {run.tags.map((tag) => (
-                            <span key={tag} className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${getTagStyle(tag)}`}>
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                {dayRuns.map((run) => renderRunRow(run, false))}
               </div>
             </div>
           ))}
+        </div>
+      )}
+      {!weekRunsLoading && sortedWeekRuns.length > 0 && runSortBy === "closest" && (
+        <div className="bg-[#1e2d12] rounded-2xl overflow-hidden divide-y divide-[#2e3d1a]">
+          {sortedWeekRuns.map((run) => renderRunRow(run, true))}
         </div>
       )}
     </div>
@@ -611,9 +690,18 @@ function ExplorePageInner() {
           </>
         ) : (
           <>
-            {countRow}
-            {clubListSection}
-            <div className="mt-4 border-t-2 border-[#2e3d1a]">{weekScheduleSection}</div>
+            {tabSwitcher}
+            {activeTab === "runs" ? (
+              <>
+                {runsCountRow}
+                {runsListSection}
+              </>
+            ) : (
+              <>
+                {countRow}
+                {clubListSection}
+              </>
+            )}
             <div className="h-24" />
             <button onClick={() => setShowMobileMap(true)}
               className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-5 py-2.5 bg-[#1a2110] border border-[#3d5220] rounded-full text-white font-semibold text-sm shadow-xl shadow-black/60">
@@ -628,8 +716,18 @@ function ExplorePageInner() {
         <div className="sticky z-40" style={{ top: 'var(--navbar-h)' }}>{filterBar}</div>
         <div className="flex">
           <div className="w-[58%] border-r border-[#2e3d1a]" style={{ minHeight: 'calc(100vh - var(--navbar-h))' }}>
-            {countRow}
-            {clubListSection}
+            {tabSwitcher}
+            {activeTab === "runs" ? (
+              <>
+                {runsCountRow}
+                {runsListSection}
+              </>
+            ) : (
+              <>
+                {countRow}
+                {clubListSection}
+              </>
+            )}
             <div className="h-8" />
           </div>
           <div className="w-[42%] shrink-0">
@@ -637,9 +735,6 @@ function ExplorePageInner() {
               <MapView city={city} runs={mapRuns} clubs={mapClubs} ownedClubIds={ownedClubIds} onCityCoords={setCityCoords} onBoundsChange={setMapBounds} />
             </div>
           </div>
-        </div>
-        <div className="border-t-2 border-[#2e3d1a]">
-          <div className="max-w-4xl mx-auto">{weekScheduleSection}</div>
         </div>
         <div className="h-6" />
       </div>

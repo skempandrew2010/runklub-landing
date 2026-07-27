@@ -9,7 +9,7 @@ import {
   ArrowLeft, Users, CalendarPlus, Trash2, Pencil, Check, X,
   ShieldCheck, Zap, MapPin, Clock, Ruler,
   ChevronLeft, ChevronRight, CalendarDays, LayoutList,
-  Globe, Lock, Mail, Send,
+  Globe, Lock, Mail, Send, Repeat2,
 } from "lucide-react"
 
 type Club = {
@@ -421,6 +421,13 @@ export default function ClubManagerPage() {
                 </button>
               </div>
               <button
+                onClick={() => router.push(`/dashboard/${clubId}/create-run?quick=1`)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1e2d12] border border-[#2e3d1a] text-white/70 text-xs font-black rounded-full hover:border-[#c5f135]/40 hover:text-white transition"
+              >
+                <Repeat2 className="w-3.5 h-3.5" />
+                Weekly Run
+              </button>
+              <button
                 onClick={() => router.push(`/dashboard/${clubId}/create-run`)}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-[#c5f135] text-[#1a2110] text-xs font-black rounded-full hover:bg-[#d4ff45] transition"
               >
@@ -445,6 +452,12 @@ export default function ClubManagerPage() {
                 className="px-5 py-2.5 bg-[#c5f135] text-[#1a2110] text-xs font-black rounded-full hover:bg-[#d4ff45] transition"
               >
                 + Schedule a Run
+              </button>
+              <button
+                onClick={() => router.push(`/dashboard/${clubId}/create-run?quick=1`)}
+                className="block mx-auto mt-3 text-[11px] font-semibold text-[#c5f135]/70 hover:text-[#c5f135] underline underline-offset-2"
+              >
+                Set up a standing weekly community run instead →
               </button>
             </div>
           ) : (
