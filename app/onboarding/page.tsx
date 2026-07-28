@@ -82,7 +82,7 @@ export default function OnboardingPage() {
         .single()
 
       if (prof?.onboarding_complete) {
-        router.replace(prof.role === "manager" ? "/director" : "/today")
+        router.replace(prof.role === "manager" ? "/director" : "/")
         return
       }
 
@@ -135,7 +135,7 @@ export default function OnboardingPage() {
       onboarding_complete: true,
       updated_at: new Date().toISOString(),
     }).eq("id", userId)
-    router.push(role === "manager" ? "/director" : "/today")
+    router.push(role === "manager" ? "/director" : "/")
   }
 
   // ── Advance step ──

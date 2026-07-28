@@ -4,7 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { useEffect, useState } from "react"
-import { Compass, CalendarCheck, Trophy, UserCircle, Home, Stamp } from "lucide-react"
+import { Compass, Trophy, UserCircle, Home, Stamp, Flame } from "lucide-react"
 import { localDateStr } from "@/utils/dates"
 
 export default function Navbar() {
@@ -15,9 +15,9 @@ export default function Navbar() {
   const [loaded, setLoaded] = useState(false)
   const [hasUnread, setHasUnread] = useState(false)
 
-  // Clear unread badge when user visits the director tab (managers) or the Hub (members, where chats now live)
+  // Clear unread badge when user visits the director tab (managers) or Home (members — it's the Hub when signed in, where chats now live)
   useEffect(() => {
-    if (pathname.startsWith("/director") || pathname.startsWith("/today")) {
+    if (pathname.startsWith("/director") || pathname === "/" || pathname.startsWith("/today")) {
       localStorage.setItem("director_last_seen", new Date().toISOString())
       setHasUnread(false)
     }
@@ -77,9 +77,9 @@ export default function Navbar() {
   const isManager = role === "manager"
 
   const tabs = [
-    { href: "/",         label: "Home",     Icon: Home,          badge: false },
-    { href: "/explore",  label: "Discover", Icon: Compass,       badge: false },
-    { href: "/today",    label: "Hub",      Icon: CalendarCheck, badge: !isManager && hasUnread },
+    { href: "/",           label: "Home",       Icon: Home,    badge: !isManager && hasUnread },
+    { href: "/explore",    label: "Discover",   Icon: Compass, badge: false },
+    { href: "/challenges", label: "Missions",   Icon: Flame,   badge: false },
     ...(isManager
       ? [{ href: "/director", label: "Director", Icon: Trophy, badge: hasUnread }]
       : [{ href: "/passport", label: "Passport", Icon: Stamp, badge: false }]),

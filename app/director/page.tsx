@@ -1948,7 +1948,7 @@ export default function DirectorPage() {
       setUser(user)
       const { data: prof } = await supabase.from("profiles").select("id, display_name, avatar_url, role").eq("id", user.id).single()
       // Director dashboard is manager-only — members' chats now live in the Hub
-      if (prof?.role !== "manager") { router.replace("/today"); return }
+      if (prof?.role !== "manager") { router.replace("/"); return }
       setProfile(prof)
       setLoading(false)
     }

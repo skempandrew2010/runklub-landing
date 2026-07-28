@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Stamp, Flame, MapPin, Users2, CalendarCheck, ChevronLeft, ChevronRight, Home, Plane, Trophy } from "lucide-react"
+import { Stamp, Flame, MapPin, Users2, CalendarCheck, ChevronLeft, ChevronRight, Home, Plane, Trophy, Lock } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import {
   getPassportData,
@@ -20,6 +20,9 @@ import {
 } from "@/lib/checkins"
 import Leaderboard from "@/components/Leaderboard"
 import TierCard from "@/components/TierCard"
+import LoginModal from "@/components/LoginModal"
+
+type PreviewCity = { id: string; name: string; state: string | null; flag_asset_url: string | null }
 
 const BADGE_ROW_LIMIT = 5 // grid-cols-4 → 5 rows = 20 badges max before truncating
 
@@ -329,13 +332,20 @@ export default function PassportPage() {
   const [sharing, setSharing] = useState(false)
   const scrollerRef = useRef<HTMLDivElement>(null)
 
+  // Guest-facing teaser data: real, public (no RLS gate), used to show a
+  // blurred preview of the Passport instead of an empty state.
+  const [previewCities, setPreviewCities] = useState<PreviewCity[]>([])
+  const [totalCityCount, setTotalCityCount] = useState(0)
+  const [totalClubCount, setTotalClubCount] = useState(0)
+  const [showAuthModal, setShowAuthModal] = useState(false)
+
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         // Passport is member-only — directors manage klubs from their Director dashboard
         const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
-        if (profile?.role === "manager") { router.replace("/today"); return }
+        if (profile?.role === "manager") { router.replace("/"); return }
       }
       setUserId(user?.id ?? null)
       if (user) {
@@ -365,6 +375,19 @@ export default function PassportPage() {
       setLoading(false)
     }
     load()
+
+    // Public preview data, fetched regardless of auth — powers the blurred
+    // teaser for signed-out visitors.
+    async function loadPreview() {
+      const [{ data: cities, count: cityCount }, { count: clubCount }] = await Promise.all([
+        supabase.from("cities").select("id, name, state, flag_asset_url", { count: "exact" }).order("population", { ascending: false }).limit(12),
+        supabase.from("clubs").select("id", { count: "exact", head: true }).eq("is_public", true),
+      ])
+      setPreviewCities((cities as PreviewCity[]) || [])
+      setTotalCityCount(cityCount ?? 0)
+      setTotalClubCount(clubCount ?? 0)
+    }
+    loadPreview()
   }, [])
 
   const streak = useMemo(() => computeCheckinStreak(checkinDates), [checkinDates])
@@ -421,12 +444,20 @@ export default function PassportPage() {
           <div className="w-9 h-9 rounded-xl bg-[#c5f135]/10 border border-[#c5f135]/25 flex items-center justify-center shrink-0">
             <Stamp className="w-4 h-4 text-[#c5f135]" />
           </div>
-          <div>
+          <div className="flex-1 min-w-0">
             <h1 className="text-xl font-black text-white leading-tight">Passport</h1>
             <p className="text-xs text-white/40 mt-0.5">
-              {book.length} of {progress.length} cities · {clubStampCount} klub{clubStampCount === 1 ? "" : "s"} stamped
+              {userId
+                ? `${book.length} of ${progress.length} cities · ${clubStampCount} klub${clubStampCount === 1 ? "" : "s"} stamped`
+                : `${totalCityCount} cities · ${totalClubCount} klubs to stamp`}
             </p>
           </div>
+          <Link
+            href="/challenges"
+            className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-full bg-white/5 border border-white/10 text-white/60 text-xs font-bold hover:bg-white/10 hover:text-white transition"
+          >
+            <Flame className="w-3.5 h-3.5" /> Missions
+          </Link>
         </div>
 
         {loading ? (
@@ -434,15 +465,43 @@ export default function PassportPage() {
             <div className="w-6 h-6 border-2 border-[#c5f135]/30 border-t-[#c5f135] rounded-full animate-spin" />
           </div>
         ) : !userId ? (
-          <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-6 text-center">
-            <p className="text-white font-bold text-sm mb-1">Sign in to see your Passport</p>
-            <p className="text-white/40 text-xs mb-4">Check in at klubs to start collecting stamps.</p>
-            <button
-              onClick={() => router.push("/login")}
-              className="px-6 py-2.5 bg-[#c5f135] text-[#1a2110] text-sm font-black rounded-full hover:bg-[#d4ff45] transition"
-            >
-              Log In
-            </button>
+          <div className="relative">
+            <div className="blur-sm pointer-events-none select-none grid grid-cols-4 gap-3">
+              {previewCities.map((c) => (
+                <div key={c.id} className="flex flex-col items-center gap-1.5">
+                  <div className="w-14 h-14 rounded-full border-2 border-dashed border-[#3d5220] bg-[#0e150a] flex items-center justify-center overflow-hidden">
+                    {c.flag_asset_url ? (
+                      <img src={c.flag_asset_url} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <Stamp className="w-5 h-5 text-white/20" />
+                    )}
+                  </div>
+                  <p className="text-[10px] text-white/40 font-semibold text-center truncate w-full">{c.name}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="absolute inset-0 flex items-center justify-center px-5">
+              <div className="max-w-xs w-full bg-[#1e2d12] border border-[#c5f135]/25 rounded-2xl p-6 text-center shadow-2xl shadow-black/60">
+                <div className="w-11 h-11 rounded-full bg-[#c5f135]/10 border border-[#c5f135]/25 flex items-center justify-center mx-auto mb-3">
+                  <Lock className="w-5 h-5 text-[#c5f135]" />
+                </div>
+                <p className="text-white font-black text-base">Sign up to start your Passport</p>
+                <p className="text-white/40 text-xs mt-1.5 leading-relaxed">
+                  Check in at klubs to collect stamps from every city you visit.
+                </p>
+                <button
+                  onClick={() => setShowAuthModal(true)}
+                  className="mt-4 w-full px-6 py-2.5 bg-[#c5f135] text-[#1a2110] text-sm font-black rounded-full hover:bg-[#d4ff45] transition"
+                >
+                  Sign Up — It&apos;s Free
+                </button>
+              </div>
+            </div>
+
+            {showAuthModal && (
+              <LoginModal onClose={() => setShowAuthModal(false)} onSuccess={() => setShowAuthModal(false)} />
+            )}
           </div>
         ) : progress.length === 0 ? (
           <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-8 text-center">

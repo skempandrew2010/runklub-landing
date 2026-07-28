@@ -44,7 +44,7 @@ export default function LoginPage() {
             const { data: prof } = await supabase.from("profiles").select("role").eq("id", session.user.id).single()
             if (!settled) {
               settled = true
-              router.replace(prof?.role === "admin" ? "/admin/claims" : "/today")
+              router.replace(prof?.role === "admin" ? "/admin/claims" : "/")
             }
             return
           }
@@ -86,7 +86,7 @@ export default function LoginPage() {
       if (profile?.role === "admin") {
         router.push("/admin/claims")
       } else {
-        router.push(profile?.onboarding_complete ? "/today" : "/onboarding")
+        router.push(profile?.onboarding_complete ? "/" : "/onboarding")
       }
     }
   }

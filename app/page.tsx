@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
+import { supabase } from "@/lib/supabase"
+import HubContent from "@/components/HubContent"
 
 function FadeIn({ children, delay = 0, className = "" }: { children: React.ReactNode; delay?: number; className?: string }) {
   const ref = useRef<HTMLDivElement>(null)
@@ -42,6 +44,7 @@ function FadeIn({ children, delay = 0, className = "" }: { children: React.React
 
 export default function RootPage() {
   const router = useRouter()
+  const [signedIn, setSignedIn] = useState(false)
 
   useEffect(() => {
     const hash = window.location.hash
@@ -50,6 +53,21 @@ export default function RootPage() {
       (hash.includes("type=invite") || hash.includes("type=magiclink"))
     if (isAuthRedirect) router.replace(`/welcome${hash}`)
   }, [router])
+
+  // Signed-in users get the Hub here instead of the marketing page. Defaults
+  // to the marketing page (better for anonymous-visitor SEO/first paint) and
+  // swaps in once we positively confirm a session.
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) setSignedIn(true)
+    })
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSignedIn(!!session?.user)
+    })
+    return () => listener.subscription.unsubscribe()
+  }, [])
+
+  if (signedIn) return <HubContent />
 
   return (
     <div className="min-h-screen bg-[#1a2110] text-white">

@@ -12,7 +12,7 @@ import { supabase } from "@/lib/supabase"
 import { Club } from "@/types/club"
 import { getDistanceMiles } from "@/utils/distance"
 import { localDateStr } from "@/utils/dates"
-import { SlidersHorizontal, Map, List, CalendarCheck, Clock, MapPin, ChevronDown } from "lucide-react"
+import { SlidersHorizontal, Map, List, CalendarCheck, Clock, MapPin, ChevronDown, Lock } from "lucide-react"
 import Image from "next/image"
 import { getTagStyle } from "@/utils/tagStyle"
 
@@ -80,6 +80,7 @@ function ExplorePageInner() {
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
   const [cityCoords, setCityCoords] = useState<{ lat: number; lng: number } | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
+  const [authChecked, setAuthChecked] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null)
   const [deletePassword, setDeletePassword] = useState("")
@@ -123,6 +124,7 @@ function ExplorePageInner() {
         const { data: profile } = await supabase.from("profiles").select("role").eq("id", data.user.id).single()
         setIsAdmin(profile?.role === "admin")
       }
+      setAuthChecked(true)
     }
     getUser()
     const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
@@ -673,6 +675,17 @@ function ExplorePageInner() {
     </div>
   )
 
+  if (!authChecked) {
+    return (
+      <div className="flex justify-center py-24 bg-[#1a2110] min-h-screen">
+        <div className="w-8 h-8 border-2 border-[#c5f135]/30 border-t-[#c5f135] rounded-full animate-spin" />
+      </div>
+    )
+  }
+
+  const gated = authChecked && !userId
+  const gatedClass = gated ? "blur-sm pointer-events-none select-none" : ""
+
   return (
     <>
       {/* ── MOBILE ── */}
@@ -680,7 +693,7 @@ function ExplorePageInner() {
         <div className="sticky z-40" style={{ top: 'var(--navbar-h)' }}>{filterBar}</div>
         {showMobileMap ? (
           <>
-            <div className="fixed left-0 right-0 z-10" style={{ top: 'var(--navbar-h)', bottom: "0" }}>
+            <div className={`fixed left-0 right-0 z-10 transition-[filter] ${gatedClass}`} style={{ top: 'var(--navbar-h)', bottom: "0" }}>
               <MapView city={city} runs={mapRuns} clubs={mapClubs} ownedClubIds={ownedClubIds} onCityCoords={setCityCoords} onBoundsChange={setMapBounds} />
             </div>
             <button onClick={() => setShowMobileMap(false)}
@@ -694,12 +707,12 @@ function ExplorePageInner() {
             {activeTab === "runs" ? (
               <>
                 {runsCountRow}
-                {runsListSection}
+                <div className={`transition-[filter] ${gatedClass}`}>{runsListSection}</div>
               </>
             ) : (
               <>
                 {countRow}
-                {clubListSection}
+                <div className={`transition-[filter] ${gatedClass}`}>{clubListSection}</div>
               </>
             )}
             <div className="h-24" />
@@ -720,24 +733,44 @@ function ExplorePageInner() {
             {activeTab === "runs" ? (
               <>
                 {runsCountRow}
-                {runsListSection}
+                <div className={`transition-[filter] ${gatedClass}`}>{runsListSection}</div>
               </>
             ) : (
               <>
                 {countRow}
-                {clubListSection}
+                <div className={`transition-[filter] ${gatedClass}`}>{clubListSection}</div>
               </>
             )}
             <div className="h-8" />
           </div>
           <div className="w-[42%] shrink-0">
-            <div className="sticky" style={{ top: 'var(--navbar-h)', height: 'calc(100vh - var(--navbar-h))' }}>
+            <div className={`sticky transition-[filter] ${gatedClass}`} style={{ top: 'var(--navbar-h)', height: 'calc(100vh - var(--navbar-h))' }}>
               <MapView city={city} runs={mapRuns} clubs={mapClubs} ownedClubIds={ownedClubIds} onCityCoords={setCityCoords} onBoundsChange={setMapBounds} />
             </div>
           </div>
         </div>
         <div className="h-6" />
       </div>
+
+      {gated && (
+        <div className="fixed inset-x-0 z-40 flex justify-center px-5 pointer-events-none" style={{ top: 'calc(var(--navbar-h) + 24px)' }}>
+          <div className="max-w-sm w-full bg-[#1e2d12] border border-[#c5f135]/25 rounded-2xl p-6 text-center shadow-2xl shadow-black/60 pointer-events-auto">
+            <div className="w-11 h-11 rounded-full bg-[#c5f135]/10 border border-[#c5f135]/25 flex items-center justify-center mx-auto mb-3">
+              <Lock className="w-5 h-5 text-[#c5f135]" />
+            </div>
+            <p className="text-white font-black text-base">Sign up to see klubs near you</p>
+            <p className="text-white/40 text-xs mt-1.5 leading-relaxed">
+              Create a free account to unlock the map and browse klubs.
+            </p>
+            <button
+              onClick={() => setShowAuthModal(true)}
+              className="mt-4 w-full px-6 py-2.5 bg-[#c5f135] text-[#1a2110] text-sm font-black rounded-full hover:bg-[#d4ff45] transition"
+            >
+              Sign Up — It&apos;s Free
+            </button>
+          </div>
+        </div>
+      )}
 
       {showAuthModal && (
         <LoginModal

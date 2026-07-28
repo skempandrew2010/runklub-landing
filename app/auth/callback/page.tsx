@@ -38,7 +38,7 @@ export default function AuthCallbackPage() {
       if (profile?.role === "admin") {
         router.replace("/admin/claims")
       } else {
-        router.replace(profile?.onboarding_complete ? "/today" : "/onboarding")
+        router.replace(profile?.onboarding_complete ? "/" : "/onboarding")
       }
     }
 
