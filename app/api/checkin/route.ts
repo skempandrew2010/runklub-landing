@@ -26,12 +26,31 @@ export async function POST(req: NextRequest) {
     const { data: run } = await db.from("runs").select("id, club_id, date").eq("id", run_id).single()
     if (!run) return NextResponse.json({ error: "Run not found" }, { status: 404 })
 
+    // Snapshot which challenges were already completed before this check-in,
+    // so we can diff afterward and tell the client what just unlocked.
+    const { data: completedBefore } = await db
+      .from("user_challenge_progress")
+      .select("challenge_id")
+      .eq("user_id", user.id)
+      .not("completed_at", "is", null)
+    const completedBeforeIds = new Set((completedBefore || []).map((r: any) => r.challenge_id))
+
     // Record check-in (ignore if already exists)
     const { error: insertErr } = await db.from("run_checkins").upsert(
       { run_id, user_id: user.id, club_id: run.club_id },
       { onConflict: "run_id,user_id", ignoreDuplicates: true }
     )
     if (insertErr) throw insertErr
+
+    // Upsert with ignoreDuplicates doesn't return ignored (already-existing) rows,
+    // so re-select to reliably get the check-in's id either way.
+    const { data: checkinRow } = await db
+      .from("run_checkins")
+      .select("id")
+      .eq("run_id", run_id)
+      .eq("user_id", user.id)
+      .single()
+    const checkInId = checkinRow?.id ?? null
 
     // Checking into a run no longer requires having joined the klub first —
     // auto-enroll in its free community membership. Only inserts if the user
@@ -75,12 +94,26 @@ export async function POST(req: NextRequest) {
       ? ACHIEVEMENTS.find((a) => a.id === newAchievementId) ?? null
       : null
 
+    // Diff against the pre-checkin snapshot to find challenges the
+    // run_checkins trigger (see engagement_challenges_functions migration)
+    // just completed, so the client can celebrate them.
+    const { data: completedAfter } = await db
+      .from("user_challenge_progress")
+      .select("challenge_id, challenges(slug, name, description)")
+      .eq("user_id", user.id)
+      .not("completed_at", "is", null)
+    const newlyCompletedChallenges = ((completedAfter || []) as any[])
+      .filter((r) => !completedBeforeIds.has(r.challenge_id) && r.challenges)
+      .map((r) => ({ slug: r.challenges.slug, name: r.challenges.name, description: r.challenges.description }))
+
     return NextResponse.json({
       ok: true,
       stats,
       unlocked,
       newAchievement,
       clubId: run.club_id,
+      checkInId,
+      newlyCompletedChallenges,
       passport: passportErr ? null : passportData,
     })
   } catch (err: any) {

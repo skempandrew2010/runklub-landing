@@ -12,6 +12,8 @@ import { getClubStampArt, getUserPassportProgress } from "@/lib/checkins"
 import RunChatPanel from "@/components/RunChatPanel"
 import CheckInMoment, { type CheckInMomentProps } from "@/components/CheckInMoment"
 import BadgeUnlockModal, { type UnlockedBadge } from "@/components/BadgeUnlockModal"
+import ChallengeCompleteMoment, { type NewlyCompletedChallenge } from "@/components/ChallengeCompleteMoment"
+import BuddyPicker from "@/components/BuddyPicker"
 
 const CHECKIN_RADIUS_MILES = 0.3
 const METRO_CHECKIN_RADIUS_MILES = 25
@@ -78,6 +80,9 @@ export default function RunPageClient({
   const [checkInError, setCheckInError] = useState<string | null>(null)
   const [checkInMoment, setCheckInMoment] = useState<MomentData | null>(null)
   const [pendingBadges, setPendingBadges] = useState<UnlockedBadge[]>([])
+  const [newlyCompleted, setNewlyCompleted] = useState<NewlyCompletedChallenge[]>([])
+  const [checkInId, setCheckInId] = useState<string | null>(null)
+  const [showBuddyPicker, setShowBuddyPicker] = useState(false)
   const [showChat, setShowChat] = useState(false)
 
   useEffect(() => {
@@ -150,6 +155,15 @@ export default function RunPageClient({
     }
 
     setCheckedIn(true)
+
+    // Independent of the passport rollup below — always set so the buddy
+    // picker and challenge-completion celebration still fire even if that
+    // best-effort call failed.
+    if (data.checkInId) {
+      setCheckInId(data.checkInId)
+      setShowBuddyPicker(true)
+    }
+    if (data.newlyCompletedChallenges?.length) setNewlyCompleted(data.newlyCompletedChallenges)
 
     const passport = data.passport
     if (!passport) return
@@ -345,6 +359,17 @@ export default function RunPageClient({
       {checkInMoment && <CheckInMoment {...checkInMoment} onDone={() => setCheckInMoment(null)} />}
       {!checkInMoment && pendingBadges.length > 0 && (
         <BadgeUnlockModal badges={pendingBadges} onDone={() => setPendingBadges([])} />
+      )}
+      {!checkInMoment && pendingBadges.length === 0 && newlyCompleted.length > 0 && (
+        <ChallengeCompleteMoment challenges={newlyCompleted} onDone={() => setNewlyCompleted([])} />
+      )}
+      {!checkInMoment && pendingBadges.length === 0 && newlyCompleted.length === 0 && showBuddyPicker && userId && checkInId && (
+        <BuddyPicker
+          runId={run.id}
+          checkInId={checkInId}
+          userId={userId}
+          onDone={() => setShowBuddyPicker(false)}
+        />
       )}
     </div>
   )

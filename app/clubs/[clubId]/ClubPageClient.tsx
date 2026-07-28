@@ -10,6 +10,7 @@ import { localDateStr } from "@/utils/dates"
 import { getClubLeaderboard } from "@/lib/checkins"
 import RunChatPanel from "@/components/RunChatPanel"
 import Leaderboard from "@/components/Leaderboard"
+import KlubShowdownLeaderboard from "@/components/KlubShowdownLeaderboard"
 import { track } from "@vercel/analytics"
 
 export type Club = {
@@ -528,6 +529,9 @@ export default function ClubPageClient({
             </div>
           )}
         </div>
+
+        {/* ── KLUB SHOWDOWN ── */}
+        <KlubShowdownLeaderboard highlightClubId={club.id} />
 
         {/* ── CLAIM THIS CLUB ── */}
         {!isClaimed && userId && claimStatus === "idle" && !showClaimForm && (
