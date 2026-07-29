@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase"
 import { getDistanceMiles } from "@/utils/distance"
 import { localDateStr } from "@/utils/dates"
 import { getTagStyle } from "@/utils/tagStyle"
+import { isVerifiedClub } from "@/utils/clubTier"
 import { getClubStampArt, getUserPassportProgress } from "@/lib/checkins"
 import RunChatPanel from "@/components/RunChatPanel"
 import CheckInMoment, { type CheckInMomentProps } from "@/components/CheckInMoment"
@@ -61,6 +62,7 @@ export type Club = {
   latitude: number | null
   longitude: number | null
   city: string | null
+  tier: string | null
 }
 
 export default function RunPageClient({
@@ -110,35 +112,44 @@ export default function RunPageClient({
   const handleCheckIn = async () => {
     if (!userId || !sessionToken) { router.push("/login"); return }
 
-    const checkinTarget =
-      run.run_lat != null && run.run_lng != null
-        ? { lat: run.run_lat, lng: run.run_lng, radiusMiles: CHECKIN_RADIUS_MILES }
-        : club.latitude != null && club.longitude != null
-          ? { lat: club.latitude, lng: club.longitude, radiusMiles: CHECKIN_RADIUS_MILES }
-          : cityFallback
-            ? { lat: cityFallback.lat, lng: cityFallback.lng, radiusMiles: METRO_CHECKIN_RADIUS_MILES }
-            : null
+    // Geofencing only applies to verified (paid-tier) klubs — their location
+    // data is confirmed accurate. Free/unclaimed klubs often have approximate
+    // or missing coordinates, so requiring proximity there would unfairly
+    // block real check-ins over a data-quality problem, not a fraud one.
+    if (isVerifiedClub(club.tier)) {
+      const checkinTarget =
+        run.run_lat != null && run.run_lng != null
+          ? { lat: run.run_lat, lng: run.run_lng, radiusMiles: CHECKIN_RADIUS_MILES }
+          : club.latitude != null && club.longitude != null
+            ? { lat: club.latitude, lng: club.longitude, radiusMiles: CHECKIN_RADIUS_MILES }
+            : cityFallback
+              ? { lat: cityFallback.lat, lng: cityFallback.lng, radiusMiles: METRO_CHECKIN_RADIUS_MILES }
+              : null
 
-    if (!checkinTarget) {
-      setCheckInError("This run hasn't set a location yet, so check-in isn't available.")
-      return
-    }
+      if (!checkinTarget) {
+        setCheckInError("This run hasn't set a location yet, so check-in isn't available.")
+        return
+      }
 
-    setCheckingIn(true)
-    setCheckInError(null)
+      setCheckingIn(true)
+      setCheckInError(null)
 
-    try {
-      const pos = await getCurrentPosition()
-      const distance = getDistanceMiles(pos.coords.latitude, pos.coords.longitude, checkinTarget.lat, checkinTarget.lng)
-      if (distance > checkinTarget.radiusMiles) {
-        setCheckInError("You need to be at the run to check in.")
+      try {
+        const pos = await getCurrentPosition()
+        const distance = getDistanceMiles(pos.coords.latitude, pos.coords.longitude, checkinTarget.lat, checkinTarget.lng)
+        if (distance > checkinTarget.radiusMiles) {
+          setCheckInError("You need to be at the run to check in.")
+          setCheckingIn(false)
+          return
+        }
+      } catch {
+        setCheckInError("Enable location access to check in.")
         setCheckingIn(false)
         return
       }
-    } catch {
-      setCheckInError("Enable location access to check in.")
-      setCheckingIn(false)
-      return
+    } else {
+      setCheckingIn(true)
+      setCheckInError(null)
     }
 
     const res = await fetch("/api/checkin", {

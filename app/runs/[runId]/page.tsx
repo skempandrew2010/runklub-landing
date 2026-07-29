@@ -37,7 +37,7 @@ export default async function RunPage({ params }: Props) {
   const { data: run } = await getSupabase()
     .from("runs")
     .select(
-      "id, club_id, title, date, time, distance, meeting_point, city, external_url, description, tags, is_in_person, members_only, run_lat, run_lng, clubs(id, name, image_url, latitude, longitude, city)"
+      "id, club_id, title, date, time, distance, meeting_point, city, external_url, description, tags, is_in_person, members_only, run_lat, run_lng, clubs(id, name, image_url, latitude, longitude, city, tier)"
     )
     .eq("id", runId)
     .maybeSingle()
@@ -60,6 +60,7 @@ export default async function RunPage({ params }: Props) {
     latitude: number | null
     longitude: number | null
     city: string | null
+    tier: string | null
   }
 
   // Klubs without a precise pin fall back to their city's centroid for check-in
