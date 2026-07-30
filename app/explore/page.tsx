@@ -12,7 +12,7 @@ import { supabase } from "@/lib/supabase"
 import { Club } from "@/types/club"
 import { getDistanceMiles } from "@/utils/distance"
 import { localDateStr } from "@/utils/dates"
-import { SlidersHorizontal, Map, List, CalendarCheck, Clock, MapPin, ChevronDown, Lock } from "lucide-react"
+import { SlidersHorizontal, CalendarCheck, Clock, MapPin, ChevronDown, Lock } from "lucide-react"
 import Image from "next/image"
 import { getTagStyle } from "@/utils/tagStyle"
 
@@ -88,7 +88,6 @@ function ExplorePageInner() {
   const [deleting, setDeleting] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
   const [showAuthModal, setShowAuthModal] = useState(false)
-  const [showMobileMap, setShowMobileMap] = useState(false)
   const [pendingAction, setPendingAction] = useState<null | (() => void)>(null)
   const [filters, setFilters] = useState<FilterOptions>(DEFAULT_FILTERS)
   const [sortBy, setSortBy] = useState<SortOption>("closest")
@@ -356,15 +355,15 @@ function ExplorePageInner() {
       clubs
         .map((c) => {
           if (c.latitude != null && c.longitude != null) {
-            return { id: c.id, name: c.name, lat: c.latitude, lng: c.longitude, image_url: c.image_url ?? null }
+            return { id: c.id, name: c.name, lat: c.latitude, lng: c.longitude, image_url: c.image_url ?? null, tier: c.tier ?? null }
           }
           // No precise pin — fall back to the club's city centroid so it still shows up on the map
           const cityName = c.city?.split(",")[0]?.trim()
           const centroid = cityName ? cityCentroids[cityName] : undefined
           if (!centroid) return null
-          return { id: c.id, name: c.name, lat: centroid.lat, lng: centroid.lng, image_url: c.image_url ?? null }
+          return { id: c.id, name: c.name, lat: centroid.lat, lng: centroid.lng, image_url: c.image_url ?? null, tier: c.tier ?? null }
         })
-        .filter((c): c is { id: string; name: string; lat: number; lng: number; image_url: string | null } => c !== null),
+        .filter((c) => c !== null),
     [clubs, cityCentroids]
   )
 
@@ -691,37 +690,23 @@ function ExplorePageInner() {
       {/* ── MOBILE ── */}
       <div className="md:hidden bg-[#1a2110]">
         <div className="sticky z-40" style={{ top: 'var(--navbar-h)' }}>{filterBar}</div>
-        {showMobileMap ? (
+        {/* Map always visible at top, stacked above list */}
+        <div className={`h-[220px] transition-[filter] ${gatedClass}`}>
+          <MapView city={city} runs={mapRuns} clubs={mapClubs} ownedClubIds={ownedClubIds} onCityCoords={setCityCoords} onBoundsChange={setMapBounds} hideControls />
+        </div>
+        {tabSwitcher}
+        {activeTab === "runs" ? (
           <>
-            <div className={`fixed left-0 right-0 z-10 transition-[filter] ${gatedClass}`} style={{ top: 'var(--navbar-h)', bottom: "0" }}>
-              <MapView city={city} runs={mapRuns} clubs={mapClubs} ownedClubIds={ownedClubIds} onCityCoords={setCityCoords} onBoundsChange={setMapBounds} />
-            </div>
-            <button onClick={() => setShowMobileMap(false)}
-              className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-5 py-2.5 bg-[#1a2110] border border-[#3d5220] rounded-full text-white font-semibold text-sm shadow-xl shadow-black/60">
-              <List className="w-4 h-4" /> Show list
-            </button>
+            {runsCountRow}
+            <div className={`transition-[filter] ${gatedClass}`}>{runsListSection}</div>
           </>
         ) : (
           <>
-            {tabSwitcher}
-            {activeTab === "runs" ? (
-              <>
-                {runsCountRow}
-                <div className={`transition-[filter] ${gatedClass}`}>{runsListSection}</div>
-              </>
-            ) : (
-              <>
-                {countRow}
-                <div className={`transition-[filter] ${gatedClass}`}>{clubListSection}</div>
-              </>
-            )}
-            <div className="h-24" />
-            <button onClick={() => setShowMobileMap(true)}
-              className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-5 py-2.5 bg-[#1a2110] border border-[#3d5220] rounded-full text-white font-semibold text-sm shadow-xl shadow-black/60">
-              <Map className="w-4 h-4" /> Map
-            </button>
+            {countRow}
+            <div className={`transition-[filter] ${gatedClass}`}>{clubListSection}</div>
           </>
         )}
+        <div className="h-24" />
       </div>
 
       {/* ── DESKTOP ── */}

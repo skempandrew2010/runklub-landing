@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation"
 import Map, { Marker, Popup, NavigationControl, Source, Layer } from "react-map-gl/mapbox"
 import "mapbox-gl/dist/mapbox-gl.css"
 import mapboxSdk from "@mapbox/mapbox-sdk/services/geocoding"
+import { isVerifiedClub } from "@/utils/clubTier"
+import VerifiedBadge from "@/components/VerifiedBadge"
 
 
 export type RunPin = {
@@ -31,6 +33,7 @@ export type ClubPin = {
   lat: number
   lng: number
   image_url?: string | null
+  tier?: string | null
 }
 
 // Runs grouped by their map position (run location if set, else club location)
@@ -50,6 +53,7 @@ type MapViewProps = {
   onCityCoords?: (coords: { lat: number; lng: number } | null) => void
   onBoundsChange?: (bounds: MapBounds) => void
   ownedClubIds?: Set<string>
+  hideControls?: boolean
 }
 
 const geocodingClient = mapboxSdk({ accessToken: process.env.NEXT_PUBLIC_MAPBOX_TOKEN })
@@ -128,7 +132,7 @@ function clusterGroups(groups: LocationGroup[], zoom: number, radiusPx: number):
   return result
 }
 
-export default function MapView({ city, runs, clubs, onCityCoords, onBoundsChange, ownedClubIds }: MapViewProps) {
+export default function MapView({ city, runs, clubs, onCityCoords, onBoundsChange, ownedClubIds, hideControls }: MapViewProps) {
   const router = useRouter()
   const [viewState, setViewState] = useState({ latitude: 40.015, longitude: -105.2705, zoom: 11 })
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null)
@@ -297,7 +301,7 @@ export default function MapView({ city, runs, clubs, onCityCoords, onBoundsChang
       }}
       onRemove={() => setMapReady(false)}
     >
-      {mapReady && (
+      {mapReady && !hideControls && (
         <NavigationControl
           position="top-right"
           showCompass
@@ -307,7 +311,7 @@ export default function MapView({ city, runs, clubs, onCityCoords, onBoundsChang
       )}
 
       {/* Pan + rotate controls */}
-      {mapReady && (() => {
+      {mapReady && !hideControls && (() => {
         const map = mapRef.current?.getMap()
         const pan = (dx: number, dy: number) => map?.panBy([dx, dy], { duration: 300 })
         const rotate = (delta: number) => map?.rotateTo((map.getBearing() + delta) % 360, { duration: 300 })
@@ -484,8 +488,9 @@ export default function MapView({ city, runs, clubs, onCityCoords, onBoundsChang
                 )}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ margin: 0, color: "#fff", fontWeight: 800, fontSize: 13, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {selectedClubPin.name}
+                <p style={{ margin: 0, color: "#fff", fontWeight: 800, fontSize: 13, lineHeight: 1.2, display: "flex", alignItems: "center", gap: 4, overflow: "hidden" }}>
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selectedClubPin.name}</span>
+                  {isVerifiedClub(selectedClubPin.tier) && <VerifiedBadge compact />}
                 </p>
                 <p style={{ margin: "3px 0 0", color: "rgba(255,255,255,0.35)", fontSize: 10 }}>
                   No upcoming runs scheduled
