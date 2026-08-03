@@ -98,6 +98,7 @@ export type KlubShowdownRow = {
   club_id: string
   club_name: string
   club_image_url: string | null
+  club_tier: string | null
   score: number
   rank: number
 }
@@ -114,7 +115,7 @@ export async function getKlubShowdownLeaderboard(): Promise<KlubShowdownRow[]> {
 
   const { data } = await supabase
     .from("club_challenge_scores")
-    .select("club_id, score, clubs(name, image_url)")
+    .select("club_id, score, clubs(name, image_url, tier)")
     .eq("challenge_id", challenge.id)
     .eq("period_start", currentPeriodStartUTC())
     .order("score", { ascending: false })
@@ -123,6 +124,7 @@ export async function getKlubShowdownLeaderboard(): Promise<KlubShowdownRow[]> {
     club_id: row.club_id,
     club_name: row.clubs?.name ?? "Klub",
     club_image_url: row.clubs?.image_url ?? null,
+    club_tier: row.clubs?.tier ?? null,
     score: row.score,
     rank: i + 1,
   }))

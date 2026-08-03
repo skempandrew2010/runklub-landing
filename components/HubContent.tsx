@@ -6,10 +6,12 @@ import { localDateStr } from "@/utils/dates"
 import { CalendarCheck, ChevronRight, Users, Zap } from "lucide-react"
 import Link from "next/link"
 import ChallengeHubBanner from "@/components/ChallengeHubBanner"
+import { isVerifiedClub } from "@/utils/clubTier"
+import VerifiedBadge from "@/components/VerifiedBadge"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type Club = { id: string; name: string; image_url: string | null; city: string | null; user_id: string }
+type Club = { id: string; name: string; image_url: string | null; city: string | null; user_id: string; tier: string | null }
 
 type Run = {
   id: string
@@ -160,10 +162,10 @@ export default function HubContent() {
       const todayDate = localDateStr()
 
       const [coachRes, subsRes] = await Promise.all([
-        supabase.from("clubs").select("id, name, image_url, city, user_id").eq("user_id", user.id),
+        supabase.from("clubs").select("id, name, image_url, city, user_id, tier").eq("user_id", user.id),
         supabase
           .from("subscriptions")
-          .select("member_type, clubs(id, name, image_url, city, user_id)")
+          .select("member_type, clubs(id, name, image_url, city, user_id, tier)")
           .eq("user_id", user.id),
       ])
 
@@ -420,7 +422,10 @@ export default function HubContent() {
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold text-white truncate">{club.name}</p>
+                          <p className="text-sm font-bold text-white truncate flex items-center gap-1.5">
+                            <span className="truncate">{club.name}</span>
+                            {isVerifiedClub(club.tier) && <VerifiedBadge compact />}
+                          </p>
                           <p className="text-xs text-white/40 mt-0.5 truncate">
                             {club.city}
                             {club.city && nextRun && " · "}
@@ -615,7 +620,10 @@ export default function HubContent() {
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-white truncate">{club.name}</p>
+                        <p className="text-sm font-bold text-white truncate flex items-center gap-1.5">
+                          <span className="truncate">{club.name}</span>
+                          {isVerifiedClub(club.tier) && <VerifiedBadge compact />}
+                        </p>
                         {club.city && (
                           <p className="text-xs text-white/40 mt-0.5">{club.city}</p>
                         )}

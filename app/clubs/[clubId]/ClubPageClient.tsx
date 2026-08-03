@@ -4,11 +4,12 @@ import { useEffect, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
-import { Heart, MapPin, Clock, Users, ArrowLeft, ShieldCheck, ExternalLink, MessageSquare, ChevronRight } from "lucide-react"
+import { Heart, MapPin, Clock, Users, ArrowLeft, ExternalLink, MessageSquare, ChevronRight } from "lucide-react"
 import { getTagStyle } from "@/utils/tagStyle"
 import { localDateStr } from "@/utils/dates"
 import { isVerifiedClub } from "@/utils/clubTier"
 import { interceptExternalClick } from "@/utils/openExternal"
+import VerifiedBadge from "@/components/VerifiedBadge"
 import { getClubLeaderboard } from "@/lib/checkins"
 import RunChatPanel from "@/components/RunChatPanel"
 import Leaderboard from "@/components/Leaderboard"
@@ -260,11 +261,7 @@ export default function ClubPageClient({
             <div className="flex-1 min-w-0 pb-1">
               <div className="flex items-center gap-2 flex-wrap mb-1">
                 <h1 className="text-2xl font-black text-white leading-tight">{club.name}</h1>
-                {isVerifiedClub(club.tier) && (
-                  <span className="flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-[#c5f135]/15 text-[#c5f135] border border-[#c5f135]/30">
-                    <ShieldCheck className="w-2.5 h-2.5" /> VERIFIED
-                  </span>
-                )}
+                {isVerifiedClub(club.tier) && <VerifiedBadge />}
               </div>
               <div className="flex items-center gap-3 flex-wrap">
                 {club.city && (
