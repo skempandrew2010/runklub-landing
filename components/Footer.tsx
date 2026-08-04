@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { Mail } from "lucide-react"
-import { openExternal } from "@/utils/openExternal"
+import { interceptExternalClick } from "@/utils/openExternal"
 
 export default function Footer() {
   return (
@@ -11,9 +11,11 @@ export default function Footer() {
           <p className="text-xs text-white/30 mt-0.5">Find verified run klubs anywhere.</p>
         </div>
         <div className="flex items-center gap-3 flex-wrap justify-center">
-          <button
-            type="button"
-            onClick={() => openExternal("https://www.instagram.com/runklubapp/")}
+          <a
+            href="https://www.instagram.com/runklubapp/"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => interceptExternalClick(e, "https://www.instagram.com/runklubapp/")}
             className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#1e2d12] border border-[#2e3d1a] text-white/60 hover:text-white hover:border-[#c5f135]/40 transition text-xs font-semibold"
           >
             <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -22,7 +24,7 @@ export default function Footer() {
               <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
             </svg>
             @runklubapp
-          </button>
+          </a>
           <a
             href="mailto:runklubinfo@gmail.com"
             className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#1e2d12] border border-[#2e3d1a] text-white/60 hover:text-white hover:border-[#c5f135]/40 transition text-xs font-semibold"
