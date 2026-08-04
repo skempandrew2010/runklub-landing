@@ -5,11 +5,14 @@ import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import Footer from "@/components/Footer"
+import { isNativeApp } from "@/utils/platform"
 
 const NavBar = dynamic(() => import("./navBar"), {
   ssr: false,
   loading: () => <nav className="sticky top-0 z-50 bg-[#1a2110] border-b border-[#2e3d1a]" style={{ height: 'var(--navbar-h)' }} />,
 })
+
+const BottomBar = dynamic(() => import("./BottomBar"), { ssr: false })
 
 const SHELL_HIDDEN_ROUTES = ["/login", "/onboarding", "/claim", "/welcome"]
 
@@ -37,6 +40,9 @@ export default function ShellWrapper({ children }: { children: React.ReactNode }
   const hideShell = SHELL_HIDDEN_ROUTES.some((r) => pathname.startsWith(r))
 
   const [authed, setAuthed] = useState<boolean | null>(isPublic ? true : null)
+  const [nativeApp, setNativeApp] = useState(false)
+
+  useEffect(() => { setNativeApp(isNativeApp()) }, [])
 
   useEffect(() => {
     if (isPublic) {
@@ -80,11 +86,15 @@ export default function ShellWrapper({ children }: { children: React.ReactNode }
 
   return (
     <>
-      {!hideShell && <NavBar />}
-      <div key={pathname} className="animate-page-enter">
+      {!hideShell && (nativeApp ? <BottomBar /> : <NavBar />)}
+      <div
+        key={pathname}
+        className="animate-page-enter"
+        style={!hideShell && nativeApp ? { paddingBottom: 'var(--tabbar-h)' } : undefined}
+      >
         {children}
       </div>
-      {!hideShell && <Footer />}
+      {!hideShell && !nativeApp && <Footer />}
     </>
   )
 }

@@ -6,6 +6,7 @@
   --safe-top: env(safe-area-inset-top, 0px);
   --nav-extra: 12px;
   --navbar-h: calc(68px + var(--safe-top) + var(--nav-extra));
+  --tabbar-h: calc(64px + env(safe-area-inset-bottom, 0px));
 }
 
 @theme inline {

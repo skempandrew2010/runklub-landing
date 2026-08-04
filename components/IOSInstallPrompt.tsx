@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { X, Share } from "lucide-react"
+import { isNativeApp } from "@/utils/platform"
 
 const DISMISSED_KEY = "runkub-pwa-dismissed"
 
@@ -20,7 +21,7 @@ export default function IOSInstallPrompt() {
   useEffect(() => {
     setMounted(true)
     const alreadyDismissed = localStorage.getItem(DISMISSED_KEY)
-    if (!alreadyDismissed && isIOS() && !isInStandaloneMode()) {
+    if (!alreadyDismissed && !isNativeApp() && isIOS() && !isInStandaloneMode()) {
       const t = setTimeout(() => setVisible(true), 2500)
       return () => clearTimeout(t)
     }

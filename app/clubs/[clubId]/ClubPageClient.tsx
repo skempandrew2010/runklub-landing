@@ -8,6 +8,7 @@ import { Heart, MapPin, Clock, Users, ArrowLeft, ShieldCheck, ExternalLink, Mess
 import { getTagStyle } from "@/utils/tagStyle"
 import { localDateStr } from "@/utils/dates"
 import { isVerifiedClub } from "@/utils/clubTier"
+import { openExternal } from "@/utils/openExternal"
 import { getClubLeaderboard } from "@/lib/checkins"
 import RunChatPanel from "@/components/RunChatPanel"
 import Leaderboard from "@/components/Leaderboard"
@@ -331,30 +332,30 @@ export default function ClubPageClient({
           )}
 
           {club.instagram_handle && (
-            <a
-              href={`https://instagram.com/${club.instagram_handle}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => track("club_instagram_clicked", { clubId: club.id, handle: club.instagram_handle ?? "" })}
+            <button
+              type="button"
+              onClick={() => {
+                track("club_instagram_clicked", { clubId: club.id, handle: club.instagram_handle ?? "" })
+                openExternal(`https://instagram.com/${club.instagram_handle}`)
+              }}
               className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-[#1e2d12] border border-[#2e3d1a] text-white/60 hover:text-white hover:border-white/30 transition text-sm font-semibold"
             >
               <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <rect width="20" height="20" x="2" y="2" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/>
               </svg>
               @{club.instagram_handle}
-            </a>
+            </button>
           )}
 
           {club.website && (
-            <a
-              href={club.website.startsWith("http") ? club.website : `https://${club.website}`}
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              type="button"
+              onClick={() => openExternal(club.website!.startsWith("http") ? club.website! : `https://${club.website}`)}
               className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-[#1e2d12] border border-[#2e3d1a] text-white/60 hover:text-white hover:border-white/30 transition text-sm font-semibold"
             >
               <ExternalLink className="w-4 h-4 shrink-0" />
               Website
-            </a>
+            </button>
           )}
 
           {!userId && (
@@ -390,25 +391,23 @@ export default function ClubPageClient({
               <p className="text-xs text-white/40 leading-relaxed">
                 This klub hasn&apos;t been claimed yet — verify run details on their{" "}
                 {club.instagram_handle && (
-                  <a
-                    href={`https://www.instagram.com/${club.instagram_handle}/`}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    type="button"
+                    onClick={() => openExternal(`https://www.instagram.com/${club.instagram_handle}/`)}
                     className="text-white/60 underline underline-offset-2 hover:text-white/80 transition"
                   >
                     Instagram
-                  </a>
+                  </button>
                 )}
                 {club.instagram_handle && club.website && " or "}
                 {club.website && (
-                  <a
-                    href={club.website.startsWith("http") ? club.website : `https://${club.website}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    type="button"
+                    onClick={() => openExternal(club.website!.startsWith("http") ? club.website! : `https://${club.website}`)}
                     className="text-white/60 underline underline-offset-2 hover:text-white/80 transition"
                   >
                     website
-                  </a>
+                  </button>
                 )}
                 {" "}before heading out.
               </p>
