@@ -65,16 +65,12 @@ export type Club = {
   tier: string | null
 }
 
-export default function RunPageClient({
-  run,
-  club,
-  cityFallback,
-}: {
-  run: Run
-  club: Club
-  cityFallback: { lat: number; lng: number } | null
-}) {
+export default function RunPageClient({ runId }: { runId: string }) {
   const router = useRouter()
+  const [run, setRun] = useState<Run | null>(null)
+  const [club, setClub] = useState<Club | null>(null)
+  const [cityFallback, setCityFallback] = useState<{ lat: number; lng: number } | null>(null)
+  const [loadingRun, setLoadingRun] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
   const [sessionToken, setSessionToken] = useState<string | null>(null)
   const [checkedIn, setCheckedIn] = useState(false)
@@ -87,6 +83,59 @@ export default function RunPageClient({
   const [showBuddyPicker, setShowBuddyPicker] = useState(false)
   const [showChat, setShowChat] = useState(false)
 
+  // Fetched client-side (not server-side with the anon key) so RLS evaluates
+  // as the actual signed-in visitor — otherwise an approved member clicking
+  // a shared link to their own private run would incorrectly see "not found."
+  useEffect(() => {
+    const load = async () => {
+      const { data, error } = await supabase
+        .from("runs")
+        .select(
+          "id, club_id, title, date, time, distance, meeting_point, city, external_url, description, tags, is_in_person, members_only, run_lat, run_lng, clubs(id, name, image_url, latitude, longitude, city, tier)"
+        )
+        .eq("id", runId)
+        .maybeSingle()
+
+      if (error || !data || !data.clubs) { setLoadingRun(false); return }
+
+      const clubData = data.clubs as unknown as Club
+      setRun({
+        id: data.id,
+        club_id: data.club_id,
+        title: data.title,
+        date: data.date,
+        time: data.time,
+        distance: data.distance,
+        meeting_point: data.meeting_point,
+        city: data.city,
+        external_url: data.external_url,
+        description: data.description,
+        tags: data.tags,
+        is_in_person: data.is_in_person,
+        members_only: data.members_only,
+        run_lat: data.run_lat,
+        run_lng: data.run_lng,
+      })
+      setClub(clubData)
+
+      // Klubs without a precise pin fall back to their city's centroid for check-in
+      if (data.run_lat == null && (clubData.latitude == null || clubData.longitude == null) && clubData.city) {
+        const cityName = clubData.city.split(",")[0].trim()
+        const { data: cityRow } = await supabase
+          .from("cities")
+          .select("lat, lng")
+          .eq("name", cityName)
+          .maybeSingle()
+        if (cityRow?.lat != null && cityRow?.lng != null) {
+          setCityFallback({ lat: cityRow.lat, lng: cityRow.lng })
+        }
+      }
+
+      setLoadingRun(false)
+    }
+    load()
+  }, [runId])
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUserId(session?.user?.id ?? null)
@@ -95,7 +144,7 @@ export default function RunPageClient({
   }, [])
 
   useEffect(() => {
-    if (!userId) return
+    if (!userId || !run) return
     supabase
       .from("run_checkins")
       .select("id")
@@ -103,7 +152,26 @@ export default function RunPageClient({
       .eq("user_id", userId)
       .maybeSingle()
       .then(({ data }) => setCheckedIn(!!data))
-  }, [userId, run.id])
+  }, [userId, run])
+
+  if (loadingRun) {
+    return (
+      <div className="min-h-screen bg-[#1a2110] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-[#c5f135]/30 border-t-[#c5f135] rounded-full animate-spin" />
+      </div>
+    )
+  }
+
+  if (!run || !club) {
+    return (
+      <div className="min-h-screen bg-[#1a2110] flex flex-col items-center justify-center gap-3">
+        <p className="text-white/40 text-sm">Run not found.</p>
+        <Link href="/explore" className="text-[#c5f135] text-sm font-semibold hover:underline">
+          ← Discover klubs
+        </Link>
+      </div>
+    )
+  }
 
   const todayStr = localDateStr()
   const isToday = run.date === todayStr
