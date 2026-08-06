@@ -4,6 +4,7 @@ import "./globals.css";
 import ShellWrapper from "@/components/ShellWrapper"
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister"
 import IOSInstallPrompt from "@/components/IOSInstallPrompt"
+import RunCheckInWatcher from "@/components/RunCheckInWatcher"
 import { GlobalErrorHandler, ErrorBoundary } from "@/components/GlobalErrorHandler"
 import { Analytics } from "@vercel/analytics/next"
 
@@ -74,6 +75,7 @@ export default function RootLayout({
         <GlobalErrorHandler />
         <ServiceWorkerRegister />
         <IOSInstallPrompt />
+        <RunCheckInWatcher />
         <Analytics />
       </body>
     </html>

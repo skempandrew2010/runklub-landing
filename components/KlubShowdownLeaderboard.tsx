@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react"
 import { Trophy } from "lucide-react"
 import { getKlubShowdownLeaderboard, type KlubShowdownRow } from "@/lib/challenges"
+import { isVerifiedClub } from "@/utils/clubTier"
+import VerifiedBadge from "@/components/VerifiedBadge"
 
 const TOP_N = 10
 
@@ -43,9 +45,10 @@ function KlubRow({ row, isHighlighted }: { row: KlubShowdownRow; isHighlighted: 
           <span className="text-xs font-bold text-[#c5f135]">{initialsOf(row.club_name)}</span>
         )}
       </div>
-      <p className="text-sm font-bold text-white truncate flex-1 min-w-0">
-        {row.club_name}
-        {isHighlighted && <span className="text-[#c5f135] font-black ml-1.5">(Your Klub)</span>}
+      <p className="text-sm font-bold text-white truncate flex-1 min-w-0 flex items-center gap-1.5">
+        <span className="truncate">{row.club_name}</span>
+        {isVerifiedClub(row.club_tier) && <VerifiedBadge compact />}
+        {isHighlighted && <span className="text-[#c5f135] font-black shrink-0">(Your Klub)</span>}
       </p>
       <p className="text-sm font-black text-[#c5f135] shrink-0">{row.score}</p>
     </div>

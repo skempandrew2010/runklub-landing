@@ -3,9 +3,11 @@
 import { useState, useEffect, useRef, useMemo } from "react"
 import { Search, X } from "lucide-react"
 import Image from "next/image"
+import { isVerifiedClub } from "@/utils/clubTier"
+import VerifiedBadge from "@/components/VerifiedBadge"
 
 type Suggestion = { place_name: string; text: string }
-type ClubResult = { id: string; name: string; city: string | null; image_url?: string | null }
+type ClubResult = { id: string; name: string; city: string | null; image_url?: string | null; tier?: string | null }
 
 type SearchBarProps = {
   city: string
@@ -164,7 +166,10 @@ export default function SearchBar({ city, setCity, onSearch, clubs, onSelectClub
                       )}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm text-white font-semibold truncate">{club.name}</p>
+                      <p className="text-sm text-white font-semibold truncate flex items-center gap-1">
+                        <span className="truncate">{club.name}</span>
+                        {isVerifiedClub(club.tier) && <VerifiedBadge compact />}
+                      </p>
                       {club.city && <p className="text-xs text-white/40 truncate">{club.city}</p>}
                     </div>
                   </button>

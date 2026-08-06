@@ -21,6 +21,7 @@ import { Card, SectionTitle, Button, Input } from "@/app/admin/club-model/manage
 import { isNativeApp } from "@/utils/platform"
 import RunFormPanel from "./RunFormPanel"
 import RunChatPanel from "@/components/RunChatPanel"
+import RunCheckInRoster from "@/components/RunCheckInRoster"
 import { PLANS } from "@/lib/plans"
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -858,6 +859,12 @@ function ManagerView({ userId }: { userId: string }) {
               />
               In person
             </label>
+
+            <div className="pt-2 border-t border-[#2e3d1a]">
+              <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-2">Check-ins</p>
+              <RunCheckInRoster runId={run.id} clubId={run.club_id} />
+            </div>
+
             <div className="flex items-center gap-2">
               <button
                 onClick={() => saveRun(run.id)}
