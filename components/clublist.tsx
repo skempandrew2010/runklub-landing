@@ -42,6 +42,7 @@ type NextRun = {
   title: string
   date: string
   time: string
+  timezone: string | null
   tags: string[] | null
 }
 

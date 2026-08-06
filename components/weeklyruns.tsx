@@ -6,12 +6,14 @@ import { getDistanceMiles } from "@/utils/distance"
 import { Club } from "@/types/club"
 import { CalendarCheck, Clock, MapPin } from "lucide-react"
 import { localDateStr } from "@/utils/dates"
+import { formatRunTime } from "@/lib/timezone"
 
 type WeekRun = {
   id: string
   title: string
   date: string
   time: string
+  timezone: string | null
   distance: string | null
   meeting_point: string | null
   club_id: string
@@ -29,11 +31,8 @@ function formatDate(dateStr: string) {
   return d.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })
 }
 
-function formatTime(t: string) {
-  const [h, m] = t.split(":").map(Number)
-  const ampm = h >= 12 ? "PM" : "AM"
-  const hour = h % 12 || 12
-  return `${hour}:${String(m).padStart(2, "0")} ${ampm}`
+function formatTime(run: WeekRun) {
+  return formatRunTime(run)
 }
 
 type Props = {
@@ -75,7 +74,7 @@ export default function WeeklyRuns({ clubs, center, locationLabel = "near you" }
 
       const { data } = await supabase
         .from("runs")
-        .select("id, title, date, time, distance, meeting_point, club_id")
+        .select("id, title, date, time, timezone, distance, meeting_point, club_id")
         .in("club_id", nearbyClubs.map((c) => c.id))
         .gte("date", todayStr)
         .lte("date", weekStr)
@@ -157,7 +156,7 @@ export default function WeeklyRuns({ clubs, center, locationLabel = "near you" }
                       <p className="text-[11px] text-[#c5f135]/80 font-medium mt-0.5">{run.club_name}</p>
                       <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5">
                         <span className="flex items-center gap-1 text-xs text-white/50">
-                          <Clock className="w-3 h-3" /> {formatTime(run.time)}
+                          <Clock className="w-3 h-3" /> {formatTime(run)}
                         </span>
                         {run.meeting_point && (
                           <span className="flex items-center gap-1 text-xs text-white/50">

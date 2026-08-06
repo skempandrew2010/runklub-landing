@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic"
 import { useEffect, useState, useRef, useCallback } from "react"
 import { supabase } from "@/lib/supabase"
 import { localDateStr } from "@/utils/dates"
+import { COMMON_TIMEZONES, getBrowserTimezone, formatRunTime } from "@/lib/timezone"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import {
@@ -47,6 +48,7 @@ type RunWithClub = {
   workout_type_id: string | null
   description: string | null
   is_in_person: boolean
+  timezone: string | null
   clubs: { name: string; image_url: string | null } | null
 }
 
@@ -81,13 +83,20 @@ type ClubWithCount = {
   instagram_handle: string | null
   membership_type: MembershipType
   website: string | null
+  default_timezone: string | null
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
+// Used for clubs.meeting_time — a bare recurring-schedule string with no
+// specific date, so there's no run to resolve a real timezone-aware instant for.
 function formatTime(t: string) {
   const [h, m] = t.split(":").map(Number)
   return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h >= 12 ? "PM" : "AM"}`
+}
+
+function formatRunTimeDisplay(run: { date: string; time: string; timezone?: string | null }) {
+  return formatRunTime(run)
 }
 
 function formatDay(dateStr: string) {
@@ -169,7 +178,7 @@ function ManagerView({ userId }: { userId: string }) {
   const [selectedRunsBranch, setSelectedRunsBranch] = useState<string | null>(null)
   const [expandedRunId, setExpandedRunId] = useState<string | null>(null)
   const [memberRunWorkoutTypes, setMemberRunWorkoutTypes] = useState<{ id: string; title: string }[]>([])
-  const [runDrafts, setRunDrafts] = useState<Record<string, { title: string; time: string; distance: string; meeting_point: string; route_url: string; workout_type_id: string; description: string; is_in_person: boolean }>>({})
+  const [runDrafts, setRunDrafts] = useState<Record<string, { title: string; time: string; timezone: string; distance: string; meeting_point: string; route_url: string; workout_type_id: string; description: string; is_in_person: boolean }>>({})
   const [runSaving, setRunSaving] = useState<Set<string>>(new Set())
   const [attendanceCounts, setAttendanceCounts] = useState<Record<string, number>>({})
 
@@ -229,7 +238,7 @@ function ManagerView({ userId }: { userId: string }) {
     const load = async () => {
       const { data: clubs } = await supabase
         .from("clubs")
-        .select("id, name, city, location, meeting_day, meeting_time, image_url, tier, is_public, instagram_handle, membership_type, website")
+        .select("id, name, city, location, meeting_day, meeting_time, image_url, tier, is_public, instagram_handle, membership_type, website, default_timezone")
         .eq("user_id", userId)
       const rawClubs = clubs || []
       const clubIds = rawClubs.map((c: any) => c.id)
@@ -294,6 +303,7 @@ function ManagerView({ userId }: { userId: string }) {
     await supabase.from("runs").update({
       title: draft.title,
       time: draft.time,
+      timezone: draft.timezone,
       distance: draft.distance || null,
       meeting_point: draft.meeting_point || null,
       route_url: draft.route_url || null,
@@ -319,8 +329,9 @@ function ManagerView({ userId }: { userId: string }) {
     setGenerateStatus("")
     try {
       // Fetch tier directly from DB to avoid stale closure issues
-      const { data: clubRow } = await supabase.from("clubs").select("tier").eq("id", clubId).single()
+      const { data: clubRow } = await supabase.from("clubs").select("tier, default_timezone").eq("id", clubId).single()
       const effectiveTier = tierOverride ?? clubRow?.tier
+      const runTimezone = clubRow?.default_timezone ?? getBrowserTimezone()
       if (effectiveTier !== "growth" && effectiveTier !== "enterprise") {
         setGenerateStatus(`Tier is "${effectiveTier}" — upgrade to Growth or Enterprise to generate runs`)
         return
@@ -394,6 +405,7 @@ function ManagerView({ userId }: { userId: string }) {
               title,
               date,
               time,
+              timezone: runTimezone,
             })
           }
         }
@@ -655,6 +667,11 @@ function ManagerView({ userId }: { userId: string }) {
     }
   }
 
+  const updateDefaultTimezone = async (tz: string) => {
+    const { error } = await supabase.from("clubs").update({ default_timezone: tz }).eq("id", selectedClubId)
+    if (!error) setMyClubs((prev) => prev.map((c) => c.id === selectedClubId ? { ...c, default_timezone: tz } : c))
+  }
+
   if (selectedRun) {
     return (
       <RunChatPanel
@@ -664,6 +681,7 @@ function ManagerView({ userId }: { userId: string }) {
           title: selectedRun.title,
           date: selectedRun.date,
           time: selectedRun.time,
+          timezone: selectedRun.timezone,
           distance: selectedRun.distance,
           meeting_point: selectedRun.meeting_point,
           clubName: selectedRun.clubs?.name || "Klub",
@@ -760,7 +778,7 @@ function ManagerView({ userId }: { userId: string }) {
     const dayLabel = isToday ? "Today" : d.toLocaleDateString("en-US", { weekday: "short" })
     const dayNum = d.getDate()
     const isExpanded = expandedRunId === run.id
-    const initDraft = () => ({ title: run.title, time: run.time ?? "06:00", distance: run.distance ?? "", meeting_point: run.meeting_point ?? "", route_url: run.route_url ?? "", workout_type_id: run.workout_type_id ?? "", description: run.description ?? "", is_in_person: run.is_in_person ?? true })
+    const initDraft = () => ({ title: run.title, time: run.time ?? "06:00", timezone: run.timezone ?? getBrowserTimezone(), distance: run.distance ?? "", meeting_point: run.meeting_point ?? "", route_url: run.route_url ?? "", workout_type_id: run.workout_type_id ?? "", description: run.description ?? "", is_in_person: run.is_in_person ?? true })
     const draft = runDrafts[run.id] ?? initDraft()
     const toggleExpand = () => {
       if (isExpanded) {
@@ -781,7 +799,7 @@ function ManagerView({ userId }: { userId: string }) {
           <button onClick={toggleExpand} className="flex-1 min-w-0 text-left">
             <p className="text-sm font-bold text-white truncate">{run.title}</p>
             <p className="text-xs text-white/60 mt-0.5 truncate">
-              {formatTime(run.time)}
+              {formatRunTimeDisplay(run)}
               {run.distance ? ` · ${run.distance}` : ""}
               {run.meeting_point ? ` · ${run.meeting_point}` : ""}
             </p>
@@ -816,6 +834,13 @@ function ManagerView({ userId }: { userId: string }) {
                 onChange={(e) => setRunDrafts((prev) => ({ ...prev, [run.id]: { ...draft, time: e.target.value } }))}
                 className="bg-[#0e150a] border border-[#2e3d1a] rounded-lg px-2 py-1.5 text-xs text-white/70 focus:outline-none focus:border-[#c5f135]/50 [color-scheme:dark]"
               />
+              <select
+                value={draft.timezone}
+                onChange={(e) => setRunDrafts((prev) => ({ ...prev, [run.id]: { ...draft, timezone: e.target.value } }))}
+                className="min-w-[130px] bg-[#0e150a] border border-[#2e3d1a] rounded-lg px-2 py-1.5 text-xs text-white/70 focus:outline-none focus:border-[#c5f135]/50"
+              >
+                {COMMON_TIMEZONES.map((tz) => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
+              </select>
               <input
                 placeholder="Distance, e.g. 5K"
                 value={draft.distance}
@@ -1152,7 +1177,7 @@ function ManagerView({ userId }: { userId: string }) {
                             const dayLabel = d.toLocaleDateString("en-US", { weekday: "long" })
                             const dateLabel = d.toLocaleDateString("en-US", { month: "numeric", day: "numeric" })
                             const isExpanded = expandedRunId === run.id
-                            const initDraft = () => ({ title: run.title, time: run.time ?? "06:00", distance: run.distance ?? "", meeting_point: run.meeting_point ?? "", route_url: run.route_url ?? "", workout_type_id: run.workout_type_id ?? "", description: run.description ?? "", is_in_person: run.is_in_person ?? true })
+                            const initDraft = () => ({ title: run.title, time: run.time ?? "06:00", timezone: run.timezone ?? getBrowserTimezone(), distance: run.distance ?? "", meeting_point: run.meeting_point ?? "", route_url: run.route_url ?? "", workout_type_id: run.workout_type_id ?? "", description: run.description ?? "", is_in_person: run.is_in_person ?? true })
                             const draft = runDrafts[run.id] ?? initDraft()
                             return (
                               <div key={run.id} className={isExpanded ? "bg-[#0e150a]" : isToday ? "bg-[#c5f135]/5" : ""}>
@@ -1170,7 +1195,7 @@ function ManagerView({ userId }: { userId: string }) {
                                     }
                                     <div className="min-w-0">
                                       <p className={`text-sm font-bold ${isToday ? "text-[#c5f135]" : "text-white"}`}>{dayLabel}s</p>
-                                      <p className="text-xs text-white/40">{dateLabel} · {formatTime(run.time)}</p>
+                                      <p className="text-xs text-white/40">{dateLabel} · {formatRunTimeDisplay(run)}</p>
                                     </div>
                                   </button>
                                   {(attendanceCounts[run.id] ?? 0) > 0 && (
@@ -1197,6 +1222,11 @@ function ManagerView({ userId }: { userId: string }) {
                                       <input type="time" value={draft.time}
                                         onChange={(e) => setRunDrafts((prev) => ({ ...prev, [run.id]: { ...draft, time: e.target.value } }))}
                                         className="bg-[#111a0a] border border-[#2e3d1a] rounded-lg px-2 py-1 text-xs text-white/70 focus:outline-none focus:border-[#c5f135]/50 [color-scheme:dark]" />
+                                      <select value={draft.timezone}
+                                        onChange={(e) => setRunDrafts((prev) => ({ ...prev, [run.id]: { ...draft, timezone: e.target.value } }))}
+                                        className="min-w-[130px] bg-[#111a0a] border border-[#2e3d1a] rounded-lg px-2 py-1 text-xs text-white/70 focus:outline-none focus:border-[#c5f135]/50">
+                                        {COMMON_TIMEZONES.map((tz) => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
+                                      </select>
                                       <select value={draft.workout_type_id}
                                         onChange={(e) => setRunDrafts((prev) => ({ ...prev, [run.id]: { ...draft, workout_type_id: e.target.value } }))}
                                         className="flex-1 min-w-[140px] bg-[#111a0a] border border-[#2e3d1a] rounded-lg px-2 py-1 text-xs text-white/70 focus:outline-none focus:border-[#c5f135]/50">
@@ -1565,7 +1595,7 @@ function ManagerView({ userId }: { userId: string }) {
                     className="w-full flex items-center gap-4 px-3 py-2.5 rounded-xl bg-[#1a2110] border border-[#2e3d1a] hover:border-[#c5f135]/20 transition text-left">
                     <div className="flex-1 min-w-0">
                       <p className={`text-sm font-semibold text-white truncate ${run.message_count === 0 ? "opacity-60" : ""}`}>{formatDay(run.date)}</p>
-                      <p className="text-xs text-white/50">{formatTime(run.time)}</p>
+                      <p className="text-xs text-white/50">{formatRunTimeDisplay(run)}</p>
                       {run.last_message && (
                         <p className="text-xs text-white/60 truncate mt-0.5">
                           <span className="text-white/80 font-medium">{run.last_message.profiles?.display_name || "Runner"}:</span>{" "}{run.last_message.message}
@@ -1591,7 +1621,7 @@ function ManagerView({ userId }: { userId: string }) {
                 className="w-full flex items-center gap-4 px-3 py-3 rounded-xl bg-[#1a2110] border border-[#2e3d1a] hover:border-[#c5f135]/20 transition text-left">
                 <div className="flex-1 min-w-0">
                   <p className={`text-sm font-semibold text-white truncate mb-0.5 ${run.message_count === 0 ? "opacity-70" : ""}`}>{chatTitle(run)}</p>
-                  <p className="text-xs text-white/60">{formatDay(run.date)} at {formatTime(run.time)}</p>
+                  <p className="text-xs text-white/60">{formatDay(run.date)} at {formatRunTimeDisplay(run)}</p>
                   {run.last_message && (
                     <p className="text-xs text-white/60 truncate mt-1">
                       <span className="text-white/80 font-medium">{run.last_message.profiles?.display_name || "Runner"}:</span>{" "}{run.last_message.message}
@@ -1830,6 +1860,18 @@ function ManagerView({ userId }: { userId: string }) {
                     {selectedClub.membership_type === "free" ? "Public" : "Private"}
                   </span>
                 </button>
+              </Card>
+
+              <Card>
+                <SectionTitle>Default Run Timezone</SectionTitle>
+                <p className="text-xs text-white/80 mb-3">Pre-fills the timezone whenever you or a coach schedules a new run — change per-run anytime.</p>
+                <select
+                  value={selectedClub.default_timezone ?? getBrowserTimezone()}
+                  onChange={(e) => updateDefaultTimezone(e.target.value)}
+                  className="w-full bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#c5f135]/50 transition"
+                >
+                  {COMMON_TIMEZONES.map((tz) => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
+                </select>
               </Card>
 
               <Card>

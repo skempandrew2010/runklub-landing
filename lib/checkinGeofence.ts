@@ -1,4 +1,5 @@
 import { getDistanceMiles } from "@/utils/distance"
+import { runStartInstant } from "@/lib/timezone"
 
 export const CHECKIN_RADIUS_MILES = 0.3
 export const METRO_CHECKIN_RADIUS_MILES = 25
@@ -54,17 +55,23 @@ export function isWithinRadius(pos: GeolocationPosition, target: CheckinTarget):
   return getDistanceMiles(pos.coords.latitude, pos.coords.longitude, target.lat, target.lng) <= target.radiusMiles
 }
 
-/** Is `now` within [runStart - windowBeforeMin, runStart + windowAfterMin]? */
+/**
+ * Is `now` within [runStart - windowBeforeMin, runStart + windowAfterMin]?
+ * `timezone` (IANA name) resolves the run's *real* start instant — without
+ * it, legacy rows fall back to naive local-clock parsing (see
+ * `runStartInstant`), which is wrong for a run outside the evaluating
+ * process's own timezone (this matters most server-side, where the
+ * process clock is UTC regardless of where the klub actually is).
+ */
 export function isWithinCheckinWindow(
   runDate: string,
   runTime: string,
+  timezone?: string | null,
   now: Date = new Date(),
   windowBeforeMin = CHECKIN_WINDOW_BEFORE_MIN,
   windowAfterMin = CHECKIN_WINDOW_AFTER_MIN
 ): boolean {
-  const [h, m] = runTime.split(":").map(Number)
-  const start = new Date(runDate + "T00:00:00")
-  start.setHours(h, m, 0, 0)
+  const start = runStartInstant({ date: runDate, time: runTime, timezone })
   const windowStart = new Date(start.getTime() - windowBeforeMin * 60_000)
   const windowEnd = new Date(start.getTime() + windowAfterMin * 60_000)
   return now >= windowStart && now <= windowEnd

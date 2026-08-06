@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js"
 import type { Metadata } from "next"
 import Link from "next/link"
 import ClubPageClient from "./ClubPageClient"
+import { runStartInstant } from "@/lib/timezone"
 
 export const revalidate = 60
 
@@ -64,7 +65,7 @@ export default async function ClubPage({ params }: Props) {
       .maybeSingle(),
     getSupabase()
       .from("runs")
-      .select("id, title, date, time, distance, meeting_point, tags")
+      .select("id, title, date, time, timezone, distance, meeting_point, tags")
       .eq("club_id", clubId)
       .eq("is_public", true)
       .gte("date", today)
@@ -115,7 +116,7 @@ export default async function ClubPage({ params }: Props) {
       "event": runs.slice(0, 5).map((run) => ({
         "@type": "SportsEvent",
         "name": run.title,
-        "startDate": `${run.date}T${run.time}`,
+        "startDate": runStartInstant(run).toISOString(),
         "sport": "Running",
         "organizer": { "@type": "SportsClub", "name": club.name },
         ...(run.meeting_point && {

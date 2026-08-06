@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js"
 import { Resend } from "resend"
 import { NextRequest, NextResponse } from "next/server"
+import { formatRunTimeInOwnZone } from "@/lib/timezone"
 
 function getAdminSupabase() {
   return createClient(
@@ -40,15 +41,6 @@ function fmtWeekLabel(monday: string): string {
   return `${startStr}–${endStr}, ${end.getFullYear()}`
 }
 
-function fmt12h(time: string): string {
-  const [hStr, mStr] = time.split(":")
-  const h = parseInt(hStr, 10)
-  const m = mStr ?? "00"
-  const ampm = h < 12 ? "AM" : "PM"
-  const h12 = h % 12 === 0 ? 12 : h % 12
-  return `${h12}:${m} ${ampm}`
-}
-
 function splitTitle(title: string) {
   const idx = title.lastIndexOf(" · ")
   return idx === -1
@@ -61,6 +53,7 @@ type Run = {
   title: string
   date: string
   time: string
+  timezone: string | null
   distance: string | null
   meeting_point: string | null
   description: string | null
@@ -90,7 +83,7 @@ function buildScheduleEmail(
         const d = new Date(run.date + "T00:00:00")
         const dayName = DAYS[d.getDay()]
         const dateLabel = d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
-        const timeStr = fmt12h(run.time.slice(0, 5))
+        const timeStr = formatRunTimeInOwnZone(run)
         const wtName = run.workout_type_id ? workoutTypeNames[run.workout_type_id] : null
         const typeLabel = wtName ?? (run.is_in_person ? "Group Run" : "Solo Run")
         const metaParts: string[] = []
@@ -116,7 +109,7 @@ function buildScheduleEmail(
         const d = new Date(run.date + "T00:00:00")
         const dayName = DAYS[d.getDay()]
         const dateLabel = d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
-        const timeStr = fmt12h(run.time.slice(0, 5))
+        const timeStr = formatRunTimeInOwnZone(run)
         const parts = [`${dayName}, ${dateLabel} — ${timeStr}`]
         if (run.distance) parts.push(`Distance: ${run.distance}`)
         if (run.meeting_point) parts.push(`Meet at: ${run.meeting_point}`)
@@ -227,7 +220,7 @@ export async function POST(req: NextRequest) {
     // Fetch everything needed in parallel
     const [runsResult, workoutTypesResult, membersResult, paceGroupsResult, regionsResult] = await Promise.all([
       adminSupabase.from("runs")
-        .select("id, title, date, time, distance, meeting_point, description, is_in_person, workout_type_id")
+        .select("id, title, date, time, timezone, distance, meeting_point, description, is_in_person, workout_type_id")
         .eq("club_id", club_id).eq("members_only", true).eq("kind", "run")
         .gte("date", monday).lte("date", sunday)
         .order("date").order("time"),

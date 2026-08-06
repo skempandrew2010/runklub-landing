@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { ArrowLeft, Check, Globe, Lock } from "lucide-react"
 import mapboxSdk from "@mapbox/mapbox-sdk/services/geocoding"
+import { COMMON_TIMEZONES, getBrowserTimezone } from "@/lib/timezone"
 
 const geocodingClient = mapboxSdk({ accessToken: process.env.NEXT_PUBLIC_MAPBOX_TOKEN! })
 
@@ -21,6 +22,7 @@ export default function EditRunPage() {
   const [title, setTitle] = useState("")
   const [date, setDate] = useState("")
   const [time, setTime] = useState("")
+  const [timezone, setTimezone] = useState(getBrowserTimezone())
   const [distance, setDistance] = useState("")
   const [address, setAddress] = useState("")
   const [city, setCity] = useState("")
@@ -46,7 +48,7 @@ export default function EditRunPage() {
 
       // Verify the user owns the club this run belongs to
       const { data: club } = run
-        ? await supabase.from("clubs").select("id, membership_type").eq("id", run.club_id).eq("user_id", user.id).single()
+        ? await supabase.from("clubs").select("id, membership_type, default_timezone").eq("id", run.club_id).eq("user_id", user.id).single()
         : { data: null }
 
       if (error || !run || !club) { setNotFound(true); setLoadingData(false); return }
@@ -54,6 +56,7 @@ export default function EditRunPage() {
       setTitle(run.title ?? "")
       setDate(run.date ?? "")
       setTime(run.time ?? "")
+      setTimezone(run.timezone ?? club.default_timezone ?? getBrowserTimezone())
       setDistance(run.distance ?? "")
       setAddress(run.meeting_point ?? "")
       setCity(run.city ?? "")
@@ -93,6 +96,7 @@ export default function EditRunPage() {
         title,
         date,
         time,
+        timezone,
         distance: distance || null,
         meeting_point: address || null,
         city: city || null,
@@ -192,6 +196,13 @@ export default function EditRunPage() {
                   className={inputClass}
                 />
               </div>
+            </div>
+
+            <div>
+              <label className={labelClass}>Timezone</label>
+              <select value={timezone} onChange={(e) => setTimezone(e.target.value)} className={inputClass}>
+                {COMMON_TIMEZONES.map((tz) => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
+              </select>
             </div>
 
             <div className="grid grid-cols-2 gap-3">

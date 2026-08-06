@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { localDateStr } from "@/utils/dates"
+import { formatRunTime } from "@/lib/timezone"
 import { MessageSquare } from "lucide-react"
 import RunChatPanel from "@/components/RunChatPanel"
 
@@ -21,6 +22,7 @@ type RunWithClub = {
   title: string
   date: string
   time: string
+  timezone: string | null
   club_id: string
   distance: string | null
   meeting_point: string | null
@@ -37,9 +39,8 @@ function clubAbbr(name: string) {
   return name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
 }
 
-function formatTime(t: string) {
-  const [h, m] = t.split(":").map(Number)
-  return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h >= 12 ? "PM" : "AM"}`
+function formatTime(run: { date: string; time: string; timezone?: string | null }) {
+  return formatRunTime(run)
 }
 
 function formatDay(dateStr: string) {
@@ -123,6 +124,7 @@ export default function MemberChatInbox({ userId }: { userId: string }) {
           title: selectedRun.title,
           date: selectedRun.date,
           time: selectedRun.time,
+          timezone: selectedRun.timezone,
           distance: selectedRun.distance,
           meeting_point: selectedRun.meeting_point,
           clubName: selectedRun.clubs?.name || "Klub",
@@ -177,7 +179,7 @@ export default function MemberChatInbox({ userId }: { userId: string }) {
                   {run.last_message ? formatChatTime(run.last_message.created_at) : <span className={isToday ? "text-[#c5f135] font-semibold" : ""}>{dayLabel}</span>}
                 </span>
               </div>
-              <p className="text-xs text-white/80 truncate">{clubName} · {isToday ? "Today" : dayLabel} at {formatTime(run.time)}</p>
+              <p className="text-xs text-white/80 truncate">{clubName} · {isToday ? "Today" : dayLabel} at {formatTime(run)}</p>
               {run.last_message ? (
                 <p className="text-xs text-white/80 truncate mt-1">
                   <span className="text-white/80 font-medium">{run.last_message.profiles?.display_name || "Runner"}:</span>{" "}{run.last_message.message}

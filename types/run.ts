@@ -4,6 +4,7 @@ export type Run = {
   title: string
   date: string
   time: string
+  timezone: string | null
   distance: string | null
   meeting_point: string | null
   city: string | null

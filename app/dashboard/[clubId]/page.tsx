@@ -5,6 +5,7 @@ import { localDateStr } from "@/utils/dates"
 import { useEffect, useMemo, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import type { Run } from "@/types/run"
+import { formatRunTime } from "@/lib/timezone"
 import {
   ArrowLeft, Users, CalendarPlus, Trash2, Pencil, Check, X,
   ShieldCheck, Zap, MapPin, Clock, Ruler,
@@ -271,9 +272,8 @@ export default function ClubManagerPage() {
   const upcomingRuns = runs.filter((r) => r.date >= todayStr)
   const pastRuns = runs.filter((r) => r.date < todayStr).reverse()
 
-  function formatTime(t: string) {
-    const [h, m] = t.split(":").map(Number)
-    return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h >= 12 ? "PM" : "AM"}`
+  function formatTime(run: Run) {
+    return formatRunTime(run)
   }
 
   function RunCard({ run }: { run: Run }) {
@@ -318,7 +318,7 @@ export default function ClubManagerPage() {
             </div>
             <p className="text-xs text-white/50 mt-0.5 flex items-center gap-1">
               <Clock className="w-3 h-3 shrink-0" />
-              {run.time ? formatTime(run.time) : ""}
+              {run.time ? formatTime(run) : ""}
               {run.distance && <><span className="text-white/20">·</span><Ruler className="w-3 h-3 shrink-0" />{run.distance}</>}
             </p>
             {run.meeting_point && (
