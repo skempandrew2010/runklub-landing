@@ -217,31 +217,32 @@ function ManagerView({ userId }: { userId: string }) {
     })))
   }, [])
 
+  const fetchProfilesMap = async (userIds: string[]) => {
+    if (userIds.length === 0) return new Map<string, any>()
+    const { data } = await supabase.from("profiles").select("id, display_name, avatar_url").in("id", userIds)
+    return new Map((data || []).map((p: any) => [p.id, p]))
+  }
+
   useEffect(() => {
     if (tab !== "members" || !selectedClubId) return
     setMembersLoading(true)
     Promise.all([
-      supabase.from("subscriptions").select("id, user_id, created_at, member_type, profiles(display_name, avatar_url)").eq("club_id", selectedClubId).order("created_at", { ascending: false }),
-      // membership_requests has no FK relationship configured to profiles in the
-      // DB (unlike subscriptions), so an embedded profiles(...) select here
-      // errors out silently — fetch profiles separately and merge instead.
+      // Neither subscriptions nor membership_requests has an FK relationship
+      // configured to profiles in the DB, so an embedded profiles(...) select
+      // errors out silently — fetch profiles separately and merge instead
+      // (see fetchProfilesMap).
+      supabase.from("subscriptions").select("id, user_id, created_at, member_type").eq("club_id", selectedClubId).order("created_at", { ascending: false }),
       supabase.from("membership_requests").select("id, created_at, user_id").eq("club_id", selectedClubId).eq("status", "pending").order("created_at", { ascending: true }),
       supabase.from("member_invites").select("id, email, name, created_at").eq("club_id", selectedClubId).eq("status", "pending").order("created_at", { ascending: false }),
       supabase.from("coaches").select("id, name, user_id").eq("club_id", selectedClubId),
     ]).then(async ([{ data: subs }, { data: reqs }, { data: invites }, { data: coachRows }]) => {
-      setMembers((subs as any[]) || [])
+      const subRows = (subs as any[]) || []
+      const subProfiles = await fetchProfilesMap(subRows.map((s) => s.user_id))
+      setMembers(subRows.map((s) => ({ ...s, profiles: subProfiles.get(s.user_id) ?? null })))
 
       const reqRows = (reqs as any[]) || []
-      if (reqRows.length > 0) {
-        const { data: profs } = await supabase
-          .from("profiles")
-          .select("id, display_name, avatar_url")
-          .in("id", reqRows.map((r) => r.user_id))
-        const profileById = new Map((profs || []).map((p: any) => [p.id, p]))
-        setPendingRequests(reqRows.map((r) => ({ ...r, profiles: profileById.get(r.user_id) ?? null })))
-      } else {
-        setPendingRequests([])
-      }
+      const reqProfiles = await fetchProfilesMap(reqRows.map((r) => r.user_id))
+      setPendingRequests(reqRows.map((r) => ({ ...r, profiles: reqProfiles.get(r.user_id) ?? null })))
 
       setPendingInvites((invites as any[]) || [])
       setClubCoaches((coachRows as any[]) || [])
@@ -562,8 +563,10 @@ function ManagerView({ userId }: { userId: string }) {
     if (res.ok) {
       setPendingRequests((prev) => prev.filter((r) => r.id !== requestId))
       if (action === "approve") {
-        const { data } = await supabase.from("subscriptions").select("id, user_id, created_at, member_type, profiles(display_name, avatar_url)").eq("club_id", selectedClubId).order("created_at", { ascending: false })
-        setMembers((data as any[]) || [])
+        const { data } = await supabase.from("subscriptions").select("id, user_id, created_at, member_type").eq("club_id", selectedClubId).order("created_at", { ascending: false })
+        const rows = (data as any[]) || []
+        const profs = await fetchProfilesMap(rows.map((s) => s.user_id))
+        setMembers(rows.map((s) => ({ ...s, profiles: profs.get(s.user_id) ?? null })))
       }
     }
   }
@@ -597,8 +600,10 @@ function ManagerView({ userId }: { userId: string }) {
       if (!res.ok) { setAddError(json.error ?? "Something went wrong"); return }
       setAddSuccess(`${json.profile?.display_name || addEmail} added!`)
       setAddEmail("")
-      const { data } = await supabase.from("subscriptions").select("id, user_id, created_at, member_type, profiles(display_name, avatar_url)").eq("club_id", selectedClubId).order("created_at", { ascending: false })
-      setMembers((data as any[]) || [])
+      const { data } = await supabase.from("subscriptions").select("id, user_id, created_at, member_type").eq("club_id", selectedClubId).order("created_at", { ascending: false })
+      const rows = (data as any[]) || []
+      const profs = await fetchProfilesMap(rows.map((s) => s.user_id))
+      setMembers(rows.map((s) => ({ ...s, profiles: profs.get(s.user_id) ?? null })))
       setTimeout(() => setAddSuccess(""), 3000)
     } finally {
       setAddSending(false)

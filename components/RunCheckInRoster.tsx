@@ -21,10 +21,19 @@ export default function RunCheckInRoster({ runId, clubId }: { runId: string; clu
 
   useEffect(() => {
     Promise.all([
-      supabase.from("subscriptions").select("user_id, profiles(display_name, avatar_url)").eq("club_id", clubId),
+      // subscriptions has no FK relationship configured to profiles in the DB,
+      // so an embedded profiles(...) select here errors out silently — fetch
+      // profiles separately and merge instead.
+      supabase.from("subscriptions").select("user_id").eq("club_id", clubId),
       supabase.from("run_checkins").select("user_id, checkin_method, checked_in_at").eq("run_id", runId),
-    ]).then(([{ data: subs }, { data: checkinRows }]) => {
-      setRoster(((subs as any[]) || []).filter((s) => s.profiles).map((s) => ({ user_id: s.user_id, ...s.profiles })))
+    ]).then(async ([{ data: subs }, { data: checkinRows }]) => {
+      const subRows = (subs as any[]) || []
+      const { data: profs } = subRows.length > 0
+        ? await supabase.from("profiles").select("id, display_name, avatar_url").in("id", subRows.map((s) => s.user_id))
+        : { data: [] }
+      const profileById = new Map((profs || []).map((p: any) => [p.id, p]))
+      setRoster(subRows.filter((s) => profileById.has(s.user_id)).map((s) => ({ user_id: s.user_id, ...profileById.get(s.user_id) })))
+
       const map: Record<string, CheckinInfo> = {}
       for (const c of (checkinRows as any[]) || []) map[c.user_id] = c
       setCheckins(map)
