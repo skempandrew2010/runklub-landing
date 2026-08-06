@@ -101,6 +101,7 @@ function CreateRunContent() {
   const [coaches, setCoaches] = useState<Coach[]>([])
   const [templates, setTemplates] = useState<RunTemplate[]>([])
   const [dataLoading, setDataLoading] = useState(true)
+  const [clubIsPrivate, setClubIsPrivate] = useState(false)
 
   useEffect(() => {
     if (!clubId) return
@@ -113,14 +114,21 @@ function CreateRunContent() {
         .eq("club_id", clubId)
         .order("last_used_at", { ascending: false })
         .limit(8),
-    ]).then(([pg, wt, co, tpl]) => {
+      supabase.from("clubs").select("membership_type").eq("id", clubId).single(),
+    ]).then(([pg, wt, co, tpl, club]) => {
       setPaceGroups((pg.data as PaceGroup[]) || [])
       setWorkoutTypes(((wt.data ?? []) as any[]).map((r) => ({ id: r.id, name: r.title })))
       setCoaches((co.data as Coach[]) || [])
       setTemplates((tpl.data as RunTemplate[]) || [])
+      setClubIsPrivate((club.data as any)?.membership_type !== "free")
       setDataLoading(false)
     })
   }, [clubId])
+
+  // Public clubs have no members concept — a Members Only run would be unreachable.
+  useEffect(() => {
+    if (!clubIsPrivate) setIsPublic(true)
+  }, [clubIsPrivate])
 
   const applyTemplate = (tpl: RunTemplate) => {
     setTitle(tpl.title)
@@ -167,7 +175,7 @@ function CreateRunContent() {
       pace_group_ids: selectedPaceGroupIds,
       workout_type_id: selectedWorkoutTypeId || null,
       coach_id: selectedCoachId || null,
-      members_only: !isPublic,
+      members_only: clubIsPrivate && !isPublic,
       last_used_at: new Date().toISOString(),
     }
     const { data: existing } = await supabase
@@ -211,8 +219,8 @@ function CreateRunContent() {
         route_url: routeUrl || null,
         description: description || null,
         tags: selectedTags.length > 0 ? selectedTags : null,
-        is_public: isPublic,
-        members_only: !isPublic,
+        is_public: !(clubIsPrivate && !isPublic),
+        members_only: clubIsPrivate && !isPublic,
         pace_group_ids: selectedPaceGroupIds.length > 0 ? selectedPaceGroupIds : null,
         workout_type_id: selectedWorkoutTypeId || null,
         coach_id: selectedCoachId || null,
@@ -402,8 +410,8 @@ function CreateRunContent() {
                 <p className="text-xs font-semibold text-white/50">Groups</p>
 
                 {/* Community / Members Only */}
-                <button type="button" onClick={() => setIsPublic((v) => !v)}
-                  className="w-full flex items-center justify-between gap-3 text-left bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-3">
+                <button type="button" disabled={!clubIsPrivate} onClick={() => setIsPublic((v) => !v)}
+                  className={`w-full flex items-center justify-between gap-3 text-left bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-3 ${!clubIsPrivate ? "opacity-50 cursor-not-allowed" : ""}`}>
                   <div className="flex items-center gap-3">
                     {isPublic
                       ? <Globe className="w-4 h-4 text-[#c5f135] shrink-0" />
@@ -411,7 +419,7 @@ function CreateRunContent() {
                     <div>
                       <p className="text-xs font-semibold text-white/70">{isPublic ? "Community Run" : "Members Only"}</p>
                       <p className="text-[11px] text-white/30 mt-0.5">
-                        {isPublic ? "Open to everyone" : "Paying members only"}
+                        {!clubIsPrivate ? "Make your klub Private in Settings to unlock this" : isPublic ? "Open to everyone" : "Only visible to approved members"}
                       </p>
                     </div>
                   </div>

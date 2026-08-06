@@ -634,6 +634,17 @@ function ManagerView({ userId }: { userId: string }) {
     if (!error) setMyClubs((prev) => prev.map((c) => c.id === selectedClubId ? { ...c, is_public: next } : c))
   }
 
+  const toggleClubPrivacy = async () => {
+    const club = myClubs.find((c) => c.id === selectedClubId)
+    if (!club) return
+    const next: MembershipType = club.membership_type === "free" ? "paid_required" : "free"
+    const { error } = await supabase.from("clubs").update({ membership_type: next }).eq("id", selectedClubId)
+    if (!error) {
+      setMyClubs((prev) => prev.map((c) => c.id === selectedClubId ? { ...c, membership_type: next } : c))
+      setEditForm((prev) => ({ ...prev, membership: next }))
+    }
+  }
+
   if (selectedRun) {
     return (
       <RunChatPanel
@@ -1773,16 +1784,31 @@ function ManagerView({ userId }: { userId: string }) {
           {tab === "settings" && runPanel === null && (
             <div className="space-y-6">
               <Card>
-                <SectionTitle>Klub Visibility</SectionTitle>
+                <SectionTitle>Discover Map Listing</SectionTitle>
                 <button onClick={toggleClubVisibility}
                   className="w-full flex items-center gap-3 p-3 rounded-xl bg-[#1a2110] border border-[#2e3d1a] hover:border-[#c5f135]/20 transition text-left">
                   {selectedClub.is_public ? <Globe className="w-4 h-4 text-[#c5f135] shrink-0" /> : <Lock className="w-4 h-4 text-white/80 shrink-0" />}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-white">Klub Visibility</p>
-                    <p className="text-xs text-white/80 mt-0.5">{selectedClub.is_public ? "Visible on the discover map" : "Hidden — only members can find you"}</p>
+                    <p className="text-sm font-medium text-white">Discover Map Listing</p>
+                    <p className="text-xs text-white/80 mt-0.5">{selectedClub.is_public ? "Listed on the discover map" : "Unlisted — only reachable by direct link"}</p>
                   </div>
                   <span className={`text-xs font-black px-2.5 py-1 rounded-full shrink-0 ${selectedClub.is_public ? "bg-[#c5f135]/10 text-[#c5f135] border border-[#c5f135]/30" : "bg-white/5 text-white/80 border border-white/15"}`}>
-                    {selectedClub.is_public ? "Public" : "Private"}
+                    {selectedClub.is_public ? "Listed" : "Unlisted"}
+                  </span>
+                </button>
+              </Card>
+
+              <Card>
+                <SectionTitle>Klub Privacy</SectionTitle>
+                <button onClick={toggleClubPrivacy}
+                  className="w-full flex items-center gap-3 p-3 rounded-xl bg-[#1a2110] border border-[#2e3d1a] hover:border-[#c5f135]/20 transition text-left">
+                  {selectedClub.membership_type === "free" ? <Globe className="w-4 h-4 text-[#c5f135] shrink-0" /> : <Lock className="w-4 h-4 text-white/80 shrink-0" />}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-white">Klub Privacy</p>
+                    <p className="text-xs text-white/80 mt-0.5">{selectedClub.membership_type === "free" ? "Anyone can follow and see every run" : "Anyone can follow, only approved members see private runs"}</p>
+                  </div>
+                  <span className={`text-xs font-black px-2.5 py-1 rounded-full shrink-0 ${selectedClub.membership_type === "free" ? "bg-[#c5f135]/10 text-[#c5f135] border border-[#c5f135]/30" : "bg-white/5 text-white/80 border border-white/15"}`}>
+                    {selectedClub.membership_type === "free" ? "Public" : "Private"}
                   </span>
                 </button>
               </Card>
@@ -1845,21 +1871,6 @@ function ManagerView({ userId }: { userId: string }) {
                     <div>
                       <label className="block text-xs font-semibold text-white/80 mb-1">Website <span className="font-normal text-white/25">(optional)</span></label>
                       <Input value={editForm.website} onChange={(e) => setEditForm({ ...editForm, website: e.target.value })} placeholder="https://yourklub.com" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-white/80 mb-1.5">Membership</label>
-                      <div className="space-y-1.5">
-                        {([
-                          { value: "free", label: "Free to Join" },
-                          { value: "optional_paid", label: "Free + Paid Options" },
-                          { value: "paid_required", label: "Membership Required" },
-                        ] as { value: MembershipType; label: string }[]).map(({ value, label }) => (
-                          <button key={value} type="button" onClick={() => setEditForm({ ...editForm, membership: value })}
-                            className={`w-full text-left px-3 py-2 rounded-xl border text-sm transition ${editForm.membership === value ? "bg-[#c5f135]/10 border-[#c5f135]/40 text-[#c5f135] font-semibold" : "bg-[#1a2110] border-[#2e3d1a] text-white/80 hover:border-[#c5f135]/20"}`}>
-                            {label}
-                          </button>
-                        ))}
-                      </div>
                     </div>
                     <div className="flex gap-2 pt-1">
                       <Button onClick={saveEdit} disabled={savingEdit}>{savingEdit ? "Saving…" : "Save"}</Button>

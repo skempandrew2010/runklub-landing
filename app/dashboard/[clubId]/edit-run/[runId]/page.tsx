@@ -28,6 +28,7 @@ export default function EditRunPage() {
   const [description, setDescription] = useState("")
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [membersOnly, setMembersOnly] = useState(false)
+  const [clubIsPrivate, setClubIsPrivate] = useState(false)
   const [loadingData, setLoadingData] = useState(true)
   const [saving, setSaving] = useState(false)
   const [notFound, setNotFound] = useState(false)
@@ -45,7 +46,7 @@ export default function EditRunPage() {
 
       // Verify the user owns the club this run belongs to
       const { data: club } = run
-        ? await supabase.from("clubs").select("id").eq("id", run.club_id).eq("user_id", user.id).single()
+        ? await supabase.from("clubs").select("id, membership_type").eq("id", run.club_id).eq("user_id", user.id).single()
         : { data: null }
 
       if (error || !run || !club) { setNotFound(true); setLoadingData(false); return }
@@ -59,7 +60,8 @@ export default function EditRunPage() {
       setRouteUrl(run.route_url ?? "")
       setDescription(run.description ?? "")
       setSelectedTags(run.tags ?? [])
-      setMembersOnly(run.members_only ?? false)
+      setClubIsPrivate(club.membership_type !== "free")
+      setMembersOnly((club.membership_type !== "free") && (run.members_only ?? false))
       setLoadingData(false)
     }
     load()
@@ -99,8 +101,8 @@ export default function EditRunPage() {
         route_url: routeUrl || null,
         description: description || null,
         tags: selectedTags.length > 0 ? selectedTags : null,
-        is_public: !membersOnly,
-        members_only: membersOnly,
+        is_public: !(clubIsPrivate && membersOnly),
+        members_only: clubIsPrivate && membersOnly,
       }).eq("id", runId)
 
       if (error) { console.error(error); setSaving(false); return }
@@ -287,8 +289,9 @@ export default function EditRunPage() {
           {/* Visibility */}
           <button
             type="button"
+            disabled={!clubIsPrivate}
             onClick={() => setMembersOnly((v) => !v)}
-            className="w-full bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-4 flex items-center justify-between gap-3 text-left"
+            className={`w-full bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-4 flex items-center justify-between gap-3 text-left ${!clubIsPrivate ? "opacity-50 cursor-not-allowed" : ""}`}
           >
             <div className="flex items-center gap-3">
               {membersOnly
@@ -300,7 +303,7 @@ export default function EditRunPage() {
                   {membersOnly ? "Members Only" : "Community Run"}
                 </p>
                 <p className="text-[11px] text-white/30 mt-0.5">
-                  {membersOnly ? "Only visible to paying members" : "Visible to everyone on the discover map"}
+                  {!clubIsPrivate ? "Make your klub Private in Settings to unlock this" : membersOnly ? "Only visible to approved members" : "Visible to everyone on the discover map"}
                 </p>
               </div>
             </div>

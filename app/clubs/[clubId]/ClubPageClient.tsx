@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
-import { Heart, MapPin, Clock, Users, ArrowLeft, ExternalLink, MessageSquare, ChevronRight } from "lucide-react"
+import { Heart, MapPin, Clock, Users, ArrowLeft, ExternalLink, MessageSquare, ChevronRight, Globe, Lock } from "lucide-react"
 import { getTagStyle } from "@/utils/tagStyle"
 import { localDateStr } from "@/utils/dates"
 import { isVerifiedClub } from "@/utils/clubTier"
@@ -275,10 +275,14 @@ export default function ClubPageClient({
                   </p>
                 )}
                 {(() => {
-                  const m = club.membership_type
-                  const label = m === "optional_paid" ? "Free + Paid Options" : m === "paid_required" ? "Membership Required" : "Free to Join"
-                  const cls = m === "optional_paid" ? "bg-amber-400/10 text-amber-400 border-amber-400/25" : m === "paid_required" ? "bg-orange-400/10 text-orange-400 border-orange-400/25" : "bg-[#c5f135]/10 text-[#c5f135] border-[#c5f135]/25"
-                  return <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${cls}`}>{label}</span>
+                  const isPrivate = club.membership_type !== "free"
+                  const cls = isPrivate ? "bg-orange-400/10 text-orange-400 border-orange-400/25" : "bg-[#c5f135]/10 text-[#c5f135] border-[#c5f135]/25"
+                  const Icon = isPrivate ? Lock : Globe
+                  return (
+                    <span className={`flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${cls}`}>
+                      <Icon className="w-2.5 h-2.5" /> {isPrivate ? "Private" : "Public"}
+                    </span>
+                  )
                 })()}
               </div>
             </div>
@@ -299,8 +303,9 @@ export default function ClubPageClient({
             <Heart className={`w-5 h-5 ${isSubscribed ? "fill-red-400 text-red-400" : "text-white/40"}`} />
           </button>
 
-          {club.membership_type === "paid_required" && !isSubscribed ? (
-            // Approval-gated club — show request flow
+          {club.membership_type !== "free" && !isPaidMember ? (
+            // Private club, not yet an approved member — show request flow
+            // (independent of follow status: a follower can still request membership)
             <button
               onClick={joinRequestStatus === "none" ? handleRequestJoin : undefined}
               disabled={requestingJoin || joinRequestStatus !== "none"}
@@ -314,6 +319,10 @@ export default function ClubPageClient({
             >
               {requestingJoin ? "…" : joinRequestStatus === "pending" ? "Request Pending" : joinRequestStatus === "rejected" ? "Request Declined" : "Request to Join"}
             </button>
+          ) : club.membership_type !== "free" && isPaidMember ? (
+            <span className="px-5 py-2.5 rounded-full text-sm font-black bg-[#1e2d12] border border-[#c5f135]/50 text-[#c5f135]">
+              Member
+            </span>
           ) : (
             <button
               onClick={handleFollow}
