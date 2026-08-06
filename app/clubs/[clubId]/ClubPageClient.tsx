@@ -294,15 +294,6 @@ export default function ClubPageClient({
 
         {/* ── FOLLOW + INSTAGRAM ── */}
         <div className="flex items-center gap-3 flex-wrap">
-          <button
-            onClick={handleFollow}
-            disabled={subscribing}
-            title={isSubscribed ? "Remove from favorites" : "Add to favorites & turn on notifications"}
-            className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-[#2e3d1a] transition disabled:opacity-50 shrink-0"
-          >
-            <Heart className={`w-5 h-5 ${isSubscribed ? "fill-red-400 text-red-400" : "text-white/40"}`} />
-          </button>
-
           {club.membership_type !== "free" ? (
             <>
               {/* Free follow — separate from membership: followers of a private
