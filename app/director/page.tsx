@@ -213,12 +213,27 @@ function ManagerView({ userId }: { userId: string }) {
     setMembersLoading(true)
     Promise.all([
       supabase.from("subscriptions").select("id, user_id, created_at, member_type, profiles(display_name, avatar_url)").eq("club_id", selectedClubId).order("created_at", { ascending: false }),
-      supabase.from("membership_requests").select("id, created_at, user_id, profiles(display_name, avatar_url)").eq("club_id", selectedClubId).eq("status", "pending").order("created_at", { ascending: true }),
+      // membership_requests has no FK relationship configured to profiles in the
+      // DB (unlike subscriptions), so an embedded profiles(...) select here
+      // errors out silently — fetch profiles separately and merge instead.
+      supabase.from("membership_requests").select("id, created_at, user_id").eq("club_id", selectedClubId).eq("status", "pending").order("created_at", { ascending: true }),
       supabase.from("member_invites").select("id, email, name, created_at").eq("club_id", selectedClubId).eq("status", "pending").order("created_at", { ascending: false }),
       supabase.from("coaches").select("id, name, user_id").eq("club_id", selectedClubId),
-    ]).then(([{ data: subs }, { data: reqs }, { data: invites }, { data: coachRows }]) => {
+    ]).then(async ([{ data: subs }, { data: reqs }, { data: invites }, { data: coachRows }]) => {
       setMembers((subs as any[]) || [])
-      setPendingRequests((reqs as any[]) || [])
+
+      const reqRows = (reqs as any[]) || []
+      if (reqRows.length > 0) {
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("id, display_name, avatar_url")
+          .in("id", reqRows.map((r) => r.user_id))
+        const profileById = new Map((profs || []).map((p: any) => [p.id, p]))
+        setPendingRequests(reqRows.map((r) => ({ ...r, profiles: profileById.get(r.user_id) ?? null })))
+      } else {
+        setPendingRequests([])
+      }
+
       setPendingInvites((invites as any[]) || [])
       setClubCoaches((coachRows as any[]) || [])
       setMembersLoading(false)
