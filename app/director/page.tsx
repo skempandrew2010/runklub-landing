@@ -1311,8 +1311,33 @@ function ManagerView({ userId }: { userId: string }) {
 
           {/* ── MEMBERS ── */}
           {tab === "members" && runPanel === null && (() => {
+            // Approving/rejecting membership requests is core to the Public/Private
+            // klub feature, not a paid member-management add-on — unlike the rest
+            // of this tab (Add/Invite, branches, coach assignment), it's available
+            // regardless of SaaS plan.
+            const pendingApprovalCard = pendingRequests.length > 0 && (
+              <Card>
+                <SectionTitle>Pending approval ({pendingRequests.length})</SectionTitle>
+                <div className="space-y-2">
+                  {pendingRequests.map((req) => (
+                    <div key={req.id} className="flex items-center justify-between gap-3 bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2">
+                      <div>
+                        <p className="text-sm font-bold text-white">{req.profiles?.display_name || "Runner"}</p>
+                        <p className="text-xs text-white/80">Requested {new Date(req.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Button onClick={() => approveRequest(req.id, "approve")}>Approve</Button>
+                        <Button variant="danger" onClick={() => approveRequest(req.id, "reject")}>Reject</Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )
+
             if (isFree) return (
               <div className="space-y-4">
+                {pendingApprovalCard}
                 <p className="text-sm font-bold text-white/80 uppercase tracking-widest">Members</p>
                 <p className="text-sm text-white/80">Unlock member management with Starter or above.</p>
                 {makeUpgradeCard("starter", true)}
@@ -1365,25 +1390,7 @@ function ManagerView({ userId }: { userId: string }) {
 
             return (
               <div className="space-y-6">
-                {pendingRequests.length > 0 && (
-                  <Card>
-                    <SectionTitle>Pending approval ({pendingRequests.length})</SectionTitle>
-                    <div className="space-y-2">
-                      {pendingRequests.map((req) => (
-                        <div key={req.id} className="flex items-center justify-between gap-3 bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2">
-                          <div>
-                            <p className="text-sm font-bold text-white">{req.profiles?.display_name || "Runner"}</p>
-                            <p className="text-xs text-white/80">Requested {new Date(req.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</p>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <Button onClick={() => approveRequest(req.id, "approve")}>Approve</Button>
-                            <Button variant="danger" onClick={() => approveRequest(req.id, "reject")}>Reject</Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </Card>
-                )}
+                {pendingApprovalCard}
 
                 <Card>
                   <SectionTitle>Add member</SectionTitle>

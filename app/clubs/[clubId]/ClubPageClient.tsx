@@ -295,35 +295,42 @@ export default function ClubPageClient({
 
         {/* ── FOLLOW + INSTAGRAM ── */}
         <div className="flex items-center gap-3 flex-wrap">
-          <button
-            onClick={handleFollow}
-            disabled={subscribing}
-            title={isSubscribed ? "Remove from favorites" : "Add to favorites & turn on notifications"}
-            className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-[#2e3d1a] transition disabled:opacity-50 shrink-0"
-          >
-            <Heart className={`w-5 h-5 ${isSubscribed ? "fill-red-400 text-red-400" : "text-white/40"}`} />
-          </button>
+          {club.membership_type !== "free" ? (
+            <>
+              {/* Free follow — separate from membership: followers of a private
+                  klub only ever see its public/community runs, never members-only ones. */}
+              <button
+                onClick={handleFollow}
+                disabled={subscribing}
+                className={`px-5 py-2.5 rounded-full text-sm font-black transition disabled:opacity-50 ${
+                  isSubscribed
+                    ? "bg-[#1e2d12] border border-[#c5f135]/50 text-[#c5f135]"
+                    : "bg-[#1e2d12] border border-white/20 text-white/70 hover:border-[#c5f135]/40"
+                }`}
+              >
+                {subscribing ? "…" : isSubscribed ? "Following" : "Follow"}
+              </button>
 
-          {club.membership_type !== "free" && !isPaidMember ? (
-            // Private club, not yet an approved member — show request flow
-            // (independent of follow status: a follower can still request membership)
-            <button
-              onClick={joinRequestStatus === "none" ? handleRequestJoin : undefined}
-              disabled={requestingJoin || joinRequestStatus !== "none"}
-              className={`px-5 py-2.5 rounded-full text-sm font-black transition disabled:opacity-60 ${
-                joinRequestStatus === "pending"
-                  ? "bg-[#1e2d12] border border-white/20 text-white/50"
-                  : joinRequestStatus === "rejected"
-                  ? "bg-red-400/10 border border-red-400/30 text-red-400/70"
-                  : "bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45]"
-              }`}
-            >
-              {requestingJoin ? "…" : joinRequestStatus === "pending" ? "Request Pending" : joinRequestStatus === "rejected" ? "Request Declined" : "Request to Join"}
-            </button>
-          ) : club.membership_type !== "free" && isPaidMember ? (
-            <span className="px-5 py-2.5 rounded-full text-sm font-black bg-[#1e2d12] border border-[#c5f135]/50 text-[#c5f135]">
-              Member
-            </span>
+              {!isPaidMember ? (
+                <button
+                  onClick={joinRequestStatus === "none" ? handleRequestJoin : undefined}
+                  disabled={requestingJoin || joinRequestStatus !== "none"}
+                  className={`px-5 py-2.5 rounded-full text-sm font-black transition disabled:opacity-60 ${
+                    joinRequestStatus === "pending"
+                      ? "bg-[#1e2d12] border border-white/20 text-white/50"
+                      : joinRequestStatus === "rejected"
+                      ? "bg-red-400/10 border border-red-400/30 text-red-400/70"
+                      : "bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45]"
+                  }`}
+                >
+                  {requestingJoin ? "…" : joinRequestStatus === "pending" ? "Request Pending" : joinRequestStatus === "rejected" ? "Request Declined" : "Request to Join"}
+                </button>
+              ) : (
+                <span className="px-5 py-2.5 rounded-full text-sm font-black bg-[#1e2d12] border border-[#c5f135]/50 text-[#c5f135]">
+                  Member
+                </span>
+              )}
+            </>
           ) : (
             <button
               onClick={handleFollow}
