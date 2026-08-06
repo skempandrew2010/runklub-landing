@@ -12,6 +12,7 @@ import { supabase } from "@/lib/supabase"
 import { Club } from "@/types/club"
 import { getDistanceMiles } from "@/utils/distance"
 import { localDateStr } from "@/utils/dates"
+import { formatRunTime } from "@/lib/timezone"
 import { SlidersHorizontal, CalendarCheck, Clock, MapPin, ChevronDown, Lock } from "lucide-react"
 import Image from "next/image"
 import { getTagStyle } from "@/utils/tagStyle"
@@ -30,6 +31,7 @@ type WeekRun = {
   title: string
   date: string
   time: string
+  timezone: string | null
   distance: string | null
   meeting_point: string | null
   city: string | null
@@ -53,11 +55,8 @@ function formatDate(dateStr: string) {
   return d.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })
 }
 
-function formatTime(t: string) {
-  const [h, m] = t.split(":").map(Number)
-  const ampm = h >= 12 ? "PM" : "AM"
-  const hour = h % 12 || 12
-  return `${hour}:${String(m).padStart(2, "0")} ${ampm}`
+function formatTime(run: WeekRun) {
+  return formatRunTime(run)
 }
 
 export default function ExplorePage() {
@@ -201,7 +200,7 @@ function ExplorePageInner() {
 
       const [{ data: clubData }, { data: runsData }, { data: citiesData }] = await Promise.all([
         isLocalDev ? clubsQuery.or(`is_public.eq.true,id.eq.${TEST_CLUB_ID}`) : clubsQuery.eq("is_public", true),
-        supabase.from("runs").select("id, title, date, time, distance, meeting_point, city, run_lat, run_lng, tags, club_id").gte("date", todayStr).lte("date", weekStr).eq("is_public", true).order("date", { ascending: true }).order("time", { ascending: true }),
+        supabase.from("runs").select("id, title, date, time, timezone, distance, meeting_point, city, run_lat, run_lng, tags, club_id").gte("date", todayStr).lte("date", weekStr).eq("is_public", true).order("date", { ascending: true }).order("time", { ascending: true }),
         supabase.from("cities").select("name, lat, lng"),
       ])
 
@@ -610,7 +609,7 @@ function ExplorePageInner() {
               </span>
             )}
             <span className="flex items-center gap-1 text-xs text-white/50">
-              <Clock className="w-3 h-3" /> {formatTime(run.time)}
+              <Clock className="w-3 h-3" /> {formatTime(run)}
             </span>
             {run.meeting_point && (
               <span className="flex items-center gap-1 text-xs text-white/50">

@@ -15,7 +15,7 @@ export type PerformCheckInParams = {
 export async function performCheckIn(db: SupabaseClient, params: PerformCheckInParams) {
   const { userId, runId, checkedInBy = null, checkinMethod = "geolocation", selectedChallengeId = null } = params
 
-  const { data: run, error: runErr } = await db.from("runs").select("id, club_id, date, time").eq("id", runId).single()
+  const { data: run, error: runErr } = await db.from("runs").select("id, club_id, date, time, timezone").eq("id", runId).single()
   if (runErr || !run) throw new Error("Run not found")
 
   // A run only ever gets one check-in per user (enforced by a unique index
@@ -48,7 +48,7 @@ export async function performCheckIn(db: SupabaseClient, params: PerformCheckInP
   // Self check-ins are only allowed in the window around the run's start
   // time — a coach/director's manual override (checkinMethod: "manual")
   // deliberately skips this, since that's an administrative correction.
-  if (checkinMethod === "geolocation" && !isWithinCheckinWindow(run.date, run.time)) {
+  if (checkinMethod === "geolocation" && !isWithinCheckinWindow(run.date, run.time, run.timezone)) {
     throw new Error(CHECKIN_WINDOW_ERROR_MESSAGE)
   }
 

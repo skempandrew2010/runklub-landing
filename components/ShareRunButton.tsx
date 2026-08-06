@@ -2,21 +2,18 @@
 
 import { useState } from "react"
 import { Share2 } from "lucide-react"
+import { formatRunTimeInOwnZone } from "@/lib/timezone"
 
 export interface RunShareData {
   title: string
   date: string
   time: string
+  timezone?: string | null
   distance?: string | null
   meeting_point?: string | null
   tags?: string[] | null
   clubName: string
   clubImageUrl?: string | null
-}
-
-function fmt12(t: string) {
-  const [h, m] = t.split(":").map(Number)
-  return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h >= 12 ? "PM" : "AM"}`
 }
 
 function fmtDate(s: string) {
@@ -232,7 +229,7 @@ export async function generateRunCard(run: RunShareData): Promise<Blob> {
   y += 152
   ctx.font = F(68)
   ctx.fillStyle = "rgba(255,255,255,0.92)"
-  const timeStr = fmt12(run.time)
+  const timeStr = formatRunTimeInOwnZone(run)
   ctx.fillText(timeStr, PAD, y)
   if (run.distance) {
     const tw = ctx.measureText(timeStr).width
@@ -328,7 +325,7 @@ export default function ShareRunButton({ run }: { run: RunShareData }) {
         await navigator.share({
           files: [file],
           title: run.title,
-          text: `${run.clubName} · ${fmtDate(run.date)} at ${fmt12(run.time)}`,
+          text: `${run.clubName} · ${fmtDate(run.date)} at ${formatRunTimeInOwnZone(run)}`,
         })
       } else {
         const url = URL.createObjectURL(blob)

@@ -6,6 +6,7 @@ import Map, { Marker, Popup, NavigationControl, Source, Layer } from "react-map-
 import "mapbox-gl/dist/mapbox-gl.css"
 import mapboxSdk from "@mapbox/mapbox-sdk/services/geocoding"
 import { isVerifiedClub } from "@/utils/clubTier"
+import { formatRunTime } from "@/lib/timezone"
 import VerifiedBadge from "@/components/VerifiedBadge"
 
 
@@ -14,6 +15,7 @@ export type RunPin = {
   title: string
   date: string
   time: string
+  timezone: string | null
   distance: string | null
   meeting_point: string | null
   city: string | null
@@ -68,11 +70,8 @@ function formatDate(dateStr: string) {
   return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
 }
 
-function formatTime(t: string) {
-  const [h, m] = t.split(":").map(Number)
-  const ampm = h >= 12 ? "PM" : "AM"
-  const hour = h % 12 || 12
-  return `${hour}:${String(m).padStart(2, "0")} ${ampm}`
+function formatTime(run: RunPin) {
+  return formatRunTime(run)
 }
 
 // Round to ~100m precision for grouping nearby pins
@@ -579,7 +578,7 @@ export default function MapView({ city, runs, clubs, onCityCoords, onBoundsChang
                       {run.title}
                     </p>
                     <p style={{ margin: "0 0 4px", color: "#c5f135", fontWeight: 600, fontSize: 11 }}>
-                      {formatDate(run.date)} · {formatTime(run.time)}
+                      {formatDate(run.date)} · {formatTime(run)}
                     </p>
                     {run.meeting_point && (
                       <p style={{ margin: "2px 0 0", color: "rgba(255,255,255,0.45)", fontSize: 11, display: "flex", alignItems: "flex-start", gap: 4 }}>

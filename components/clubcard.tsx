@@ -5,10 +5,10 @@ import { supabase } from "@/lib/supabase"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Trash2, EyeOff } from "lucide-react"
-import { formatTimeToAMPM } from "@/utils/formatTime"
 import { getTagStyle } from "@/utils/tagStyle"
 import { localDateStr } from "@/utils/dates"
 import { isVerifiedClub } from "@/utils/clubTier"
+import { formatRunTime, runStartInstant } from "@/lib/timezone"
 import VerifiedBadge from "@/components/VerifiedBadge"
 import Image from "next/image"
 
@@ -17,6 +17,7 @@ type NextRun = {
   title: string
   date: string
   time: string
+  timezone: string | null
   tags: string[] | null
 }
 
@@ -96,7 +97,7 @@ export default function ClubCard({
     const today = localDateStr()
     supabase
       .from("runs")
-      .select("id, title, date, time, tags")
+      .select("id, title, date, time, timezone, tags")
       .eq("club_id", club.id)
       .eq("is_public", true)
       .gte("date", today)
@@ -130,7 +131,7 @@ export default function ClubCard({
   const initials = club.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
 
   const isRunSoon = nextRun != null && (() => {
-    const runAt = new Date(`${nextRun.date}T${nextRun.time}`)
+    const runAt = runStartInstant(nextRun)
     const now = new Date()
     return runAt >= now && runAt <= new Date(now.getTime() + 24 * 60 * 60 * 1000)
   })()
@@ -237,7 +238,7 @@ export default function ClubCard({
               <p className="text-xs text-white/50 font-medium">
                 {formatRunDate(nextRun.date)}
                 <span className="mx-1.5 text-white/25">·</span>
-                {formatTimeToAMPM(nextRun.time)}
+                {formatRunTime(nextRun)}
               </p>
               <p className="text-sm font-semibold text-white/85 leading-snug truncate mt-0.5">{nextRun.title}</p>
               {nextRun.tags && nextRun.tags.length > 0 && (

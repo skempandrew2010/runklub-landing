@@ -7,6 +7,7 @@ import { CalendarCheck, ChevronRight, Users, Zap } from "lucide-react"
 import Link from "next/link"
 import ChallengeHubBanner from "@/components/ChallengeHubBanner"
 import { isVerifiedClub } from "@/utils/clubTier"
+import { formatRunTime } from "@/lib/timezone"
 import VerifiedBadge from "@/components/VerifiedBadge"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -18,6 +19,7 @@ type Run = {
   title: string
   date: string
   time: string
+  timezone: string | null
   distance: string | null
   meeting_point: string | null
   description: string | null
@@ -41,10 +43,8 @@ function greeting() {
   return "Good evening"
 }
 
-function formatTime(t: string) {
-  const [h, m] = t.split(":").map(Number)
-  const ampm = h >= 12 ? "PM" : "AM"
-  return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${ampm}`
+function formatTime(run: { date: string; time: string; timezone?: string | null }) {
+  return formatRunTime(run)
 }
 
 function currentWeekBounds(): { monday: string; sunday: string } {
@@ -189,7 +189,7 @@ export default function HubContent() {
           ? supabase
               .from("runs")
               .select(
-                "id, title, date, time, distance, meeting_point, description, is_in_person, members_only, club_id"
+                "id, title, date, time, timezone, distance, meeting_point, description, is_in_person, members_only, club_id"
               )
               .in("club_id", clubIds)
               .eq("members_only", false)
@@ -231,7 +231,7 @@ export default function HubContent() {
           supabase
             .from("runs")
             .select(
-              "id, title, date, time, distance, meeting_point, description, is_in_person, members_only, club_id"
+              "id, title, date, time, timezone, distance, meeting_point, description, is_in_person, members_only, club_id"
             )
             .in("club_id", memberships.map((m) => m.club_id))
             .eq("members_only", true)
@@ -429,7 +429,7 @@ export default function HubContent() {
                           <p className="text-xs text-white/40 mt-0.5 truncate">
                             {club.city}
                             {club.city && nextRun && " · "}
-                            {nextRun && `Next: ${formatDay(nextRun.date)} ${formatTime(nextRun.time)}`}
+                            {nextRun && `Next: ${formatDay(nextRun.date)} ${formatTime(nextRun)}`}
                             {!club.city && !nextRun && "No upcoming runs"}
                           </p>
                         </div>
@@ -475,7 +475,7 @@ export default function HubContent() {
                           <div className="flex items-end justify-between gap-3">
                             <div className="min-w-0">
                               <p className="text-xl font-black text-white leading-tight">
-                                {formatTime(run.time)}
+                                {formatTime(run)}
                               </p>
                               <div className="flex items-center gap-2 flex-wrap mt-1">
                                 {run.distance && (
@@ -536,7 +536,7 @@ export default function HubContent() {
                   {runs.map((run) => {
                     const isToday = run.date === todayStr
                     const dayLabel = formatDay(run.date)
-                    const meta = [run.club_name, formatTime(run.time), run.distance]
+                    const meta = [run.club_name, formatTime(run), run.distance]
                       .filter(Boolean)
                       .join(" · ")
                     return (

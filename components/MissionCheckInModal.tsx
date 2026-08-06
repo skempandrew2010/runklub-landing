@@ -14,6 +14,7 @@ export type MissionCheckInRun = {
   title: string
   date: string
   time: string
+  timezone: string | null
   run_lat: number | null
   run_lng: number | null
 }
@@ -73,7 +74,7 @@ export default function MissionCheckInModal({
   const submit = async () => {
     setError(null)
 
-    if (!isWithinCheckinWindow(run.date, run.time)) {
+    if (!isWithinCheckinWindow(run.date, run.time, run.timezone)) {
       setError(CHECKIN_WINDOW_ERROR_MESSAGE)
       return
     }

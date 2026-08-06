@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase"
 import { Heart, MapPin, Clock, Users, ArrowLeft, ExternalLink, MessageSquare, ChevronRight, Globe, Lock } from "lucide-react"
 import { getTagStyle } from "@/utils/tagStyle"
 import { localDateStr } from "@/utils/dates"
+import { formatRunTime } from "@/lib/timezone"
 import { isVerifiedClub } from "@/utils/clubTier"
 import { interceptExternalClick } from "@/utils/openExternal"
 import VerifiedBadge from "@/components/VerifiedBadge"
@@ -37,6 +38,7 @@ export type Run = {
   title: string
   date: string
   time: string
+  timezone: string | null
   distance: string | null
   meeting_point: string | null
   tags: string[] | null
@@ -56,9 +58,8 @@ function getGradient(name: string) {
   return GRADIENTS[hash % GRADIENTS.length]
 }
 
-function formatTime(t: string) {
-  const [h, m] = t.split(":").map(Number)
-  return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h >= 12 ? "PM" : "AM"}`
+function formatTime(run: Run) {
+  return formatRunTime(run)
 }
 
 export default function ClubPageClient({
@@ -143,7 +144,7 @@ export default function ClubPageClient({
           const today = localDateStr()
           const { data: mRuns } = await supabase
             .from("runs")
-            .select("id, title, date, time, distance, meeting_point, tags, members_only")
+            .select("id, title, date, time, timezone, distance, meeting_point, tags, members_only")
             .eq("club_id", club.id)
             .eq("members_only", true)
             .gte("date", today)
@@ -471,7 +472,7 @@ export default function ClubPageClient({
                         </div>
                         <p className="text-xs text-white/50 mt-0.5 flex items-center gap-1">
                           <Clock className="w-3 h-3 shrink-0" />
-                          {formatTime(run.time)}
+                          {formatTime(run)}
                           {run.distance && <><span className="text-white/20">·</span>{run.distance}</>}
                         </p>
                         {run.meeting_point && (

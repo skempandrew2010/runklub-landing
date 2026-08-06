@@ -52,14 +52,14 @@ export default function RunCheckInWatcher() {
       const today = localDateStr()
       const { data: runs } = await supabase
         .from("runs")
-        .select("id, title, date, time, run_lat, run_lng, club_id, clubs(name, latitude, longitude, tier)")
+        .select("id, title, date, time, timezone, run_lat, run_lng, club_id, clubs(name, latitude, longitude, tier)")
         .in("club_id", clubIds)
         .eq("kind", "run")
         .eq("is_in_person", true)
         .eq("date", today)
       if (!runs || runs.length === 0) return
 
-      const inWindow = (runs as any[]).filter((r) => r.time && isWithinCheckinWindow(r.date, r.time))
+      const inWindow = (runs as any[]).filter((r) => r.time && isWithinCheckinWindow(r.date, r.time, r.timezone))
       if (inWindow.length === 0) return
 
       const runIds = inWindow.map((r) => r.id)
@@ -83,7 +83,7 @@ export default function RunCheckInWatcher() {
           if (distance <= PROXIMITY_CHECKIN_RADIUS_MILES) {
             pausedRef.current = true
             setPrompt({
-              run: { id: r.id, title: r.title, date: r.date, time: r.time, run_lat: r.run_lat, run_lng: r.run_lng, club_id: r.club_id },
+              run: { id: r.id, title: r.title, date: r.date, time: r.time, timezone: r.timezone, run_lat: r.run_lat, run_lng: r.run_lng, club_id: r.club_id },
               club: r.clubs,
             })
             return

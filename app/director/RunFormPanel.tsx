@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase"
 import { ArrowLeft, CalendarPlus, Check, Globe, Lock, Repeat2 } from "lucide-react"
 import mapboxSdk from "@mapbox/mapbox-sdk/services/geocoding"
 import { localDateStr } from "@/utils/dates"
+import { COMMON_TIMEZONES, getBrowserTimezone } from "@/lib/timezone"
 
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
@@ -80,6 +81,7 @@ export default function RunFormPanel({
   const [title, setTitle] = useState(quickMode ? "Weekly Community Run" : "")
   const [date, setDate] = useState("")
   const [time, setTime] = useState("")
+  const [timezone, setTimezone] = useState(getBrowserTimezone())
   const [distance, setDistance] = useState("")
   const [address, setAddress] = useState("")
   const [manageMode, setManageMode] = useState<"runklub" | "external">("runklub")
@@ -111,7 +113,7 @@ export default function RunFormPanel({
 
   useEffect(() => {
     const load = async () => {
-      const [pg, wt, co, tpl, regionRows] = await Promise.all([
+      const [pg, wt, co, tpl, regionRows, clubRow] = await Promise.all([
         supabase.from("pace_groups").select("id, name, pace_min, pace_max").eq("club_id", clubId).order("pace_min"),
         supabase.from("runs").select("id, title").eq("club_id", clubId).eq("kind", "workout").order("title"),
         supabase.from("coaches").select("id, name").eq("club_id", clubId).order("name"),
@@ -123,11 +125,14 @@ export default function RunFormPanel({
               .order("last_used_at", { ascending: false })
               .limit(8),
         supabase.from("regions").select("id, name").eq("club_id", clubId).order("name"),
+        supabase.from("clubs").select("default_timezone").eq("id", clubId).single(),
       ])
       setPaceGroups((pg.data as PaceGroup[]) || [])
       setWorkoutTypes(((wt.data ?? []) as any[]).map((r) => ({ id: r.id, name: r.title })))
       setCoaches((co.data as Coach[]) || [])
       if (!isEdit) setTemplates((tpl.data as RunTemplate[]) || [])
+      const clubDefaultTz = (clubRow.data as { default_timezone: string | null } | null)?.default_timezone
+      if (!isEdit && clubDefaultTz) setTimezone(clubDefaultTz)
 
       const fetchedRegions = (regionRows.data as Region[]) || []
       setRegions(fetchedRegions)
@@ -145,6 +150,7 @@ export default function RunFormPanel({
           setTitle(run.title ?? "")
           setDate(run.date ?? "")
           setTime(run.time ?? "")
+          setTimezone(run.timezone ?? clubDefaultTz ?? getBrowserTimezone())
           setDistance(run.distance ?? "")
           setAddress(run.meeting_point ?? "")
           setManageMode(run.external_url ? "external" : "runklub")
@@ -228,7 +234,7 @@ export default function RunFormPanel({
       const isExternal = manageMode === "external"
       const coords = isExternal ? null : await geocode(address)
       const runData = {
-        title, time,
+        title, time, timezone,
         distance: distance || null,
         meeting_point: isExternal ? null : (address || null),
         city: isExternal ? (city || null) : null,
@@ -353,6 +359,12 @@ export default function RunFormPanel({
             <div>
               <label className={lc}>Time *</label>
               <input type="time" value={time} onChange={(e) => setTime(e.target.value)} required className={ic} />
+            </div>
+            <div>
+              <label className={lc}>Timezone</label>
+              <select value={timezone} onChange={(e) => setTimezone(e.target.value)} className={ic}>
+                {COMMON_TIMEZONES.map((tz) => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
+              </select>
             </div>
             {(!quickMode || showAdvanced) && (
               <div>

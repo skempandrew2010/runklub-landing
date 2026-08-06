@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { ArrowLeft, MapPin, MessageSquare, Send } from "lucide-react"
+import { formatRunTime } from "@/lib/timezone"
 
 export type RunChatTarget = {
   type: "run"
@@ -10,6 +11,7 @@ export type RunChatTarget = {
   title: string
   date: string
   time: string
+  timezone?: string | null
   distance?: string | null
   meeting_point?: string | null
   clubName: string
@@ -38,9 +40,8 @@ type ChatMessage = {
 
 type DmTarget = { userId: string; name: string; avatarUrl: string | null }
 
-function formatTime(t: string) {
-  const [h, m] = t.split(":").map(Number)
-  return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h >= 12 ? "PM" : "AM"}`
+function formatTime(target: { date: string; time: string; timezone?: string | null }) {
+  return formatRunTime(target)
 }
 
 function formatChatTime(iso: string) {
@@ -156,7 +157,7 @@ export default function RunChatPanel({
                 <>
                   <p className="text-sm font-bold text-white truncate">{target.title}</p>
                   <p className="text-xs text-white/40 truncate">
-                    {target.clubName} · {new Date(target.date + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} at {formatTime(target.time)}
+                    {target.clubName} · {new Date(target.date + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} at {formatTime(target)}
                   </p>
                 </>
               ) : (

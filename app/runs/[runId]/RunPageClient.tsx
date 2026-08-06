@@ -7,14 +7,14 @@ import { ArrowLeft, Clock, MapPin, MessageSquare, CheckCircle2, ExternalLink } f
 import { supabase } from "@/lib/supabase"
 import { localDateStr } from "@/utils/dates"
 import { getTagStyle } from "@/utils/tagStyle"
+import { formatRunTime, type TimedRun } from "@/lib/timezone"
 import RunChatPanel from "@/components/RunChatPanel"
 import MissionCheckInModal from "@/components/MissionCheckInModal"
 import CheckInCelebration from "@/components/CheckInCelebration"
 import type { CheckInResult } from "@/lib/server/checkin"
 
-function formatTime(t: string) {
-  const [h, m] = t.split(":").map(Number)
-  return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h >= 12 ? "PM" : "AM"}`
+function formatTime(run: TimedRun) {
+  return formatRunTime(run)
 }
 
 function initialsOf(name: string) {
@@ -35,6 +35,7 @@ export type Run = {
   tags: string[] | null
   is_in_person: boolean
   members_only: boolean
+  timezone: string | null
   run_lat: number | null
   run_lng: number | null
 }
@@ -70,7 +71,7 @@ export default function RunPageClient({ runId }: { runId: string }) {
       const { data, error } = await supabase
         .from("runs")
         .select(
-          "id, club_id, title, date, time, distance, meeting_point, city, external_url, description, tags, is_in_person, members_only, run_lat, run_lng, clubs(id, name, image_url, latitude, longitude, city, tier)"
+          "id, club_id, title, date, time, distance, meeting_point, city, external_url, description, tags, is_in_person, members_only, timezone, run_lat, run_lng, clubs(id, name, image_url, latitude, longitude, city, tier)"
         )
         .eq("id", runId)
         .maybeSingle()
@@ -92,6 +93,7 @@ export default function RunPageClient({ runId }: { runId: string }) {
         tags: data.tags,
         is_in_person: data.is_in_person,
         members_only: data.members_only,
+        timezone: data.timezone,
         run_lat: data.run_lat,
         run_lng: data.run_lng,
       })
@@ -198,7 +200,7 @@ export default function RunPageClient({ runId }: { runId: string }) {
           <div className="flex flex-wrap items-center gap-3 text-sm text-white/60 mb-3">
             <span className="flex items-center gap-1.5">
               <Clock className="w-3.5 h-3.5 text-[#c5f135]" />
-              {new Date(run.date + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} at {formatTime(run.time)}
+              {new Date(run.date + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} at {formatTime(run)}
             </span>
             {run.distance && <span>{run.distance}</span>}
             {run.members_only && (
@@ -296,6 +298,7 @@ export default function RunPageClient({ runId }: { runId: string }) {
             title: run.title,
             date: run.date,
             time: run.time,
+            timezone: run.timezone,
             distance: run.distance,
             meeting_point: run.meeting_point,
             clubName: club.name,

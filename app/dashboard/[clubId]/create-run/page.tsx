@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase"
 import { ArrowLeft, CalendarPlus, Repeat2, Globe, Lock } from "lucide-react"
 import mapboxSdk from "@mapbox/mapbox-sdk/services/geocoding"
 import { localDateStr } from "@/utils/dates"
+import { COMMON_TIMEZONES, getBrowserTimezone } from "@/lib/timezone"
 
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
@@ -75,6 +76,7 @@ function CreateRunContent() {
   const [title, setTitle] = useState(isQuickParam ? "Weekly Community Run" : "")
   const [date, setDate] = useState(searchParams.get("date") ?? "")
   const [time, setTime] = useState("")
+  const [timezone, setTimezone] = useState(getBrowserTimezone())
   const [distance, setDistance] = useState("")
   const [address, setAddress] = useState("")
   const [city, setCity] = useState("")
@@ -114,13 +116,15 @@ function CreateRunContent() {
         .eq("club_id", clubId)
         .order("last_used_at", { ascending: false })
         .limit(8),
-      supabase.from("clubs").select("membership_type").eq("id", clubId).single(),
+      supabase.from("clubs").select("membership_type, default_timezone").eq("id", clubId).single(),
     ]).then(([pg, wt, co, tpl, club]) => {
       setPaceGroups((pg.data as PaceGroup[]) || [])
       setWorkoutTypes(((wt.data ?? []) as any[]).map((r) => ({ id: r.id, name: r.title })))
       setCoaches((co.data as Coach[]) || [])
       setTemplates((tpl.data as RunTemplate[]) || [])
       setClubIsPrivate((club.data as any)?.membership_type !== "free")
+      const defaultTz = (club.data as any)?.default_timezone
+      if (defaultTz) setTimezone(defaultTz)
       setDataLoading(false)
     })
   }, [clubId])
@@ -211,6 +215,7 @@ function CreateRunContent() {
         club_id: clubId,
         title,
         time,
+        timezone,
         distance: distance || null,
         meeting_point: address || null,
         city: city || null,
@@ -329,6 +334,12 @@ function CreateRunContent() {
               <div>
                 <label className={labelClass}>Time *</label>
                 <input type="time" value={time} onChange={(e) => setTime(e.target.value)} required className={inputClass} />
+              </div>
+              <div>
+                <label className={labelClass}>Timezone</label>
+                <select value={timezone} onChange={(e) => setTimezone(e.target.value)} className={inputClass}>
+                  {COMMON_TIMEZONES.map((tz) => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
+                </select>
               </div>
               {(!quickMode || showAdvanced) && (
                 <div>
