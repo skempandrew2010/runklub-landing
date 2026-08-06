@@ -39,7 +39,10 @@ function getTimeZoneOffsetMinutes(timeZone: string, atUtc: Date): number {
  * computed at the target instant itself, so DST is handled correctly.
  */
 export function zonedTimeToUtc(dateStr: string, timeStr: string, timeZone: string): Date {
-  const naiveUtc = new Date(`${dateStr}T${timeStr}:00Z`)
+  // Postgres `time` columns come back as "HH:MM:SS" (seconds included) — normalize
+  // to "HH:MM" so we don't double up on the seconds we append below.
+  const hhmm = timeStr.slice(0, 5)
+  const naiveUtc = new Date(`${dateStr}T${hhmm}:00Z`)
   const offsetMin = getTimeZoneOffsetMinutes(timeZone, naiveUtc)
   const firstPass = new Date(naiveUtc.getTime() - offsetMin * 60_000)
 
