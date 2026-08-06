@@ -9,6 +9,8 @@ export const METRO_CHECKIN_RADIUS_MILES = 25
 export const PROXIMITY_CHECKIN_RADIUS_MILES = 0.1
 export const CHECKIN_WINDOW_BEFORE_MIN = 5
 export const CHECKIN_WINDOW_AFTER_MIN = 30
+export const CHECKIN_WINDOW_ERROR_MESSAGE =
+  `Check-in opens ${CHECKIN_WINDOW_BEFORE_MIN} minutes before the run starts and closes ${CHECKIN_WINDOW_AFTER_MIN} minutes after.`
 
 export type GeofenceRun = {
   run_lat: number | null

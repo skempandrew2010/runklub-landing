@@ -16,7 +16,7 @@ import type { CheckInResult } from "@/lib/server/checkin"
 
 const POLL_INTERVAL_MS = 45_000
 
-type CandidateRun = MissionCheckInRun & { date: string; time: string; club_id: string }
+type CandidateRun = MissionCheckInRun & { club_id: string }
 type CelebrationState = { data: CheckInResult; run: CandidateRun; clubName: string }
 
 /** Proactively prompts a member to check in once they're within 0.1mi of a run they're about to start (or just started). Runs only while the app is open in the foreground. */

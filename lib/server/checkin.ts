@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { computeStreaks, unlockedAchievements, ACHIEVEMENTS } from "@/lib/streaks"
 import { getProgressDisplay, type ChallengeRow } from "@/lib/missionProgress"
+import { isWithinCheckinWindow, CHECKIN_WINDOW_ERROR_MESSAGE } from "@/lib/checkinGeofence"
 
 export type PerformCheckInParams = {
   userId: string
@@ -14,13 +15,16 @@ export type PerformCheckInParams = {
 export async function performCheckIn(db: SupabaseClient, params: PerformCheckInParams) {
   const { userId, runId, checkedInBy = null, checkinMethod = "geolocation", selectedChallengeId = null } = params
 
-  const { data: run, error: runErr } = await db.from("runs").select("id, club_id, date").eq("id", runId).single()
+  const { data: run, error: runErr } = await db.from("runs").select("id, club_id, date, time").eq("id", runId).single()
   if (runErr || !run) throw new Error("Run not found")
 
   // A run only ever gets one check-in per user (enforced by a unique index
   // on run_checkins(run_id, user_id) too, but we check first so a repeat
   // call — double-tap, retry, watcher racing the button — doesn't re-run
-  // the passport/streak/badge rollup below and double-count anything.
+  // the passport/streak/badge rollup below and double-count anything. This
+  // also has to come before the time-window check below: a retry of an
+  // already-valid check-in must stay idempotent even if the window has
+  // since closed, since the check-in itself already happened validly.
   const { data: existing } = await db
     .from("run_checkins")
     .select("id")
@@ -39,6 +43,13 @@ export async function performCheckIn(db: SupabaseClient, params: PerformCheckInP
       newlyCompletedChallenges: [],
       passport: null,
     }
+  }
+
+  // Self check-ins are only allowed in the window around the run's start
+  // time — a coach/director's manual override (checkinMethod: "manual")
+  // deliberately skips this, since that's an administrative correction.
+  if (checkinMethod === "geolocation" && !isWithinCheckinWindow(run.date, run.time)) {
+    throw new Error(CHECKIN_WINDOW_ERROR_MESSAGE)
   }
 
   // Snapshot which challenges were already completed before this check-in,

@@ -4,13 +4,16 @@ import { useEffect, useState } from "react"
 import { X, Sparkles } from "lucide-react"
 import { getChallengesWithProgress, type ChallengeWithProgress } from "@/lib/challenges"
 import { CHALLENGE_ICONS } from "@/components/ChallengeCard"
-import { resolveCheckinTarget, getCurrentPosition, isWithinRadius } from "@/lib/checkinGeofence"
+import { resolveCheckinTarget, getCurrentPosition, isWithinRadius, isWithinCheckinWindow, CHECKIN_WINDOW_ERROR_MESSAGE } from "@/lib/checkinGeofence"
 import { isVerifiedClub } from "@/utils/clubTier"
+import CheckInProximityMap from "@/components/CheckInProximityMap"
 import type { CheckInResult } from "@/lib/server/checkin"
 
 export type MissionCheckInRun = {
   id: string
   title: string
+  date: string
+  time: string
   run_lat: number | null
   run_lng: number | null
 }
@@ -43,6 +46,10 @@ export default function MissionCheckInModal({
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [checkingIn, setCheckingIn] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [position, setPosition] = useState<{ lat: number; lng: number } | null>(null)
+  const [positionError, setPositionError] = useState<string | null>(null)
+
+  const target = resolveCheckinTarget(run, club, cityFallback)
 
   useEffect(() => {
     getChallengesWithProgress().then((list) => {
@@ -53,11 +60,25 @@ export default function MissionCheckInModal({
     })
   }, [])
 
+  // Best-effort — just for the proximity map, so a denial here shouldn't
+  // block anything; the real gate re-reads a fresh position in submit().
+  useEffect(() => {
+    if (!target) return
+    getCurrentPosition()
+      .then((pos) => setPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude }))
+      .catch(() => setPositionError("Enable location to see how close you are"))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const submit = async () => {
     setError(null)
 
+    if (!isWithinCheckinWindow(run.date, run.time)) {
+      setError(CHECKIN_WINDOW_ERROR_MESSAGE)
+      return
+    }
+
     if (isVerifiedClub(club.tier)) {
-      const target = resolveCheckinTarget(run, club, cityFallback)
       if (!target) {
         setError("This run hasn't set a location yet, so check-in isn't available.")
         return
@@ -65,12 +86,15 @@ export default function MissionCheckInModal({
       setCheckingIn(true)
       try {
         const pos = await getCurrentPosition()
+        setPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude })
+        setPositionError(null)
         if (!isWithinRadius(pos, target)) {
           setError("You need to be at the run to check in.")
           setCheckingIn(false)
           return
         }
       } catch {
+        setPositionError("Enable location to see how close you are")
         setError("Enable location access to check in.")
         setCheckingIn(false)
         return
@@ -88,7 +112,7 @@ export default function MissionCheckInModal({
     setCheckingIn(false)
 
     if (!res.ok) {
-      setError("Check-in failed. Try again.")
+      setError(data.error || "Check-in failed. Try again.")
       return
     }
 
@@ -107,6 +131,8 @@ export default function MissionCheckInModal({
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        <CheckInProximityMap target={target} position={position} positionError={positionError} />
 
         {!loadingMissions && missions.length > 0 && (
           <div className="mt-4">
