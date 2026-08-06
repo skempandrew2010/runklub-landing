@@ -4,7 +4,14 @@ import { useEffect, useMemo, useState } from "react"
 import { Award } from "lucide-react"
 import { CHALLENGE_ICONS } from "@/components/ChallengeCard"
 
-export type NewlyCompletedChallenge = { slug: string; name: string; description: string | null }
+export type NewlyCompletedChallenge = {
+  slug: string
+  name: string
+  description: string | null
+  current?: number
+  target?: number
+  metricLabel?: string
+}
 
 const AUTO_DISMISS_MS = 3200
 
@@ -61,6 +68,11 @@ export default function ChallengeCompleteMoment({
         <p className="text-xs font-black text-[#c5f135] uppercase tracking-widest">Mission Complete</p>
         <p className="text-2xl font-black text-white mt-1">{current.name}</p>
         {current.description && <p className="text-sm text-white/50 mt-2">{current.description}</p>}
+        {!!current.target && !!current.metricLabel && (
+          <p className="text-sm font-bold text-[#c5f135] mt-3">
+            {current.current} of {current.target} {current.metricLabel} — nailed it 🎉
+          </p>
+        )}
       </div>
     </div>
   )

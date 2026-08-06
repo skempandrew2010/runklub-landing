@@ -5,26 +5,12 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, Clock, MapPin, MessageSquare, CheckCircle2, ExternalLink } from "lucide-react"
 import { supabase } from "@/lib/supabase"
-import { getDistanceMiles } from "@/utils/distance"
 import { localDateStr } from "@/utils/dates"
 import { getTagStyle } from "@/utils/tagStyle"
-import { isVerifiedClub } from "@/utils/clubTier"
-import { getClubStampArt, getUserPassportProgress } from "@/lib/checkins"
 import RunChatPanel from "@/components/RunChatPanel"
-import CheckInMoment, { type CheckInMomentProps } from "@/components/CheckInMoment"
-import BadgeUnlockModal, { type UnlockedBadge } from "@/components/BadgeUnlockModal"
-import ChallengeCompleteMoment, { type NewlyCompletedChallenge } from "@/components/ChallengeCompleteMoment"
-import BuddyPicker from "@/components/BuddyPicker"
-
-const CHECKIN_RADIUS_MILES = 0.3
-const METRO_CHECKIN_RADIUS_MILES = 25
-
-function getCurrentPosition(): Promise<GeolocationPosition> {
-  return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) { reject(new Error("Geolocation not supported")); return }
-    navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 10000 })
-  })
-}
+import MissionCheckInModal from "@/components/MissionCheckInModal"
+import CheckInCelebration from "@/components/CheckInCelebration"
+import type { CheckInResult } from "@/lib/server/checkin"
 
 function formatTime(t: string) {
   const [h, m] = t.split(":").map(Number)
@@ -34,8 +20,6 @@ function formatTime(t: string) {
 function initialsOf(name: string) {
   return name.split(" ").filter(Boolean).map((w) => w[0]).join("").slice(0, 2).toUpperCase()
 }
-
-type MomentData = Omit<CheckInMomentProps, "onDone">
 
 export type Run = {
   id: string
@@ -78,14 +62,9 @@ export default function RunPageClient({
   const [userId, setUserId] = useState<string | null>(null)
   const [sessionToken, setSessionToken] = useState<string | null>(null)
   const [checkedIn, setCheckedIn] = useState(false)
-  const [checkingIn, setCheckingIn] = useState(false)
-  const [checkInError, setCheckInError] = useState<string | null>(null)
-  const [checkInMoment, setCheckInMoment] = useState<MomentData | null>(null)
-  const [pendingBadges, setPendingBadges] = useState<UnlockedBadge[]>([])
-  const [newlyCompleted, setNewlyCompleted] = useState<NewlyCompletedChallenge[]>([])
-  const [checkInId, setCheckInId] = useState<string | null>(null)
-  const [showBuddyPicker, setShowBuddyPicker] = useState(false)
+  const [celebrationData, setCelebrationData] = useState<CheckInResult | null>(null)
   const [showChat, setShowChat] = useState(false)
+  const [showMissionModal, setShowMissionModal] = useState(false)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -109,123 +88,18 @@ export default function RunPageClient({
   const isToday = run.date === todayStr
   const canCheckIn = isToday && run.is_in_person
 
-  const handleCheckIn = async () => {
+  const openCheckIn = () => {
     if (!userId || !sessionToken) { router.push("/login"); return }
+    setShowMissionModal(true)
+  }
 
-    // Geofencing only applies to verified (paid-tier) klubs — their location
-    // data is confirmed accurate. Free/unclaimed klubs often have approximate
-    // or missing coordinates, so requiring proximity there would unfairly
-    // block real check-ins over a data-quality problem, not a fraud one.
-    if (isVerifiedClub(club.tier)) {
-      const checkinTarget =
-        run.run_lat != null && run.run_lng != null
-          ? { lat: run.run_lat, lng: run.run_lng, radiusMiles: CHECKIN_RADIUS_MILES }
-          : club.latitude != null && club.longitude != null
-            ? { lat: club.latitude, lng: club.longitude, radiusMiles: CHECKIN_RADIUS_MILES }
-            : cityFallback
-              ? { lat: cityFallback.lat, lng: cityFallback.lng, radiusMiles: METRO_CHECKIN_RADIUS_MILES }
-              : null
-
-      if (!checkinTarget) {
-        setCheckInError("This run hasn't set a location yet, so check-in isn't available.")
-        return
-      }
-
-      setCheckingIn(true)
-      setCheckInError(null)
-
-      try {
-        const pos = await getCurrentPosition()
-        const distance = getDistanceMiles(pos.coords.latitude, pos.coords.longitude, checkinTarget.lat, checkinTarget.lng)
-        if (distance > checkinTarget.radiusMiles) {
-          setCheckInError("You need to be at the run to check in.")
-          setCheckingIn(false)
-          return
-        }
-      } catch {
-        setCheckInError("Enable location access to check in.")
-        setCheckingIn(false)
-        return
-      }
-    } else {
-      setCheckingIn(true)
-      setCheckInError(null)
-    }
-
-    const res = await fetch("/api/checkin", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
-      body: JSON.stringify({ run_id: run.id }),
-    })
-    const data = await res.json()
-    setCheckingIn(false)
-
-    if (!res.ok) {
-      setCheckInError("Check-in failed. Try again.")
-      return
-    }
-
+  /** Runs after MissionCheckInModal's own geolocation check + /api/checkin call succeed. */
+  const handleCheckedIn = (data: CheckInResult) => {
+    setShowMissionModal(false)
     setCheckedIn(true)
-
-    // Independent of the passport rollup below — always set so the buddy
-    // picker and challenge-completion celebration still fire even if that
-    // best-effort call failed.
-    if (data.checkInId) {
-      setCheckInId(data.checkInId)
-      setShowBuddyPicker(true)
-    }
-    if (data.newlyCompletedChallenges?.length) setNewlyCompleted(data.newlyCompletedChallenges)
-
-    const passport = data.passport
-    if (!passport) return
-
-    if (passport.new_badges?.length) setPendingBadges(passport.new_badges)
-
-    if (passport.club_first || passport.city_first) {
-      try {
-        const raw = sessionStorage.getItem("runklub_just_unlocked")
-        const unlocked = raw ? JSON.parse(raw) : { clubIds: [], cityIds: [] }
-        if (passport.club_first) unlocked.clubIds.push(run.club_id)
-        if (passport.city_first && passport.city_id) unlocked.cityIds.push(passport.city_id)
-        sessionStorage.setItem("runklub_just_unlocked", JSON.stringify(unlocked))
-      } catch { /* sessionStorage unavailable — unlock animation is a nice-to-have */ }
-    }
-
-    const [stampUrl, progress] = await Promise.all([
-      getClubStampArt(run.club_id),
-      getUserPassportProgress(),
-    ])
-    const justStampedCity = passport.city_id ? progress.find((c) => c.city_id === passport.city_id) ?? null : null
-    const nearest = progress.find((c) => c.is_nearest_incomplete) ?? null
-    const totalStamps = progress.reduce((sum, c) => sum + c.stamped_clubs, 0)
-    const justStampedCityComplete = !!justStampedCity?.is_complete && passport.city_first
-    const isMilestone = totalStamps > 0 && totalStamps % 5 === 0
-
-    let shareCardUrl: string | null = null
-    if (passport.club_first && (justStampedCityComplete || isMilestone)) {
-      const params = new URLSearchParams({
-        type: justStampedCityComplete ? "complete" : "milestone",
-        clubName: club.name,
-        cityName: justStampedCity?.city_name ?? "",
-        cityState: justStampedCity?.city_state ?? "",
-        stampNumber: String(totalStamps),
-        totalCount: String(justStampedCity?.total_clubs ?? 0),
-      })
-      if (stampUrl) params.set("stampUrl", stampUrl)
-      shareCardUrl = `/api/passport/share-card?${params.toString()}`
-    }
-
-    setCheckInMoment({
-      clubName: club.name,
-      clubStampUrl: stampUrl,
-      isFirstTime: passport.club_first,
-      clubCount: passport.club_count,
-      totalStamps,
-      justStampedCityComplete,
-      justStampedCityName: justStampedCity?.city_name ?? null,
-      nearestIncomplete: nearest ? { cityName: nearest.city_name, remaining: nearest.remaining } : null,
-      shareCardUrl,
-    })
+    // A run only ever gets one check-in per user — if this was a repeat call
+    // (e.g. the button and the watcher racing), there's nothing new to celebrate.
+    if (!data.alreadyCheckedIn) setCelebrationData(data)
   }
 
   return (
@@ -303,24 +177,21 @@ export default function RunPageClient({
 
           {canCheckIn && (
             <button
-              onClick={() => !checkedIn && handleCheckIn()}
-              disabled={checkingIn}
+              onClick={() => !checkedIn && openCheckIn()}
+              disabled={checkedIn}
               className={`w-full py-3 rounded-2xl text-sm font-black transition flex items-center justify-center gap-2 ${
                 checkedIn
                   ? "bg-[#c5f135]/15 text-[#c5f135] border border-[#c5f135]/30 cursor-default"
-                  : "bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45] active:scale-95 disabled:opacity-40"
+                  : "bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45] active:scale-95"
               }`}
             >
               {checkedIn ? (
                 <><CheckCircle2 className="w-4 h-4" /> Checked In</>
-              ) : checkingIn ? (
-                "Checking in…"
               ) : (
                 "Check In"
               )}
             </button>
           )}
-          {checkInError && <p className="text-xs text-red-400/80 leading-relaxed mt-2">{checkInError}</p>}
         </div>
 
         {userId ? (
@@ -367,19 +238,25 @@ export default function RunPageClient({
         />
       )}
 
-      {checkInMoment && <CheckInMoment {...checkInMoment} onDone={() => setCheckInMoment(null)} />}
-      {!checkInMoment && pendingBadges.length > 0 && (
-        <BadgeUnlockModal badges={pendingBadges} onDone={() => setPendingBadges([])} />
+      {showMissionModal && sessionToken && (
+        <MissionCheckInModal
+          run={run}
+          club={club}
+          cityFallback={cityFallback}
+          sessionToken={sessionToken}
+          onClose={() => setShowMissionModal(false)}
+          onCheckedIn={handleCheckedIn}
+        />
       )}
-      {!checkInMoment && pendingBadges.length === 0 && newlyCompleted.length > 0 && (
-        <ChallengeCompleteMoment challenges={newlyCompleted} onDone={() => setNewlyCompleted([])} />
-      )}
-      {!checkInMoment && pendingBadges.length === 0 && newlyCompleted.length === 0 && showBuddyPicker && userId && checkInId && (
-        <BuddyPicker
+
+      {celebrationData && userId && (
+        <CheckInCelebration
+          data={celebrationData}
           runId={run.id}
-          checkInId={checkInId}
+          clubId={run.club_id}
+          clubName={club.name}
           userId={userId}
-          onDone={() => setShowBuddyPicker(false)}
+          onDone={() => setCelebrationData(null)}
         />
       )}
     </div>
