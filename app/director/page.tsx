@@ -74,6 +74,7 @@ type ClubWithCount = {
   meeting_time: string | null
   image_url: string | null
   tier: string | null
+  follower_count: number
   member_count: number
   is_public: boolean
   instagram_handle: string | null
@@ -231,10 +232,19 @@ function ManagerView({ userId }: { userId: string }) {
         .eq("user_id", userId)
       const rawClubs = clubs || []
       const clubIds = rawClubs.map((c: any) => c.id)
-      const counts = await Promise.all(clubIds.map((id: string) =>
-        supabase.from("subscriptions").select("id", { count: "exact", head: true }).eq("club_id", id)
-      ))
-      const clubsWithCounts: ClubWithCount[] = rawClubs.map((c: any, i: number) => ({ ...c, member_count: counts[i].count ?? 0 }))
+      const [followerCounts, memberCounts] = await Promise.all([
+        Promise.all(clubIds.map((id: string) =>
+          supabase.from("subscriptions").select("id", { count: "exact", head: true }).eq("club_id", id)
+        )),
+        Promise.all(clubIds.map((id: string) =>
+          supabase.from("subscriptions").select("id", { count: "exact", head: true }).eq("club_id", id).eq("member_type", "paid")
+        )),
+      ])
+      const clubsWithCounts: ClubWithCount[] = rawClubs.map((c: any, i: number) => ({
+        ...c,
+        follower_count: followerCounts[i].count ?? 0,
+        member_count: memberCounts[i].count ?? 0,
+      }))
       setMyClubs(clubsWithCounts)
       if (clubsWithCounts.length > 0) setSelectedClubId(clubsWithCounts[0].id)
       await loadRuns(clubIds)
@@ -920,7 +930,16 @@ function ManagerView({ userId }: { userId: string }) {
             </div>
             <div className="flex items-center gap-3 mt-1 flex-wrap">
               {selectedClub.city && <p className="text-xs text-white/80 flex items-center gap-1"><MapPin className="w-3 h-3" />{selectedClub.city}</p>}
-              {selectedClub.member_count >= 2 && <p className="text-xs text-white/80 flex items-center gap-1"><Users className="w-3 h-3" />{selectedClub.member_count} members</p>}
+              {selectedClub.follower_count > 0 && (
+                <p className="text-xs text-white/80 flex items-center gap-1">
+                  <Users className="w-3 h-3" />{selectedClub.follower_count} follower{selectedClub.follower_count === 1 ? "" : "s"}
+                </p>
+              )}
+              {selectedClub.membership_type !== "free" && selectedClub.member_count > 0 && (
+                <p className="text-xs text-white/80 flex items-center gap-1">
+                  <ShieldCheck className="w-3 h-3" />{selectedClub.member_count} member{selectedClub.member_count === 1 ? "" : "s"}
+                </p>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
@@ -1591,7 +1610,7 @@ function ManagerView({ userId }: { userId: string }) {
                     )}
                   </div>
                   {!newsletterOpen && (
-                    <p className="text-sm text-white">Email all {selectedClub?.member_count ?? 0} follower{selectedClub?.member_count === 1 ? "" : "s"}</p>
+                    <p className="text-sm text-white">Email all {selectedClub?.follower_count ?? 0} follower{selectedClub?.follower_count === 1 ? "" : "s"}</p>
                   )}
                   {newsletterOpen && !isGrowth && !isEnterprise && (
                     <div className="space-y-3">
