@@ -329,19 +329,22 @@ export default function ClubPageClient({
         <div className="flex items-center gap-3 flex-wrap">
           {club.membership_type !== "free" ? (
             <>
-              {/* Free follow — separate from membership: followers of a private
-                  klub only ever see its public/community runs, never members-only ones. */}
-              <button
-                onClick={handleFollow}
-                disabled={subscribing}
-                className={`px-5 py-2.5 rounded-full text-sm font-black transition disabled:opacity-50 ${
-                  isSubscribed
-                    ? "bg-[#1e2d12] border border-[#c5f135]/50 text-[#c5f135]"
-                    : "bg-[#1e2d12] border border-white/20 text-white/70 hover:border-[#c5f135]/40"
-                }`}
-              >
-                {subscribing ? "…" : isSubscribed ? "Following" : "Follow"}
-              </button>
+              {/* Follow is only shown to non-members — a member is inherently
+                  "following" too (same subscriptions row), the page should
+                  just say Member, not Member + Following redundantly. */}
+              {!isPaidMember && (
+                <button
+                  onClick={handleFollow}
+                  disabled={subscribing}
+                  className={`px-5 py-2.5 rounded-full text-sm font-black transition disabled:opacity-50 ${
+                    isSubscribed
+                      ? "bg-[#1e2d12] border border-[#c5f135]/50 text-[#c5f135]"
+                      : "bg-[#1e2d12] border border-white/20 text-white/70 hover:border-[#c5f135]/40"
+                  }`}
+                >
+                  {subscribing ? "…" : isSubscribed ? "Following" : "Follow"}
+                </button>
+              )}
 
               {!isPaidMember ? (
                 club.membership_price_cents ? (
