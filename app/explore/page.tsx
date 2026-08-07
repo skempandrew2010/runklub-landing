@@ -728,7 +728,10 @@ function ExplorePageInner() {
             <div className="h-8" />
           </div>
           <div className="w-[42%] shrink-0">
-            <div className={`sticky transition-[filter] ${gatedClass}`} style={{ top: 'var(--navbar-h)', height: 'calc(100vh - var(--navbar-h))' }}>
+            <div
+              className={`sticky transition-[filter] ${gatedClass}`}
+              style={{ top: 'var(--navbar-h)', height: 'calc(100vh - var(--navbar-h))', transform: 'translateZ(0)', willChange: 'transform' }}
+            >
               <MapView city={city} runs={mapRuns} clubs={mapClubs} ownedClubIds={ownedClubIds} onCityCoords={setCityCoords} onBoundsChange={setMapBounds} />
             </div>
           </div>

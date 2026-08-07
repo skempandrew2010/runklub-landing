@@ -148,6 +148,30 @@ export default function MapView({ city, runs, clubs, onCityCoords, onBoundsChang
     return () => setMapReady(false)
   }, [])
 
+  // When this container is position:sticky, its on-screen position can shift
+  // sharply (e.g. releasing from "stuck" near the end of the scrollable
+  // column) faster than Mapbox repaints, leaving a stale/incomplete frame
+  // baked into the canvas with nothing to trigger a redraw afterward.
+  // resize() alone doesn't help since the canvas's actual size never changes
+  // (only its position does) — triggerRepaint() forces a fresh frame
+  // regardless of whether Mapbox thinks anything changed.
+  useEffect(() => {
+    if (!mapReady) return
+    let rafId: number | null = null
+    const handleScroll = () => {
+      if (rafId != null) return
+      rafId = requestAnimationFrame(() => {
+        mapRef.current?.getMap()?.triggerRepaint()
+        rafId = null
+      })
+    }
+    window.addEventListener("scroll", handleScroll, { passive: true, capture: true })
+    return () => {
+      window.removeEventListener("scroll", handleScroll, { capture: true })
+      if (rafId != null) cancelAnimationFrame(rafId)
+    }
+  }, [mapReady])
+
 
   // Geocode cities for runs that have no lat/lng but do have a city string
   useEffect(() => {
@@ -287,7 +311,6 @@ export default function MapView({ city, runs, clubs, onCityCoords, onBoundsChang
       style={{ width: "100%", height: "100%", minHeight: "180px" }}
       mapStyle="mapbox://styles/mapbox/streets-v11"
       mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
-      reuseMaps
       onLoad={() => {
         setMapReady(true)
         const map = mapRef.current?.getMap()
