@@ -31,6 +31,8 @@ export type Club = {
   website?: string | null
   latitude?: number | null
   longitude?: number | null
+  membership_price_cents?: number | null
+  stripe_connect_charges_enabled?: boolean | null
 }
 
 export type Run = {
@@ -197,6 +199,36 @@ export default function ClubPageClient({
     if (!error) setJoinRequestStatus("pending")
   }
 
+  const handleSubscribe = async () => {
+    if (!userId) { router.push("/login"); return }
+    setSubscribing(true)
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) { setSubscribing(false); router.push("/login"); return }
+    const res = await fetch(`/api/clubs/${club.id}/subscribe`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+    })
+    const json = await res.json()
+    if (res.ok && json.url) {
+      window.location.href = json.url
+    } else {
+      alert(json.error ?? "Couldn't start checkout. Try again.")
+      setSubscribing(false)
+    }
+  }
+
+  const handleManageMembership = async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) { router.push("/login"); return }
+    const res = await fetch(`/api/clubs/${club.id}/billing-portal`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+    })
+    const json = await res.json()
+    if (res.ok && json.url) window.location.href = json.url
+    else alert(json.error ?? "Couldn't open billing portal.")
+  }
+
   const submitClaim = async () => {
     if (!userId) { router.push("/login"); return }
     setClaimSubmitting(true)
@@ -312,18 +344,41 @@ export default function ClubPageClient({
               </button>
 
               {!isPaidMember ? (
+                club.membership_price_cents ? (
+                  club.stripe_connect_charges_enabled ? (
+                    <button
+                      onClick={handleSubscribe}
+                      disabled={subscribing}
+                      className="px-5 py-2.5 rounded-full text-sm font-black transition disabled:opacity-60 bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45]"
+                    >
+                      {subscribing ? "…" : `Subscribe — $${(club.membership_price_cents / 100).toFixed(2)}/mo`}
+                    </button>
+                  ) : (
+                    <span className="px-5 py-2.5 rounded-full text-sm font-black bg-[#1e2d12] border border-white/20 text-white/50">
+                      Membership signups paused
+                    </span>
+                  )
+                ) : (
+                  <button
+                    onClick={joinRequestStatus === "none" ? handleRequestJoin : undefined}
+                    disabled={requestingJoin || joinRequestStatus !== "none"}
+                    className={`px-5 py-2.5 rounded-full text-sm font-black transition disabled:opacity-60 ${
+                      joinRequestStatus === "pending"
+                        ? "bg-[#1e2d12] border border-white/20 text-white/50"
+                        : joinRequestStatus === "rejected"
+                        ? "bg-red-400/10 border border-red-400/30 text-red-400/70"
+                        : "bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45]"
+                    }`}
+                  >
+                    {requestingJoin ? "…" : joinRequestStatus === "pending" ? "Request Pending" : joinRequestStatus === "rejected" ? "Request Declined" : "Request to Join"}
+                  </button>
+                )
+              ) : club.membership_price_cents ? (
                 <button
-                  onClick={joinRequestStatus === "none" ? handleRequestJoin : undefined}
-                  disabled={requestingJoin || joinRequestStatus !== "none"}
-                  className={`px-5 py-2.5 rounded-full text-sm font-black transition disabled:opacity-60 ${
-                    joinRequestStatus === "pending"
-                      ? "bg-[#1e2d12] border border-white/20 text-white/50"
-                      : joinRequestStatus === "rejected"
-                      ? "bg-red-400/10 border border-red-400/30 text-red-400/70"
-                      : "bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45]"
-                  }`}
+                  onClick={handleManageMembership}
+                  className="px-5 py-2.5 rounded-full text-sm font-black bg-[#1e2d12] border border-[#c5f135]/50 text-[#c5f135] hover:border-[#c5f135]/80 transition"
                 >
-                  {requestingJoin ? "…" : joinRequestStatus === "pending" ? "Request Pending" : joinRequestStatus === "rejected" ? "Request Declined" : "Request to Join"}
+                  Member · Manage
                 </button>
               ) : (
                 <span className="px-5 py-2.5 rounded-full text-sm font-black bg-[#1e2d12] border border-[#c5f135]/50 text-[#c5f135]">

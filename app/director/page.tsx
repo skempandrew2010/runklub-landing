@@ -13,7 +13,7 @@ import {
   MessageSquare, MapPin,
   Zap, ShieldCheck,
   Globe, Lock, Check, X, Link2, Pencil, Trash2,
-  ChevronDown, ChevronRight, Repeat2,
+  ChevronDown, ChevronRight, Repeat2, CreditCard,
 } from "lucide-react"
 import RegionsLocationsTab from "@/app/admin/club-model/manager/RegionsLocationsTab"
 import PaceGroupsTab from "@/app/admin/club-model/manager/PaceGroupsTab"
@@ -84,6 +84,11 @@ type ClubWithCount = {
   membership_type: MembershipType
   website: string | null
   default_timezone: string | null
+  membership_price_cents: number | null
+  stripe_connect_account_id: string | null
+  stripe_connect_charges_enabled: boolean
+  stripe_connect_payouts_enabled: boolean
+  stripe_connect_details_submitted: boolean
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -181,10 +186,43 @@ function ManagerView({ userId }: { userId: string }) {
   const [runDrafts, setRunDrafts] = useState<Record<string, { title: string; time: string; timezone: string; distance: string; meeting_point: string; route_url: string; workout_type_id: string; description: string; is_in_person: boolean }>>({})
   const [runSaving, setRunSaving] = useState<Set<string>>(new Set())
   const [attendanceCounts, setAttendanceCounts] = useState<Record<string, number>>({})
+  const [connecting, setConnecting] = useState(false)
+  const [priceInput, setPriceInput] = useState("")
+  const [savingPrice, setSavingPrice] = useState(false)
+  const [priceError, setPriceError] = useState("")
 
   useEffect(() => {
     setNativeApp(isNativeApp())
     setIsAdminMode(typeof window !== "undefined" && new URLSearchParams(window.location.search).has("admin"))
+  }, [])
+
+  // Returning from Stripe's hosted Connect onboarding — the webhook alone
+  // isn't guaranteed to have arrived yet, so re-check status directly. An
+  // abandoned/expired Account Link (?connect_refresh=1) auto-retries.
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const params = new URLSearchParams(window.location.search)
+    const clubId = params.get("club_id")
+    if (!clubId) return
+
+    if (params.has("connect_return")) {
+      supabase.auth.getSession().then(async ({ data: { session } }) => {
+        if (!session) return
+        const res = await fetch("/api/director/connect/status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+          body: JSON.stringify({ clubId }),
+        })
+        const json = await res.json()
+        if (res.ok) {
+          setMyClubs((prev) => prev.map((c) => c.id === clubId ? { ...c, ...json } : c))
+        }
+        router.replace("/director")
+      })
+    } else if (params.has("connect_refresh")) {
+      startStripeConnect(clubId)
+      router.replace("/director")
+    }
   }, [])
 
   const loadRuns = useCallback(async (clubIds: string[]) => {
@@ -260,7 +298,7 @@ function ManagerView({ userId }: { userId: string }) {
     const load = async () => {
       const { data: clubs } = await supabase
         .from("clubs")
-        .select("id, name, city, location, meeting_day, meeting_time, image_url, tier, is_public, instagram_handle, membership_type, website, default_timezone")
+        .select("id, name, city, location, meeting_day, meeting_time, image_url, tier, is_public, instagram_handle, membership_type, website, default_timezone, membership_price_cents, stripe_connect_account_id, stripe_connect_charges_enabled, stripe_connect_payouts_enabled, stripe_connect_details_submitted")
         .eq("user_id", userId)
       const rawClubs = clubs || []
       const clubIds = rawClubs.map((c: any) => c.id)
@@ -678,11 +716,66 @@ function ManagerView({ userId }: { userId: string }) {
     const club = myClubs.find((c) => c.id === selectedClubId)
     if (!club) return
     const next: MembershipType = club.membership_type === "free" ? "paid_required" : "free"
+    if (next === "free" && club.membership_price_cents) {
+      alert("Remove your membership price before making this klub public.")
+      return
+    }
     const { error } = await supabase.from("clubs").update({ membership_type: next }).eq("id", selectedClubId)
     if (!error) {
       setMyClubs((prev) => prev.map((c) => c.id === selectedClubId ? { ...c, membership_type: next } : c))
       setEditForm((prev) => ({ ...prev, membership: next }))
     }
+  }
+
+  const startStripeConnect = async (clubId: string) => {
+    setConnecting(true)
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) { setConnecting(false); return }
+    const res = await fetch("/api/director/connect/start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ clubId }),
+    })
+    const json = await res.json()
+    if (res.ok && json.url) {
+      window.location.href = json.url
+    } else {
+      alert(json.error ?? "Couldn't start Stripe onboarding.")
+      setConnecting(false)
+    }
+  }
+
+  const savePrice = async (override?: number | null) => {
+    if (!selectedClubId) return
+    setSavingPrice(true)
+    setPriceError("")
+    let priceCents: number | null
+    if (override !== undefined) {
+      priceCents = override
+    } else {
+      const trimmed = priceInput.trim()
+      priceCents = trimmed === "" ? null : Math.round(parseFloat(trimmed) * 100)
+      if (priceCents !== null && (!Number.isFinite(priceCents) || Number.isNaN(priceCents))) {
+        setPriceError("Enter a valid dollar amount")
+        setSavingPrice(false)
+        return
+      }
+    }
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) { setSavingPrice(false); return }
+    const res = await fetch("/api/director/connect/set-price", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ clubId: selectedClubId, priceCents }),
+    })
+    const json = await res.json()
+    setSavingPrice(false)
+    if (!res.ok) { setPriceError(json.error ?? "Couldn't save price"); return }
+    setMyClubs((prev) => prev.map((c) => c.id === selectedClubId
+      ? { ...c, membership_price_cents: priceCents, membership_type: priceCents && c.membership_type === "free" ? "paid_required" : c.membership_type }
+      : c
+    ))
+    setPriceInput("")
   }
 
   const updateDefaultTimezone = async (tz: string) => {
@@ -1886,6 +1979,59 @@ function ManagerView({ userId }: { userId: string }) {
                     {selectedClub.membership_type === "free" ? "Public" : "Private"}
                   </span>
                 </button>
+              </Card>
+
+              <Card>
+                <SectionTitle>Membership Payments</SectionTitle>
+                {!selectedClub.stripe_connect_account_id ? (
+                  <>
+                    <p className="text-xs text-white/80 mb-3">Connect a Stripe account so runners can pay for membership — the money goes straight to your klub, RunKlub only keeps a small cut.</p>
+                    <Button onClick={() => startStripeConnect(selectedClub.id)} disabled={connecting}>
+                      {connecting ? "…" : "Connect with Stripe"}
+                    </Button>
+                  </>
+                ) : !selectedClub.stripe_connect_charges_enabled ? (
+                  <>
+                    <p className="text-xs text-white/80 mb-3">Stripe onboarding isn&apos;t finished yet — you can&apos;t accept payments until it is.</p>
+                    <Button onClick={() => startStripeConnect(selectedClub.id)} disabled={connecting}>
+                      {connecting ? "…" : "Continue Stripe setup"}
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-3 p-3 rounded-xl bg-[#1a2110] border border-[#2e3d1a] mb-3">
+                      <CreditCard className="w-4 h-4 text-[#c5f135] shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-white">Stripe Connected</p>
+                        <p className="text-xs text-white/80 mt-0.5">
+                          {selectedClub.membership_price_cents
+                            ? `Charging $${(selectedClub.membership_price_cents / 100).toFixed(2)}/mo per member`
+                            : "No membership price set yet"}
+                        </p>
+                      </div>
+                    </div>
+                    <label className="block text-xs font-semibold text-white/80 mb-1.5">Monthly membership price</label>
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <Input
+                          type="number"
+                          min="3"
+                          max="1000"
+                          step="0.01"
+                          placeholder={selectedClub.membership_price_cents ? (selectedClub.membership_price_cents / 100).toFixed(2) : "e.g. 10.00"}
+                          value={priceInput}
+                          onChange={(e) => setPriceInput(e.target.value)}
+                        />
+                      </div>
+                      <Button onClick={() => savePrice()} disabled={savingPrice}>{savingPrice ? "…" : "Save"}</Button>
+                      {selectedClub.membership_price_cents && (
+                        <Button variant="ghost" onClick={() => savePrice(null)} disabled={savingPrice}>Clear</Button>
+                      )}
+                    </div>
+                    {priceError && <p className="text-red-400 text-xs mt-2">{priceError}</p>}
+                    <p className="text-xs text-white/40 mt-2">$3–$1,000/mo. Setting a price replaces free approval requests with paid signups.</p>
+                  </>
+                )}
               </Card>
 
               <Card>

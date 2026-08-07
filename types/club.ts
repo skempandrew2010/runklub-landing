@@ -18,4 +18,7 @@ export type Club = {
   is_public?: boolean | null
   membership_type?: "free" | "optional_paid" | "paid_required" | null
   website?: string | null
+  membership_price_cents?: number | null
+  stripe_connect_account_id?: string | null
+  stripe_connect_charges_enabled?: boolean | null
 }
