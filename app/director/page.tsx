@@ -155,7 +155,7 @@ function ManagerView({ userId }: { userId: string }) {
   const [nativeApp, setNativeApp] = useState(false)
   const [tierOverride, setTierOverride] = useState<"free" | "starter" | "growth" | "enterprise" | null>(null)
   const [isAdminMode, setIsAdminMode] = useState(false)
-  const [members, setMembers] = useState<{ id: string; user_id: string; created_at: string; member_type: string; profiles: { display_name: string | null; avatar_url: string | null } | null }[]>([])
+  const [members, setMembers] = useState<{ id: string; user_id: string; created_at: string; member_type: string; profiles: { display_name: string | null; avatar_url: string | null } | null; email: string | null }[]>([])
   const [membersLoading, setMembersLoading] = useState(false)
   const [clubCoaches, setClubCoaches] = useState<{ id: string; name: string; user_id: string | null }[]>([])
   const [pendingRequests, setPendingRequests] = useState<{ id: string; created_at: string; user_id: string; profiles: { display_name: string | null; avatar_url: string | null } | null }[]>([])
@@ -223,23 +223,29 @@ function ManagerView({ userId }: { userId: string }) {
     return new Map((data || []).map((p: any) => [p.id, p]))
   }
 
+  const loadMembers = async (clubId: string) => {
+    const [{ data: subs }, { data: emailRows }] = await Promise.all([
+      supabase.from("subscriptions").select("id, user_id, created_at, member_type").eq("club_id", clubId).order("created_at", { ascending: false }),
+      supabase.rpc("get_club_member_emails", { p_club_id: clubId }),
+    ])
+    const rows = (subs as any[]) || []
+    const profs = await fetchProfilesMap(rows.map((s) => s.user_id))
+    const emailByUserId = new Map(((emailRows as any[]) || []).map((r) => [r.user_id, r.email]))
+    setMembers(rows.map((s) => ({ ...s, profiles: profs.get(s.user_id) ?? null, email: emailByUserId.get(s.user_id) ?? null })))
+  }
+
   useEffect(() => {
     if (tab !== "members" || !selectedClubId) return
     setMembersLoading(true)
     Promise.all([
-      // Neither subscriptions nor membership_requests has an FK relationship
-      // configured to profiles in the DB, so an embedded profiles(...) select
-      // errors out silently — fetch profiles separately and merge instead
-      // (see fetchProfilesMap).
-      supabase.from("subscriptions").select("id, user_id, created_at, member_type").eq("club_id", selectedClubId).order("created_at", { ascending: false }),
+      loadMembers(selectedClubId),
+      // membership_requests has no FK relationship configured to profiles in
+      // the DB, so an embedded profiles(...) select errors out silently —
+      // fetch profiles separately and merge instead (see fetchProfilesMap).
       supabase.from("membership_requests").select("id, created_at, user_id").eq("club_id", selectedClubId).eq("status", "pending").order("created_at", { ascending: true }),
       supabase.from("member_invites").select("id, email, name, created_at").eq("club_id", selectedClubId).eq("status", "pending").order("created_at", { ascending: false }),
       supabase.from("coaches").select("id, name, user_id").eq("club_id", selectedClubId),
-    ]).then(async ([{ data: subs }, { data: reqs }, { data: invites }, { data: coachRows }]) => {
-      const subRows = (subs as any[]) || []
-      const subProfiles = await fetchProfilesMap(subRows.map((s) => s.user_id))
-      setMembers(subRows.map((s) => ({ ...s, profiles: subProfiles.get(s.user_id) ?? null })))
-
+    ]).then(async ([, { data: reqs }, { data: invites }, { data: coachRows }]) => {
       const reqRows = (reqs as any[]) || []
       const reqProfiles = await fetchProfilesMap(reqRows.map((r) => r.user_id))
       setPendingRequests(reqRows.map((r) => ({ ...r, profiles: reqProfiles.get(r.user_id) ?? null })))
@@ -562,12 +568,7 @@ function ManagerView({ userId }: { userId: string }) {
     })
     if (res.ok) {
       setPendingRequests((prev) => prev.filter((r) => r.id !== requestId))
-      if (action === "approve") {
-        const { data } = await supabase.from("subscriptions").select("id, user_id, created_at, member_type").eq("club_id", selectedClubId).order("created_at", { ascending: false })
-        const rows = (data as any[]) || []
-        const profs = await fetchProfilesMap(rows.map((s) => s.user_id))
-        setMembers(rows.map((s) => ({ ...s, profiles: profs.get(s.user_id) ?? null })))
-      }
+      if (action === "approve" && selectedClubId) await loadMembers(selectedClubId)
     }
   }
 
@@ -600,10 +601,7 @@ function ManagerView({ userId }: { userId: string }) {
       if (!res.ok) { setAddError(json.error ?? "Something went wrong"); return }
       setAddSuccess(`${json.profile?.display_name || addEmail} added!`)
       setAddEmail("")
-      const { data } = await supabase.from("subscriptions").select("id, user_id, created_at, member_type").eq("club_id", selectedClubId).order("created_at", { ascending: false })
-      const rows = (data as any[]) || []
-      const profs = await fetchProfilesMap(rows.map((s) => s.user_id))
-      setMembers(rows.map((s) => ({ ...s, profiles: profs.get(s.user_id) ?? null })))
+      await loadMembers(selectedClubId)
       setTimeout(() => setAddSuccess(""), 3000)
     } finally {
       setAddSending(false)
@@ -1382,6 +1380,7 @@ function ManagerView({ userId }: { userId: string }) {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold text-white truncate">{m.profiles?.display_name || "Runner"}</p>
+                    {m.email && <p className="text-xs text-white/60 truncate">{m.email}</p>}
                     <p className="text-xs text-white/80">Joined {new Date(m.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</p>
                   </div>
                   {showSplit && (
