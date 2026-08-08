@@ -278,7 +278,7 @@ export default function ClubPageClient({
 
         <div className="relative max-w-2xl mx-auto px-5 pt-5 pb-8">
           <button
-            onClick={() => router.back()}
+            onClick={() => router.push("/explore")}
             className="flex items-center gap-1.5 text-white/50 hover:text-white transition text-sm font-medium mb-6"
           >
             <ArrowLeft className="w-4 h-4" /> Back
