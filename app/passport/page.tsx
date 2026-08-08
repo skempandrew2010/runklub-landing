@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Stamp, Flame, MapPin, Users2, CalendarCheck, ChevronLeft, ChevronRight, Home, Plane, Trophy, Lock, Share2 } from "lucide-react"
+import { Stamp, Flame, MapPin, Users2, CalendarCheck, ChevronLeft, ChevronRight, Home, Plane, Trophy, Lock, Share2, X } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import {
   getPassportData,
@@ -229,67 +229,138 @@ function StatesRow({ states }: { states: StateProgress[] }) {
 function StampSlot({
   slot,
   isNew,
-  onShare,
-  sharing,
+  onOpenActions,
 }: {
   slot: BookPage["slots"][number]
   isNew: boolean
-  onShare: (slot: BookStampSlot) => void
-  sharing: boolean
+  onOpenActions: (slot: BookStampSlot) => void
 }) {
   const gradient = getGradient(slot.club_name)
-  return (
-    <Link href={`/clubs/${slot.club_id}`} className="flex flex-col items-center gap-1.5 text-center group">
-      <div className="relative">
-        <div
-          className={`w-16 h-16 rounded-full overflow-hidden flex items-center justify-center border-2 transition-transform duration-300 group-hover:scale-105 group-active:scale-95 ${
-            slot.stamped
-              ? `bg-gradient-to-br ${gradient} border-[#3d5220] shadow-lg shadow-black/30`
-              : "border-dashed border-white/15 bg-transparent opacity-40 group-hover:opacity-70"
-          } ${isNew ? "ring-2 ring-[#c5f135] animate-pulse" : ""}`}
-        >
-          {slot.stamped && slot.club_image_url ? (
-            <img src={slot.club_image_url} alt="" className="w-full h-full object-cover" />
-          ) : (
-            <span className={`text-sm font-black ${slot.stamped ? "text-white/80" : "text-white/20"}`}>
-              {clubAbbr(slot.club_name)}
-            </span>
-          )}
-        </div>
-        {slot.stamped && (
-          <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-[#1a2110] border border-[#3d5220] flex items-center justify-center">
-            {slot.is_home ? (
-              <Home className="w-2.5 h-2.5 text-[#c5f135]" />
-            ) : (
-              <Plane className="w-2.5 h-2.5 text-white/50" />
-            )}
-          </span>
-        )}
-        {slot.stamped && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              if (!sharing) onShare(slot)
-            }}
-            disabled={sharing}
-            aria-label={`Share ${slot.club_name} stamp`}
-            className="absolute -top-1 -left-1 w-5 h-5 rounded-full bg-[#1a2110] border border-[#3d5220] flex items-center justify-center hover:bg-[#c5f135] hover:border-[#c5f135] transition disabled:opacity-50"
-          >
-            <Share2 className="w-2.5 h-2.5 text-white/60 hover:text-[#1a2110]" />
-          </button>
-        )}
-        {isNew && (
-          <span className="absolute -top-1 -right-1 px-1 py-0.5 rounded-full bg-[#c5f135] text-[#1a2110] text-[7px] font-black tracking-wide">
-            NEW
+
+  const badge = (
+    <div className="relative">
+      <div
+        className={`w-16 h-16 rounded-full overflow-hidden flex items-center justify-center border-2 transition-transform duration-300 group-hover:scale-105 group-active:scale-95 ${
+          slot.stamped
+            ? `bg-gradient-to-br ${gradient} border-[#3d5220] shadow-lg shadow-black/30`
+            : "border-dashed border-white/15 bg-transparent opacity-40 group-hover:opacity-70"
+        } ${isNew ? "ring-2 ring-[#c5f135] animate-pulse" : ""}`}
+      >
+        {slot.stamped && slot.club_image_url ? (
+          <img src={slot.club_image_url} alt="" className="w-full h-full object-cover" />
+        ) : (
+          <span className={`text-sm font-black ${slot.stamped ? "text-white/80" : "text-white/20"}`}>
+            {clubAbbr(slot.club_name)}
           </span>
         )}
       </div>
-      <p className={`text-[10px] leading-tight line-clamp-2 ${slot.stamped ? "text-white/80 font-semibold group-hover:text-[#c5f135]" : "text-white/25"}`}>
-        {slot.club_name}
-      </p>
-    </Link>
+      {slot.stamped && (
+        <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-[#1a2110] border border-[#3d5220] flex items-center justify-center">
+          {slot.is_home ? (
+            <Home className="w-2.5 h-2.5 text-[#c5f135]" />
+          ) : (
+            <Plane className="w-2.5 h-2.5 text-white/50" />
+          )}
+        </span>
+      )}
+      {isNew && (
+        <span className="absolute -top-1 -right-1 px-1 py-0.5 rounded-full bg-[#c5f135] text-[#1a2110] text-[7px] font-black tracking-wide">
+          NEW
+        </span>
+      )}
+    </div>
+  )
+
+  const label = (
+    <p className={`text-[10px] leading-tight line-clamp-2 ${slot.stamped ? "text-white/80 font-semibold group-hover:text-[#c5f135]" : "text-white/25"}`}>
+      {slot.club_name}
+    </p>
+  )
+
+  if (!slot.stamped) {
+    return (
+      <Link href={`/clubs/${slot.club_id}`} className="flex flex-col items-center gap-1.5 text-center group">
+        {badge}
+        {label}
+      </Link>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => onOpenActions(slot)}
+      className="flex flex-col items-center gap-1.5 text-center group"
+    >
+      {badge}
+      {label}
+    </button>
+  )
+}
+
+function StampActionSheet({
+  slot,
+  page,
+  sharing,
+  onShare,
+  onViewKlub,
+  onClose,
+}: {
+  slot: BookStampSlot
+  page: BookPage
+  sharing: boolean
+  onShare: () => void
+  onViewKlub: () => void
+  onClose: () => void
+}) {
+  const gradient = getGradient(slot.club_name)
+  return (
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full sm:max-w-sm bg-[#1e2d12] border border-[#2e3d1a] rounded-t-3xl sm:rounded-3xl p-5 pb-8 sm:pb-5 animate-[fadeUp_0.25s_ease-out_forwards]"
+      >
+        <div className="flex items-center gap-3 mb-5">
+          <div className={`w-12 h-12 rounded-full overflow-hidden flex items-center justify-center border-2 border-[#3d5220] bg-gradient-to-br ${gradient} shrink-0`}>
+            {slot.club_image_url ? (
+              <img src={slot.club_image_url} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-xs font-black text-white/80">{clubAbbr(slot.club_name)}</span>
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-black text-white leading-tight truncate">{slot.club_name}</p>
+            <p className="text-xs text-white/40">
+              {page.city_name}{page.city_state ? `, ${page.city_state}` : ""}
+            </p>
+          </div>
+          <button onClick={onClose} className="text-white/30 hover:text-white/60 transition p-1 shrink-0" aria-label="Close">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="space-y-2">
+          <button
+            onClick={onShare}
+            disabled={sharing}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-[#c5f135] text-[#1a2110] text-sm font-black hover:bg-[#d4ff45] transition disabled:opacity-50"
+          >
+            <Share2 className="w-4 h-4" />
+            {sharing ? "Sharing…" : "Share Stamp"}
+          </button>
+          <button
+            onClick={onViewKlub}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-[#1a2110] border border-[#2e3d1a] text-white text-sm font-bold hover:border-white/20 transition"
+          >
+            <Users2 className="w-4 h-4 text-white/50" />
+            View Klub
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -297,14 +368,12 @@ function PassportBookPage({
   page,
   justUnlocked,
   userId,
-  onShareStamp,
-  sharingClubId,
+  onOpenStampActions,
 }: {
   page: BookPage
   justUnlocked: JustUnlocked
   userId: string | null
-  onShareStamp: (slot: BookStampSlot, page: BookPage) => void
-  sharingClubId: string | null
+  onOpenStampActions: (slot: BookStampSlot, page: BookPage) => void
 }) {
   const cityIsNew = justUnlocked.cityIds.includes(page.city_id)
   return (
@@ -335,8 +404,7 @@ function PassportBookPage({
               key={slot.club_id}
               slot={slot}
               isNew={justUnlocked.clubIds.includes(slot.club_id)}
-              onShare={(s) => onShareStamp(s, page)}
-              sharing={sharingClubId === slot.club_id}
+              onOpenActions={(s) => onOpenStampActions(s, page)}
             />
           ))}
         </div>
@@ -374,7 +442,8 @@ export default function PassportPage() {
   const [tierProgress, setTierProgress] = useState<TierProgress | null>(null)
   const [states, setStates] = useState<StateProgress[]>([])
   const [sharing, setSharing] = useState(false)
-  const [sharingClubId, setSharingClubId] = useState<string | null>(null)
+  const [sharingStamp, setSharingStamp] = useState(false)
+  const [actionSheet, setActionSheet] = useState<{ slot: BookStampSlot; page: BookPage } | null>(null)
   const scrollerRef = useRef<HTMLDivElement>(null)
 
   // Guest-facing teaser data: real, public (no RLS gate), used to show a
@@ -483,7 +552,7 @@ export default function PassportPage() {
   }
 
   const handleShareStamp = async (slot: BookStampSlot, page: BookPage) => {
-    setSharingClubId(slot.club_id)
+    setSharingStamp(true)
     try {
       const params = new URLSearchParams({
         clubName: slot.club_name,
@@ -503,7 +572,7 @@ export default function PassportPage() {
         window.open(url, "_blank")
       }
     } catch { /* sharing failed — non-critical, user can retry */ }
-    setSharingClubId(null)
+    setSharingStamp(false)
   }
 
   return (
@@ -662,8 +731,7 @@ export default function PassportPage() {
                       page={page}
                       justUnlocked={justUnlocked}
                       userId={userId}
-                      onShareStamp={handleShareStamp}
-                      sharingClubId={sharingClubId}
+                      onOpenStampActions={(slot, p) => setActionSheet({ slot, page: p })}
                     />
                   ))}
                 </div>
@@ -672,6 +740,25 @@ export default function PassportPage() {
           </>
         )}
       </div>
+
+      {actionSheet && (
+        <StampActionSheet
+          slot={actionSheet.slot}
+          page={actionSheet.page}
+          sharing={sharingStamp}
+          onShare={async () => {
+            const { slot, page } = actionSheet
+            setActionSheet(null)
+            await handleShareStamp(slot, page)
+          }}
+          onViewKlub={() => {
+            const clubId = actionSheet.slot.club_id
+            setActionSheet(null)
+            router.push(`/clubs/${clubId}`)
+          }}
+          onClose={() => setActionSheet(null)}
+        />
+      )}
     </div>
   )
 }
