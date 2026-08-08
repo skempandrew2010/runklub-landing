@@ -321,7 +321,7 @@ function StampActionSheet({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full sm:max-w-sm bg-[#1e2d12] border border-[#2e3d1a] rounded-t-3xl sm:rounded-3xl p-5 pb-8 sm:pb-5 animate-[fadeUp_0.25s_ease-out_forwards]"
+        className="w-full sm:max-w-sm h-[50vh] sm:h-auto flex flex-col bg-[#1e2d12] border border-[#2e3d1a] rounded-t-3xl sm:rounded-3xl p-5 pb-8 sm:pb-5 animate-[fadeUp_0.25s_ease-out_forwards]"
       >
         <div className="flex items-center gap-3 mb-5">
           <div className={`w-12 h-12 rounded-full overflow-hidden flex items-center justify-center border-2 border-[#3d5220] bg-gradient-to-br ${gradient} shrink-0`}>
@@ -340,6 +340,16 @@ function StampActionSheet({
           <button onClick={onClose} className="text-white/30 hover:text-white/60 transition p-1 shrink-0" aria-label="Close">
             <X className="w-5 h-5" />
           </button>
+        </div>
+
+        <div className="flex-1 flex flex-col items-center justify-center">
+          <div className={`w-28 h-28 rounded-full overflow-hidden flex items-center justify-center border-2 border-[#3d5220] bg-gradient-to-br ${gradient} shadow-lg shadow-black/30`}>
+            {slot.club_image_url ? (
+              <img src={slot.club_image_url} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-2xl font-black text-white/80">{clubAbbr(slot.club_name)}</span>
+            )}
+          </div>
         </div>
 
         <div className="space-y-2">
