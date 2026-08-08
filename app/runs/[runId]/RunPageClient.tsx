@@ -235,11 +235,13 @@ export default function RunPageClient({ runId }: { runId: string }) {
           )}
 
           {run.is_in_person && (
-            <CheckInProximityMap
-              target={resolveCheckinTarget(run, club, cityFallback)}
-              position={position}
-              positionError={positionError}
-            />
+            <div className="mb-4">
+              <CheckInProximityMap
+                target={resolveCheckinTarget(run, club, cityFallback)}
+                position={position}
+                positionError={positionError}
+              />
+            </div>
           )}
 
           {run.description && (
