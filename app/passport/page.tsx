@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Stamp, Flame, MapPin, Users2, CalendarCheck, ChevronLeft, ChevronRight, Home, Plane, Trophy, Lock } from "lucide-react"
+import { Stamp, Flame, MapPin, Users2, CalendarCheck, ChevronLeft, ChevronRight, Home, Plane, Trophy, Lock, Share2 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import {
   getPassportData,
@@ -15,6 +15,7 @@ import {
   getUserStatesProgress,
   type CityProgress,
   type BookPage,
+  type BookStampSlot,
   type TierProgress,
   type StateProgress,
 } from "@/lib/checkins"
@@ -225,7 +226,17 @@ function StatesRow({ states }: { states: StateProgress[] }) {
   )
 }
 
-function StampSlot({ slot, isNew }: { slot: BookPage["slots"][number]; isNew: boolean }) {
+function StampSlot({
+  slot,
+  isNew,
+  onShare,
+  sharing,
+}: {
+  slot: BookPage["slots"][number]
+  isNew: boolean
+  onShare: (slot: BookStampSlot) => void
+  sharing: boolean
+}) {
   const gradient = getGradient(slot.club_name)
   return (
     <Link href={`/clubs/${slot.club_id}`} className="flex flex-col items-center gap-1.5 text-center group">
@@ -254,6 +265,21 @@ function StampSlot({ slot, isNew }: { slot: BookPage["slots"][number]; isNew: bo
             )}
           </span>
         )}
+        {slot.stamped && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              if (!sharing) onShare(slot)
+            }}
+            disabled={sharing}
+            aria-label={`Share ${slot.club_name} stamp`}
+            className="absolute -top-1 -left-1 w-5 h-5 rounded-full bg-[#1a2110] border border-[#3d5220] flex items-center justify-center hover:bg-[#c5f135] hover:border-[#c5f135] transition disabled:opacity-50"
+          >
+            <Share2 className="w-2.5 h-2.5 text-white/60 hover:text-[#1a2110]" />
+          </button>
+        )}
         {isNew && (
           <span className="absolute -top-1 -right-1 px-1 py-0.5 rounded-full bg-[#c5f135] text-[#1a2110] text-[7px] font-black tracking-wide">
             NEW
@@ -267,7 +293,19 @@ function StampSlot({ slot, isNew }: { slot: BookPage["slots"][number]; isNew: bo
   )
 }
 
-function PassportBookPage({ page, justUnlocked, userId }: { page: BookPage; justUnlocked: JustUnlocked; userId: string | null }) {
+function PassportBookPage({
+  page,
+  justUnlocked,
+  userId,
+  onShareStamp,
+  sharingClubId,
+}: {
+  page: BookPage
+  justUnlocked: JustUnlocked
+  userId: string | null
+  onShareStamp: (slot: BookStampSlot, page: BookPage) => void
+  sharingClubId: string | null
+}) {
   const cityIsNew = justUnlocked.cityIds.includes(page.city_id)
   return (
     <div className="rk-book-page shrink-0 w-full px-1 flex flex-col md:flex-row gap-4 items-stretch">
@@ -293,7 +331,13 @@ function PassportBookPage({ page, justUnlocked, userId }: { page: BookPage; just
 
         <div className="grid grid-cols-4 gap-x-3 gap-y-5">
           {page.slots.slice(0, BADGE_ROW_LIMIT * 4).map((slot) => (
-            <StampSlot key={slot.club_id} slot={slot} isNew={justUnlocked.clubIds.includes(slot.club_id)} />
+            <StampSlot
+              key={slot.club_id}
+              slot={slot}
+              isNew={justUnlocked.clubIds.includes(slot.club_id)}
+              onShare={(s) => onShareStamp(s, page)}
+              sharing={sharingClubId === slot.club_id}
+            />
           ))}
         </div>
         {page.slots.length > BADGE_ROW_LIMIT * 4 && (
@@ -330,6 +374,7 @@ export default function PassportPage() {
   const [tierProgress, setTierProgress] = useState<TierProgress | null>(null)
   const [states, setStates] = useState<StateProgress[]>([])
   const [sharing, setSharing] = useState(false)
+  const [sharingClubId, setSharingClubId] = useState<string | null>(null)
   const scrollerRef = useRef<HTMLDivElement>(null)
 
   // Guest-facing teaser data: real, public (no RLS gate), used to show a
@@ -435,6 +480,30 @@ export default function PassportPage() {
       }
     } catch { /* sharing failed — non-critical, user can retry */ }
     setSharing(false)
+  }
+
+  const handleShareStamp = async (slot: BookStampSlot, page: BookPage) => {
+    setSharingClubId(slot.club_id)
+    try {
+      const params = new URLSearchParams({
+        clubName: slot.club_name,
+        cityName: page.city_name,
+        cityState: page.city_state ?? "",
+        stampNumber: String(slot.checkin_count),
+        totalCount: String(page.total_count),
+      })
+      if (slot.club_image_url) params.set("stampUrl", slot.club_image_url)
+      const url = `/api/passport/share-card?${params.toString()}`
+      const res = await fetch(url)
+      const blob = await res.blob()
+      const file = new File([blob], "runklub-stamp.png", { type: "image/png" })
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: "RunKlub" })
+      } else {
+        window.open(url, "_blank")
+      }
+    } catch { /* sharing failed — non-critical, user can retry */ }
+    setSharingClubId(null)
   }
 
   return (
@@ -588,7 +657,14 @@ export default function PassportPage() {
                   className="rk-book-scroller flex overflow-x-auto -mx-1"
                 >
                   {book.map((page) => (
-                    <PassportBookPage key={page.city_id} page={page} justUnlocked={justUnlocked} userId={userId} />
+                    <PassportBookPage
+                      key={page.city_id}
+                      page={page}
+                      justUnlocked={justUnlocked}
+                      userId={userId}
+                      onShareStamp={handleShareStamp}
+                      sharingClubId={sharingClubId}
+                    />
                   ))}
                 </div>
               </section>
