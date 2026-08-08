@@ -11,6 +11,8 @@ import { formatRunTime, type TimedRun } from "@/lib/timezone"
 import RunChatPanel from "@/components/RunChatPanel"
 import MissionCheckInModal from "@/components/MissionCheckInModal"
 import CheckInCelebration from "@/components/CheckInCelebration"
+import CheckInProximityMap from "@/components/CheckInProximityMap"
+import { resolveCheckinTarget, getCurrentPosition } from "@/lib/checkinGeofence"
 import type { CheckInResult } from "@/lib/server/checkin"
 
 function formatTime(run: TimedRun) {
@@ -62,6 +64,8 @@ export default function RunPageClient({ runId }: { runId: string }) {
   const [celebrationData, setCelebrationData] = useState<CheckInResult | null>(null)
   const [showChat, setShowChat] = useState(false)
   const [showMissionModal, setShowMissionModal] = useState(false)
+  const [position, setPosition] = useState<{ lat: number; lng: number } | null>(null)
+  const [positionError, setPositionError] = useState<string | null>(null)
 
   // Fetched client-side (not server-side with the anon key) so RLS evaluates
   // as the actual signed-in visitor — otherwise an approved member clicking
@@ -134,6 +138,16 @@ export default function RunPageClient({ runId }: { runId: string }) {
       .maybeSingle()
       .then(({ data }) => setCheckedIn(!!data))
   }, [userId, run])
+
+  // Best-effort — just for the "how far away am I" readout, so a denial
+  // here shouldn't block anything else on the page.
+  useEffect(() => {
+    if (!run || !club || !run.is_in_person) return
+    if (!resolveCheckinTarget(run, club, cityFallback)) return
+    getCurrentPosition()
+      .then((pos) => setPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude }))
+      .catch(() => setPositionError("Enable location to see how close you are"))
+  }, [run, club, cityFallback])
 
   if (loadingRun) {
     return (
@@ -218,6 +232,14 @@ export default function RunPageClient({ runId }: { runId: string }) {
             <p className="flex items-center gap-1.5 text-sm text-white/50 mb-3">
               <MapPin className="w-3.5 h-3.5 text-[#c5f135] shrink-0" /> {run.city}
             </p>
+          )}
+
+          {run.is_in_person && (
+            <CheckInProximityMap
+              target={resolveCheckinTarget(run, club, cityFallback)}
+              position={position}
+              positionError={positionError}
+            />
           )}
 
           {run.description && (
