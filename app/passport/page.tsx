@@ -321,7 +321,7 @@ function StampActionSheet({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full sm:max-w-sm h-[50vh] sm:h-auto flex flex-col bg-[#1e2d12] border border-[#2e3d1a] rounded-t-3xl sm:rounded-3xl p-5 pb-8 sm:pb-5 animate-[fadeUp_0.25s_ease-out_forwards]"
+        className="w-full sm:max-w-sm h-[calc(100vh_-_var(--navbar-h)_-_1cm)] sm:h-auto flex flex-col bg-[#1e2d12] border border-[#2e3d1a] rounded-t-3xl sm:rounded-3xl p-5 pb-8 sm:pb-5 animate-[fadeUp_0.25s_ease-out_forwards]"
       >
         <div className="flex items-center gap-3 mb-5">
           <div className={`w-12 h-12 rounded-full overflow-hidden flex items-center justify-center border-2 border-[#3d5220] bg-gradient-to-br ${gradient} shrink-0`}>
