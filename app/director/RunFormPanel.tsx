@@ -501,7 +501,7 @@ export default function RunFormPanel({
             {/* Workout */}
             <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-4 space-y-3">
               <div>
-                <p className="text-xs font-semibold text-white/50 mb-0.5">Workout</p>
+                <p className="text-xs font-semibold text-white/50 mb-0.5">Description</p>
                 <p className="text-[11px] text-white/25">
                   {workoutTypes.length > 0 ? "Pick from your workout library" : "Add workouts in Runs → Workout Library to link them here"}
                 </p>
