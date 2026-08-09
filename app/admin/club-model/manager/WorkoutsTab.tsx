@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { X } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { Card, SectionTitle, Input, TextArea, Button } from "./ui"
 import { type WorkoutSegment, formatWorkoutSegment, parseWorkoutStructure, PACE_OPTIONS, UNIT_OPTIONS } from "@/lib/workouts"
@@ -104,8 +103,9 @@ export default function WorkoutsTab({ clubId }: { clubId: string }) {
                         <option value="">pace</option>
                         {PACE_OPTIONS.map((p) => <option key={p} value={p}>{p}</option>)}
                       </select>
-                      <button type="button" onClick={() => removeSegment(i)} className="text-white/30 hover:text-red-400 transition p-1 shrink-0" aria-label="Remove segment">
-                        <X className="w-3.5 h-3.5" />
+                      <button type="button" onClick={() => removeSegment(i)}
+                        className="text-[10px] font-bold text-white/30 hover:text-red-400 transition px-1.5 py-1.5 shrink-0">
+                        Delete
                       </button>
                     </div>
                   )
