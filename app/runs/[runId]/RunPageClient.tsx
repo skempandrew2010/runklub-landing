@@ -14,6 +14,7 @@ import CheckInCelebration from "@/components/CheckInCelebration"
 import CheckInProximityMap from "@/components/CheckInProximityMap"
 import { resolveCheckinTarget, getCurrentPosition } from "@/lib/checkinGeofence"
 import type { CheckInResult } from "@/lib/server/checkin"
+import { type WorkoutSegment, formatWorkoutSegment, parseWorkoutStructure } from "@/lib/workouts"
 
 function formatTime(run: TimedRun) {
   return formatRunTime(run)
@@ -40,7 +41,7 @@ export type Run = {
   timezone: string | null
   run_lat: number | null
   run_lng: number | null
-  workout: { title: string; description: string | null } | null
+  workout: { title: string; description: string | null; structure: WorkoutSegment[] } | null
 }
 
 export type Club = {
@@ -76,7 +77,7 @@ export default function RunPageClient({ runId }: { runId: string }) {
       const { data, error } = await supabase
         .from("runs")
         .select(
-          "id, club_id, title, date, time, distance, meeting_point, city, external_url, description, tags, is_in_person, members_only, timezone, run_lat, run_lng, clubs(id, name, image_url, latitude, longitude, city, tier), workout:workout_type_id(title, description)"
+          "id, club_id, title, date, time, distance, meeting_point, city, external_url, description, tags, is_in_person, members_only, timezone, run_lat, run_lng, clubs(id, name, image_url, latitude, longitude, city, tier), workout:workout_type_id(title, description, structure)"
         )
         .eq("id", runId)
         .maybeSingle()
@@ -101,7 +102,13 @@ export default function RunPageClient({ runId }: { runId: string }) {
         timezone: data.timezone,
         run_lat: data.run_lat,
         run_lng: data.run_lng,
-        workout: data.workout as unknown as Run["workout"],
+        workout: data.workout
+          ? {
+              title: (data.workout as any).title,
+              description: (data.workout as any).description,
+              structure: parseWorkoutStructure((data.workout as any).structure),
+            }
+          : null,
       })
       setClub(clubData)
 
@@ -251,6 +258,13 @@ export default function RunPageClient({ runId }: { runId: string }) {
               <p className="text-[10px] font-black text-[#c5f135] uppercase tracking-widest mb-1.5">
                 Today&apos;s Workout · {run.workout.title}
               </p>
+              {run.workout.structure.length > 0 && (
+                <ul className="space-y-1 mb-2">
+                  {run.workout.structure.map((seg, i) => (
+                    <li key={i} className="text-sm text-white/90 font-semibold">{formatWorkoutSegment(seg)}</li>
+                  ))}
+                </ul>
+              )}
               {run.workout.description && (
                 <p className="text-sm text-white/70 leading-relaxed">{run.workout.description}</p>
               )}

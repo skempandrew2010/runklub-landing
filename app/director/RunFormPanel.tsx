@@ -6,10 +6,21 @@ import { ArrowLeft, CalendarPlus, Check, Globe, Lock, Repeat2 } from "lucide-rea
 import mapboxSdk from "@mapbox/mapbox-sdk/services/geocoding"
 import { localDateStr } from "@/utils/dates"
 import { COMMON_TIMEZONES, getBrowserTimezone } from "@/lib/timezone"
+import { type WorkoutSegment, formatWorkoutSegment, parseWorkoutStructure } from "@/lib/workouts"
 
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 const DAY_FULL = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+const MAX_DESCRIPTION_WORDS = 100
+
+function countWords(text: string): number {
+  return text.trim() ? text.trim().split(/\s+/).length : 0
+}
+
+function limitWords(text: string, max: number): string {
+  const words = text.trim().split(/\s+/).filter(Boolean)
+  return words.length <= max ? text : words.slice(0, max).join(" ")
+}
 
 function nextDateForWeekday(target: number): string {
   const today = new Date()
@@ -26,7 +37,7 @@ const TAG_GROUPS = [
 ]
 
 type PaceGroup = { id: string; name: string; pace_min: number; pace_max: number }
-type WorkoutType = { id: string; name: string; description: string | null }
+type WorkoutType = { id: string; name: string; description: string | null; structure: WorkoutSegment[] }
 type Coach = { id: string; name: string }
 type Region = { id: string; name: string }
 type Location = { id: string; name: string; address: string | null; region_id: string }
@@ -115,7 +126,7 @@ export default function RunFormPanel({
     const load = async () => {
       const [pg, wt, co, tpl, regionRows, clubRow] = await Promise.all([
         supabase.from("pace_groups").select("id, name, pace_min, pace_max").eq("club_id", clubId).order("pace_min"),
-        supabase.from("runs").select("id, title, description").eq("club_id", clubId).eq("kind", "workout").order("title"),
+        supabase.from("runs").select("id, title, description, structure").eq("club_id", clubId).eq("kind", "workout").order("title"),
         supabase.from("coaches").select("id, name").eq("club_id", clubId).order("name"),
         isEdit
           ? Promise.resolve({ data: [] })
@@ -128,7 +139,7 @@ export default function RunFormPanel({
         supabase.from("clubs").select("default_timezone").eq("id", clubId).single(),
       ])
       setPaceGroups((pg.data as PaceGroup[]) || [])
-      setWorkoutTypes(((wt.data ?? []) as any[]).map((r) => ({ id: r.id, name: r.title, description: r.description })))
+      setWorkoutTypes(((wt.data ?? []) as any[]).map((r) => ({ id: r.id, name: r.title, description: r.description, structure: parseWorkoutStructure(r.structure) })))
       setCoaches((co.data as Coach[]) || [])
       if (!isEdit) setTemplates((tpl.data as RunTemplate[]) || [])
       const clubDefaultTz = (clubRow.data as { default_timezone: string | null } | null)?.default_timezone
@@ -512,16 +523,29 @@ export default function RunFormPanel({
               )}
               {selectedWorkoutTypeId && (() => {
                 const wt = workoutTypes.find((w) => w.id === selectedWorkoutTypeId)
-                return wt?.description ? (
-                  <div className="bg-[#1a2110] border border-[#c5f135]/20 rounded-xl px-3 py-2.5">
-                    <p className="text-[10px] font-bold text-[#c5f135]/60 uppercase tracking-widest mb-1">{wt.name} — what runners will see</p>
-                    <p className="text-xs text-white/60 leading-relaxed">{wt.description}</p>
+                if (!wt || (wt.structure.length === 0 && !wt.description)) return null
+                return (
+                  <div className="bg-[#1a2110] border border-[#c5f135]/20 rounded-xl px-3 py-2.5 space-y-2">
+                    <p className="text-[10px] font-bold text-[#c5f135]/60 uppercase tracking-widest">{wt.name} — what runners will see</p>
+                    {wt.structure.length > 0 && (
+                      <ul className="space-y-1">
+                        {wt.structure.map((seg, i) => (
+                          <li key={i} className="text-xs text-white/80 font-semibold">{formatWorkoutSegment(seg)}</li>
+                        ))}
+                      </ul>
+                    )}
+                    {wt.description && <p className="text-xs text-white/60 leading-relaxed">{wt.description}</p>}
                   </div>
-                ) : null
+                )
               })()}
               <div>
-                <label className={lc}>Run Notes <span className="text-white/25 font-normal">(optional)</span></label>
-                <textarea value={description} onChange={(e) => setDescription(e.target.value)}
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-semibold text-white/50">Run Notes <span className="text-white/25 font-normal">(optional)</span></label>
+                  <span className={`text-[10px] font-semibold ${countWords(description) >= MAX_DESCRIPTION_WORDS ? "text-[#c5f135]" : "text-white/25"}`}>
+                    {countWords(description)}/{MAX_DESCRIPTION_WORDS} words
+                  </span>
+                </div>
+                <textarea value={description} onChange={(e) => setDescription(limitWords(e.target.value, MAX_DESCRIPTION_WORDS))}
                   placeholder="Weather, meeting details, anything else…" rows={3} className={`${ic} resize-none`} />
               </div>
             </div>

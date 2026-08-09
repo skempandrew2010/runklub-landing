@@ -836,8 +836,8 @@ function ManagerView({ userId }: { userId: string }) {
   const isPaid = !isFree
 
   const UPSELL_INFO: Record<"starter" | "growth" | "enterprise", { name: string; price: string; trial: boolean; headline: string; features: string[] }> = {
-    starter:    { name: "Starter",    price: "$24.99/mo", trial: true,  headline: "More tools for your klub",  features: ["Private member-only runs", "Weekly email reminders", "Charge members to join", "Workout library", "Verified badge"] },
-    growth:     { name: "Growth",     price: "$49.99/mo", trial: false, headline: "Scale up your klub",        features: ["Everything in Starter", "One branch + unlimited locations", "Up to 10 coaches", "Priority placement"] },
+    starter:    { name: "Starter",    price: "$24.99/mo", trial: true,  headline: "More tools for your klub",  features: ["Private member-only runs", "Weekly email reminders", "Charge members to join", "Verified badge"] },
+    growth:     { name: "Growth",     price: "$49.99/mo", trial: false, headline: "Scale up your klub",        features: ["Everything in Starter", "Workout library", "One branch + unlimited locations", "Up to 10 coaches", "Priority placement"] },
     enterprise: { name: "Enterprise", price: "$99.99/mo", trial: false, headline: "Take your klub to the top", features: ["Everything in Growth", "Unlimited branches", "First in city search", "Event payments at 1%"] },
   }
 
@@ -1130,8 +1130,8 @@ function ManagerView({ userId }: { userId: string }) {
           {isAdminMode && (() => {
             const TIER_PLANS: Record<"free" | "starter" | "growth" | "enterprise", { price: string; features: string[] }> = {
               free:       { price: "Free",        features: ["Public klub listing", "Unlimited run posts", "Run chat for members", "Basic analytics"] },
-              starter:    { price: "$24.99/mo",   features: ["1-month free trial", "Private member-only runs", "Weekly email reminders", "Charge members to join", "Workout library", "Verified badge + invite by email"] },
-              growth:     { price: "$49.99/mo",   features: ["Everything in Starter", "One branch + unlimited locations", "Pace groups", "Up to 10 coaches", "Priority placement in search"] },
+              starter:    { price: "$24.99/mo",   features: ["1-month free trial", "Private member-only runs", "Weekly email reminders", "Charge members to join", "Verified badge + invite by email"] },
+              growth:     { price: "$49.99/mo",   features: ["Everything in Starter", "Workout library", "One branch + unlimited locations", "Pace groups", "Up to 10 coaches", "Priority placement in search"] },
               enterprise: { price: "$99.99/mo",   features: ["Everything in Growth", "Unlimited branches", "First in city search", "Training schedules", "Event payments at 1% fee"] },
             }
             const activeTier = (tier === "starter" || tier === "growth" || tier === "enterprise") ? tier : "free"
@@ -1409,12 +1409,12 @@ function ManagerView({ userId }: { userId: string }) {
               <div className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-5">
                 <div className="flex items-center justify-between mb-1">
                   <h2 className="text-xs font-bold text-[#c5f135]/70 uppercase tracking-widest">Workout Library</h2>
-                  {!isPaid && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-[#c5f135] text-[#1a2110]">STARTER+</span>}
+                  {!(isGrowth || isEnterprise) && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-[#c5f135] text-[#1a2110]">GROWTH+</span>}
                 </div>
                 <p className="text-xs text-white/35 mb-4">Reusable workout types you can attach to any run</p>
-                {isPaid
+                {(isGrowth || isEnterprise)
                   ? <WorkoutsTab clubId={selectedClubId ?? ""} />
-                  : <p className="text-sm text-white/80">Upgrade to Starter to build a workout library.</p>
+                  : <p className="text-sm text-white/80">Upgrade to Growth to build a workout library.</p>
                 }
               </div>
             </div>
