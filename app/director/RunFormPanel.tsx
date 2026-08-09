@@ -26,7 +26,7 @@ const TAG_GROUPS = [
 ]
 
 type PaceGroup = { id: string; name: string; pace_min: number; pace_max: number }
-type WorkoutType = { id: string; name: string }
+type WorkoutType = { id: string; name: string; description: string | null }
 type Coach = { id: string; name: string }
 type Region = { id: string; name: string }
 type Location = { id: string; name: string; address: string | null; region_id: string }
@@ -115,7 +115,7 @@ export default function RunFormPanel({
     const load = async () => {
       const [pg, wt, co, tpl, regionRows, clubRow] = await Promise.all([
         supabase.from("pace_groups").select("id, name, pace_min, pace_max").eq("club_id", clubId).order("pace_min"),
-        supabase.from("runs").select("id, title").eq("club_id", clubId).eq("kind", "workout").order("title"),
+        supabase.from("runs").select("id, title, description").eq("club_id", clubId).eq("kind", "workout").order("title"),
         supabase.from("coaches").select("id, name").eq("club_id", clubId).order("name"),
         isEdit
           ? Promise.resolve({ data: [] })
@@ -128,7 +128,7 @@ export default function RunFormPanel({
         supabase.from("clubs").select("default_timezone").eq("id", clubId).single(),
       ])
       setPaceGroups((pg.data as PaceGroup[]) || [])
-      setWorkoutTypes(((wt.data ?? []) as any[]).map((r) => ({ id: r.id, name: r.title })))
+      setWorkoutTypes(((wt.data ?? []) as any[]).map((r) => ({ id: r.id, name: r.title, description: r.description })))
       setCoaches((co.data as Coach[]) || [])
       if (!isEdit) setTemplates((tpl.data as RunTemplate[]) || [])
       const clubDefaultTz = (clubRow.data as { default_timezone: string | null } | null)?.default_timezone
@@ -510,10 +510,19 @@ export default function RunFormPanel({
                   ))}
                 </div>
               )}
+              {selectedWorkoutTypeId && (() => {
+                const wt = workoutTypes.find((w) => w.id === selectedWorkoutTypeId)
+                return wt?.description ? (
+                  <div className="bg-[#1a2110] border border-[#c5f135]/20 rounded-xl px-3 py-2.5">
+                    <p className="text-[10px] font-bold text-[#c5f135]/60 uppercase tracking-widest mb-1">{wt.name} — what runners will see</p>
+                    <p className="text-xs text-white/60 leading-relaxed">{wt.description}</p>
+                  </div>
+                ) : null
+              })()}
               <div>
-                <label className={lc}>Notes <span className="text-white/25 font-normal">(optional)</span></label>
+                <label className={lc}>Run Notes <span className="text-white/25 font-normal">(optional)</span></label>
                 <textarea value={description} onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Pace, terrain, workout details…" rows={3} className={`${ic} resize-none`} />
+                  placeholder="Weather, meeting details, anything else…" rows={3} className={`${ic} resize-none`} />
               </div>
             </div>
 

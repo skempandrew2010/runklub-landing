@@ -40,6 +40,7 @@ export type Run = {
   timezone: string | null
   run_lat: number | null
   run_lng: number | null
+  workout: { title: string; description: string | null } | null
 }
 
 export type Club = {
@@ -75,7 +76,7 @@ export default function RunPageClient({ runId }: { runId: string }) {
       const { data, error } = await supabase
         .from("runs")
         .select(
-          "id, club_id, title, date, time, distance, meeting_point, city, external_url, description, tags, is_in_person, members_only, timezone, run_lat, run_lng, clubs(id, name, image_url, latitude, longitude, city, tier)"
+          "id, club_id, title, date, time, distance, meeting_point, city, external_url, description, tags, is_in_person, members_only, timezone, run_lat, run_lng, clubs(id, name, image_url, latitude, longitude, city, tier), workout:workout_type_id(title, description)"
         )
         .eq("id", runId)
         .maybeSingle()
@@ -100,6 +101,7 @@ export default function RunPageClient({ runId }: { runId: string }) {
         timezone: data.timezone,
         run_lat: data.run_lat,
         run_lng: data.run_lng,
+        workout: data.workout as unknown as Run["workout"],
       })
       setClub(clubData)
 
@@ -241,6 +243,17 @@ export default function RunPageClient({ runId }: { runId: string }) {
                 position={position}
                 positionError={positionError}
               />
+            </div>
+          )}
+
+          {run.workout && (
+            <div className="bg-[#1e2d12] border border-[#c5f135]/25 rounded-2xl p-4 mb-4">
+              <p className="text-[10px] font-black text-[#c5f135] uppercase tracking-widest mb-1.5">
+                Today&apos;s Workout · {run.workout.title}
+              </p>
+              {run.workout.description && (
+                <p className="text-sm text-white/70 leading-relaxed">{run.workout.description}</p>
+              )}
             </div>
           )}
 
