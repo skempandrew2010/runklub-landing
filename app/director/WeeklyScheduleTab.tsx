@@ -72,18 +72,19 @@ export default function WeeklyScheduleTab({ clubId }: { clubId: string }) {
           >
             <p className="text-xs font-bold text-white/70">{label}</p>
 
-            <select
-              value={row.workout_type_id ?? ""}
-              onChange={(e) => saveDay(day, { workout_type_id: e.target.value || null })}
-              disabled={savingDay === day}
-              className="w-full min-w-0 bg-[#1e2d12] border border-[#2e3d1a] rounded-lg text-white text-xs px-2 py-2 truncate focus:outline-none focus:border-[#c5f135]/50 transition disabled:opacity-50"
-            >
-              <option value="">Rest day</option>
-              {workouts.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
-            </select>
-
-            {selected && (
-              <div className="space-y-1">
+            {selected ? (
+              <div className="bg-[#1e2d12] border border-[#c5f135]/25 rounded-lg px-2 py-2 space-y-1">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-xs font-bold text-[#c5f135]">{selected.name}</p>
+                  <button
+                    type="button"
+                    onClick={() => saveDay(day, { workout_type_id: null })}
+                    disabled={savingDay === day}
+                    className="text-[10px] font-bold text-white/30 hover:text-red-400 transition shrink-0 disabled:opacity-50"
+                  >
+                    Clear
+                  </button>
+                </div>
                 {selected.structure.length > 0 && (
                   <ul className="space-y-0.5">
                     {selected.structure.map((seg, i) => (
@@ -92,6 +93,10 @@ export default function WeeklyScheduleTab({ clubId }: { clubId: string }) {
                   </ul>
                 )}
                 {selected.description && <p className="text-[11px] text-white/50 leading-relaxed">{selected.description}</p>}
+              </div>
+            ) : (
+              <div className="border border-dashed border-[#2e3d1a] rounded-lg px-2 py-3 text-center">
+                <p className="text-[11px] text-white/25">Rest day — drag a workout here</p>
               </div>
             )}
 

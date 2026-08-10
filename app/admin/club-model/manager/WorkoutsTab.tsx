@@ -68,6 +68,39 @@ export default function WorkoutsTab({ clubId }: { clubId: string }) {
   return (
     <div className="space-y-6">
       <Card>
+        <SectionTitle>Workout library</SectionTitle>
+        {workouts.length > 0 && (
+          <p className="text-xs text-white/35 mb-3 -mt-1">Drag a workout onto a day in the Weekly Training Schedule to place it there.</p>
+        )}
+        <div className="space-y-2">
+          {workouts.length === 0 && <p className="text-sm text-white/50">No workout types yet.</p>}
+          {workouts.map((w) => (
+            <div
+              key={w.id}
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData(WORKOUT_DRAG_MIME, w.id)
+                e.dataTransfer.effectAllowed = "copy"
+              }}
+              className="flex items-center justify-between gap-3 bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2 cursor-grab active:cursor-grabbing"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <GripVertical className="w-3.5 h-3.5 text-white/20 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-white">{w.title}</p>
+                  {w.structure.length > 0 && (
+                    <p className="text-xs text-[#c5f135]/70 mt-0.5">{w.structure.map(formatWorkoutSegment).join(" · ")}</p>
+                  )}
+                  {w.description && <p className="text-xs text-white/60 mt-0.5">{w.description}</p>}
+                </div>
+              </div>
+              <Button variant="danger" onClick={() => deleteWorkout(w.id)}>Delete</Button>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      <Card>
         <SectionTitle>Add a workout type</SectionTitle>
         <div className="space-y-3">
           <Input placeholder="Name, e.g. Tempo" value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} />
@@ -121,39 +154,6 @@ export default function WorkoutsTab({ clubId }: { clubId: string }) {
           </div>
 
           <Button onClick={addWorkout}>Add workout type</Button>
-        </div>
-      </Card>
-
-      <Card>
-        <SectionTitle>Workout library</SectionTitle>
-        {workouts.length > 0 && (
-          <p className="text-xs text-white/35 mb-3 -mt-1">Drag a workout onto a day in the Weekly Training Schedule to place it there.</p>
-        )}
-        <div className="space-y-2">
-          {workouts.length === 0 && <p className="text-sm text-white/50">No workout types yet.</p>}
-          {workouts.map((w) => (
-            <div
-              key={w.id}
-              draggable
-              onDragStart={(e) => {
-                e.dataTransfer.setData(WORKOUT_DRAG_MIME, w.id)
-                e.dataTransfer.effectAllowed = "copy"
-              }}
-              className="flex items-center justify-between gap-3 bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2 cursor-grab active:cursor-grabbing"
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                <GripVertical className="w-3.5 h-3.5 text-white/20 shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-sm font-bold text-white">{w.title}</p>
-                  {w.structure.length > 0 && (
-                    <p className="text-xs text-[#c5f135]/70 mt-0.5">{w.structure.map(formatWorkoutSegment).join(" · ")}</p>
-                  )}
-                  {w.description && <p className="text-xs text-white/60 mt-0.5">{w.description}</p>}
-                </div>
-              </div>
-              <Button variant="danger" onClick={() => deleteWorkout(w.id)}>Delete</Button>
-            </div>
-          ))}
         </div>
       </Card>
     </div>
