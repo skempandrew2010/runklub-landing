@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { X } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { type WorkoutSegment, formatWorkoutSegment, parseWorkoutStructure, WORKOUT_DRAG_MIME } from "@/lib/workouts"
 
@@ -15,6 +16,7 @@ export default function WeeklyScheduleTab({ clubId }: { clubId: string }) {
   const [loading, setLoading] = useState(true)
   const [savingDay, setSavingDay] = useState<number | null>(null)
   const [dragOverDay, setDragOverDay] = useState<number | null>(null)
+  const [pickerDay, setPickerDay] = useState<number | null>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -58,6 +60,7 @@ export default function WeeklyScheduleTab({ clubId }: { clubId: string }) {
         return (
           <div
             key={day}
+            onClick={() => setPickerDay(day)}
             onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; setDragOverDay(day) }}
             onDragLeave={() => setDragOverDay((d) => (d === day ? null : d))}
             onDrop={(e) => {
@@ -66,7 +69,7 @@ export default function WeeklyScheduleTab({ clubId }: { clubId: string }) {
               const workoutId = e.dataTransfer.getData(WORKOUT_DRAG_MIME)
               if (workoutId) saveDay(day, { workout_type_id: workoutId })
             }}
-            className={`bg-[#1a2110] border rounded-xl p-3 flex flex-col gap-2 lg:min-w-0 transition-colors ${
+            className={`bg-[#1a2110] border rounded-xl p-3 flex flex-col gap-2 lg:min-w-0 transition-colors cursor-pointer ${
               dragOverDay === day ? "border-[#c5f135] bg-[#c5f135]/5" : "border-[#2e3d1a]"
             }`}
           >
@@ -78,7 +81,7 @@ export default function WeeklyScheduleTab({ clubId }: { clubId: string }) {
                   <p className="text-xs font-bold text-[#c5f135]">{selected.name}</p>
                   <button
                     type="button"
-                    onClick={() => saveDay(day, { workout_type_id: null })}
+                    onClick={(e) => { e.stopPropagation(); saveDay(day, { workout_type_id: null }) }}
                     disabled={savingDay === day}
                     className="text-[10px] font-bold text-white/30 hover:text-red-400 transition shrink-0 disabled:opacity-50"
                   >
@@ -96,12 +99,13 @@ export default function WeeklyScheduleTab({ clubId }: { clubId: string }) {
               </div>
             ) : (
               <div className="border border-dashed border-[#2e3d1a] rounded-lg px-2 py-3 text-center">
-                <p className="text-[11px] text-white/25">Rest day — drag a workout here</p>
+                <p className="text-[11px] text-white/25">Rest day — click or drag a workout here</p>
               </div>
             )}
 
             <input
               value={row.notes ?? ""}
+              onClick={(e) => e.stopPropagation()}
               onChange={(e) => setSchedule((prev) => ({ ...prev, [day]: { ...rowFor(day), notes: e.target.value } }))}
               onBlur={(e) => saveDay(day, { notes: e.target.value || null })}
               placeholder="Notes (optional)"
@@ -110,6 +114,49 @@ export default function WeeklyScheduleTab({ clubId }: { clubId: string }) {
           </div>
         )
       })}
+
+      {pickerDay !== null && (
+        <div
+          onClick={() => setPickerDay(null)}
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full sm:max-w-sm max-h-[75vh] flex flex-col bg-[#1e2d12] border border-[#2e3d1a] rounded-t-3xl sm:rounded-3xl p-5 pb-8 sm:pb-5 animate-[fadeUp_0.25s_ease-out_forwards]"
+          >
+            <div className="flex items-center justify-between mb-4 shrink-0">
+              <p className="text-sm font-black text-white">{DAY_LABELS[pickerDay]} — pick a workout</p>
+              <button onClick={() => setPickerDay(null)} className="text-white/30 hover:text-white/60 transition p-1" aria-label="Close">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-2 overflow-y-auto">
+              <button
+                onClick={() => { saveDay(pickerDay, { workout_type_id: null }); setPickerDay(null) }}
+                className="w-full text-left px-3 py-2.5 rounded-xl border border-dashed border-[#2e3d1a] text-white/50 text-xs font-semibold hover:border-white/20 transition"
+              >
+                Rest day (no workout)
+              </button>
+              {workouts.map((w) => (
+                <button
+                  key={w.id}
+                  onClick={() => { saveDay(pickerDay, { workout_type_id: w.id }); setPickerDay(null) }}
+                  className={`w-full text-left px-3 py-2.5 rounded-xl border transition ${
+                    rowFor(pickerDay).workout_type_id === w.id
+                      ? "bg-[#c5f135]/10 border-[#c5f135]/40"
+                      : "bg-[#1a2110] border-[#2e3d1a] hover:border-[#c5f135]/40"
+                  }`}
+                >
+                  <p className="text-xs font-bold text-white">{w.name}</p>
+                  {w.structure.length > 0 && (
+                    <p className="text-[11px] text-[#c5f135]/70 mt-0.5">{w.structure.map(formatWorkoutSegment).join(" · ")}</p>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
