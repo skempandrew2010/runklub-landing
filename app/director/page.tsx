@@ -21,6 +21,7 @@ import WorkoutsTab from "@/app/admin/club-model/manager/WorkoutsTab"
 import { Card, SectionTitle, Button, Input } from "@/app/admin/club-model/manager/ui"
 import { isNativeApp } from "@/utils/platform"
 import RunFormPanel from "./RunFormPanel"
+import WeeklyScheduleTab from "./WeeklyScheduleTab"
 import RunChatPanel from "@/components/RunChatPanel"
 import RunCheckInRoster from "@/components/RunCheckInRoster"
 import { PLANS } from "@/lib/plans"
@@ -1403,6 +1404,19 @@ function ManagerView({ userId }: { userId: string }) {
                     )}
                   </>
                 )}
+              </div>
+
+              {/* Weekly Training Schedule */}
+              <div className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-5">
+                <div className="flex items-center justify-between mb-1">
+                  <h2 className="text-xs font-bold text-[#c5f135]/70 uppercase tracking-widest">Weekly Training Schedule</h2>
+                  {!(isGrowth || isEnterprise) && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-[#c5f135] text-[#1a2110]">GROWTH+</span>}
+                </div>
+                <p className="text-xs text-white/35 mb-4">Place a workout from your library on each day of the week — coaches and members see it as your klub's standing training plan</p>
+                {(isGrowth || isEnterprise)
+                  ? <WeeklyScheduleTab clubId={selectedClubId ?? ""} />
+                  : <p className="text-sm text-white/80">Upgrade to Growth to build a weekly training schedule.</p>
+                }
               </div>
 
               {/* Workout Library */}
