@@ -3,16 +3,19 @@
 import { useEffect, useState } from "react"
 import { X } from "lucide-react"
 import { supabase } from "@/lib/supabase"
+import { localDateStr } from "@/utils/dates"
 import { type WorkoutSegment, formatWorkoutSegment, parseWorkoutStructure, WORKOUT_DRAG_MIME } from "@/lib/workouts"
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
 type WorkoutOption = { id: string; name: string; description: string | null; structure: WorkoutSegment[] }
 type ScheduleRow = { day_of_week: number; workout_type_id: string | null; notes: string | null }
+type RunMarker = { hasRun: boolean; inPerson: boolean }
 
 export default function WeeklyScheduleTab({ clubId }: { clubId: string }) {
   const [workouts, setWorkouts] = useState<WorkoutOption[]>([])
   const [schedule, setSchedule] = useState<Record<number, ScheduleRow>>({})
+  const [runsByDay, setRunsByDay] = useState<Record<number, RunMarker>>({})
   const [loading, setLoading] = useState(true)
   const [savingDay, setSavingDay] = useState<number | null>(null)
   const [dragOverDay, setDragOverDay] = useState<number | null>(null)
@@ -20,14 +23,22 @@ export default function WeeklyScheduleTab({ clubId }: { clubId: string }) {
 
   useEffect(() => {
     const load = async () => {
-      const [wt, sched] = await Promise.all([
+      const [wt, sched, runs] = await Promise.all([
         supabase.from("runs").select("id, title, description, structure").eq("club_id", clubId).eq("kind", "workout").order("title"),
         supabase.from("club_weekly_schedule").select("day_of_week, workout_type_id, notes").eq("club_id", clubId),
+        supabase.from("runs").select("date, is_in_person").eq("club_id", clubId).eq("kind", "run").gte("date", localDateStr()),
       ])
       setWorkouts(((wt.data ?? []) as any[]).map((r) => ({ id: r.id, name: r.title, description: r.description, structure: parseWorkoutStructure(r.structure) })))
       const byDay: Record<number, ScheduleRow> = {}
       for (const row of (sched.data ?? []) as ScheduleRow[]) byDay[row.day_of_week] = row
       setSchedule(byDay)
+      const byDayRuns: Record<number, RunMarker> = {}
+      for (const r of (runs.data ?? []) as { date: string; is_in_person: boolean }[]) {
+        const day = new Date(`${r.date}T00:00:00`).getDay()
+        const prev = byDayRuns[day] ?? { hasRun: false, inPerson: false }
+        byDayRuns[day] = { hasRun: true, inPerson: prev.inPerson || !!r.is_in_person }
+      }
+      setRunsByDay(byDayRuns)
       setLoading(false)
     }
     load()
@@ -57,6 +68,7 @@ export default function WeeklyScheduleTab({ clubId }: { clubId: string }) {
       {DAY_LABELS.map((label, day) => {
         const row = rowFor(day)
         const selected = workouts.find((w) => w.id === row.workout_type_id) ?? null
+        const runInfo = runsByDay[day]
         return (
           <div
             key={day}
@@ -70,10 +82,25 @@ export default function WeeklyScheduleTab({ clubId }: { clubId: string }) {
               if (workoutId) saveDay(day, { workout_type_id: workoutId })
             }}
             className={`bg-[#1a2110] border rounded-xl p-3 flex flex-col gap-2 lg:min-w-0 transition-colors cursor-pointer ${
-              dragOverDay === day ? "border-[#c5f135] bg-[#c5f135]/5" : "border-[#2e3d1a]"
+              dragOverDay === day
+                ? "border-[#c5f135] bg-[#c5f135]/5"
+                : runInfo?.inPerson
+                  ? "border-yellow-400 bg-yellow-400/5"
+                  : runInfo?.hasRun
+                    ? "border-white/25"
+                    : "border-[#2e3d1a]"
             }`}
           >
-            <p className="text-xs font-bold text-white/70">{label}</p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-xs font-bold text-white/70">{label}</p>
+              {runInfo?.hasRun && (
+                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full shrink-0 ${
+                  runInfo.inPerson ? "bg-yellow-400 text-[#1a2110]" : "bg-white/10 text-white/50"
+                }`}>
+                  RUN
+                </span>
+              )}
+            </div>
 
             {selected ? (
               <div className="bg-[#1e2d12] border border-[#c5f135]/25 rounded-lg px-2 py-2 space-y-1">
