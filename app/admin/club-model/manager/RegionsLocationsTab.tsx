@@ -22,17 +22,19 @@ export default function RegionsLocationsTab({ clubId }: { clubId: string }) {
   const [mutateError, setMutateError] = useState("")
   const [newRegionName, setNewRegionName] = useState("")
   const [newLocation, setNewLocation] = useState<Record<string, Partial<Location>>>({})
+  const [clubHome, setClubHome] = useState<{ lat: number; lng: number } | null>(null)
 
   const load = async () => {
     const [data, { data: club }] = await Promise.all([
       fetchClubModelData(clubId),
-      supabase.from("clubs").select("tier").eq("id", clubId).single(),
+      supabase.from("clubs").select("tier, latitude, longitude").eq("id", clubId).single(),
     ])
     setRegions(data.regions.slice().sort((a, b) => a.name.localeCompare(b.name)))
     setRegionDays(data.region_days)
     setRegionDayTimes(data.region_day_times)
     setLocations(data.locations.slice().sort((a, b) => a.name.localeCompare(b.name)))
     setTier(club?.tier === "starter" || club?.tier === "growth" || club?.tier === "enterprise" ? club.tier : null)
+    setClubHome(club?.latitude != null && club?.longitude != null ? { lat: club.latitude, lng: club.longitude } : null)
     setLoading(false)
   }
 
@@ -245,6 +247,7 @@ export default function RegionsLocationsTab({ clubId }: { clubId: string }) {
                     value={draft.address ?? ""}
                     onChange={(v) => setNewLocation((p) => ({ ...p, [region.id]: { ...draft, address: v, lat: null, lng: null } }))}
                     onSelect={(s) => setNewLocation((p) => ({ ...p, [region.id]: { ...draft, address: s.placeName, lat: s.lat, lng: s.lng } }))}
+                    proximity={clubHome}
                     className="w-full bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2 text-sm text-white placeholder-white/50 focus:outline-none focus:border-[#c5f135]/50 transition"
                   />
                 </div>

@@ -11,12 +11,15 @@ export default function AddressAutocomplete({
   onSelect,
   placeholder,
   className,
+  proximity,
 }: {
   value: string
   onChange: (value: string) => void
   onSelect: (suggestion: AddressSuggestion) => void
   placeholder?: string
   className?: string
+  /** Biases suggestions toward this point (e.g. the klub's home city) instead of searching the whole world. */
+  proximity?: { lat: number; lng: number } | null
 }) {
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([])
   const [open, setOpen] = useState(false)
@@ -41,8 +44,9 @@ export default function AddressAutocomplete({
       setLoading(true)
       try {
         const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
+        const proximityParam = proximity ? `&proximity=${proximity.lng},${proximity.lat}` : ""
         const res = await fetch(
-          `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${token}&autocomplete=true&limit=5&types=poi,address`
+          `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${token}&autocomplete=true&limit=5&types=poi,address${proximityParam}`
         )
         const data = await res.json()
         setSuggestions(

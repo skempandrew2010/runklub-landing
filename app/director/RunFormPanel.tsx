@@ -122,6 +122,7 @@ export default function RunFormPanel({
   const [selectedLocationId, setSelectedLocationId] = useState("")
   const [templates, setTemplates] = useState<RunTemplate[]>([])
   const [dataLoading, setDataLoading] = useState(true)
+  const [clubHome, setClubHome] = useState<{ lat: number; lng: number } | null>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -137,14 +138,15 @@ export default function RunFormPanel({
               .order("last_used_at", { ascending: false })
               .limit(8),
         supabase.from("regions").select("id, name").eq("club_id", clubId).order("name"),
-        supabase.from("clubs").select("default_timezone").eq("id", clubId).single(),
+        supabase.from("clubs").select("default_timezone, latitude, longitude").eq("id", clubId).single(),
       ])
       setPaceGroups((pg.data as PaceGroup[]) || [])
       setWorkoutTypes(((wt.data ?? []) as any[]).map((r) => ({ id: r.id, name: r.title, description: r.description, structure: parseWorkoutStructure(r.structure) })))
       setCoaches((co.data as Coach[]) || [])
       if (!isEdit) setTemplates((tpl.data as RunTemplate[]) || [])
-      const clubDefaultTz = (clubRow.data as { default_timezone: string | null } | null)?.default_timezone
-      if (!isEdit && clubDefaultTz) setTimezone(clubDefaultTz)
+      const clubInfo = clubRow.data as { default_timezone: string | null; latitude: number | null; longitude: number | null } | null
+      if (!isEdit && clubInfo?.default_timezone) setTimezone(clubInfo.default_timezone)
+      setClubHome(clubInfo?.latitude != null && clubInfo?.longitude != null ? { lat: clubInfo.latitude, lng: clubInfo.longitude } : null)
 
       const fetchedRegions = (regionRows.data as Region[]) || []
       setRegions(fetchedRegions)
@@ -162,7 +164,7 @@ export default function RunFormPanel({
           setTitle(run.title ?? "")
           setDate(run.date ?? "")
           setTime(run.time ?? "")
-          setTimezone(run.timezone ?? clubDefaultTz ?? getBrowserTimezone())
+          setTimezone(run.timezone ?? clubInfo?.default_timezone ?? getBrowserTimezone())
           setDistance(run.distance ?? "")
           setAddress(run.meeting_point ?? "")
           setManageMode(run.external_url ? "external" : "runklub")
@@ -442,6 +444,7 @@ export default function RunFormPanel({
                 value={selectedLocationId ? "" : address}
                 onChange={(v) => { setSelectedLocationId(""); setAddress(v) }}
                 onSelect={(s) => { setSelectedLocationId(""); setAddress(s.placeName) }}
+                proximity={clubHome}
                 className={ic}
               />
               {locations.length > 0 ? (
