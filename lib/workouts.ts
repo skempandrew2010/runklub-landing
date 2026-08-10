@@ -3,6 +3,8 @@ export type WorkoutSegment = {
   distance_time: string
   unit: string
   pace: string
+  rest: string
+  rest_unit: string
 }
 
 export const PACE_OPTIONS = ["Easy", "Aerobic", "Tempo", "LT", "Marathon", "HM", "10k", "5k", "3k", "mile", "800"] as const
@@ -21,10 +23,12 @@ export function maskMMSS(value: string): string {
 
 export function formatWorkoutSegment(seg: WorkoutSegment): string {
   const amount = seg.unit === TIME_UNIT ? seg.distance_time : seg.unit ? `${seg.distance_time} ${seg.unit}` : seg.distance_time
+  const rest = seg.rest_unit === TIME_UNIT ? seg.rest : seg.rest_unit ? `${seg.rest} ${seg.rest_unit}` : seg.rest
   const parts = [
     seg.reps && `${seg.reps}×`,
     amount,
     seg.pace && `@ ${seg.pace}`,
+    rest && `— rest ${rest}`,
   ].filter(Boolean)
   return parts.join(" ")
 }
@@ -38,5 +42,7 @@ export function parseWorkoutStructure(raw: unknown): WorkoutSegment[] {
       distance_time: typeof s.distance_time === "string" ? s.distance_time : "",
       unit: typeof s.unit === "string" ? s.unit : "",
       pace: typeof s.pace === "string" ? s.pace : "",
+      rest: typeof s.rest === "string" ? s.rest : "",
+      rest_unit: typeof s.rest_unit === "string" ? s.rest_unit : "",
     }))
 }
