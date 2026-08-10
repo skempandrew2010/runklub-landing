@@ -6,7 +6,8 @@ export type WorkoutSegment = {
 }
 
 export const PACE_OPTIONS = ["Tempo", "LT", "Marathon", "HM", "10k", "5k", "3k", "mile", "800"] as const
-export const UNIT_OPTIONS = ["meters", "km", "miles"] as const
+export const DISTANCE_UNIT_OPTIONS = ["meters", "km", "miles"] as const
+export const TIME_UNIT_OPTIONS = ["sec", "min"] as const
 
 export function formatWorkoutSegment(seg: WorkoutSegment): string {
   const parts = [

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { Card, SectionTitle, Input, TextArea, Button } from "./ui"
-import { type WorkoutSegment, formatWorkoutSegment, parseWorkoutStructure, PACE_OPTIONS, UNIT_OPTIONS } from "@/lib/workouts"
+import { type WorkoutSegment, formatWorkoutSegment, parseWorkoutStructure, PACE_OPTIONS, DISTANCE_UNIT_OPTIONS, TIME_UNIT_OPTIONS } from "@/lib/workouts"
 
 type WorkoutEntry = { id: string; title: string; description: string | null; structure: WorkoutSegment[] }
 
@@ -90,12 +90,17 @@ export default function WorkoutsTab({ clubId }: { clubId: string }) {
                       <input placeholder="Reps" value={seg.reps} onChange={(e) => updateSegment(i, "reps", e.target.value)}
                         className={`${segField} text-center`} />
                       <span className="text-white/40 text-xs font-black shrink-0">×</span>
-                      <input placeholder="800" value={seg.distance_time} onChange={(e) => updateSegment(i, "distance_time", e.target.value)}
+                      <input placeholder="800 / 3" value={seg.distance_time} onChange={(e) => updateSegment(i, "distance_time", e.target.value)}
                         className={`${segField} text-center`} />
                       <select value={seg.unit} onChange={(e) => updateSegment(i, "unit", e.target.value)}
                         className={segField}>
                         <option value="">unit</option>
-                        {UNIT_OPTIONS.map((u) => <option key={u} value={u}>{u}</option>)}
+                        <optgroup label="Distance">
+                          {DISTANCE_UNIT_OPTIONS.map((u) => <option key={u} value={u}>{u}</option>)}
+                        </optgroup>
+                        <optgroup label="Time">
+                          {TIME_UNIT_OPTIONS.map((u) => <option key={u} value={u}>{u}</option>)}
+                        </optgroup>
                       </select>
                       <span className="text-white/40 text-xs font-black shrink-0">@</span>
                       <select value={seg.pace} onChange={(e) => updateSegment(i, "pace", e.target.value)}
