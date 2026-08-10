@@ -57,6 +57,8 @@ type WorkoutInfo = { title: string; description: string | null; structure: Worko
 type ScheduleDay = { workout: WorkoutInfo | null; notes: string | null; runs: Run[] }
 
 const DAY_LABELS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+// day_of_week is stored 0=Sun..6=Sat, but the schedule reads Monday-first.
+const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0]
 
 function buildScheduleEmail(
   memberName: string,
@@ -70,9 +72,9 @@ function buildScheduleEmail(
   const clubUrl = `${BASE_URL}/clubs/${clubId}`
   const firstName = memberName.trim().split(" ")[0]
 
-  const days = DAY_LABELS.map((label, day) => {
+  const days = DAY_ORDER.map((day) => {
     const dateLabel = new Date(addDays(monday, (day - 1 + 7) % 7) + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
-    return { day, label, dateLabel, ...scheduleByDay[day] }
+    return { day, label: DAY_LABELS[day], dateLabel, ...scheduleByDay[day] }
   })
 
   const runsHtml = days.map(({ label, dateLabel, workout, notes, runs }) => {

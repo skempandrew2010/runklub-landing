@@ -7,6 +7,8 @@ import { localDateStr } from "@/utils/dates"
 import { type WorkoutSegment, formatWorkoutSegment, parseWorkoutStructure, WORKOUT_DRAG_MIME } from "@/lib/workouts"
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+// day_of_week is stored 0=Sun..6=Sat, but the calendar reads Monday-first.
+const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0]
 
 type WorkoutOption = { id: string; name: string; description: string | null; structure: WorkoutSegment[] }
 type ScheduleRow = { day_of_week: number; workout_type_id: string | null; notes: string | null }
@@ -65,7 +67,8 @@ export default function WeeklyScheduleTab({ clubId }: { clubId: string }) {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-7 gap-2">
-      {DAY_LABELS.map((label, day) => {
+      {DAY_ORDER.map((day) => {
+        const label = DAY_LABELS[day]
         const row = rowFor(day)
         const selected = workouts.find((w) => w.id === row.workout_type_id) ?? null
         const runInfo = runsByDay[day]
