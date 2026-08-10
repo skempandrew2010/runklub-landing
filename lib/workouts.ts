@@ -7,12 +7,20 @@ export type WorkoutSegment = {
 
 export const PACE_OPTIONS = ["Tempo", "LT", "Marathon", "HM", "10k", "5k", "3k", "mile", "800"] as const
 export const DISTANCE_UNIT_OPTIONS = ["meters", "km", "miles"] as const
-export const TIME_UNIT_OPTIONS = ["sec", "min"] as const
+export const TIME_UNIT = "time"
+
+/** Masks free-typed digits into a growing mm:ss value, e.g. "3" -> "3", "300" -> "3:00". */
+export function maskMMSS(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 4)
+  if (digits.length <= 2) return digits
+  return `${digits.slice(0, digits.length - 2)}:${digits.slice(-2)}`
+}
 
 export function formatWorkoutSegment(seg: WorkoutSegment): string {
+  const amount = seg.unit === TIME_UNIT ? seg.distance_time : seg.unit ? `${seg.distance_time} ${seg.unit}` : seg.distance_time
   const parts = [
     seg.reps && `${seg.reps}×`,
-    seg.unit ? `${seg.distance_time} ${seg.unit}` : seg.distance_time,
+    amount,
     seg.pace && `@ ${seg.pace}`,
   ].filter(Boolean)
   return parts.join(" ")
