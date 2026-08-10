@@ -8,6 +8,7 @@ import { PLANS } from "@/lib/plans"
 import type { Region, RegionDay, RegionDayTime, Location } from "@/lib/clubModel/types"
 import { DAYS_OF_WEEK } from "@/lib/clubModel/types"
 import { Card, SectionTitle, Input, Button, Row } from "./ui"
+import AddressAutocomplete from "@/components/AddressAutocomplete"
 
 export default function RegionsLocationsTab({ clubId }: { clubId: string }) {
   const [regions, setRegions] = useState<Region[]>([])
@@ -77,7 +78,11 @@ export default function RegionsLocationsTab({ clubId }: { clubId: string }) {
   const addLocation = (regionId: string) => mutate(async () => {
     const draft = newLocation[regionId]
     if (!draft?.name?.trim()) return
-    await insertRow("locations", { region_id: regionId, name: draft.name.trim(), address: draft.address ?? null }, clubId)
+    await insertRow(
+      "locations",
+      { region_id: regionId, name: draft.name.trim(), address: draft.address ?? null, lat: draft.lat ?? null, lng: draft.lng ?? null },
+      clubId
+    )
     setNewLocation((prev) => ({ ...prev, [regionId]: {} }))
   })
 
@@ -235,10 +240,12 @@ export default function RegionsLocationsTab({ clubId }: { clubId: string }) {
                   />
                 </div>
                 <div className="flex-1 min-w-[160px]">
-                  <Input
-                    placeholder="Address"
+                  <AddressAutocomplete
+                    placeholder="Address or place name"
                     value={draft.address ?? ""}
-                    onChange={(e) => setNewLocation((p) => ({ ...p, [region.id]: { ...draft, address: e.target.value } }))}
+                    onChange={(v) => setNewLocation((p) => ({ ...p, [region.id]: { ...draft, address: v, lat: null, lng: null } }))}
+                    onSelect={(s) => setNewLocation((p) => ({ ...p, [region.id]: { ...draft, address: s.placeName, lat: s.lat, lng: s.lng } }))}
+                    className="w-full bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2 text-sm text-white placeholder-white/50 focus:outline-none focus:border-[#c5f135]/50 transition"
                   />
                 </div>
                 <Button onClick={() => addLocation(region.id)}>Add location</Button>

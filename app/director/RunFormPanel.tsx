@@ -7,6 +7,7 @@ import mapboxSdk from "@mapbox/mapbox-sdk/services/geocoding"
 import { localDateStr } from "@/utils/dates"
 import { COMMON_TIMEZONES, getBrowserTimezone } from "@/lib/timezone"
 import { type WorkoutSegment, formatWorkoutSegment, parseWorkoutStructure } from "@/lib/workouts"
+import AddressAutocomplete from "@/components/AddressAutocomplete"
 
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
@@ -436,6 +437,13 @@ export default function RunFormPanel({
                   {!branchesEnabled ? "Available on Growth and above" : "Used to pin this run on the discover map"}
                 </p>
               </div>
+              <AddressAutocomplete
+                placeholder="Type an address or place name…"
+                value={selectedLocationId ? "" : address}
+                onChange={(v) => { setSelectedLocationId(""); setAddress(v) }}
+                onSelect={(s) => { setSelectedLocationId(""); setAddress(s.placeName) }}
+                className={ic}
+              />
               {locations.length > 0 ? (
                 <div className="space-y-3">
                   {regions.map((region) => {
