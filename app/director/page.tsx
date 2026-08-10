@@ -22,6 +22,7 @@ import { Card, SectionTitle, Button, Input } from "@/app/admin/club-model/manage
 import { isNativeApp } from "@/utils/platform"
 import RunFormPanel from "./RunFormPanel"
 import WeeklyScheduleTab from "./WeeklyScheduleTab"
+import CustomPacesTab from "./CustomPacesTab"
 import RunChatPanel from "@/components/RunChatPanel"
 import RunCheckInRoster from "@/components/RunCheckInRoster"
 import { PLANS } from "@/lib/plans"
@@ -2058,6 +2059,11 @@ function ManagerView({ userId }: { userId: string }) {
                 >
                   {COMMON_TIMEZONES.map((tz) => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
                 </select>
+              </Card>
+
+              <Card>
+                <SectionTitle>Custom Paces</SectionTitle>
+                <CustomPacesTab clubId={selectedClub.id} />
               </Card>
 
               <Card>

@@ -25,7 +25,7 @@ export function formatWorkoutSegment(seg: WorkoutSegment): string {
   const amount = seg.unit === TIME_UNIT ? seg.distance_time : seg.unit ? `${seg.distance_time} ${seg.unit}` : seg.distance_time
   const rest = seg.rest_unit === TIME_UNIT ? seg.rest : seg.rest_unit ? `${seg.rest} ${seg.rest_unit}` : seg.rest
   const parts = [
-    seg.reps && `${seg.reps}×`,
+    seg.reps && seg.reps !== "1" && `${seg.reps}×`,
     amount,
     seg.pace && `@ ${seg.pace}`,
     rest && `— rest ${rest}`,

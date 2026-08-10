@@ -12,6 +12,7 @@ const EMPTY_SEGMENT: WorkoutSegment = { reps: "", distance_time: "", unit: "", p
 
 export default function WorkoutsTab({ clubId }: { clubId: string }) {
   const [workouts, setWorkouts] = useState<WorkoutEntry[]>([])
+  const [customPaces, setCustomPaces] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [draft, setDraft] = useState<{ title: string; description: string; segments: WorkoutSegment[] }>({
     title: "",
@@ -20,20 +21,19 @@ export default function WorkoutsTab({ clubId }: { clubId: string }) {
   })
 
   const load = async () => {
-    const { data } = await supabase
-      .from("runs")
-      .select("id, title, description, structure")
-      .eq("club_id", clubId)
-      .eq("kind", "workout")
-      .order("title")
+    const [wt, cp] = await Promise.all([
+      supabase.from("runs").select("id, title, description, structure").eq("club_id", clubId).eq("kind", "workout").order("title"),
+      supabase.from("club_custom_paces").select("label").eq("club_id", clubId).order("label"),
+    ])
     setWorkouts(
-      ((data ?? []) as any[]).map((r) => ({
+      ((wt.data ?? []) as any[]).map((r) => ({
         id: r.id,
         title: r.title,
         description: r.description,
         structure: parseWorkoutStructure(r.structure),
       }))
     )
+    setCustomPaces(((cp.data ?? []) as { label: string }[]).map((r) => r.label))
     setLoading(false)
   }
 
@@ -141,6 +141,11 @@ export default function WorkoutsTab({ clubId }: { clubId: string }) {
                           className={segField}>
                           <option value="">pace</option>
                           {PACE_OPTIONS.map((p) => <option key={p} value={p}>{p}</option>)}
+                          {customPaces.length > 0 && (
+                            <optgroup label="Custom">
+                              {customPaces.map((p) => <option key={p} value={p}>{p}</option>)}
+                            </optgroup>
+                          )}
                         </select>
                         <button type="button" onClick={() => removeSegment(i)}
                           className="text-[10px] font-bold text-white/30 hover:text-red-400 transition px-1.5 py-1.5 shrink-0">
