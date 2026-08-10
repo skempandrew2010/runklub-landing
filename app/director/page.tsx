@@ -1952,6 +1952,10 @@ function ManagerView({ userId }: { userId: string }) {
                   <h2 className="text-xs font-bold text-white/30 uppercase tracking-widest mb-4">Pace Groups</h2>
                   <PaceGroupsTab clubId={selectedClubId ?? ""} />
                 </div>
+                <div className="border-t border-[#2e3d1a] pt-8">
+                  <h2 className="text-xs font-bold text-white/30 uppercase tracking-widest mb-4">Custom Paces</h2>
+                  <CustomPacesTab clubId={selectedClubId ?? ""} />
+                </div>
               </div>
             ) : (
               <div className="space-y-4">
@@ -2059,11 +2063,6 @@ function ManagerView({ userId }: { userId: string }) {
                 >
                   {COMMON_TIMEZONES.map((tz) => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
                 </select>
-              </Card>
-
-              <Card>
-                <SectionTitle>Custom Paces</SectionTitle>
-                <CustomPacesTab clubId={selectedClub.id} />
               </Card>
 
               <Card>
