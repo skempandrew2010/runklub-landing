@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
-import { type WorkoutSegment, formatWorkoutSegment, parseWorkoutStructure } from "@/lib/workouts"
+import { type WorkoutSegment, formatWorkoutSegment, parseWorkoutStructure, WORKOUT_DRAG_MIME } from "@/lib/workouts"
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
@@ -14,6 +14,7 @@ export default function WeeklyScheduleTab({ clubId }: { clubId: string }) {
   const [schedule, setSchedule] = useState<Record<number, ScheduleRow>>({})
   const [loading, setLoading] = useState(true)
   const [savingDay, setSavingDay] = useState<number | null>(null)
+  const [dragOverDay, setDragOverDay] = useState<number | null>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -55,7 +56,20 @@ export default function WeeklyScheduleTab({ clubId }: { clubId: string }) {
         const row = rowFor(day)
         const selected = workouts.find((w) => w.id === row.workout_type_id) ?? null
         return (
-          <div key={day} className="bg-[#1a2110] border border-[#2e3d1a] rounded-xl p-3 flex flex-col gap-2 lg:min-w-0">
+          <div
+            key={day}
+            onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; setDragOverDay(day) }}
+            onDragLeave={() => setDragOverDay((d) => (d === day ? null : d))}
+            onDrop={(e) => {
+              e.preventDefault()
+              setDragOverDay(null)
+              const workoutId = e.dataTransfer.getData(WORKOUT_DRAG_MIME)
+              if (workoutId) saveDay(day, { workout_type_id: workoutId })
+            }}
+            className={`bg-[#1a2110] border rounded-xl p-3 flex flex-col gap-2 lg:min-w-0 transition-colors ${
+              dragOverDay === day ? "border-[#c5f135] bg-[#c5f135]/5" : "border-[#2e3d1a]"
+            }`}
+          >
             <p className="text-xs font-bold text-white/70">{label}</p>
 
             <select

@@ -9,6 +9,9 @@ export const PACE_OPTIONS = ["Tempo", "LT", "Marathon", "HM", "10k", "5k", "3k",
 export const DISTANCE_UNIT_OPTIONS = ["meters", "km", "miles"] as const
 export const TIME_UNIT = "time"
 
+/** Drag-and-drop payload type for dragging a workout from the library onto the weekly schedule. */
+export const WORKOUT_DRAG_MIME = "application/x-runklub-workout-id"
+
 /** Masks free-typed digits into a growing mm:ss value, e.g. "3" -> "3", "300" -> "3:00". */
 export function maskMMSS(value: string): string {
   const digits = value.replace(/\D/g, "").slice(0, 4)
