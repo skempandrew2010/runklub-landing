@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { type WorkoutSegment, formatWorkoutSegment, parseWorkoutStructure } from "@/lib/workouts"
 
-const DAY_LABELS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
 type WorkoutOption = { id: string; name: string; description: string | null; structure: WorkoutSegment[] }
 type ScheduleRow = { day_of_week: number; workout_type_id: string | null; notes: string | null }
@@ -50,27 +50,26 @@ export default function WeeklyScheduleTab({ clubId }: { clubId: string }) {
   }
 
   return (
-    <div className="space-y-2">
+    <div className="grid grid-cols-1 lg:grid-cols-7 gap-2">
       {DAY_LABELS.map((label, day) => {
         const row = rowFor(day)
         const selected = workouts.find((w) => w.id === row.workout_type_id) ?? null
         return (
-          <div key={day} className="bg-[#1a2110] border border-[#2e3d1a] rounded-xl p-3">
-            <div className="flex items-center gap-2">
-              <p className="w-20 shrink-0 text-xs font-bold text-white/70">{label}</p>
-              <select
-                value={row.workout_type_id ?? ""}
-                onChange={(e) => saveDay(day, { workout_type_id: e.target.value || null })}
-                disabled={savingDay === day}
-                className="flex-1 min-w-0 bg-[#1e2d12] border border-[#2e3d1a] rounded-lg text-white text-xs px-2 py-2 focus:outline-none focus:border-[#c5f135]/50 transition disabled:opacity-50"
-              >
-                <option value="">Rest day</option>
-                {workouts.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
-              </select>
-            </div>
+          <div key={day} className="bg-[#1a2110] border border-[#2e3d1a] rounded-xl p-3 flex flex-col gap-2 lg:min-w-0">
+            <p className="text-xs font-bold text-white/70">{label}</p>
+
+            <select
+              value={row.workout_type_id ?? ""}
+              onChange={(e) => saveDay(day, { workout_type_id: e.target.value || null })}
+              disabled={savingDay === day}
+              className="w-full min-w-0 bg-[#1e2d12] border border-[#2e3d1a] rounded-lg text-white text-xs px-2 py-2 truncate focus:outline-none focus:border-[#c5f135]/50 transition disabled:opacity-50"
+            >
+              <option value="">Rest day</option>
+              {workouts.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+            </select>
 
             {selected && (
-              <div className="mt-2 ml-[88px] space-y-1">
+              <div className="space-y-1">
                 {selected.structure.length > 0 && (
                   <ul className="space-y-0.5">
                     {selected.structure.map((seg, i) => (
@@ -86,8 +85,8 @@ export default function WeeklyScheduleTab({ clubId }: { clubId: string }) {
               value={row.notes ?? ""}
               onChange={(e) => setSchedule((prev) => ({ ...prev, [day]: { ...rowFor(day), notes: e.target.value } }))}
               onBlur={(e) => saveDay(day, { notes: e.target.value || null })}
-              placeholder="Notes for this day (optional)"
-              className="mt-2 ml-[88px] w-[calc(100%-88px)] bg-[#1e2d12] border border-[#2e3d1a] rounded-lg text-white text-xs px-2 py-1.5 placeholder-white/25 focus:outline-none focus:border-[#c5f135]/50 transition"
+              placeholder="Notes (optional)"
+              className="w-full min-w-0 bg-[#1e2d12] border border-[#2e3d1a] rounded-lg text-white text-xs px-2 py-1.5 placeholder-white/25 focus:outline-none focus:border-[#c5f135]/50 transition"
             />
           </div>
         )
