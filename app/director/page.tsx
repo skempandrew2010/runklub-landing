@@ -1848,7 +1848,7 @@ function ManagerView({ userId }: { userId: string }) {
                         </div>
                         <div>
                           <p className="text-sm font-bold text-white">Training schedule emails require Growth or above</p>
-                          <p className="text-xs text-white/80 mt-0.5">Upgrade to send each member their personalized weekly schedule.</p>
+                          <p className="text-xs text-white/80 mt-0.5">Upgrade to email your klub's weekly training schedule to active members.</p>
                         </div>
                       </div>
                       {!nativeApp && <Button onClick={() => startCheckout("growth")} disabled={upgrading}>{upgrading ? "Redirecting…" : "Upgrade to Growth"}</Button>}
@@ -1860,12 +1860,12 @@ function ManagerView({ userId }: { userId: string }) {
                       </div>
                       <div>
                         <p className="text-sm font-bold text-white">Training schedules sent!</p>
-                        <p className="text-xs text-white/80 mt-0.5">Delivered to {scheduleResult.sent} of {scheduleResult.total} active members{scheduleResult.skipped > 0 ? ` (${scheduleResult.skipped} skipped — no pace group assigned)` : ""}</p>
+                        <p className="text-xs text-white/80 mt-0.5">Delivered to {scheduleResult.sent} of {scheduleResult.total} active members{scheduleResult.skipped > 0 ? ` (${scheduleResult.skipped} skipped — no email on file)` : ""}</p>
                       </div>
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      <p className="text-sm text-white/80">Sends each active member their personalized runs for this week, matched to their pace group and branch.</p>
+                      <p className="text-sm text-white/80">Emails every active member this week's Weekly Training Schedule from the Runs tab — the workout for each day, plus any group runs that week.</p>
                       {scheduleError && <p className="text-red-400/80 text-xs">{scheduleError}</p>}
                       <Button onClick={sendTrainingSchedule} disabled={scheduleSending}>
                         {scheduleSending ? "Sending…" : "Send this week's schedule"}
