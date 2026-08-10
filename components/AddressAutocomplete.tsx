@@ -4,7 +4,17 @@ import { useEffect, useRef, useState } from "react"
 
 export type AddressSuggestion = { placeName: string; lat: number; lng: number }
 
-/** Debounced Mapbox place/address search-as-you-type, matching both named places (e.g. "Central Park") and street addresses. */
+type Suggestion = { mapboxId: string; name: string; fullAddress: string }
+
+function newSessionToken() {
+  return typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)
+}
+
+/**
+ * Debounced search-as-you-type against Mapbox's Search Box API, matching both named
+ * places (e.g. "Tom Watson Park") and street addresses — its POI dataset is far more
+ * complete than the classic Geocoding API for smaller local landmarks and parks.
+ */
 export default function AddressAutocomplete({
   value,
   onChange,
@@ -21,11 +31,12 @@ export default function AddressAutocomplete({
   /** Biases suggestions toward this point (e.g. the klub's home city) instead of searching the whole world. */
   proximity?: { lat: number; lng: number } | null
 }) {
-  const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([])
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([])
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const sessionTokenRef = useRef(newSessionToken())
 
   useEffect(() => {
     const onClickOutside = (e: MouseEvent) => {
@@ -46,14 +57,14 @@ export default function AddressAutocomplete({
         const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
         const proximityParam = proximity ? `&proximity=${proximity.lng},${proximity.lat}` : ""
         const res = await fetch(
-          `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${token}&autocomplete=true&limit=5&types=poi,address${proximityParam}`
+          `https://api.mapbox.com/search/searchbox/v1/suggest?q=${encodeURIComponent(query)}&access_token=${token}&session_token=${sessionTokenRef.current}&types=poi,address&limit=5${proximityParam}`
         )
         const data = await res.json()
         setSuggestions(
-          ((data.features ?? []) as any[]).map((f) => ({
-            placeName: f.place_name as string,
-            lat: f.center[1] as number,
-            lng: f.center[0] as number,
+          ((data.suggestions ?? []) as any[]).map((s) => ({
+            mapboxId: s.mapbox_id as string,
+            name: s.name as string,
+            fullAddress: (s.full_address ?? s.place_formatted ?? s.name) as string,
           }))
         )
         setOpen(true)
@@ -65,7 +76,24 @@ export default function AddressAutocomplete({
     }, 300)
 
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
-  }, [value])
+  }, [value, proximity])
+
+  const pick = async (s: Suggestion) => {
+    onChange(s.fullAddress)
+    setSuggestions([])
+    setOpen(false)
+    try {
+      const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
+      const res = await fetch(
+        `https://api.mapbox.com/search/searchbox/v1/retrieve/${s.mapboxId}?access_token=${token}&session_token=${sessionTokenRef.current}`
+      )
+      const data = await res.json()
+      const coords = data.features?.[0]?.geometry?.coordinates
+      if (coords) onSelect({ placeName: s.fullAddress, lat: coords[1], lng: coords[0] })
+    } catch { /* the text field is still filled in even if coordinates fail to resolve */ }
+    // Mapbox bills per search "session" (suggest calls + one retrieve) — start a fresh one for the next search.
+    sessionTokenRef.current = newSessionToken()
+  }
 
   return (
     <div ref={containerRef} className="relative">
@@ -82,14 +110,15 @@ export default function AddressAutocomplete({
           {loading && suggestions.length === 0 && (
             <p className="px-3 py-2 text-xs text-white/40">Searching…</p>
           )}
-          {suggestions.map((s, i) => (
+          {suggestions.map((s) => (
             <button
-              key={i}
+              key={s.mapboxId}
               type="button"
-              onClick={() => { onChange(s.placeName); onSelect(s); setSuggestions([]); setOpen(false) }}
+              onClick={() => pick(s)}
               className="w-full text-left px-3 py-2 text-xs text-white/80 hover:bg-[#c5f135]/10 hover:text-[#c5f135] transition border-b border-[#2e3d1a] last:border-b-0"
             >
-              {s.placeName}
+              <span className="font-semibold">{s.name}</span>
+              {s.fullAddress !== s.name && <span className="block text-white/40 text-[10px] mt-0.5">{s.fullAddress}</span>}
             </button>
           ))}
         </div>
