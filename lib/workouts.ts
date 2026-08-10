@@ -5,7 +5,7 @@ export type WorkoutSegment = {
   pace: string
 }
 
-export const PACE_OPTIONS = ["Tempo", "LT", "Marathon", "HM", "10k", "5k", "3k", "mile", "800"] as const
+export const PACE_OPTIONS = ["Easy", "Aerobic", "Tempo", "LT", "Marathon", "HM", "10k", "5k", "3k", "mile", "800"] as const
 export const DISTANCE_UNIT_OPTIONS = ["meters", "km", "miles"] as const
 export const TIME_UNIT = "time"
 
