@@ -5,7 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, Clock, MapPin, MessageSquare, CheckCircle2, ExternalLink } from "lucide-react"
 import { supabase } from "@/lib/supabase"
-import { localDateStr } from "@/utils/dates"
+import { localDateStr, mondayOf } from "@/utils/dates"
 import { getTagStyle } from "@/utils/tagStyle"
 import { formatRunTime, type TimedRun } from "@/lib/timezone"
 import RunChatPanel from "@/components/RunChatPanel"
@@ -68,6 +68,7 @@ export default function RunPageClient({ runId }: { runId: string }) {
   const [showMissionModal, setShowMissionModal] = useState(false)
   const [position, setPosition] = useState<{ lat: number; lng: number } | null>(null)
   const [positionError, setPositionError] = useState<string | null>(null)
+  const [personalizedWorkout, setPersonalizedWorkout] = useState<{ title: string; description: string | null; structure: WorkoutSegment[] } | null>(null)
 
   // Fetched client-side (not server-side with the anon key) so RLS evaluates
   // as the actual signed-in visitor — otherwise an approved member clicking
@@ -146,6 +147,44 @@ export default function RunPageClient({ runId }: { runId: string }) {
       .eq("user_id", userId)
       .maybeSingle()
       .then(({ data }) => setCheckedIn(!!data))
+  }, [userId, run])
+
+  // For members-only runs shared across pace groups, show the viewer their own
+  // group's workout for this day (from the Weekly Training Schedule) instead of
+  // whatever single workout the run itself might have set.
+  useEffect(() => {
+    if (!userId || !run || !run.members_only) { setPersonalizedWorkout(null); return }
+    let cancelled = false
+    const load = async () => {
+      const { data: member } = await supabase
+        .from("members")
+        .select("pace_group_id")
+        .eq("club_id", run.club_id)
+        .eq("user_id", userId)
+        .maybeSingle()
+      if (cancelled || !member?.pace_group_id) { if (!cancelled) setPersonalizedWorkout(null); return }
+
+      const runDate = new Date(`${run.date}T00:00:00`)
+      const { data: sched } = await supabase
+        .from("club_weekly_schedule")
+        .select("workout_type_id")
+        .eq("pace_group_id", member.pace_group_id)
+        .eq("day_of_week", runDate.getDay())
+        .eq("week_of", mondayOf(runDate))
+        .maybeSingle()
+      if (cancelled || !sched?.workout_type_id) { if (!cancelled) setPersonalizedWorkout(null); return }
+
+      const { data: workout } = await supabase
+        .from("runs")
+        .select("title, description, structure")
+        .eq("id", sched.workout_type_id)
+        .maybeSingle()
+      if (!cancelled) {
+        setPersonalizedWorkout(workout ? { title: workout.title, description: workout.description, structure: parseWorkoutStructure(workout.structure) } : null)
+      }
+    }
+    load()
+    return () => { cancelled = true }
   }, [userId, run])
 
   // Best-effort — just for the "how far away am I" readout, so a denial
@@ -253,23 +292,26 @@ export default function RunPageClient({ runId }: { runId: string }) {
             </div>
           )}
 
-          {run.workout && (
-            <div className="bg-[#1e2d12] border border-[#c5f135]/25 rounded-2xl p-4 mb-4">
-              <p className="text-[10px] font-black text-[#c5f135] uppercase tracking-widest mb-1.5">
-                Today&apos;s Workout · {run.workout.title}
-              </p>
-              {run.workout.structure.length > 0 && (
-                <ul className="space-y-1 mb-2">
-                  {run.workout.structure.map((seg, i) => (
-                    <li key={i} className="text-sm text-white/90 font-semibold">{formatWorkoutSegment(seg)}</li>
-                  ))}
-                </ul>
-              )}
-              {run.workout.description && (
-                <p className="text-sm text-white/70 leading-relaxed">{run.workout.description}</p>
-              )}
-            </div>
-          )}
+          {(personalizedWorkout ?? run.workout) && (() => {
+            const effectiveWorkout = personalizedWorkout ?? run.workout!
+            return (
+              <div className="bg-[#1e2d12] border border-[#c5f135]/25 rounded-2xl p-4 mb-4">
+                <p className="text-[10px] font-black text-[#c5f135] uppercase tracking-widest mb-1.5">
+                  {personalizedWorkout ? "Your Workout" : "Today's Workout"} · {effectiveWorkout.title}
+                </p>
+                {effectiveWorkout.structure.length > 0 && (
+                  <ul className="space-y-1 mb-2">
+                    {effectiveWorkout.structure.map((seg, i) => (
+                      <li key={i} className="text-sm text-white/90 font-semibold">{formatWorkoutSegment(seg)}</li>
+                    ))}
+                  </ul>
+                )}
+                {effectiveWorkout.description && (
+                  <p className="text-sm text-white/70 leading-relaxed">{effectiveWorkout.description}</p>
+                )}
+              </div>
+            )
+          })()}
 
           {run.description && (
             <p className="text-sm text-white/60 leading-relaxed mb-4">{run.description}</p>

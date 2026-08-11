@@ -182,7 +182,6 @@ function ManagerView({ userId }: { userId: string }) {
   const [generating, setGenerating] = useState(false)
   const [generateStatus, setGenerateStatus] = useState("")
   const [selectedChatBranch, setSelectedChatBranch] = useState<string | null>(null)
-  const [selectedRunsBranch, setSelectedRunsBranch] = useState<string | null>(null)
   const [expandedRunId, setExpandedRunId] = useState<string | null>(null)
   const [memberRunWorkoutTypes, setMemberRunWorkoutTypes] = useState<{ id: string; title: string }[]>([])
   const [runDrafts, setRunDrafts] = useState<Record<string, { title: string; time: string; timezone: string; distance: string; meeting_point: string; route_url: string; workout_type_id: string; description: string; is_in_person: boolean }>>({})
@@ -343,14 +342,13 @@ function ManagerView({ userId }: { userId: string }) {
     supabase.from("runs").select("id, title").eq("club_id", selectedClubId).eq("kind", "workout").order("title")
       .then(({ data }) => setMemberRunWorkoutTypes(data ?? []))
     setSelectedChatBranch(null)
-    setSelectedRunsBranch(null)
     setAddRegionId("")
     setInviteRegionId("")
     supabase.from("regions").select("id, name").eq("club_id", selectedClubId).order("name")
       .then(({ data }) => setClubRegions(data ?? []))
   }, [selectedClubId])
 
-  useEffect(() => { setSelectedChatBranch(null); setSelectedRunsBranch(null) }, [tab])
+  useEffect(() => { setSelectedChatBranch(null) }, [tab])
 
   const deleteRun = async (runId: string) => {
     if (!confirm("Delete this run? This cannot be undone.")) return
@@ -1260,153 +1258,12 @@ function ManagerView({ userId }: { userId: string }) {
                 )}
                 {!isPaid ? (
                   <p className="text-sm text-white">Upgrade to Starter to create members-only runs.</p>
+                ) : membersOnlyRuns.length === 0 ? (
+                  <p className="text-sm text-white/50">No members-only runs yet — click Generate This Week above.</p>
                 ) : (
-                  <>
-                    {membersOnlyRuns.length === 0 ? (
-                      <p className="text-sm text-white/50">No members-only runs yet — click Generate This Week above.</p>
-                    ) : (
-                      <div>{(() => {
-                          const hasMultiBranch = membersOnlyRuns.some((r) => r.title.includes(" · "))
-                          const splitTitle = (title: string) => {
-                            const idx = title.lastIndexOf(" · ")
-                            return idx === -1 ? { paceGroup: title, branch: null } : { paceGroup: title.slice(0, idx), branch: title.slice(idx + 3) }
-                          }
-                          const byBranch: Record<string, typeof membersOnlyRuns> = {}
-                          for (const r of membersOnlyRuns) {
-                            const key = splitTitle(r.title).branch ?? "__single__"
-                            if (!byBranch[key]) byBranch[key] = []
-                            byBranch[key].push(r)
-                          }
-                          const groupByPaceGroup = (runs: typeof membersOnlyRuns) => {
-                            const map: Record<string, typeof membersOnlyRuns> = {}
-                            for (const r of runs) {
-                              const pg = splitTitle(r.title).paceGroup
-                              if (!map[pg]) map[pg] = []
-                              map[pg].push(r)
-                            }
-                            return map
-                          }
-                          const todayStr = localDateStr()
-                          const renderRunRow = (run: typeof membersOnlyRuns[number]) => {
-                            const d = new Date(run.date + "T00:00:00")
-                            const isToday = run.date === todayStr
-                            const dayLabel = d.toLocaleDateString("en-US", { weekday: "long" })
-                            const dateLabel = d.toLocaleDateString("en-US", { month: "numeric", day: "numeric" })
-                            const isExpanded = expandedRunId === run.id
-                            const initDraft = () => ({ title: run.title, time: run.time ?? "06:00", timezone: run.timezone ?? getBrowserTimezone(), distance: run.distance ?? "", meeting_point: run.meeting_point ?? "", route_url: run.route_url ?? "", workout_type_id: run.workout_type_id ?? "", description: run.description ?? "", is_in_person: run.is_in_person ?? true })
-                            const draft = runDrafts[run.id] ?? initDraft()
-                            return (
-                              <div key={run.id} className={isExpanded ? "bg-[#0e150a]" : isToday ? "bg-[#c5f135]/5" : ""}>
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    onClick={() => {
-                                      if (isExpanded) { setExpandedRunId(null) }
-                                      else { setExpandedRunId(run.id); if (!runDrafts[run.id]) setRunDrafts((prev) => ({ ...prev, [run.id]: initDraft() })) }
-                                    }}
-                                    className="flex items-center gap-3 flex-1 min-w-0 px-4 py-3 text-left hover:bg-[#1e2d12] transition"
-                                  >
-                                    {isExpanded
-                                      ? <ChevronDown className={`w-3.5 h-3.5 shrink-0 ${isToday ? "text-[#c5f135]/60" : "text-white/25"}`} />
-                                      : <ChevronRight className={`w-3.5 h-3.5 shrink-0 ${isToday ? "text-[#c5f135]/60" : "text-white/25"}`} />
-                                    }
-                                    <div className="min-w-0">
-                                      <p className={`text-sm font-bold ${isToday ? "text-[#c5f135]" : "text-white"}`}>{dayLabel}s</p>
-                                      <p className="text-xs text-white/40">{dateLabel} · {formatRunTimeDisplay(run)}</p>
-                                    </div>
-                                  </button>
-                                  {(attendanceCounts[run.id] ?? 0) > 0 && (
-                                    <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-[#c5f135]/10 border border-[#c5f135]/25 mr-1 shrink-0">
-                                      <Users className="w-2.5 h-2.5 text-[#c5f135]" />
-                                      <span className="text-[10px] font-black text-[#c5f135]">{attendanceCounts[run.id]}</span>
-                                    </div>
-                                  )}
-                                  <button onClick={() => deleteRun(run.id)} className="p-2 mr-2 rounded-lg text-white/25 hover:text-red-400 hover:bg-red-400/10 transition shrink-0">
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
-                                {isExpanded && (
-                                  <div className="border-t border-[#2e3d1a] px-4 py-3 space-y-3">
-                                    <div className="flex items-center gap-4 flex-wrap">
-                                      <label className="flex items-center gap-1.5 text-xs font-bold text-white/50 cursor-pointer">
-                                        <input type="checkbox" checked={draft.is_in_person}
-                                          onChange={(e) => setRunDrafts((prev) => ({ ...prev, [run.id]: { ...draft, is_in_person: e.target.checked } }))}
-                                          className="accent-[#c5f135]" />
-                                        In person
-                                      </label>
-                                    </div>
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                      <input type="time" value={draft.time}
-                                        onChange={(e) => setRunDrafts((prev) => ({ ...prev, [run.id]: { ...draft, time: e.target.value } }))}
-                                        className="bg-[#111a0a] border border-[#2e3d1a] rounded-lg px-2 py-1 text-xs text-white/70 focus:outline-none focus:border-[#c5f135]/50 [color-scheme:dark]" />
-                                      <select value={draft.timezone}
-                                        onChange={(e) => setRunDrafts((prev) => ({ ...prev, [run.id]: { ...draft, timezone: e.target.value } }))}
-                                        className="min-w-[130px] bg-[#111a0a] border border-[#2e3d1a] rounded-lg px-2 py-1 text-xs text-white/70 focus:outline-none focus:border-[#c5f135]/50">
-                                        {COMMON_TIMEZONES.map((tz) => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
-                                      </select>
-                                      <select value={draft.workout_type_id}
-                                        onChange={(e) => setRunDrafts((prev) => ({ ...prev, [run.id]: { ...draft, workout_type_id: e.target.value } }))}
-                                        className="flex-1 min-w-[140px] bg-[#111a0a] border border-[#2e3d1a] rounded-lg px-2 py-1 text-xs text-white/70 focus:outline-none focus:border-[#c5f135]/50">
-                                        <option value="">No workout type</option>
-                                        {memberRunWorkoutTypes.map((wt) => <option key={wt.id} value={wt.id}>{wt.title}</option>)}
-                                      </select>
-                                    </div>
-                                    <textarea placeholder="Details, e.g. 6 × 800m @ 5k pace" rows={2} value={draft.description}
-                                      onChange={(e) => setRunDrafts((prev) => ({ ...prev, [run.id]: { ...draft, description: e.target.value } }))}
-                                      className="w-full bg-[#111a0a] border border-[#2e3d1a] rounded-lg px-3 py-2 text-xs text-white/70 placeholder:text-white/25 focus:outline-none focus:border-[#c5f135]/50 resize-none" />
-                                    <div className="flex items-center gap-2">
-                                      <button onClick={() => saveRun(run.id)} disabled={runSaving.has(run.id)}
-                                        className="px-3 py-1.5 rounded-full text-xs font-black bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45] disabled:opacity-40 transition">
-                                        {runSaving.has(run.id) ? "Saving…" : "Save"}
-                                      </button>
-                                      <button onClick={() => setExpandedRunId(null)}
-                                        className="px-3 py-1.5 rounded-full text-xs font-bold border border-[#2e3d1a] text-white/50 hover:text-white transition">
-                                        Cancel
-                                      </button>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            )
-                          }
-                          const renderPaceGroups = (runs: typeof membersOnlyRuns) => (
-                            <div className="space-y-5">
-                              {Object.entries(groupByPaceGroup(runs)).map(([pg, pgRuns]) => (
-                                <div key={pg}>
-                                  <p className="text-base font-black text-white mb-2">{pg}</p>
-                                  <div className="bg-[#111a0a] border border-[#2e3d1a] rounded-xl overflow-hidden divide-y divide-[#2e3d1a]">
-                                    {pgRuns.sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time)).map(renderRunRow)}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )
-                          if (hasMultiBranch && !selectedRunsBranch) {
-                            return (
-                              <div className="space-y-2">
-                                {Object.keys(byBranch).sort().map((branch) => (
-                                  <button key={branch} onClick={() => setSelectedRunsBranch(branch)}
-                                    className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-[#111a0a] border border-[#2e3d1a] hover:border-[#c5f135]/20 transition text-left">
-                                    <p className="text-sm font-bold text-white">{branch}</p>
-                                    <ChevronRight className="w-4 h-4 text-white/30" />
-                                  </button>
-                                ))}
-                              </div>
-                            )
-                          }
-                          return (
-                            <div>
-                              {hasMultiBranch && selectedRunsBranch && (
-                                <button onClick={() => setSelectedRunsBranch(null)}
-                                  className="flex items-center gap-1.5 text-xs font-bold text-white/50 hover:text-white mb-4 transition">
-                                  <ArrowLeft className="w-3.5 h-3.5" /> All branches
-                                </button>
-                              )}
-                              {renderPaceGroups(hasMultiBranch && selectedRunsBranch ? (byBranch[selectedRunsBranch] ?? []) : membersOnlyRuns)}
-                            </div>
-                          )
-                        })()}</div>
-                    )}
-                  </>
+                  <div className="space-y-2">
+                    {membersOnlyRuns.map((run) => <RunCard key={run.id} run={run} />)}
+                  </div>
                 )}
               </div>
 
