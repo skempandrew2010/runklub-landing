@@ -194,17 +194,7 @@ export default function WeeklyScheduleTab({ clubId }: { clubId: string }) {
 
                 {selected ? (
                   <div className="bg-[#1e2d12] border border-[#c5f135]/25 rounded-lg px-2 py-2 space-y-1">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="text-xs font-bold text-[#c5f135]">{selected.name}</p>
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); saveDay(day, { workout_type_id: null }) }}
-                        disabled={savingDay === day}
-                        className="text-[10px] font-bold text-white/30 hover:text-red-400 transition shrink-0 disabled:opacity-50"
-                      >
-                        Clear
-                      </button>
-                    </div>
+                    <p className="text-xs font-bold text-[#c5f135]">{selected.name}</p>
                     {selected.structure.length > 0 && (
                       <ul className="space-y-0.5">
                         {selected.structure.map((seg, i) => (
@@ -213,6 +203,14 @@ export default function WeeklyScheduleTab({ clubId }: { clubId: string }) {
                       </ul>
                     )}
                     {selected.description && <p className="text-[11px] text-white/50 leading-relaxed">{selected.description}</p>}
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); saveDay(day, { workout_type_id: null }) }}
+                      disabled={savingDay === day}
+                      className="text-[10px] font-bold text-white/30 hover:text-red-400 transition disabled:opacity-50"
+                    >
+                      Clear
+                    </button>
                   </div>
                 ) : (
                   <div className="border border-dashed border-[#2e3d1a] rounded-lg px-2 py-3 text-center">
