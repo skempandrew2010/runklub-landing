@@ -637,12 +637,6 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
     }
   }
 
-  const makeCoach = async (m: { user_id: string; profiles: { display_name: string | null } | null }) => {
-    const name = m.profiles?.display_name || "Coach"
-    const { data } = await supabase.from("coaches").insert({ club_id: selectedClubId, name, user_id: m.user_id }).select("id, name, user_id").single()
-    if (data) setClubCoaches((prev) => [...prev, data as any])
-  }
-
   const removeCoach = async (coachId: string) => {
     await supabase.from("coaches").delete().eq("id", coachId)
     setClubCoaches((prev) => prev.filter((c) => c.id !== coachId))
@@ -1416,7 +1410,6 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
             const showSplit = selectedClub.membership_type !== "free" && selectedClub.is_public
 
             const MemberRow = ({ m }: { m: typeof members[number] }) => {
-              const coachEntry = clubCoaches.find((c) => c.user_id === m.user_id)
               return (
                 <div className="flex items-center gap-3 bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2">
                   <div className="w-8 h-8 rounded-full shrink-0 bg-[#2e3d1a] overflow-hidden flex items-center justify-center">
@@ -1434,21 +1427,6 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                     <span className={`text-[10px] font-black px-2 py-0.5 rounded-full shrink-0 ${m.member_type === "paid" ? "bg-[#c5f135]/15 text-[#c5f135] border border-[#c5f135]/30" : "bg-white/5 text-white/30 border border-white/10"}`}>
                       {m.member_type === "paid" ? "Paid" : "Free"}
                     </span>
-                  )}
-                  {coachEntry ? (
-                    <button
-                      onClick={() => removeCoach(coachEntry.id)}
-                      className="shrink-0 text-[10px] font-black px-2 py-0.5 rounded-full bg-[#c5f135]/15 text-[#c5f135] border border-[#c5f135]/30 hover:bg-red-400/10 hover:text-red-400 hover:border-red-400/30 transition"
-                    >
-                      Coach ✕
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => makeCoach(m)}
-                      className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/5 text-white/30 border border-white/10 hover:bg-[#c5f135]/10 hover:text-[#c5f135]/70 hover:border-[#c5f135]/20 transition"
-                    >
-                      + Coach
-                    </button>
                   )}
                 </div>
               )
@@ -1525,7 +1503,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
 
                 {pendingInvites.length > 0 && (
                   <Card>
-                    <SectionTitle>Sent invites</SectionTitle>
+                    <SectionTitle>Sent member invites</SectionTitle>
                     <div className="space-y-2">
                       {pendingInvites.map((inv) => (
                         <div key={inv.id} className="flex items-center justify-between gap-3 bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2">
@@ -1591,11 +1569,11 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                     <span className="text-xs font-semibold text-white/30">{clubCoaches.length}</span>
                   </div>
                   <p className="text-xs text-white/80 mb-3">
-                    Invited coaches can check runners in, see attendance/roster, and message members — scoped to the pace group(s) and branch(es) you assign. They never see membership payments.
+                    A separate invite from member invites — coaches log in and accept by email, then can check runners in, see attendance/roster, and message members, scoped to the pace group(s) and branch(es) you assign. They never see membership payments.
                   </p>
 
                   {clubCoaches.length === 0 && coachInvites.length === 0 ? (
-                    <p className="text-sm text-white/80 mb-4">No coaches yet — invite one below, or use the "+ Coach" button on any member for a quick tag.</p>
+                    <p className="text-sm text-white/80 mb-4">No coaches yet — send an invite below.</p>
                   ) : (
                     <div className="space-y-2 mb-4">
                       {clubCoaches.map((coach) => {
