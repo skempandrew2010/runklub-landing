@@ -13,7 +13,7 @@ import {
   MessageSquare, MapPin,
   Zap, ShieldCheck,
   Globe, Lock, Check, X, Link2, Pencil, Trash2,
-  ChevronDown, ChevronRight, Repeat2, CreditCard,
+  ChevronDown, ChevronRight, Repeat2, CreditCard, ClipboardList,
 } from "lucide-react"
 import RegionsLocationsTab from "@/app/admin/club-model/manager/RegionsLocationsTab"
 import PaceGroupsTab from "@/app/admin/club-model/manager/PaceGroupsTab"
@@ -2249,40 +2249,68 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
 
 // ── Main Page ──────────────────────────────────────────────────────────────────
 
+function ContextPicker({ onPick }: { onPick: (context: "director" | "coach") => void }) {
+  return (
+    <div className="min-h-screen bg-[#1a2110] flex items-center justify-center px-5">
+      <div className="w-full max-w-sm">
+        <p className="text-xs font-bold text-[#c5f135]/60 uppercase tracking-widest mb-1 text-center">Director tab</p>
+        <h1 className="text-xl font-black text-white text-center mb-6">Which klub are you managing?</h1>
+        <div className="space-y-3">
+          <button
+            onClick={() => onPick("director")}
+            className="w-full text-left p-5 rounded-2xl border border-[#2e3d1a] bg-[#1e2d12] hover:border-[#c5f135]/40 transition"
+          >
+            <Trophy className="w-5 h-5 text-[#c5f135] mb-2" />
+            <p className="text-base font-bold text-white">Director</p>
+            <p className="text-xs text-white/40 mt-0.5">Run the klub you own</p>
+          </button>
+          <button
+            onClick={() => onPick("coach")}
+            className="w-full text-left p-5 rounded-2xl border border-[#2e3d1a] bg-[#1e2d12] hover:border-[#c5f135]/40 transition"
+          >
+            <ClipboardList className="w-5 h-5 text-[#c5f135] mb-2" />
+            <p className="text-base font-bold text-white">Coach</p>
+            <p className="text-xs text-white/40 mt-0.5">Manage the pace group you were invited to coach</p>
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function DirectorPageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [user, setUser] = useState<any>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
-  const [showCoachView, setShowCoachView] = useState(false)
+  const [isManager, setIsManager] = useState(false)
+  const [isCoach, setIsCoach] = useState(false)
 
   useEffect(() => {
     const load = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push("/login"); return }
       setUser(user)
-      const { data: prof } = await supabase.from("profiles").select("id, display_name, avatar_url, role").eq("id", user.id).single()
 
-      if (prof?.role === "manager") {
-        setProfile(prof)
-        setLoading(false)
+      const [{ data: prof }, { data: coachRows }] = await Promise.all([
+        supabase.from("profiles").select("id, display_name, avatar_url, role").eq("id", user.id).single(),
+        supabase.from("coaches").select("id").eq("user_id", user.id).eq("status", "active").limit(1),
+      ])
+
+      const managerEligible = prof?.role === "manager"
+      const coachEligible = (coachRows?.length ?? 0) > 0
+
+      if (!managerEligible && !coachEligible) {
+        // Director dashboard is otherwise owner/coach-only — members' chats live in the Hub
+        router.replace("/")
         return
       }
 
-      // Not a klub owner — but an invited (active) coach for someone else's
-      // klub lands here too, just on the limited CoachDashboard instead of
-      // the full ManagerView below.
-      const { data: coachRows } = await supabase.from("coaches").select("id").eq("user_id", user.id).eq("status", "active").limit(1)
-      if ((coachRows?.length ?? 0) > 0) {
-        setProfile(prof)
-        setShowCoachView(true)
-        setLoading(false)
-        return
-      }
-
-      // Director dashboard is otherwise owner/coach-only — members' chats live in the Hub
-      router.replace("/")
+      setProfile(prof)
+      setIsManager(managerEligible)
+      setIsCoach(coachEligible)
+      setLoading(false)
     }
     load()
   }, [])
@@ -2297,12 +2325,43 @@ function DirectorPageInner() {
 
   if (!user || !profile) return null
 
-  if (showCoachView) return <CoachDashboard userId={user.id} />
+  // Someone who's both a director and an invited coach elsewhere needs to
+  // pick which klub they mean before landing in either view.
+  const requestedContext = searchParams.get("as")
+  if (isManager && isCoach && requestedContext !== "director" && requestedContext !== "coach") {
+    return <ContextPicker onPick={(context) => router.push(`/director?as=${context}`)} />
+  }
+
+  const context = isManager && isCoach ? requestedContext : isCoach && !isManager ? "coach" : "director"
+  const dualRole = isManager && isCoach
+
+  const switchLink = dualRole && (
+    <Link
+      href="/director"
+      className="fixed top-[calc(var(--safe-top)+8px)] right-3 z-50 px-3 py-1.5 rounded-full bg-[#1e2d12] border border-[#2e3d1a] text-[10px] font-bold text-white/50 hover:text-[#c5f135] hover:border-[#c5f135]/40 transition"
+    >
+      Switch klub
+    </Link>
+  )
+
+  if (context === "coach") {
+    return (
+      <>
+        {switchLink}
+        <CoachDashboard userId={user.id} />
+      </>
+    )
+  }
 
   const requestedTab = searchParams.get("tab")
   const initialTab: TabKey = ALL_TABS.some((t) => t.key === requestedTab) ? (requestedTab as TabKey) : "runs"
 
-  return <ManagerView userId={user.id} initialTab={initialTab} />
+  return (
+    <>
+      {switchLink}
+      <ManagerView userId={user.id} initialTab={initialTab} />
+    </>
+  )
 }
 
 export default function DirectorPage() {
