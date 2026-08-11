@@ -128,17 +128,9 @@ export default function WeeklyScheduleTab({ clubId }: { clubId: string }) {
         >
           <ChevronLeft className="w-4 h-4" />
         </button>
-        <select
-          value={selectedWeek}
-          onChange={(e) => setSelectedWeek(e.target.value)}
-          className="flex-1 min-w-0 bg-[#1a2110] border border-[#2e3d1a] rounded-lg text-white text-xs font-bold text-center px-2 py-2 focus:outline-none focus:border-[#c5f135]/50 transition"
-        >
-          {weekOptions.map((monday, i) => (
-            <option key={monday} value={monday}>
-              {i === 0 ? "This week" : `Week of ${fmtShort(monday)}`} · {fmtShort(monday)}–{fmtShort(addDays(monday, 6))}
-            </option>
-          ))}
-        </select>
+        <p className="flex-1 min-w-0 text-center text-xs font-bold text-white truncate">
+          {weekIndex === 0 ? "This week" : `Week ${weekIndex + 1}`} · {fmtShort(selectedWeek)}–{fmtShort(addDays(selectedWeek, 6))}
+        </p>
         <button
           type="button"
           onClick={() => weekIndex < weekOptions.length - 1 && setSelectedWeek(weekOptions[weekIndex + 1])}
