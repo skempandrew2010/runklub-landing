@@ -220,7 +220,7 @@ export default function WeeklyScheduleTab({ clubId }: { clubId: string }) {
                 }`}
               >
                 <div className="flex items-center gap-1.5">
-                  <p className="text-xs font-bold text-white/70">{label} <span className="text-white/30 font-semibold">{fmtShort(dateStr)}</span></p>
+                  <p className="text-xs font-bold text-white/70">{label} <span className="text-white/70 font-semibold">{fmtShort(dateStr)}</span></p>
                   {runInfo?.hasRun && (
                     <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full shrink-0 ${
                       runInfo.inPerson ? "bg-yellow-400 text-[#1a2110]" : "bg-white/10 text-white/50"
