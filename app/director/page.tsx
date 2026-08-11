@@ -2,11 +2,11 @@
 
 export const dynamic = "force-dynamic"
 
-import { useEffect, useState, useRef, useCallback } from "react"
+import { useEffect, useState, useRef, useCallback, Suspense } from "react"
 import { supabase } from "@/lib/supabase"
 import { localDateStr } from "@/utils/dates"
 import { COMMON_TIMEZONES, getBrowserTimezone, formatRunTime } from "@/lib/timezone"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import {
   ArrowLeft, Trophy, Users, CalendarPlus,
@@ -132,9 +132,9 @@ const ALL_TABS = [
 
 type TabKey = (typeof ALL_TABS)[number]["key"]
 
-function ManagerView({ userId }: { userId: string }) {
+function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKey }) {
   const router = useRouter()
-  const [tab, setTab] = useState<TabKey>("runs")
+  const [tab, setTab] = useState<TabKey>(initialTab)
   const [runPanel, setRunPanel] = useState<null | "create" | "create-weekly" | string>(null)
   const [myClubs, setMyClubs] = useState<ClubWithCount[]>([])
   const [selectedClubId, setSelectedClubId] = useState<string | null>(null)
@@ -196,6 +196,13 @@ function ManagerView({ userId }: { userId: string }) {
     setNativeApp(isNativeApp())
     setIsAdminMode(typeof window !== "undefined" && new URLSearchParams(window.location.search).has("admin"))
   }, [])
+
+  // Tracked separately from the general nav unread badge (which clears on any
+  // Home visit) so the coach Home "Messages" tile stays accurate until they
+  // actually open this tab — see the matching read in CoachHomeContent.
+  useEffect(() => {
+    if (tab === "communicate") localStorage.setItem("coach_messages_last_seen", new Date().toISOString())
+  }, [tab])
 
   // Returning from Stripe's hosted Connect onboarding — the webhook alone
   // isn't guaranteed to have arrived yet, so re-check status directly. An
@@ -2054,8 +2061,9 @@ function ManagerView({ userId }: { userId: string }) {
 
 // ── Main Page ──────────────────────────────────────────────────────────────────
 
-export default function DirectorPage() {
+function DirectorPageInner() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [user, setUser] = useState<any>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
@@ -2084,5 +2092,20 @@ export default function DirectorPage() {
 
   if (!user || !profile) return null
 
-  return <ManagerView userId={user.id} />
+  const requestedTab = searchParams.get("tab")
+  const initialTab: TabKey = ALL_TABS.some((t) => t.key === requestedTab) ? (requestedTab as TabKey) : "runs"
+
+  return <ManagerView userId={user.id} initialTab={initialTab} />
+}
+
+export default function DirectorPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#1a2110] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-[#c5f135]/30 border-t-[#c5f135] rounded-full animate-spin" />
+      </div>
+    }>
+      <DirectorPageInner />
+    </Suspense>
+  )
 }

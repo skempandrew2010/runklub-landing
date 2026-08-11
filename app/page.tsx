@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import HubContent from "@/components/HubContent"
+import CoachHomeContent from "@/components/CoachHomeContent"
+import { useNavIdentity } from "@/hooks/useNavIdentity"
+import { useViewMode } from "@/hooks/useViewMode"
 
 function FadeIn({ children, delay = 0, className = "" }: { children: React.ReactNode; delay?: number; className?: string }) {
   const ref = useRef<HTMLDivElement>(null)
@@ -45,6 +48,9 @@ function FadeIn({ children, delay = 0, className = "" }: { children: React.React
 export default function RootPage() {
   const router = useRouter()
   const [signedIn, setSignedIn] = useState(false)
+  const { user, role, loaded: identityLoaded } = useNavIdentity()
+  const isManager = role === "manager"
+  const { viewMode } = useViewMode(isManager)
 
   useEffect(() => {
     const hash = window.location.hash
@@ -67,7 +73,17 @@ export default function RootPage() {
     return () => listener.subscription.unsubscribe()
   }, [])
 
-  if (signedIn) return <HubContent />
+  if (signedIn) {
+    if (!identityLoaded) {
+      return (
+        <div className="min-h-screen bg-[#1a2110] flex items-center justify-center">
+          <div className="w-8 h-8 border-2 border-[#c5f135]/30 border-t-[#c5f135] rounded-full animate-spin" />
+        </div>
+      )
+    }
+    if (isManager && viewMode === "coach") return <CoachHomeContent userId={user.id} />
+    return <HubContent />
+  }
 
   return (
     <div className="min-h-screen bg-[#1a2110] text-white">
