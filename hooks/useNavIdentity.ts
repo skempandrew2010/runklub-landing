@@ -10,6 +10,7 @@ export function useNavIdentity() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [loaded, setLoaded] = useState(false)
   const [hasUnread, setHasUnread] = useState(false)
+  const [hasClub, setHasClub] = useState(false)
 
   // Clear unread badge when user visits the director tab (managers) or Home (members — it's the Hub when signed in, where chats now live)
   useEffect(() => {
@@ -36,6 +37,7 @@ export function useNavIdentity() {
           supabase.from("clubs").select("id").eq("user_id", user.id),
           supabase.from("subscriptions").select("club_id").eq("user_id", user.id),
         ])
+        setHasClub((ownedRes.data?.length ?? 0) > 0)
         const clubIds = [
           ...((ownedRes.data || []).map((c: any) => c.id)),
           ...((subsRes.data || []).map((s: any) => s.club_id)),
@@ -65,10 +67,10 @@ export function useNavIdentity() {
     load()
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
-      if (!session?.user) { setRole("member"); setHasUnread(false); setAvatarUrl(null) }
+      if (!session?.user) { setRole("member"); setHasUnread(false); setHasClub(false); setAvatarUrl(null) }
     })
     return () => listener.subscription.unsubscribe()
   }, [])
 
-  return { user, role, avatarUrl, loaded, hasUnread }
+  return { user, role, avatarUrl, loaded, hasUnread, hasClub }
 }

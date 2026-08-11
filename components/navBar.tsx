@@ -2,26 +2,31 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Compass, Trophy, UserCircle, Home, Stamp, Flame, BarChart3 } from "lucide-react"
+import { Compass, Trophy, UserCircle, Home, Stamp, Flame, BarChart3, PlusCircle } from "lucide-react"
 import { useNavIdentity } from "@/hooks/useNavIdentity"
 import { useViewMode } from "@/hooks/useViewMode"
 
 export default function Navbar() {
   const pathname = usePathname()
-  const { user, role, avatarUrl, loaded, hasUnread } = useNavIdentity()
+  const { user, role, avatarUrl, loaded, hasUnread, hasClub } = useNavIdentity()
   const isManager = role === "manager"
   const { viewMode } = useViewMode(isManager)
   const showCoachTab = isManager && viewMode === "coach"
+  const needsClub = showCoachTab && !hasClub
 
   const tabs = [
-    { href: "/",           label: "Home",       Icon: Home,    badge: !showCoachTab && hasUnread },
-    { href: "/explore",    label: "Discover",   Icon: Compass, badge: false },
+    { key: "home",     href: "/",           label: "Home",       Icon: Home,    badge: !showCoachTab && hasUnread },
+    { key: "discover", href: "/explore",    label: "Discover",   Icon: Compass, badge: false },
     ...(showCoachTab
-      ? [{ href: "/director/analytics", label: "Analytics", Icon: BarChart3, badge: false }]
-      : [{ href: "/challenges", label: "Missions", Icon: Flame, badge: false }]),
+      ? [needsClub
+          ? { key: "analytics", href: "/submit-club", label: "Create a Klub", Icon: PlusCircle, badge: false }
+          : { key: "analytics", href: "/director/analytics", label: "Analytics", Icon: BarChart3, badge: false }]
+      : [{ key: "missions", href: "/challenges", label: "Missions", Icon: Flame, badge: false }]),
     ...(showCoachTab
-      ? [{ href: "/director", label: "Director", Icon: Trophy, badge: hasUnread }]
-      : [{ href: "/passport", label: "Passport", Icon: Stamp, badge: false }]),
+      ? [needsClub
+          ? { key: "director", href: "/submit-club", label: "Create a Klub", Icon: PlusCircle, badge: false }
+          : { key: "director", href: "/director", label: "Director", Icon: Trophy, badge: hasUnread }]
+      : [{ key: "passport", href: "/passport", label: "Passport", Icon: Stamp, badge: false }]),
   ]
 
   const isActive = (href: string) => {
@@ -48,11 +53,11 @@ export default function Navbar() {
 
         {/* Main nav tabs — centered */}
         <div className="flex items-center gap-5 sm:gap-6">
-          {tabs.map(({ href, label, Icon, badge }) => {
+          {tabs.map(({ key, href, label, Icon, badge }) => {
             const active = isActive(href)
             return (
               <Link
-                key={href}
+                key={key}
                 href={href}
                 className={`flex flex-col items-center justify-center gap-1 px-2 sm:px-4 py-2 rounded-xl transition ${active ? "bg-[#c5f135]/10" : "hover:bg-[#2e3d1a]"}`}
               >
