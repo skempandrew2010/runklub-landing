@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation"
 import { Bell, Ruler, Activity, Pencil, Check, X, Trophy, Users, ShieldCheck, Zap, ExternalLink, ChevronRight, Home } from "lucide-react"
 import { isNativeApp } from "@/utils/platform"
 import { PLANS, PLAN_ORDER } from "@/lib/plans"
+import { PASSPORT_PREMIUM_PRICE_CENTS_PLACEHOLDER } from "@/lib/passportPremium"
 import { getUserTierProgress, type TierProgress } from "@/lib/checkins"
 import { TIER_ICONS } from "@/components/TierCard"
 import { useViewMode } from "@/hooks/useViewMode"
@@ -510,8 +511,8 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* SUBSCRIPTION TIERS — directors only, so they know what each plan unlocks */}
-        {profile?.role === "manager" && (
+        {/* SUBSCRIPTION TIERS — coach view only, so directors see what each klub plan unlocks */}
+        {isManager && viewMode === "coach" && (
           <div>
             <h2 className="text-xs font-bold text-white/40 tracking-widest uppercase px-1 mb-2">Subscription Tiers</h2>
             <div className="bg-[#1e2d12] rounded-2xl overflow-hidden divide-y divide-[#2e3d1a]">
@@ -547,6 +548,29 @@ export default function ProfilePage() {
             <p className="px-1 mt-2 text-xs text-white/30">
               Full comparison at <Link href="/pricing" className="text-[#c5f135] hover:underline">runklub.fit/pricing</Link>.
             </p>
+          </div>
+        )}
+
+        {/* PASSPORT PREMIUM — member view only; no checkout flow exists yet, shown as a preview */}
+        {viewMode === "member" && (
+          <div>
+            <h2 className="text-xs font-bold text-white/40 tracking-widest uppercase px-1 mb-2">Passport Premium</h2>
+            <div className="bg-[#1e2d12] rounded-2xl overflow-hidden">
+              <div className="px-4 py-3.5">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-white">Passport Premium</span>
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-white/10 text-white/50">COMING SOON</span>
+                  </div>
+                  <span className="text-sm font-black text-[#c5f135] shrink-0">
+                    ${(PASSPORT_PREMIUM_PRICE_CENTS_PLACEHOLDER / 100).toFixed(2)}/mo
+                  </span>
+                </div>
+                <p className="text-xs text-white/40 mt-2 leading-relaxed">
+                  A platform-wide subscription with extra Passport perks across every klub you visit. Not open for signups yet — pricing shown is a preview.
+                </p>
+              </div>
+            </div>
           </div>
         )}
 
