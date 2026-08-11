@@ -107,6 +107,17 @@ function ExplorePageInner() {
   const [mapBounds, setMapBounds] = useState<{ north: number; south: number; east: number; west: number } | null>(null)
   const [cityCentroids, setCityCentroids] = useState<Record<string, { lat: number; lng: number }>>({})
   const [userSubscribedIds, setUserSubscribedIds] = useState<Set<string>>(new Set())
+  // The mobile/desktop layouts below are both always in the DOM (only CSS-hidden via
+  // Tailwind's md: classes), so without this we'd mount two live Mapbox GL maps at
+  // once. Track the real viewport and only ever render one <MapView> at a time.
+  const [isDesktop, setIsDesktop] = useState<boolean | null>(null)
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)")
+    setIsDesktop(mq.matches)
+    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches)
+    mq.addEventListener("change", handler)
+    return () => mq.removeEventListener("change", handler)
+  }, [])
   const [notInterestedIds, setNotInterestedIds] = useState<Set<string>>(() => {
     if (typeof window !== "undefined") {
       try { return new Set(JSON.parse(localStorage.getItem("explore-not-interested") ?? "[]")) } catch { return new Set() }
@@ -691,7 +702,9 @@ function ExplorePageInner() {
         <div className="sticky z-40" style={{ top: 'var(--navbar-h)' }}>{filterBar}</div>
         {/* Map always visible at top, stacked above list */}
         <div className={`h-[220px] transition-[filter] ${gatedClass}`}>
-          <MapView city={city} runs={mapRuns} clubs={mapClubs} ownedClubIds={ownedClubIds} onCityCoords={setCityCoords} onBoundsChange={setMapBounds} hideControls />
+          {isDesktop === false && (
+            <MapView city={city} runs={mapRuns} clubs={mapClubs} ownedClubIds={ownedClubIds} onCityCoords={setCityCoords} onBoundsChange={setMapBounds} hideControls />
+          )}
         </div>
         {tabSwitcher}
         {activeTab === "runs" ? (
@@ -732,7 +745,9 @@ function ExplorePageInner() {
               className={`sticky transition-[filter] ${gatedClass}`}
               style={{ top: 'var(--navbar-h)', height: 'calc(100vh - var(--navbar-h))', transform: 'translateZ(0)', willChange: 'transform' }}
             >
-              <MapView city={city} runs={mapRuns} clubs={mapClubs} ownedClubIds={ownedClubIds} onCityCoords={setCityCoords} onBoundsChange={setMapBounds} />
+              {isDesktop === true && (
+                <MapView city={city} runs={mapRuns} clubs={mapClubs} ownedClubIds={ownedClubIds} onCityCoords={setCityCoords} onBoundsChange={setMapBounds} />
+              )}
             </div>
           </div>
         </div>
