@@ -141,18 +141,19 @@ export default function RunFormPanel({
               .limit(8),
         supabase.from("regions").select("id, name").eq("club_id", clubId).order("name"),
         supabase.from("clubs").select("default_timezone, latitude, longitude").eq("id", clubId).single(),
-        supabase.from("club_weekly_schedule").select("day_of_week, week_of, workout_type_id").eq("club_id", clubId),
+        supabase.from("club_weekly_schedule").select("day_of_week, week_of, pace_group_id, workout_type_id").eq("club_id", clubId),
       ])
       setPaceGroups((pg.data as PaceGroup[]) || [])
       setWorkoutTypes(((wt.data ?? []) as any[]).map((r) => ({ id: r.id, name: r.title, description: r.description, structure: parseWorkoutStructure(r.structure) })))
       setCoaches((co.data as Coach[]) || [])
       if (!isEdit) setTemplates((tpl.data as RunTemplate[]) || [])
-      const scheduleByWeek: Record<string, Record<number, string | null>> = {}
-      for (const row of (sched.data ?? []) as { day_of_week: number; week_of: string; workout_type_id: string | null }[]) {
-        if (!scheduleByWeek[row.week_of]) scheduleByWeek[row.week_of] = {}
-        scheduleByWeek[row.week_of][row.day_of_week] = row.workout_type_id
+      const scheduleByKey: Record<string, Record<number, string | null>> = {}
+      for (const row of (sched.data ?? []) as { day_of_week: number; week_of: string; pace_group_id: string; workout_type_id: string | null }[]) {
+        const key = `${row.pace_group_id}_${row.week_of}`
+        if (!scheduleByKey[key]) scheduleByKey[key] = {}
+        scheduleByKey[key][row.day_of_week] = row.workout_type_id
       }
-      setWeeklySchedule(scheduleByWeek)
+      setWeeklySchedule(scheduleByKey)
       const clubInfo = clubRow.data as { default_timezone: string | null; latitude: number | null; longitude: number | null } | null
       if (!isEdit && clubInfo?.default_timezone) setTimezone(clubInfo.default_timezone)
       setClubHome(clubInfo?.latitude != null && clubInfo?.longitude != null ? { lat: clubInfo.latitude, lng: clubInfo.longitude } : null)
@@ -198,14 +199,16 @@ export default function RunFormPanel({
     load()
   }, [clubId, runId, isEdit])
 
-  // Suggest whatever the weekly training schedule has for this run's specific week and
-  // day of week — only for new runs, and only until the director picks a workout themselves.
+  // Suggest whatever the weekly training schedule has for this run's pace group,
+  // specific week, and day of week — only for new runs with a pace group picked,
+  // and only until the director picks a workout themselves.
   useEffect(() => {
-    if (isEdit || workoutManuallySet || !date) return
+    if (isEdit || workoutManuallySet || !date || selectedPaceGroupIds.length === 0) return
     const runDate = new Date(`${date}T00:00:00`)
-    const suggested = weeklySchedule[mondayOf(runDate)]?.[runDate.getDay()]
+    const key = `${selectedPaceGroupIds[0]}_${mondayOf(runDate)}`
+    const suggested = weeklySchedule[key]?.[runDate.getDay()]
     if (suggested) setSelectedWorkoutTypeId(suggested)
-  }, [date, isEdit, workoutManuallySet, weeklySchedule]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [date, isEdit, workoutManuallySet, weeklySchedule, selectedPaceGroupIds]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const applyTemplate = (tpl: RunTemplate) => {
     setTitle(tpl.title)

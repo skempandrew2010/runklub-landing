@@ -1860,12 +1860,12 @@ function ManagerView({ userId }: { userId: string }) {
                       </div>
                       <div>
                         <p className="text-sm font-bold text-white">Training schedules sent!</p>
-                        <p className="text-xs text-white/80 mt-0.5">Delivered to {scheduleResult.sent} of {scheduleResult.total} active members{scheduleResult.skipped > 0 ? ` (${scheduleResult.skipped} skipped — no email on file)` : ""}</p>
+                        <p className="text-xs text-white/80 mt-0.5">Delivered to {scheduleResult.sent} of {scheduleResult.total} members in a pace group{scheduleResult.skipped > 0 ? ` (${scheduleResult.skipped} skipped — no email on file)` : ""}</p>
                       </div>
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      <p className="text-sm text-white/80">Emails every active member this week's Weekly Training Schedule from the Runs tab — the workout for each day, plus any group runs that week.</p>
+                      <p className="text-sm text-white/80">Emails each active member their pace group's Weekly Training Schedule for this week — the workout for each day, plus any group runs that week. Members need a pace group assigned to receive it.</p>
                       {scheduleError && <p className="text-red-400/80 text-xs">{scheduleError}</p>}
                       <Button onClick={sendTrainingSchedule} disabled={scheduleSending}>
                         {scheduleSending ? "Sending…" : "Send this week's schedule"}

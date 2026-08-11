@@ -24,11 +24,15 @@ function fmtShort(dateStr: string): string {
 type WorkoutOption = { id: string; name: string; description: string | null; structure: WorkoutSegment[] }
 type ScheduleRow = { day_of_week: number; workout_type_id: string | null; notes: string | null }
 type RunMarker = { hasRun: boolean; inPerson: boolean }
+type PaceGroup = { id: string; name: string }
 
 export default function WeeklyScheduleTab({ clubId }: { clubId: string }) {
   const thisMonday = mondayOf()
   const weekOptions = Array.from({ length: WEEKS_AHEAD }, (_, i) => addDays(thisMonday, i * 7))
 
+  const [paceGroups, setPaceGroups] = useState<PaceGroup[]>([])
+  const [paceGroupsLoading, setPaceGroupsLoading] = useState(true)
+  const [selectedPaceGroupId, setSelectedPaceGroupId] = useState<string | null>(null)
   const [selectedWeek, setSelectedWeek] = useState(thisMonday)
   const [workouts, setWorkouts] = useState<WorkoutOption[]>([])
   const [workoutsLoading, setWorkoutsLoading] = useState(true)
@@ -43,6 +47,13 @@ export default function WeeklyScheduleTab({ clubId }: { clubId: string }) {
   const [overviewSchedule, setOverviewSchedule] = useState<Record<string, Record<number, string | null>>>({})
 
   useEffect(() => {
+    supabase.from("pace_groups").select("id, name").eq("club_id", clubId).order("pace_min")
+      .then(({ data }) => {
+        const groups = (data ?? []) as PaceGroup[]
+        setPaceGroups(groups)
+        setSelectedPaceGroupId((prev) => prev ?? groups[0]?.id ?? null)
+        setPaceGroupsLoading(false)
+      })
     supabase.from("runs").select("id, title, description, structure").eq("club_id", clubId).eq("kind", "workout").order("title")
       .then(({ data }) => {
         setWorkouts(((data ?? []) as any[]).map((r) => ({ id: r.id, name: r.title, description: r.description, structure: parseWorkoutStructure(r.structure) })))
@@ -51,18 +62,22 @@ export default function WeeklyScheduleTab({ clubId }: { clubId: string }) {
   }, [clubId])
 
   useEffect(() => {
+    if (!selectedPaceGroupId) return
     const load = async () => {
       setLoading(true)
       const weekEnd = addDays(selectedWeek, 6)
       const [sched, runs] = await Promise.all([
-        supabase.from("club_weekly_schedule").select("day_of_week, workout_type_id, notes").eq("club_id", clubId).eq("week_of", selectedWeek),
-        supabase.from("runs").select("date, is_in_person").eq("club_id", clubId).eq("kind", "run").gte("date", selectedWeek).lte("date", weekEnd),
+        supabase.from("club_weekly_schedule").select("day_of_week, workout_type_id, notes")
+          .eq("pace_group_id", selectedPaceGroupId).eq("week_of", selectedWeek),
+        supabase.from("runs").select("date, is_in_person, pace_group_ids").eq("club_id", clubId).eq("kind", "run")
+          .gte("date", selectedWeek).lte("date", weekEnd),
       ])
       const byDay: Record<number, ScheduleRow> = {}
       for (const row of (sched.data ?? []) as ScheduleRow[]) byDay[row.day_of_week] = row
       setSchedule(byDay)
       const byDayRuns: Record<number, RunMarker> = {}
-      for (const r of (runs.data ?? []) as { date: string; is_in_person: boolean }[]) {
+      for (const r of (runs.data ?? []) as { date: string; is_in_person: boolean; pace_group_ids: string[] | null }[]) {
+        if (r.pace_group_ids && r.pace_group_ids.length > 0 && !r.pace_group_ids.includes(selectedPaceGroupId)) continue
         const day = new Date(`${r.date}T00:00:00`).getDay()
         const prev = byDayRuns[day] ?? { hasRun: false, inPerson: false }
         byDayRuns[day] = { hasRun: true, inPerson: prev.inPerson || !!r.is_in_person }
@@ -71,28 +86,30 @@ export default function WeeklyScheduleTab({ clubId }: { clubId: string }) {
       setLoading(false)
     }
     load()
-  }, [clubId, selectedWeek])
+  }, [clubId, selectedPaceGroupId, selectedWeek])
 
   const rowFor = (day: number): ScheduleRow => schedule[day] ?? { day_of_week: day, workout_type_id: null, notes: null }
 
   const saveDay = async (day: number, patch: Partial<ScheduleRow>) => {
+    if (!selectedPaceGroupId) return
     const next = { ...rowFor(day), ...patch }
     setSchedule((prev) => ({ ...prev, [day]: next }))
     setSavingDay(day)
     await supabase.from("club_weekly_schedule").upsert(
-      { club_id: clubId, day_of_week: day, week_of: selectedWeek, workout_type_id: next.workout_type_id, notes: next.notes },
-      { onConflict: "club_id,day_of_week,week_of" }
+      { club_id: clubId, pace_group_id: selectedPaceGroupId, day_of_week: day, week_of: selectedWeek, workout_type_id: next.workout_type_id, notes: next.notes },
+      { onConflict: "pace_group_id,day_of_week,week_of" }
     )
     setSavingDay(null)
   }
 
   const openOverview = async () => {
+    if (!selectedPaceGroupId) return
     setOverviewOpen(true)
     setOverviewLoading(true)
     const { data } = await supabase
       .from("club_weekly_schedule")
       .select("day_of_week, week_of, workout_type_id")
-      .eq("club_id", clubId)
+      .eq("pace_group_id", selectedPaceGroupId)
       .gte("week_of", thisMonday)
       .lte("week_of", weekOptions[weekOptions.length - 1])
     const byWeek: Record<string, Record<number, string | null>> = {}
@@ -111,7 +128,11 @@ export default function WeeklyScheduleTab({ clubId }: { clubId: string }) {
 
   const weekIndex = weekOptions.indexOf(selectedWeek)
 
-  if (workoutsLoading) return <p className="text-white/60 text-sm">Loading…</p>
+  if (paceGroupsLoading || workoutsLoading) return <p className="text-white/60 text-sm">Loading…</p>
+
+  if (paceGroups.length === 0) {
+    return <p className="text-sm text-white/50">Add pace groups in Setup first, then come back here to build a schedule for each.</p>
+  }
 
   if (workouts.length === 0) {
     return <p className="text-sm text-white/50">Add workouts to your Workout Library first, then come back here to place them on the calendar.</p>
@@ -119,6 +140,23 @@ export default function WeeklyScheduleTab({ clubId }: { clubId: string }) {
 
   return (
     <div>
+      <div className="flex flex-wrap gap-1.5 mb-3">
+        {paceGroups.map((pg) => (
+          <button
+            key={pg.id}
+            type="button"
+            onClick={() => setSelectedPaceGroupId(pg.id)}
+            className={`px-3 py-1.5 rounded-full text-xs font-bold border transition ${
+              selectedPaceGroupId === pg.id
+                ? "bg-[#c5f135] text-[#1a2110] border-[#c5f135]"
+                : "bg-[#1a2110] text-white/50 border-[#2e3d1a] hover:border-[#c5f135]/40 hover:text-white/70"
+            }`}
+          >
+            {pg.name}
+          </button>
+        ))}
+      </div>
+
       <div className="flex items-center justify-between gap-2 mb-3">
         <button
           type="button"
@@ -285,7 +323,9 @@ export default function WeeklyScheduleTab({ clubId }: { clubId: string }) {
             className="w-full sm:max-w-3xl max-h-[85vh] flex flex-col bg-[#1e2d12] border border-[#2e3d1a] rounded-t-3xl sm:rounded-3xl p-5 pb-8 sm:pb-5 animate-[fadeUp_0.25s_ease-out_forwards]"
           >
             <div className="flex items-center justify-between mb-4 shrink-0">
-              <p className="text-sm font-black text-white">{WEEKS_AHEAD}-Week Training Schedule</p>
+              <p className="text-sm font-black text-white">
+                {WEEKS_AHEAD}-Week Training Schedule <span className="text-[#c5f135]">· {paceGroups.find((pg) => pg.id === selectedPaceGroupId)?.name}</span>
+              </p>
               <button onClick={() => setOverviewOpen(false)} className="text-white/30 hover:text-white/60 transition p-1" aria-label="Close">
                 <X className="w-5 h-5" />
               </button>

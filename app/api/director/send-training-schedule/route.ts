@@ -51,6 +51,7 @@ type Run = {
   meeting_point: string | null
   is_in_person: boolean
   members_only: boolean
+  pace_group_ids: string[] | null
 }
 
 type WorkoutInfo = { title: string; description: string | null; structure: WorkoutSegment[] }
@@ -217,19 +218,21 @@ export async function POST(req: NextRequest) {
     const sunday = addDays(monday, 6)
     const weekLabel = fmtWeekLabel(monday)
 
-    // The director's standing weekly plan (Runs -> Weekly Training Schedule), plus
-    // that week's actual dated runs for context — not a personalized per-pace-group build.
-    const [weeklyScheduleResult, workoutsResult, weekRunsResult, membersResult] = await Promise.all([
-      adminSupabase.from("club_weekly_schedule").select("day_of_week, workout_type_id, notes").eq("club_id", club_id).eq("week_of", monday),
+    // Each pace group has its own weekly plan (Runs -> Weekly Training Schedule); that
+    // week's actual dated runs are attached to whichever pace groups they're tagged for
+    // (or shown to everyone if a run has no pace group set).
+    const [weeklyScheduleResult, workoutsResult, weekRunsResult, membersResult, paceGroupsResult] = await Promise.all([
+      adminSupabase.from("club_weekly_schedule").select("day_of_week, pace_group_id, workout_type_id, notes").eq("club_id", club_id).eq("week_of", monday),
       adminSupabase.from("runs").select("id, title, description, structure").eq("club_id", club_id).eq("kind", "workout"),
       adminSupabase.from("runs")
-        .select("id, date, time, timezone, distance, meeting_point, is_in_person, members_only")
+        .select("id, date, time, timezone, distance, meeting_point, is_in_person, members_only, pace_group_ids")
         .eq("club_id", club_id).eq("kind", "run")
         .gte("date", monday).lte("date", sunday)
         .order("time"),
       adminSupabase.from("members")
-        .select("id, name, email, user_id")
+        .select("id, name, email, user_id, pace_group_id")
         .eq("club_id", club_id).eq("status", "active"),
+      adminSupabase.from("pace_groups").select("id, name").eq("club_id", club_id),
     ])
 
     const workoutById: Record<string, WorkoutInfo> = {}
@@ -237,24 +240,41 @@ export async function POST(req: NextRequest) {
       workoutById[w.id] = { title: w.title, description: w.description, structure: parseWorkoutStructure(w.structure) }
     }
 
-    const scheduleByDay: Record<number, ScheduleDay> = {}
-    for (let day = 0; day < 7; day++) scheduleByDay[day] = { workout: null, notes: null, runs: [] }
+    const weekRuns = (weekRunsResult.data ?? []) as Run[]
+    const paceGroupIds = (paceGroupsResult.data ?? []).map((pg) => pg.id)
+
+    // scheduleByPaceGroup[pace_group_id][day_of_week]
+    const scheduleByPaceGroup: Record<string, Record<number, ScheduleDay>> = {}
+    for (const pgId of paceGroupIds) {
+      const byDay: Record<number, ScheduleDay> = {}
+      for (let day = 0; day < 7; day++) {
+        byDay[day] = {
+          workout: null,
+          notes: null,
+          runs: weekRuns.filter((r) => {
+            const day2 = new Date(r.date + "T00:00:00").getDay()
+            if (day2 !== day) return false
+            return !r.pace_group_ids || r.pace_group_ids.length === 0 || r.pace_group_ids.includes(pgId)
+          }),
+        }
+      }
+      scheduleByPaceGroup[pgId] = byDay
+    }
     for (const row of weeklyScheduleResult.data ?? []) {
-      scheduleByDay[row.day_of_week] = {
+      const byDay = scheduleByPaceGroup[row.pace_group_id]
+      if (!byDay) continue
+      byDay[row.day_of_week] = {
+        ...byDay[row.day_of_week],
         workout: row.workout_type_id ? (workoutById[row.workout_type_id] ?? null) : null,
         notes: row.notes,
-        runs: [],
       }
-    }
-    for (const run of (weekRunsResult.data ?? []) as Run[]) {
-      const day = new Date(run.date + "T00:00:00").getDay()
-      scheduleByDay[day].runs.push(run)
     }
 
     const members: any[] = membersResult.data ?? []
-    if (members.length === 0) {
+    const eligibleMembers = members.filter((m) => m.pace_group_id && scheduleByPaceGroup[m.pace_group_id])
+    if (eligibleMembers.length === 0) {
       return NextResponse.json({
-        error: "No active members to send to yet.",
+        error: "No members have been assigned to a pace group yet. Go to the Members tab and assign members to a pace group to get them on the schedule.",
         code: "no_eligible_members",
       }, { status: 400 })
     }
@@ -263,7 +283,7 @@ export async function POST(req: NextRequest) {
     // This is more reliable than the email stored at enrollment time (which can
     // go stale if the runner updates their email address).
     const authEmailMap: Record<string, string> = {}
-    const userIdMembers = members.filter((m) => m.user_id)
+    const userIdMembers = eligibleMembers.filter((m) => m.user_id)
     if (userIdMembers.length > 0) {
       await Promise.allSettled(
         userIdMembers.map(async (m) => {
@@ -280,13 +300,13 @@ export async function POST(req: NextRequest) {
     let skipped = 0
 
     await Promise.allSettled(
-      members.map(async (member: any) => {
+      eligibleMembers.map(async (member: any) => {
         // Prefer live auth email; fall back to the email stored at enrollment
         const email = (member.user_id && authEmailMap[member.user_id]) || member.email
         if (!email) { skipped++; return }
 
         const { html, text } = buildScheduleEmail(
-          member.name, club.name, club_id, monday, weekLabel, scheduleByDay
+          member.name, club.name, club_id, monday, weekLabel, scheduleByPaceGroup[member.pace_group_id]
         )
 
         const { error } = await resend.emails.send({
@@ -307,7 +327,7 @@ export async function POST(req: NextRequest) {
       })
     )
 
-    return NextResponse.json({ ok: true, sent, skipped, total: members.length })
+    return NextResponse.json({ ok: true, sent, skipped, total: eligibleMembers.length })
   } catch (err: any) {
     console.error("send-training-schedule error:", err)
     return NextResponse.json({ error: err.message ?? "Internal server error" }, { status: 500 })
