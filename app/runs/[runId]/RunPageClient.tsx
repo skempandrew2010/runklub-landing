@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Clock, MapPin, MessageSquare, CheckCircle2, ExternalLink } from "lucide-react"
+import { ArrowLeft, Clock, MapPin, MessageSquare, CheckCircle2, ExternalLink, PartyPopper } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { localDateStr, mondayOf } from "@/utils/dates"
 import { getTagStyle } from "@/utils/tagStyle"
@@ -69,6 +69,9 @@ export default function RunPageClient({ runId }: { runId: string }) {
   const [position, setPosition] = useState<{ lat: number; lng: number } | null>(null)
   const [positionError, setPositionError] = useState<string | null>(null)
   const [personalizedWorkout, setPersonalizedWorkout] = useState<{ title: string; description: string | null; structure: WorkoutSegment[] } | null>(null)
+  const [rsvpCount, setRsvpCount] = useState(0)
+  const [myRsvp, setMyRsvp] = useState(false)
+  const [rsvpSaving, setRsvpSaving] = useState(false)
 
   // Fetched client-side (not server-side with the anon key) so RLS evaluates
   // as the actual signed-in visitor — otherwise an approved member clicking
@@ -148,6 +151,39 @@ export default function RunPageClient({ runId }: { runId: string }) {
       .maybeSingle()
       .then(({ data }) => setCheckedIn(!!data))
   }, [userId, run])
+
+  useEffect(() => {
+    if (!run) return
+    supabase
+      .from("rsvps")
+      .select("id", { count: "exact", head: true })
+      .eq("run_id", run.id)
+      .eq("going", true)
+      .then(({ count }) => setRsvpCount(count ?? 0))
+    if (userId) {
+      supabase
+        .from("rsvps")
+        .select("going")
+        .eq("run_id", run.id)
+        .eq("user_id", userId)
+        .maybeSingle()
+        .then(({ data }) => setMyRsvp(!!data?.going))
+    }
+  }, [userId, run])
+
+  const toggleRsvp = async () => {
+    if (!run) return
+    if (!userId) { router.push("/login"); return }
+    const next = !myRsvp
+    setMyRsvp(next)
+    setRsvpCount((c) => Math.max(0, c + (next ? 1 : -1)))
+    setRsvpSaving(true)
+    await supabase.from("rsvps").upsert(
+      { run_id: run.id, user_id: userId, going: next, updated_at: new Date().toISOString() },
+      { onConflict: "run_id,user_id" }
+    )
+    setRsvpSaving(false)
+  }
 
   // For members-only runs shared across pace groups, show the viewer their own
   // group's workout for this day (from the Weekly Training Schedule) instead of
@@ -280,6 +316,26 @@ export default function RunPageClient({ runId }: { runId: string }) {
             <p className="flex items-center gap-1.5 text-sm text-white/50 mb-3">
               <MapPin className="w-3.5 h-3.5 text-[#c5f135] shrink-0" /> {run.city}
             </p>
+          )}
+
+          {!run.external_url && (
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <span className="flex items-center gap-1.5 text-sm text-white/50">
+                <PartyPopper className="w-3.5 h-3.5 text-[#c5f135]" />
+                {rsvpCount} going
+              </span>
+              <button
+                onClick={toggleRsvp}
+                disabled={rsvpSaving}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-black transition disabled:opacity-50 ${
+                  myRsvp
+                    ? "bg-[#c5f135]/15 text-[#c5f135] border border-[#c5f135]/30"
+                    : "bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45]"
+                }`}
+              >
+                {myRsvp ? "I'm Going ✓" : "RSVP"}
+              </button>
+            </div>
           )}
 
           {run.is_in_person && (

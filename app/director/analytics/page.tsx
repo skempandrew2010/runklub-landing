@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Users, CalendarCheck, MapPin, Crown, DollarSign, Info } from "lucide-react"
+import { ArrowLeft, Users, CalendarCheck, MapPin, Crown, DollarSign, Info, PartyPopper, TrendingDown, Mail } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 
 type ClubOption = { id: string; name: string }
@@ -34,6 +34,23 @@ type AnalyticsData = {
     referralSubscriberCount: number
     monthlyRevenueCents: number
     isPlaceholder: boolean
+  }
+  rsvpVsCheckin: {
+    totalRsvps: number
+    totalCheckins: number
+    rate: number | null
+    recentRuns: { runId: string; title: string; date: string; rsvpCount: number; checkinCount: number }[]
+  }
+  retention: { active: number; atRisk: number; churned: number }
+  emailEngagement: {
+    totalSent: number
+    delivered: number
+    opened: number
+    clicked: number
+    bounced: number
+    complained: number
+    openRate: number | null
+    clickRate: number | null
   }
 }
 
@@ -190,6 +207,89 @@ export default function DirectorAnalyticsPage() {
                     </div>
                   ))}
                 </div>
+              )}
+            </Card>
+
+            <Card title="RSVP vs. Check-In Rate" icon={<PartyPopper className="w-3.5 h-3.5 text-[#c5f135]" />}>
+              <p className="text-xs text-white/35 mb-3 -mt-1">Runs in the last 30 days — how many who RSVPed actually showed up</p>
+              <div className="grid grid-cols-3 gap-3 mb-3">
+                <div className="bg-[#1a2110] rounded-xl px-3 py-3 text-center">
+                  <p className="text-lg font-black text-white">{data.rsvpVsCheckin.totalRsvps}</p>
+                  <p className="text-[10px] text-white/40 uppercase tracking-widest mt-1">RSVPs</p>
+                </div>
+                <div className="bg-[#1a2110] rounded-xl px-3 py-3 text-center">
+                  <p className="text-lg font-black text-white">{data.rsvpVsCheckin.totalCheckins}</p>
+                  <p className="text-[10px] text-white/40 uppercase tracking-widest mt-1">Check-ins</p>
+                </div>
+                <div className="bg-[#1a2110] rounded-xl px-3 py-3 text-center">
+                  <p className="text-lg font-black text-[#c5f135]">
+                    {data.rsvpVsCheckin.rate !== null ? `${Math.round(data.rsvpVsCheckin.rate * 100)}%` : "—"}
+                  </p>
+                  <p className="text-[10px] text-white/40 uppercase tracking-widest mt-1">Show-up rate</p>
+                </div>
+              </div>
+              {data.rsvpVsCheckin.recentRuns.length > 0 && (
+                <div className="space-y-1.5">
+                  {data.rsvpVsCheckin.recentRuns.map((r) => (
+                    <div key={r.runId} className="flex items-center justify-between gap-3 bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-white truncate">{r.title}</p>
+                        <p className="text-xs text-white/40">{new Date(r.date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}</p>
+                      </div>
+                      <span className="text-xs font-black text-white/60 shrink-0">{r.checkinCount} / {r.rsvpCount}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+
+            <Card title="Member Retention" icon={<TrendingDown className="w-3.5 h-3.5 text-[#c5f135]" />}>
+              <p className="text-xs text-white/35 mb-3 -mt-1">Based on each member&apos;s most recent check-in at this klub</p>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-[#1a2110] rounded-xl px-3 py-3 text-center">
+                  <p className="text-lg font-black text-[#c5f135]">{data.retention.active}</p>
+                  <p className="text-[10px] text-white/40 uppercase tracking-widest mt-1">Active (≤30d)</p>
+                </div>
+                <div className="bg-[#1a2110] rounded-xl px-3 py-3 text-center">
+                  <p className="text-lg font-black text-yellow-400">{data.retention.atRisk}</p>
+                  <p className="text-[10px] text-white/40 uppercase tracking-widest mt-1">At risk (31-60d)</p>
+                </div>
+                <div className="bg-[#1a2110] rounded-xl px-3 py-3 text-center">
+                  <p className="text-lg font-black text-red-400">{data.retention.churned}</p>
+                  <p className="text-[10px] text-white/40 uppercase tracking-widest mt-1">Churned (&gt;60d)</p>
+                </div>
+              </div>
+            </Card>
+
+            <Card title="Email Engagement" icon={<Mail className="w-3.5 h-3.5 text-[#c5f135]" />}>
+              {data.emailEngagement.totalSent === 0 ? (
+                <p className="text-sm text-white/50">No emails sent yet. Send a training schedule to start tracking engagement.</p>
+              ) : (
+                <>
+                  <div className="grid grid-cols-3 gap-3 mb-3">
+                    <div className="bg-[#1a2110] rounded-xl px-3 py-3 text-center">
+                      <p className="text-lg font-black text-white">{data.emailEngagement.totalSent}</p>
+                      <p className="text-[10px] text-white/40 uppercase tracking-widest mt-1">Sent</p>
+                    </div>
+                    <div className="bg-[#1a2110] rounded-xl px-3 py-3 text-center">
+                      <p className="text-lg font-black text-[#c5f135]">
+                        {data.emailEngagement.openRate !== null ? `${Math.round(data.emailEngagement.openRate * 100)}%` : "—"}
+                      </p>
+                      <p className="text-[10px] text-white/40 uppercase tracking-widest mt-1">Open rate</p>
+                    </div>
+                    <div className="bg-[#1a2110] rounded-xl px-3 py-3 text-center">
+                      <p className="text-lg font-black text-[#c5f135]">
+                        {data.emailEngagement.clickRate !== null ? `${Math.round(data.emailEngagement.clickRate * 100)}%` : "—"}
+                      </p>
+                      <p className="text-[10px] text-white/40 uppercase tracking-widest mt-1">Click rate</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-white/40">
+                    <span>{data.emailEngagement.delivered} delivered</span>
+                    <span>{data.emailEngagement.bounced} bounced</span>
+                    <span>{data.emailEngagement.complained} complained</span>
+                  </div>
+                </>
               )}
             </Card>
 

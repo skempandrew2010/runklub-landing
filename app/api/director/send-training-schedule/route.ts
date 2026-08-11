@@ -309,7 +309,7 @@ export async function POST(req: NextRequest) {
           member.name, club.name, club_id, monday, weekLabel, scheduleByPaceGroup[member.pace_group_id]
         )
 
-        const { error } = await resend.emails.send({
+        const { data: sendData, error } = await resend.emails.send({
           from: FROM,
           to: email,
           subject: emailSubject,
@@ -323,6 +323,16 @@ export async function POST(req: NextRequest) {
           skipped++
         } else {
           sent++
+          if (sendData?.id) {
+            const { error: logError } = await adminSupabase.from("email_sends").insert({
+              resend_id: sendData.id,
+              club_id,
+              recipient_user_id: member.user_id ?? null,
+              recipient_email: email,
+              email_type: "training_schedule",
+            })
+            if (logError) console.error(`email_sends log error for ${email}:`, logError)
+          }
         }
       })
     )
