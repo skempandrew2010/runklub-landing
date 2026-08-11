@@ -905,7 +905,7 @@ function ManagerView({ userId }: { userId: string }) {
     return (
       <div className={`bg-[#111a0a] border border-[#2e3d1a] rounded-xl overflow-hidden ${isExpanded ? "border-[#c5f135]/20" : ""}`}>
         <div className="flex items-center gap-3 px-3 py-3">
-          <div className={`w-9 shrink-0 flex flex-col items-center ${isToday ? "text-[#c5f135]" : "text-white/80"}`}>
+          <div className={`w-9 shrink-0 flex flex-col items-center ${isToday ? "text-[#c5f135]" : "text-white"}`}>
             <span className="text-[9px] font-black uppercase tracking-wide leading-snug">{dayLabel}</span>
             <span className="text-lg font-black leading-tight">{dayNum}</span>
           </div>
