@@ -6,6 +6,7 @@ import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import Footer from "@/components/Footer"
 import { isNativeApp } from "@/utils/platform"
+import { ViewModeProvider } from "@/hooks/useViewMode"
 
 const NavBar = dynamic(() => import("./navBar"), {
   ssr: false,
@@ -85,7 +86,7 @@ export default function ShellWrapper({ children }: { children: React.ReactNode }
   }
 
   return (
-    <>
+    <ViewModeProvider>
       {!hideShell && (nativeApp ? <BottomBar /> : <NavBar />)}
       <div
         key={pathname}
@@ -95,6 +96,6 @@ export default function ShellWrapper({ children }: { children: React.ReactNode }
         {children}
       </div>
       {!hideShell && !nativeApp && <Footer />}
-    </>
+    </ViewModeProvider>
   )
 }
