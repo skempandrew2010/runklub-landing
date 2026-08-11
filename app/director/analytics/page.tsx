@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Users, CalendarCheck, MapPin, Crown, DollarSign, Info, PartyPopper, TrendingDown, Mail } from "lucide-react"
+import { CalendarCheck, MapPin, Crown, DollarSign, Info, PartyPopper, TrendingDown, Mail } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 
 type ClubOption = { id: string; name: string }
@@ -123,10 +123,6 @@ export default function DirectorAnalyticsPage() {
   return (
     <div className="min-h-screen bg-[#1a2110] pb-24">
       <div className="max-w-2xl mx-auto px-5 py-6">
-        <Link href="/director" className="inline-flex items-center gap-1.5 text-white/40 hover:text-white text-sm font-semibold mb-6 transition">
-          <ArrowLeft className="w-4 h-4" /> Director dashboard
-        </Link>
-
         <div className="flex items-center justify-between gap-3 mb-6">
           <h1 className="text-xl font-black text-white">Analytics</h1>
           {clubs.length > 1 && (
