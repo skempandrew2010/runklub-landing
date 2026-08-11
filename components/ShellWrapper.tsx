@@ -31,6 +31,7 @@ const PUBLIC_ROUTES = [
   "/clubs",
   "/pricing",
   "/invite",
+  "/coach-invite",
 ]
 
 export default function ShellWrapper({ children }: { children: React.ReactNode }) {

@@ -164,7 +164,17 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
   const [isAdminMode, setIsAdminMode] = useState(false)
   const [members, setMembers] = useState<{ id: string; user_id: string; created_at: string; member_type: string; profiles: { display_name: string | null; avatar_url: string | null } | null; email: string | null }[]>([])
   const [membersLoading, setMembersLoading] = useState(false)
-  const [clubCoaches, setClubCoaches] = useState<{ id: string; name: string; user_id: string | null }[]>([])
+  const [clubCoaches, setClubCoaches] = useState<{ id: string; name: string; user_id: string | null; pace_group_ids: string[] | null; region_ids: string[] | null; status: string }[]>([])
+  const [clubPaceGroups, setClubPaceGroups] = useState<{ id: string; name: string }[]>([])
+  const [coachInvites, setCoachInvites] = useState<{ id: string; email: string; name: string | null; pace_group_ids: string[] | null; created_at: string }[]>([])
+  const [coachInviteEmail, setCoachInviteEmail] = useState("")
+  const [coachInviteName, setCoachInviteName] = useState("")
+  const [coachInvitePaceGroupIds, setCoachInvitePaceGroupIds] = useState<string[]>([])
+  const [coachInviteRegionIds, setCoachInviteRegionIds] = useState<string[]>([])
+  const [coachInviteSending, setCoachInviteSending] = useState(false)
+  const [coachInviteError, setCoachInviteError] = useState("")
+  const [coachInviteSuccess, setCoachInviteSuccess] = useState(false)
+  const [coachScopeEditingId, setCoachScopeEditingId] = useState<string | null>(null)
   const [pendingRequests, setPendingRequests] = useState<{ id: string; created_at: string; user_id: string; profiles: { display_name: string | null; avatar_url: string | null } | null }[]>([])
   const [pendingInvites, setPendingInvites] = useState<{ id: string; email: string; name: string | null; created_at: string }[]>([])
   const [inviteEmail, setInviteEmail] = useState("")
@@ -292,14 +302,18 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
       // fetch profiles separately and merge instead (see fetchProfilesMap).
       supabase.from("membership_requests").select("id, created_at, user_id").eq("club_id", selectedClubId).eq("status", "pending").order("created_at", { ascending: true }),
       supabase.from("member_invites").select("id, email, name, created_at").eq("club_id", selectedClubId).eq("status", "pending").order("created_at", { ascending: false }),
-      supabase.from("coaches").select("id, name, user_id").eq("club_id", selectedClubId),
-    ]).then(async ([, { data: reqs }, { data: invites }, { data: coachRows }]) => {
+      supabase.from("coaches").select("id, name, user_id, pace_group_ids, region_ids, status").eq("club_id", selectedClubId).eq("status", "active"),
+      supabase.from("pace_groups").select("id, name").eq("club_id", selectedClubId).order("pace_min"),
+      supabase.from("coach_invites").select("id, email, name, pace_group_ids, created_at").eq("club_id", selectedClubId).eq("status", "pending").order("created_at", { ascending: false }),
+    ]).then(async ([, { data: reqs }, { data: invites }, { data: coachRows }, { data: pgRows }, { data: coachInviteRows }]) => {
       const reqRows = (reqs as any[]) || []
       const reqProfiles = await fetchProfilesMap(reqRows.map((r) => r.user_id))
       setPendingRequests(reqRows.map((r) => ({ ...r, profiles: reqProfiles.get(r.user_id) ?? null })))
 
       setPendingInvites((invites as any[]) || [])
       setClubCoaches((coachRows as any[]) || [])
+      setClubPaceGroups((pgRows as any[]) || [])
+      setCoachInvites((coachInviteRows as any[]) || [])
       setMembersLoading(false)
     })
   }, [tab, selectedClubId])
@@ -631,6 +645,74 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
   const removeCoach = async (coachId: string) => {
     await supabase.from("coaches").delete().eq("id", coachId)
     setClubCoaches((prev) => prev.filter((c) => c.id !== coachId))
+  }
+
+  const toggleCoachScopePaceGroup = async (coachId: string, pgId: string) => {
+    const coach = clubCoaches.find((c) => c.id === coachId)
+    if (!coach) return
+    const current = coach.pace_group_ids ?? []
+    const next = current.includes(pgId) ? current.filter((id) => id !== pgId) : [...current, pgId]
+    setClubCoaches((prev) => prev.map((c) => c.id === coachId ? { ...c, pace_group_ids: next } : c))
+    await supabase.from("coaches").update({ pace_group_ids: next }).eq("id", coachId)
+  }
+
+  const toggleCoachScopeRegion = async (coachId: string, regionId: string) => {
+    const coach = clubCoaches.find((c) => c.id === coachId)
+    if (!coach) return
+    const current = coach.region_ids ?? []
+    const next = current.includes(regionId) ? current.filter((id) => id !== regionId) : [...current, regionId]
+    setClubCoaches((prev) => prev.map((c) => c.id === coachId ? { ...c, region_ids: next } : c))
+    await supabase.from("coaches").update({ region_ids: next.length > 0 ? next : null }).eq("id", coachId)
+  }
+
+  const toggleCoachInvitePaceGroup = (pgId: string) => {
+    setCoachInvitePaceGroupIds((prev) => prev.includes(pgId) ? prev.filter((id) => id !== pgId) : [...prev, pgId])
+  }
+
+  const toggleCoachInviteRegion = (regionId: string) => {
+    setCoachInviteRegionIds((prev) => prev.includes(regionId) ? prev.filter((id) => id !== regionId) : [...prev, regionId])
+  }
+
+  const sendCoachInvite = async () => {
+    if (!coachInviteEmail.trim() || !selectedClubId) return
+    if (coachInvitePaceGroupIds.length === 0) { setCoachInviteError("Pick at least one pace group"); return }
+    setCoachInviteSending(true)
+    setCoachInviteError("")
+    setCoachInviteSuccess(false)
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) { setCoachInviteSending(false); return }
+    const res = await fetch("/api/director/invite-coach", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({
+        club_id: selectedClubId,
+        email: coachInviteEmail.trim(),
+        name: coachInviteName.trim() || null,
+        pace_group_ids: coachInvitePaceGroupIds,
+        region_ids: coachInviteRegionIds,
+      }),
+    })
+    const json = await res.json()
+    setCoachInviteSending(false)
+    if (!res.ok) { setCoachInviteError(json.error ?? "Couldn't send invite"); return }
+    setCoachInviteSuccess(true)
+    setCoachInviteEmail("")
+    setCoachInviteName("")
+    setCoachInvitePaceGroupIds([])
+    setCoachInviteRegionIds([])
+    const { data: invites } = await supabase.from("coach_invites").select("id, email, name, pace_group_ids, created_at").eq("club_id", selectedClubId).eq("status", "pending").order("created_at", { ascending: false })
+    setCoachInvites((invites as any[]) || [])
+  }
+
+  const revokeCoachInvite = async (inviteId: string) => {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    setCoachInvites((prev) => prev.filter((i) => i.id !== inviteId))
+    await fetch("/api/director/invite-coach", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ invite_id: inviteId }),
+    })
   }
 
   const addMember = async () => {
@@ -1507,35 +1589,140 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                     <SectionTitle>Coaches</SectionTitle>
                     <span className="text-xs font-semibold text-white/30">{clubCoaches.length}</span>
                   </div>
-                  <p className="text-xs text-white/80 mb-3">Designate coaches from your member list above.</p>
-                  {clubCoaches.length === 0 ? (
-                    <p className="text-sm text-white/80">No coaches yet. Use the "+ Coach" button on any member.</p>
+                  <p className="text-xs text-white/80 mb-3">
+                    Invited coaches can check runners in, see attendance/roster, and message members — scoped to the pace group(s) and branch(es) you assign. They never see membership payments.
+                  </p>
+
+                  {clubCoaches.length === 0 && coachInvites.length === 0 ? (
+                    <p className="text-sm text-white/80 mb-4">No coaches yet — invite one below, or use the "+ Coach" button on any member for a quick tag.</p>
                   ) : (
-                    <div className="space-y-2">
+                    <div className="space-y-2 mb-4">
                       {clubCoaches.map((coach) => {
                         const member = members.find((m) => m.user_id === coach.user_id)
+                        const editing = coachScopeEditingId === coach.id
                         return (
-                          <div key={coach.id} className="flex items-center gap-3 bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2">
-                            <div className="w-8 h-8 rounded-full shrink-0 bg-[#2e3d1a] overflow-hidden flex items-center justify-center">
-                              {member?.profiles?.avatar_url
-                                ? <img src={member.profiles.avatar_url} alt="" className="w-full h-full object-cover" />
-                                : <span className="text-sm font-black text-[#c5f135]">{coach.name[0]?.toUpperCase() || "C"}</span>
-                              }
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-bold text-white truncate">{coach.name}</p>
-                            </div>
+                          <div key={coach.id} className="bg-[#1a2110] border border-[#2e3d1a] rounded-xl overflow-hidden">
                             <button
-                              onClick={() => removeCoach(coach.id)}
-                              className="shrink-0 text-[10px] font-black px-2 py-0.5 rounded-full bg-[#c5f135]/15 text-[#c5f135] border border-[#c5f135]/30 hover:bg-red-400/10 hover:text-red-400 hover:border-red-400/30 transition"
+                              onClick={() => setCoachScopeEditingId(editing ? null : coach.id)}
+                              className="w-full flex items-center gap-3 px-3 py-2 text-left"
                             >
-                              Coach ✕
+                              <div className="w-8 h-8 rounded-full shrink-0 bg-[#2e3d1a] overflow-hidden flex items-center justify-center">
+                                {member?.profiles?.avatar_url
+                                  ? <img src={member.profiles.avatar_url} alt="" className="w-full h-full object-cover" />
+                                  : <span className="text-sm font-black text-[#c5f135]">{coach.name[0]?.toUpperCase() || "C"}</span>
+                                }
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-bold text-white truncate">{coach.name}</p>
+                                <p className="text-[10px] text-white/40 truncate">
+                                  {(coach.pace_group_ids?.length ?? 0) === 0
+                                    ? "No pace group assigned"
+                                    : clubPaceGroups.filter((pg) => coach.pace_group_ids?.includes(pg.id)).map((pg) => pg.name).join(", ")}
+                                </p>
+                              </div>
+                              <ChevronDown className={`w-3.5 h-3.5 text-white/30 shrink-0 transition-transform ${editing ? "rotate-180" : ""}`} />
+                              <span
+                                onClick={(e) => { e.stopPropagation(); removeCoach(coach.id) }}
+                                className="shrink-0 text-[10px] font-black px-2 py-0.5 rounded-full bg-[#c5f135]/15 text-[#c5f135] border border-[#c5f135]/30 hover:bg-red-400/10 hover:text-red-400 hover:border-red-400/30 transition cursor-pointer"
+                              >
+                                Remove
+                              </span>
                             </button>
+                            {editing && (
+                              <div className="px-3 pb-3 pt-1 space-y-2 border-t border-[#2e3d1a]">
+                                <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest pt-2">Pace Groups</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {clubPaceGroups.length === 0
+                                    ? <p className="text-xs text-white/40 italic">No pace groups set up yet.</p>
+                                    : clubPaceGroups.map((pg) => {
+                                        const active = coach.pace_group_ids?.includes(pg.id) ?? false
+                                        return (
+                                          <button key={pg.id} onClick={() => toggleCoachScopePaceGroup(coach.id, pg.id)}
+                                            className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-all ${active ? "bg-[#c5f135] text-[#1a2110] border-[#c5f135]" : "bg-transparent text-white/50 border-[#2e3d1a] hover:border-[#c5f135]/40"}`}>
+                                            {pg.name}
+                                          </button>
+                                        )
+                                      })}
+                                </div>
+                                {clubRegions.length > 0 && (
+                                  <>
+                                    <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest pt-1">Branches <span className="font-normal normal-case text-white/25">(optional — leave blank for all)</span></p>
+                                    <div className="flex flex-wrap gap-1.5">
+                                      {clubRegions.map((r) => {
+                                        const active = coach.region_ids?.includes(r.id) ?? false
+                                        return (
+                                          <button key={r.id} onClick={() => toggleCoachScopeRegion(coach.id, r.id)}
+                                            className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-all ${active ? "bg-[#c5f135] text-[#1a2110] border-[#c5f135]" : "bg-transparent text-white/50 border-[#2e3d1a] hover:border-[#c5f135]/40"}`}>
+                                            {r.name}
+                                          </button>
+                                        )
+                                      })}
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            )}
                           </div>
                         )
                       })}
+                      {coachInvites.map((invite) => (
+                        <div key={invite.id} className="flex items-center gap-3 bg-[#1a2110] border border-dashed border-[#2e3d1a] rounded-xl px-3 py-2">
+                          <div className="w-8 h-8 rounded-full shrink-0 bg-[#2e3d1a] flex items-center justify-center">
+                            <span className="text-sm font-black text-white/30">?</span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-white/70 truncate">{invite.name || invite.email}</p>
+                            <p className="text-[10px] text-white/40 truncate">
+                              Invite pending · {clubPaceGroups.filter((pg) => invite.pace_group_ids?.includes(pg.id)).map((pg) => pg.name).join(", ") || "—"}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => revokeCoachInvite(invite.id)}
+                            className="shrink-0 text-[10px] font-black px-2 py-0.5 rounded-full bg-white/5 text-white/40 border border-white/10 hover:bg-red-400/10 hover:text-red-400 hover:border-red-400/30 transition"
+                          >
+                            Revoke
+                          </button>
+                        </div>
+                      ))}
                     </div>
                   )}
+
+                  <div className="border-t border-[#2e3d1a] pt-3 space-y-2">
+                    <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Invite a Coach</p>
+                    <Input placeholder="Email address" value={coachInviteEmail} onChange={(e: any) => setCoachInviteEmail(e.target.value)} />
+                    <Input placeholder="Name (optional)" value={coachInviteName} onChange={(e: any) => setCoachInviteName(e.target.value)} />
+                    <div className="flex flex-wrap gap-1.5">
+                      {clubPaceGroups.length === 0 ? (
+                        <p className="text-xs text-white/40 italic">Set up pace groups in Setup first.</p>
+                      ) : clubPaceGroups.map((pg) => {
+                        const active = coachInvitePaceGroupIds.includes(pg.id)
+                        return (
+                          <button key={pg.id} onClick={() => toggleCoachInvitePaceGroup(pg.id)}
+                            className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-all ${active ? "bg-[#c5f135] text-[#1a2110] border-[#c5f135]" : "bg-transparent text-white/50 border-[#2e3d1a] hover:border-[#c5f135]/40"}`}>
+                            {pg.name}
+                          </button>
+                        )
+                      })}
+                    </div>
+                    {clubRegions.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {clubRegions.map((r) => {
+                          const active = coachInviteRegionIds.includes(r.id)
+                          return (
+                            <button key={r.id} onClick={() => toggleCoachInviteRegion(r.id)}
+                              className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-all ${active ? "bg-[#c5f135] text-[#1a2110] border-[#c5f135]" : "bg-transparent text-white/50 border-[#2e3d1a] hover:border-[#c5f135]/40"}`}>
+                              {r.name}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+                    {coachInviteError && <p className="text-xs text-red-400/80">{coachInviteError}</p>}
+                    {coachInviteSuccess && <p className="text-xs text-[#c5f135]">Invite sent!</p>}
+                    <Button disabled={coachInviteSending || !coachInviteEmail.trim() || clubPaceGroups.length === 0} onClick={sendCoachInvite}>
+                      {coachInviteSending ? "Sending…" : "Send Coach Invite"}
+                    </Button>
+                  </div>
                 </Card>
 
                 {!isEnterprise && (
