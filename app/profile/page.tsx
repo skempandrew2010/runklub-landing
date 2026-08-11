@@ -410,6 +410,43 @@ export default function ProfilePage() {
           </div>
         </div>
 
+        {/* ACCOUNT TYPE */}
+        <div>
+          <h2 className="text-xs font-bold text-white/40 tracking-widest uppercase px-1 mb-2">Account Type</h2>
+          <div className="bg-[#1e2d12] rounded-2xl p-4">
+            <p className="text-xs text-white/40 mb-3 leading-relaxed">
+              {isManager
+                ? "Switch your view between directing your klub and browsing as a member — this doesn't change your account."
+                : "Switch between running a klub or joining one. This changes your Director tab."}
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { key: "member", label: "Member", sub: "Join & discover klubs", Icon: Users },
+                { key: "manager", label: "Coach", sub: "Run & direct a klub", Icon: Trophy },
+              ].map(({ key, label, sub, Icon }) => {
+                const active = isManager ? viewMode === (key === "manager" ? "coach" : "member") : (profile?.role ?? "member") === key
+                return (
+                  <button
+                    key={key}
+                    onClick={() => isManager ? setViewMode(key === "manager" ? "coach" : "member") : changeRole(key)}
+                    disabled={roleChanging}
+                    className={`rounded-xl p-3.5 text-left border transition-all disabled:opacity-60
+                      ${active
+                        ? "bg-[#c5f135]/10 border-[#c5f135] shadow-[0_0_0_1px_#c5f135]"
+                        : "bg-[#1a2110] border-[#2e3d1a] hover:border-white/20"
+                      }`}
+                  >
+                    <Icon className={`w-5 h-5 mb-2 ${active ? "text-[#c5f135]" : "text-white/30"}`} />
+                    <p className={`text-sm font-bold ${active ? "text-white" : "text-white/50"}`}>{label}</p>
+                    <p className={`text-xs mt-0.5 ${active ? "text-white/50" : "text-white/25"}`}>{sub}</p>
+                    {active && <Check className="w-3.5 h-3.5 text-[#c5f135] mt-1.5" />}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+
         {/* MANAGE SUBSCRIPTIONS — shown for anyone who owns/manages a klub, even on Free */}
         {myClubs.length > 0 && (
           <div>
@@ -512,43 +549,6 @@ export default function ProfilePage() {
             </p>
           </div>
         )}
-
-        {/* ACCOUNT TYPE */}
-        <div>
-          <h2 className="text-xs font-bold text-white/40 tracking-widest uppercase px-1 mb-2">Account Type</h2>
-          <div className="bg-[#1e2d12] rounded-2xl p-4">
-            <p className="text-xs text-white/40 mb-3 leading-relaxed">
-              {isManager
-                ? "Switch your view between directing your klub and browsing as a member — this doesn't change your account."
-                : "Switch between running a klub or joining one. This changes your Director tab."}
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { key: "member", label: "Member", sub: "Join & discover klubs", Icon: Users },
-                { key: "manager", label: "Coach", sub: "Run & direct a klub", Icon: Trophy },
-              ].map(({ key, label, sub, Icon }) => {
-                const active = isManager ? viewMode === (key === "manager" ? "coach" : "member") : (profile?.role ?? "member") === key
-                return (
-                  <button
-                    key={key}
-                    onClick={() => isManager ? setViewMode(key === "manager" ? "coach" : "member") : changeRole(key)}
-                    disabled={roleChanging}
-                    className={`rounded-xl p-3.5 text-left border transition-all disabled:opacity-60
-                      ${active
-                        ? "bg-[#c5f135]/10 border-[#c5f135] shadow-[0_0_0_1px_#c5f135]"
-                        : "bg-[#1a2110] border-[#2e3d1a] hover:border-white/20"
-                      }`}
-                  >
-                    <Icon className={`w-5 h-5 mb-2 ${active ? "text-[#c5f135]" : "text-white/30"}`} />
-                    <p className={`text-sm font-bold ${active ? "text-white" : "text-white/50"}`}>{label}</p>
-                    <p className={`text-xs mt-0.5 ${active ? "text-white/50" : "text-white/25"}`}>{sub}</p>
-                    {active && <Check className="w-3.5 h-3.5 text-[#c5f135] mt-1.5" />}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        </div>
 
         {/* PREFERENCES */}
         <div>
