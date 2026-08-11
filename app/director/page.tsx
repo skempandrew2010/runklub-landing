@@ -209,8 +209,8 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
   }, [])
 
   // Tracked separately from the general nav unread badge (which clears on any
-  // Home visit) so the coach Home "Messages" tile stays accurate until they
-  // actually open this tab — see the matching read in CoachHomeContent.
+  // Home visit) so the Director Home "Messages" tile stays accurate until they
+  // actually open this tab — see the matching read in DirectorHomeContent.
   useEffect(() => {
     if (tab === "communicate") localStorage.setItem("director_messages_last_seen", new Date().toISOString())
   }, [tab])
