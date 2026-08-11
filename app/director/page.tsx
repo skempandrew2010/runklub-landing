@@ -722,7 +722,7 @@ function ManagerView({ userId }: { userId: string }) {
     if (!club) return
     const next: MembershipType = club.membership_type === "free" ? "paid_required" : "free"
     if (next === "free" && club.membership_price_cents) {
-      alert("Remove your membership price before making this klub public.")
+      alert("Remove your membership price before turning off the paid membership tier.")
       return
     }
     const { error } = await supabase.from("clubs").update({ membership_type: next }).eq("id", selectedClubId)
@@ -1835,16 +1835,16 @@ function ManagerView({ userId }: { userId: string }) {
               </Card>
 
               <Card>
-                <SectionTitle>Klub Privacy</SectionTitle>
+                <SectionTitle>Membership</SectionTitle>
                 <button onClick={toggleClubPrivacy}
                   className="w-full flex items-center gap-3 p-3 rounded-xl bg-[#1a2110] border border-[#2e3d1a] hover:border-[#c5f135]/20 transition text-left">
-                  {selectedClub.membership_type === "free" ? <Globe className="w-4 h-4 text-[#c5f135] shrink-0" /> : <Lock className="w-4 h-4 text-white/80 shrink-0" />}
+                  {selectedClub.membership_type === "free" ? <Globe className="w-4 h-4 text-[#c5f135] shrink-0" /> : <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-white">Klub Privacy</p>
-                    <p className="text-xs text-white/80 mt-0.5">{selectedClub.membership_type === "free" ? "Anyone can follow and see every run" : "Anyone can follow, only approved members see private runs"}</p>
+                    <p className="text-sm font-medium text-white">Paid Membership Tier</p>
+                    <p className="text-xs text-white/80 mt-0.5">{selectedClub.membership_type === "free" ? "Followers only — no private runs or paid members" : "Anyone can still follow for free; paid/approved members also get private runs"}</p>
                   </div>
-                  <span className={`text-xs font-black px-2.5 py-1 rounded-full shrink-0 ${selectedClub.membership_type === "free" ? "bg-[#c5f135]/10 text-[#c5f135] border border-[#c5f135]/30" : "bg-white/5 text-white/80 border border-white/15"}`}>
-                    {selectedClub.membership_type === "free" ? "Public" : "Private"}
+                  <span className={`text-xs font-black px-2.5 py-1 rounded-full shrink-0 ${selectedClub.membership_type === "free" ? "bg-white/5 text-white/80 border border-white/15" : "bg-amber-400/10 text-amber-400 border border-amber-400/30"}`}>
+                    {selectedClub.membership_type === "free" ? "Off" : "On"}
                   </span>
                 </button>
               </Card>

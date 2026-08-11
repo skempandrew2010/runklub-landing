@@ -267,12 +267,12 @@ export default function SubmitClubForm() {
 
       {/* MEMBERSHIP TYPE */}
       <div>
-        <span className={labelClass}>Klub Privacy</span>
-        <p className="text-xs text-white/35 mt-0.5 mb-2">Can anyone see all your runs, or just approved members?</p>
+        <span className={labelClass}>Membership</span>
+        <p className="text-xs text-white/35 mt-0.5 mb-2">Anyone can follow your klub for free either way — this just controls whether you also offer a paid membership tier for private runs.</p>
         <div className="space-y-2">
           {([
-            { value: "free", label: "Public", desc: "Anyone can follow and see every run" },
-            { value: "paid_required", label: "Private", desc: "Anyone can follow, but only approved members see private runs" },
+            { value: "free", label: "Public", desc: "Anyone can follow and see every run — no paid tier" },
+            { value: "paid_required", label: "Public + Membership", desc: "Anyone can follow; paid or approved members also get private runs" },
           ] as { value: MembershipType; label: string; desc: string }[]).map(({ value, label, desc }) => (
             <button
               key={value}

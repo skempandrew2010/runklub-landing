@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
-import { Heart, MapPin, Clock, Users, ArrowLeft, ExternalLink, MessageSquare, ChevronRight, Globe, Lock } from "lucide-react"
+import { Heart, MapPin, Clock, Users, ArrowLeft, ExternalLink, MessageSquare, ChevronRight, Globe } from "lucide-react"
 import { getTagStyle } from "@/utils/tagStyle"
 import { localDateStr } from "@/utils/dates"
 import { formatRunTime } from "@/lib/timezone"
@@ -308,12 +308,15 @@ export default function ClubPageClient({
                   </p>
                 )}
                 {(() => {
-                  const isPrivate = club.membership_type !== "free"
-                  const cls = isPrivate ? "bg-orange-400/10 text-orange-400 border-orange-400/25" : "bg-[#c5f135]/10 text-[#c5f135] border-[#c5f135]/25"
-                  const Icon = isPrivate ? Lock : Globe
+                  // Every klub is followable and its public runs are visible to
+                  // everyone — "membership_type !== free" only means there's an
+                  // optional paid tier for private runs on top of that, not that
+                  // the klub itself is hidden. Don't badge it "Private"/Lock.
+                  const hasMembership = club.membership_type !== "free"
+                  const cls = hasMembership ? "bg-amber-400/10 text-amber-400 border-amber-400/25" : "bg-[#c5f135]/10 text-[#c5f135] border-[#c5f135]/25"
                   return (
                     <span className={`flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${cls}`}>
-                      <Icon className="w-2.5 h-2.5" /> {isPrivate ? "Private" : "Public"}
+                      <Globe className="w-2.5 h-2.5" /> {hasMembership ? "Public + Membership" : "Public"}
                     </span>
                   )
                 })()}
@@ -399,7 +402,7 @@ export default function ClubPageClient({
                   : "bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45]"
               }`}
             >
-              {subscribing ? "…" : isSubscribed ? "Joined" : "Join Klub"}
+              {subscribing ? "…" : isSubscribed ? "Following" : "Follow"}
             </button>
           )}
 
