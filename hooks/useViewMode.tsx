@@ -35,19 +35,23 @@ export function ViewModeProvider({ children }: { children: React.ReactNode }) {
 
   // Keep in sync with whichever of /director, /coach, or /passport is
   // actually being viewed (so a direct link or the back button doesn't desync it).
+  // "/coach" and "/coach-invite/..." share a prefix — don't treat viewing an
+  // invite link as switching into coach mode.
+  const onCoachRoute = pathname === "/coach" || pathname.startsWith("/coach/")
+
   useEffect(() => {
     if (pathname.startsWith("/director")) setViewModeState("director")
-    else if (pathname.startsWith("/coach")) setViewModeState("coach")
+    else if (onCoachRoute) setViewModeState("coach")
     else if (pathname.startsWith("/passport")) setViewModeState("member")
-  }, [pathname])
+  }, [pathname, onCoachRoute])
 
   const setViewMode = useCallback((mode: ViewMode) => {
     setViewModeState(mode)
     try { localStorage.setItem(STORAGE_KEY, mode) } catch { /* non-fatal */ }
-    if (pathname.startsWith("/director") || pathname.startsWith("/coach") || pathname.startsWith("/passport")) {
+    if (pathname.startsWith("/director") || onCoachRoute || pathname.startsWith("/passport")) {
       router.push(mode === "director" ? "/director" : mode === "coach" ? "/coach" : "/passport")
     }
-  }, [pathname, router])
+  }, [pathname, onCoachRoute, router])
 
   const value = useMemo(() => ({ viewMode, setViewMode }), [viewMode, setViewMode])
 

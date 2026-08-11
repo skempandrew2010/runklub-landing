@@ -37,6 +37,9 @@ export default function Navbar() {
     // "/director" and "/director/analytics" share a prefix — don't let the
     // shorter Director tab light up while actually viewing Analytics.
     if (href === "/director") return pathname === "/director" || (pathname.startsWith("/director/") && !pathname.startsWith("/director/analytics"))
+    // "/coach" and "/coach-invite/..." share a prefix — don't light up the
+    // Coaches tab while looking at an invite link.
+    if (href === "/coach") return pathname === "/coach" || pathname.startsWith("/coach/")
     return pathname.startsWith(href)
   }
 

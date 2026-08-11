@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
 
     const [{ data: ownedClub }, { data: coachRow }] = await Promise.all([
       db.from("clubs").select("id").eq("id", run.club_id).eq("user_id", caller.id).maybeSingle(),
-      db.from("coaches").select("id").eq("club_id", run.club_id).eq("user_id", caller.id).maybeSingle(),
+      db.from("coaches").select("id").eq("club_id", run.club_id).eq("user_id", caller.id).eq("status", "active").maybeSingle(),
     ])
     if (!ownedClub && !coachRow) {
       return NextResponse.json({ error: "Not authorized to check members into this klub's runs" }, { status: 403 })
