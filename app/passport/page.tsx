@@ -22,7 +22,6 @@ import {
 import Leaderboard from "@/components/Leaderboard"
 import TierCard from "@/components/TierCard"
 import LoginModal from "@/components/LoginModal"
-import { useViewMode } from "@/hooks/useViewMode"
 
 type PreviewCity = { id: string; name: string; state: string | null; flag_asset_url: string | null }
 
@@ -463,17 +462,10 @@ export default function PassportPage() {
   const [totalCityCount, setTotalCityCount] = useState(0)
   const [totalClubCount, setTotalClubCount] = useState(0)
   const [showAuthModal, setShowAuthModal] = useState(false)
-  const [isManagerAccount, setIsManagerAccount] = useState(false)
-  const { setViewMode } = useViewMode(isManagerAccount)
 
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        // Directors/coaches can view their own Passport too — toggled via "View as Coach"/"View as Member".
-        const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
-        setIsManagerAccount(profile?.role === "manager")
-      }
       setUserId(user?.id ?? null)
       if (user) {
         const [passportData, progressData, bookData, tierData, statesData] = await Promise.all([
@@ -603,14 +595,6 @@ export default function PassportPage() {
                 : `${totalCityCount} cities · ${totalClubCount} klubs to stamp`}
             </p>
           </div>
-          {isManagerAccount && (
-            <button
-              onClick={() => setViewMode("coach")}
-              className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-full bg-[#c5f135]/10 border border-[#c5f135]/25 text-[#c5f135] text-xs font-bold hover:bg-[#c5f135]/20 transition"
-            >
-              <Trophy className="w-3.5 h-3.5" /> View as Coach
-            </button>
-          )}
           <Link
             href="/challenges"
             className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-full bg-white/5 border border-white/10 text-white/60 text-xs font-bold hover:bg-white/10 hover:text-white transition"
