@@ -55,7 +55,7 @@ export default function ProfilePage() {
   const [openingPortal, setOpeningPortal] = useState(false)
   const isManager = profile?.role === "manager"
   const [isCoach, setIsCoach] = useState(false)
-  const { viewMode, setViewMode } = useViewMode({ canDirector: isManager, canCoach: isCoach })
+  const { viewMode, setViewMode } = useViewMode(isManager || isCoach)
   const [subscribingClubId, setSubscribingClubId] = useState<string | null>(null)
   const [nativeApp, setNativeApp] = useState(false)
   const [tierProgress, setTierProgress] = useState<TierProgress | null>(null)
@@ -425,22 +425,26 @@ export default function ProfilePage() {
           <h2 className="text-xs font-bold text-white/40 tracking-widest uppercase px-1 mb-2">Account Type</h2>
           <div className="bg-[#1e2d12] rounded-2xl p-4">
             <p className="text-xs text-white/40 mb-3 leading-relaxed">
-              {isManager
-                ? "Switch your view between directing your klub and browsing as a member — this doesn't change your account."
+              {isManager || isCoach
+                ? "Switch your view between the Director tab and browsing as a member — this doesn't change your account."
                 : "Switch between running a klub or joining one. This changes your Director tab."}
             </p>
-            <div className={`grid gap-2 ${isCoach ? "grid-cols-3" : "grid-cols-2"}`}>
+            <div className="grid grid-cols-2 gap-2">
               {([
                 { key: "member", label: "Member", sub: "Join & discover klubs", Icon: Users },
-                { key: "director", label: "Director", sub: "Run & direct a klub", Icon: Trophy },
-                ...(isCoach ? [{ key: "coach", label: "Coach", sub: "Assist a klub you're invited to", Icon: ClipboardList }] : []),
-              ] as { key: "member" | "director" | "coach"; label: string; sub: string; Icon: typeof Users }[]).map(({ key, label, sub, Icon }) => {
+                {
+                  key: "director",
+                  label: isManager ? "Director" : "Coach",
+                  sub: isManager ? "Run & direct a klub" : isCoach ? "Coach a pace group you're invited to" : "Run & direct a klub",
+                  Icon: isManager ? Trophy : ClipboardList,
+                },
+              ] as { key: "member" | "director"; label: string; sub: string; Icon: typeof Users }[]).map(({ key, label, sub, Icon }) => {
                 const active = viewMode === key
                 return (
                   <button
                     key={key}
                     onClick={() => {
-                      if (key === "director" && !isManager) { changeRole("manager"); return }
+                      if (key === "director" && !isManager && !isCoach) { changeRole("manager"); return }
                       setViewMode(key)
                     }}
                     disabled={roleChanging}

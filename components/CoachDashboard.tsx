@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { formatRunTime } from "@/lib/timezone"
 import { ChevronDown, ChevronRight, MessageSquare, Users, CalendarCheck } from "lucide-react"
@@ -70,9 +69,14 @@ function initialsOf(name: string) {
   return name.split(" ").filter(Boolean).map((w) => w[0]).join("").slice(0, 2).toUpperCase()
 }
 
-export default function CoachDashboardPage() {
-  const router = useRouter()
-  const [userId, setUserId] = useState<string | null>(null)
+/**
+ * The limited "Coach" view of /director — rendered instead of the full
+ * ManagerView when the signed-in user doesn't own the klub but is an active
+ * coach for one. Same tab (/director), different content: roster + upcoming
+ * runs scoped to their pace group/branch, manual check-in, an attendance
+ * summary with no revenue/payment data, and messaging.
+ */
+export default function CoachDashboard({ userId }: { userId: string }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [data, setData] = useState<DashboardData | null>(null)
@@ -81,16 +85,12 @@ export default function CoachDashboardPage() {
 
   useEffect(() => {
     const load = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push("/login"); return }
-      setUserId(user.id)
-
-      const { data: coachRows } = await supabase.from("coaches").select("club_id").eq("user_id", user.id).eq("status", "active").order("accepted_at").limit(1)
+      const { data: coachRows } = await supabase.from("coaches").select("club_id").eq("user_id", userId).eq("status", "active").order("accepted_at").limit(1)
       const clubId = coachRows?.[0]?.club_id
       if (!clubId) { setLoading(false); return }
 
       const { data: { session } } = await supabase.auth.getSession()
-      if (!session) { router.push("/login"); return }
+      if (!session) { setLoading(false); return }
 
       const res = await fetch(`/api/coach/dashboard?club_id=${clubId}`, {
         headers: { Authorization: `Bearer ${session.access_token}` },
@@ -101,7 +101,7 @@ export default function CoachDashboardPage() {
       setLoading(false)
     }
     load()
-  }, [router])
+  }, [userId])
 
   if (loading) {
     return (

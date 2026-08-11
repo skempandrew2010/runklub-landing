@@ -3,12 +3,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
 
-export type ViewMode = "member" | "director" | "coach"
+export type ViewMode = "member" | "director"
 
-// Bumped from the old "runklub_view_mode" key: that key's only ever-stored
-// value "coach" used to mean today's "director" (klub owner) — now that
-// "coach" means something else entirely (a pace-group-scoped assistant),
-// reusing the key would silently reinterpret old directors as coaches.
 const STORAGE_KEY = "runklub_view_mode_v2"
 
 type ViewModeContextValue = { viewMode: ViewMode; setViewMode: (mode: ViewMode) => void }
@@ -29,55 +25,43 @@ export function ViewModeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY)
-      if (stored === "member" || stored === "director" || stored === "coach") setViewModeState(stored)
+      if (stored === "member" || stored === "director") setViewModeState(stored)
     } catch { /* localStorage unavailable — default to director */ }
   }, [])
 
-  // Keep in sync with whichever of /director, /coach, or /passport is
-  // actually being viewed (so a direct link or the back button doesn't desync it).
-  // "/coach" and "/coach-invite/..." share a prefix — don't treat viewing an
-  // invite link as switching into coach mode.
-  const onCoachRoute = pathname === "/coach" || pathname.startsWith("/coach/")
-
+  // Keep in sync with whichever of /director or /passport is actually being
+  // viewed (so a direct link or the back button doesn't desync it).
   useEffect(() => {
     if (pathname.startsWith("/director")) setViewModeState("director")
-    else if (onCoachRoute) setViewModeState("coach")
     else if (pathname.startsWith("/passport")) setViewModeState("member")
-  }, [pathname, onCoachRoute])
+  }, [pathname])
 
   const setViewMode = useCallback((mode: ViewMode) => {
     setViewModeState(mode)
     try { localStorage.setItem(STORAGE_KEY, mode) } catch { /* non-fatal */ }
-    if (pathname.startsWith("/director") || onCoachRoute || pathname.startsWith("/passport")) {
-      router.push(mode === "director" ? "/director" : mode === "coach" ? "/coach" : "/passport")
+    if (pathname.startsWith("/director") || pathname.startsWith("/passport")) {
+      router.push(mode === "director" ? "/director" : "/passport")
     }
-  }, [pathname, onCoachRoute, router])
+  }, [pathname, router])
 
   const value = useMemo(() => ({ viewMode, setViewMode }), [viewMode, setViewMode])
 
   return <ViewModeContext.Provider value={value}>{children}</ViewModeContext.Provider>
 }
 
-export type ViewModeEligibility = { canDirector: boolean; canCoach: boolean }
-
 /**
- * Lets an account switch between the runner-facing Member view, the
- * assistant-coach view (pace-group/branch-scoped, granted by a director's
- * invite), and the full Director view (klub owner). Backed by the shared
- * ViewModeProvider so a change made anywhere (e.g. Settings) is reflected
- * everywhere immediately, without a reload. The returned mode is clamped to
- * whatever the caller is actually eligible for — e.g. if the shared state
- * says "director" but this account doesn't own a klub, it falls back to
- * "coach" (if eligible) or "member".
+ * Lets an account switch between the runner-facing Member view and the
+ * Director-tab view. "Director" here covers both a full klub owner and an
+ * invited pace-group Coach — they land on the same /director tab, and
+ * /director/page.tsx itself decides which (full vs. limited) to render.
+ * Backed by the shared ViewModeProvider so a change made anywhere (e.g.
+ * Settings) is reflected everywhere immediately, without a reload. The
+ * returned mode is clamped to "member" if this account isn't eligible for
+ * Director at all (not an owner and not an active coach anywhere).
  */
-export function useViewMode(eligibility: ViewModeEligibility): ViewModeContextValue {
+export function useViewMode(eligible: boolean): ViewModeContextValue {
   const ctx = useContext(ViewModeContext)
   if (!ctx) throw new Error("useViewMode must be used within ViewModeProvider")
-  const { canDirector, canCoach } = eligibility
-
-  let viewMode = ctx.viewMode
-  if (viewMode === "director" && !canDirector) viewMode = canCoach ? "coach" : "member"
-  else if (viewMode === "coach" && !canCoach) viewMode = canDirector ? "director" : "member"
-
+  const viewMode = ctx.viewMode === "director" && !eligible ? "member" : ctx.viewMode
   return { viewMode, setViewMode: ctx.setViewMode }
 }

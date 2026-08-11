@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Compass, Trophy, UserCircle, Home, Stamp, Flame, BarChart3, PlusCircle, ClipboardList } from "lucide-react"
+import { Compass, Trophy, UserCircle, Home, Stamp, Flame, BarChart3, PlusCircle } from "lucide-react"
 import { useNavIdentity } from "@/hooks/useNavIdentity"
 import { useViewMode } from "@/hooks/useViewMode"
 
@@ -10,15 +10,14 @@ export default function Navbar() {
   const pathname = usePathname()
   const { user, role, avatarUrl, loaded, hasUnread, hasClub, isCoach } = useNavIdentity()
   const isManager = role === "manager"
-  const { viewMode } = useViewMode({ canDirector: isManager, canCoach: isCoach })
-  const showDirectorTabs = isManager && viewMode === "director"
-  const showCoachTab = isCoach && viewMode === "coach"
-  const needsClub = showDirectorTabs && !hasClub
+  const { viewMode } = useViewMode(isManager || isCoach)
+  const showDirectorTabs = (isManager || isCoach) && viewMode === "director"
+  const needsClub = showDirectorTabs && isManager && !hasClub
 
   const tabs = [
     { key: "home",     href: "/",           label: "Home",       Icon: Home,    badge: !showDirectorTabs && hasUnread },
     { key: "discover", href: "/explore",    label: "Discover",   Icon: Compass, badge: false },
-    ...(showDirectorTabs
+    ...(showDirectorTabs && isManager
       ? [needsClub
           ? { key: "analytics", href: "/submit-club", label: "Create a Klub", Icon: PlusCircle, badge: false }
           : { key: "analytics", href: "/director/analytics", label: "Analytics", Icon: BarChart3, badge: false }]
@@ -26,10 +25,8 @@ export default function Navbar() {
     ...(showDirectorTabs
       ? [needsClub
           ? { key: "director", href: "/submit-club", label: "Create a Klub", Icon: PlusCircle, badge: false }
-          : { key: "director", href: "/director", label: "Director", Icon: Trophy, badge: hasUnread }]
-      : showCoachTab
-        ? [{ key: "coach", href: "/coach", label: "Coaches", Icon: ClipboardList, badge: false }]
-        : [{ key: "passport", href: "/passport", label: "Passport", Icon: Stamp, badge: false }]),
+          : { key: "director", href: "/director", label: isManager ? "Director" : "Coach", Icon: Trophy, badge: hasUnread }]
+      : [{ key: "passport", href: "/passport", label: "Passport", Icon: Stamp, badge: false }]),
   ]
 
   const isActive = (href: string) => {
@@ -37,9 +34,6 @@ export default function Navbar() {
     // "/director" and "/director/analytics" share a prefix — don't let the
     // shorter Director tab light up while actually viewing Analytics.
     if (href === "/director") return pathname === "/director" || (pathname.startsWith("/director/") && !pathname.startsWith("/director/analytics"))
-    // "/coach" and "/coach-invite/..." share a prefix — don't light up the
-    // Coaches tab while looking at an invite link.
-    if (href === "/coach") return pathname === "/coach" || pathname.startsWith("/coach/")
     return pathname.startsWith(href)
   }
 

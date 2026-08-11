@@ -25,6 +25,7 @@ import WeeklyScheduleTab from "./WeeklyScheduleTab"
 import CustomPacesTab from "./CustomPacesTab"
 import RunChatPanel from "@/components/RunChatPanel"
 import RunCheckInRoster from "@/components/RunCheckInRoster"
+import CoachDashboard from "@/components/CoachDashboard"
 import { PLANS } from "@/lib/plans"
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -2254,6 +2255,7 @@ function DirectorPageInner() {
   const [user, setUser] = useState<any>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
+  const [showCoachView, setShowCoachView] = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -2261,10 +2263,26 @@ function DirectorPageInner() {
       if (!user) { router.push("/login"); return }
       setUser(user)
       const { data: prof } = await supabase.from("profiles").select("id, display_name, avatar_url, role").eq("id", user.id).single()
-      // Director dashboard is manager-only — members' chats now live in the Hub
-      if (prof?.role !== "manager") { router.replace("/"); return }
-      setProfile(prof)
-      setLoading(false)
+
+      if (prof?.role === "manager") {
+        setProfile(prof)
+        setLoading(false)
+        return
+      }
+
+      // Not a klub owner — but an invited (active) coach for someone else's
+      // klub lands here too, just on the limited CoachDashboard instead of
+      // the full ManagerView below.
+      const { data: coachRows } = await supabase.from("coaches").select("id").eq("user_id", user.id).eq("status", "active").limit(1)
+      if ((coachRows?.length ?? 0) > 0) {
+        setProfile(prof)
+        setShowCoachView(true)
+        setLoading(false)
+        return
+      }
+
+      // Director dashboard is otherwise owner/coach-only — members' chats live in the Hub
+      router.replace("/")
     }
     load()
   }, [])
@@ -2278,6 +2296,8 @@ function DirectorPageInner() {
   }
 
   if (!user || !profile) return null
+
+  if (showCoachView) return <CoachDashboard userId={user.id} />
 
   const requestedTab = searchParams.get("tab")
   const initialTab: TabKey = ALL_TABS.some((t) => t.key === requestedTab) ? (requestedTab as TabKey) : "runs"

@@ -50,7 +50,7 @@ export default function RootPage() {
   const [signedIn, setSignedIn] = useState(false)
   const { user, role, loaded: identityLoaded, isCoach } = useNavIdentity()
   const isManager = role === "manager"
-  const { viewMode } = useViewMode({ canDirector: isManager, canCoach: isCoach })
+  const { viewMode } = useViewMode(isManager || isCoach)
 
   useEffect(() => {
     const hash = window.location.hash
