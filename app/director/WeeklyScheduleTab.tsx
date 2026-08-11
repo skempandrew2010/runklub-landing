@@ -9,7 +9,7 @@ import { type WorkoutSegment, formatWorkoutSegment, parseWorkoutStructure, WORKO
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 // day_of_week is stored 0=Sun..6=Sat, but the calendar reads Monday-first.
 const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0]
-const WEEKS_AHEAD = 12
+const WEEKS_AHEAD = 20
 
 function addDays(dateStr: string, n: number): string {
   const d = new Date(`${dateStr}T00:00:00`)
@@ -142,7 +142,7 @@ export default function WeeklyScheduleTab({ clubId }: { clubId: string }) {
         <button
           type="button"
           onClick={openOverview}
-          aria-label="View 12-week calendar"
+          aria-label={`View ${WEEKS_AHEAD}-week calendar`}
           className="w-8 h-8 rounded-full flex items-center justify-center text-white/50 hover:bg-[#2e3d1a] hover:text-[#c5f135] transition shrink-0"
         >
           <Calendar className="w-4 h-4" />
@@ -287,7 +287,7 @@ export default function WeeklyScheduleTab({ clubId }: { clubId: string }) {
             className="w-full sm:max-w-3xl max-h-[85vh] flex flex-col bg-[#1e2d12] border border-[#2e3d1a] rounded-t-3xl sm:rounded-3xl p-5 pb-8 sm:pb-5 animate-[fadeUp_0.25s_ease-out_forwards]"
           >
             <div className="flex items-center justify-between mb-4 shrink-0">
-              <p className="text-sm font-black text-white">12-Week Training Schedule</p>
+              <p className="text-sm font-black text-white">{WEEKS_AHEAD}-Week Training Schedule</p>
               <button onClick={() => setOverviewOpen(false)} className="text-white/30 hover:text-white/60 transition p-1" aria-label="Close">
                 <X className="w-5 h-5" />
               </button>
