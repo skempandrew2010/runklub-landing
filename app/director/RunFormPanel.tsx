@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { ArrowLeft, CalendarPlus, Check, Globe, Lock, Repeat2 } from "lucide-react"
 import mapboxSdk from "@mapbox/mapbox-sdk/services/geocoding"
-import { localDateStr } from "@/utils/dates"
+import { localDateStr, mondayOf } from "@/utils/dates"
 import { COMMON_TIMEZONES, getBrowserTimezone } from "@/lib/timezone"
 import { type WorkoutSegment, formatWorkoutSegment, parseWorkoutStructure } from "@/lib/workouts"
 import AddressAutocomplete from "@/components/AddressAutocomplete"
@@ -124,7 +124,7 @@ export default function RunFormPanel({
   const [templates, setTemplates] = useState<RunTemplate[]>([])
   const [dataLoading, setDataLoading] = useState(true)
   const [clubHome, setClubHome] = useState<{ lat: number; lng: number } | null>(null)
-  const [weeklySchedule, setWeeklySchedule] = useState<Record<number, string | null>>({})
+  const [weeklySchedule, setWeeklySchedule] = useState<Record<string, Record<number, string | null>>>({})
 
   useEffect(() => {
     const load = async () => {
@@ -141,17 +141,18 @@ export default function RunFormPanel({
               .limit(8),
         supabase.from("regions").select("id, name").eq("club_id", clubId).order("name"),
         supabase.from("clubs").select("default_timezone, latitude, longitude").eq("id", clubId).single(),
-        supabase.from("club_weekly_schedule").select("day_of_week, workout_type_id").eq("club_id", clubId),
+        supabase.from("club_weekly_schedule").select("day_of_week, week_of, workout_type_id").eq("club_id", clubId),
       ])
       setPaceGroups((pg.data as PaceGroup[]) || [])
       setWorkoutTypes(((wt.data ?? []) as any[]).map((r) => ({ id: r.id, name: r.title, description: r.description, structure: parseWorkoutStructure(r.structure) })))
       setCoaches((co.data as Coach[]) || [])
       if (!isEdit) setTemplates((tpl.data as RunTemplate[]) || [])
-      const scheduleByDay: Record<number, string | null> = {}
-      for (const row of (sched.data ?? []) as { day_of_week: number; workout_type_id: string | null }[]) {
-        scheduleByDay[row.day_of_week] = row.workout_type_id
+      const scheduleByWeek: Record<string, Record<number, string | null>> = {}
+      for (const row of (sched.data ?? []) as { day_of_week: number; week_of: string; workout_type_id: string | null }[]) {
+        if (!scheduleByWeek[row.week_of]) scheduleByWeek[row.week_of] = {}
+        scheduleByWeek[row.week_of][row.day_of_week] = row.workout_type_id
       }
-      setWeeklySchedule(scheduleByDay)
+      setWeeklySchedule(scheduleByWeek)
       const clubInfo = clubRow.data as { default_timezone: string | null; latitude: number | null; longitude: number | null } | null
       if (!isEdit && clubInfo?.default_timezone) setTimezone(clubInfo.default_timezone)
       setClubHome(clubInfo?.latitude != null && clubInfo?.longitude != null ? { lat: clubInfo.latitude, lng: clubInfo.longitude } : null)
@@ -197,15 +198,14 @@ export default function RunFormPanel({
     load()
   }, [clubId, runId, isEdit])
 
-  // Suggest whatever the weekly training schedule has for this run's day of week —
-  // only for new runs, and only until the director picks a workout themselves.
+  // Suggest whatever the weekly training schedule has for this run's specific week and
+  // day of week — only for new runs, and only until the director picks a workout themselves.
   useEffect(() => {
-    if (isEdit || workoutManuallySet) return
-    const weekday = quickMode ? dayOfWeek : (date ? new Date(`${date}T00:00:00`).getDay() : null)
-    if (weekday === null) return
-    const suggested = weeklySchedule[weekday]
+    if (isEdit || workoutManuallySet || !date) return
+    const runDate = new Date(`${date}T00:00:00`)
+    const suggested = weeklySchedule[mondayOf(runDate)]?.[runDate.getDay()]
     if (suggested) setSelectedWorkoutTypeId(suggested)
-  }, [date, dayOfWeek, quickMode, isEdit, workoutManuallySet, weeklySchedule]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [date, isEdit, workoutManuallySet, weeklySchedule]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const applyTemplate = (tpl: RunTemplate) => {
     setTitle(tpl.title)

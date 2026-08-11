@@ -3,6 +3,15 @@ export function localDateStr(d: Date = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
 }
 
+/** Returns the Monday (YYYY-MM-DD) of the week containing the given date. */
+export function mondayOf(d: Date = new Date()): string {
+  const day = d.getDay()
+  const diff = day === 0 ? -6 : 1 - day
+  const monday = new Date(d)
+  monday.setDate(d.getDate() + diff)
+  return localDateStr(monday)
+}
+
 export function getNextRunDate(day: string, time: string) {
   const days = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"]
 

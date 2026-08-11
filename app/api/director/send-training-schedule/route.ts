@@ -220,7 +220,7 @@ export async function POST(req: NextRequest) {
     // The director's standing weekly plan (Runs -> Weekly Training Schedule), plus
     // that week's actual dated runs for context — not a personalized per-pace-group build.
     const [weeklyScheduleResult, workoutsResult, weekRunsResult, membersResult] = await Promise.all([
-      adminSupabase.from("club_weekly_schedule").select("day_of_week, workout_type_id, notes").eq("club_id", club_id),
+      adminSupabase.from("club_weekly_schedule").select("day_of_week, workout_type_id, notes").eq("club_id", club_id).eq("week_of", monday),
       adminSupabase.from("runs").select("id, title, description, structure").eq("club_id", club_id).eq("kind", "workout"),
       adminSupabase.from("runs")
         .select("id, date, time, timezone, distance, meeting_point, is_in_person, members_only")
