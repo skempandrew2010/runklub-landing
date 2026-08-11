@@ -1240,22 +1240,9 @@ function ManagerView({ userId }: { userId: string }) {
                     <Lock className="w-3.5 h-3.5 text-white/80 shrink-0" />
                     <h2 className="text-xs font-bold text-white uppercase tracking-widest">Members Only Runs</h2>
                   </div>
-                  {isPaid
-                    ? (isGrowth || isEnterprise) && (
-                        <button onClick={() => generateMembersRuns(selectedClubId ?? undefined)} disabled={generating}
-                          className="px-3 py-1 rounded-full text-[10px] font-black bg-[#c5f135]/15 text-[#c5f135] border border-[#c5f135]/30 hover:bg-[#c5f135]/25 disabled:opacity-40 transition">
-                          {generating ? "Generating…" : "Generate This Week"}
-                        </button>
-                      )
-                    : <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-[#c5f135] text-[#1a2110]">STARTER+</span>
-                  }
+                  {!isPaid && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-[#c5f135] text-[#1a2110]">STARTER+</span>}
                 </div>
                 <p className="text-xs text-white/80 mb-1">Only visible to paying members</p>
-                {generateStatus && (
-                  <p className={`text-xs mb-3 ${generateStatus.startsWith("Error") || generateStatus.includes("—") ? "text-red-400" : "text-[#c5f135]/80"}`}>
-                    {generateStatus}
-                  </p>
-                )}
                 {!isPaid ? (
                   <p className="text-sm text-white">Upgrade to Starter to create members-only runs.</p>
                 ) : membersOnlyRuns.length === 0 ? (
