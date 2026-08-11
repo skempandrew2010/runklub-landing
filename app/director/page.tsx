@@ -229,9 +229,11 @@ function ManagerView({ userId }: { userId: string }) {
   const loadRuns = useCallback(async (clubIds: string[]) => {
     if (clubIds.length === 0) { setAllRuns([]); return }
     const today = localDateStr()
+    const twoWeeksOut = new Date()
+    twoWeeksOut.setDate(twoWeeksOut.getDate() + 14)
     const { data: runs } = await supabase.from("runs")
       .select("*, members_only, clubs(name, image_url)")
-      .in("club_id", clubIds).eq("kind", "run").gte("date", today).order("date").order("time")
+      .in("club_id", clubIds).eq("kind", "run").gte("date", today).lte("date", localDateStr(twoWeeksOut)).order("date").order("time")
     if (!runs || runs.length === 0) { setAllRuns([]); return }
     const runIds = runs.map((r: any) => r.id)
     const [{ data: chats }, { data: checkins }] = await Promise.all([
