@@ -5,7 +5,7 @@ import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { mondayOf, localDateStr } from "@/utils/dates"
 import { formatRunTime } from "@/lib/timezone"
-import { CalendarPlus, ChevronRight, ListChecks, BarChart3, MessageSquare, Pencil } from "lucide-react"
+import { CalendarCheck, ChevronRight, MessageSquare } from "lucide-react"
 
 type PaceGroup = { id: string; name: string }
 type ScheduleRow = { day_of_week: number; pace_group_id: string; workout_type_id: string | null }
@@ -27,6 +27,13 @@ type AnalyticsSummary = {
 const DAY_ABBR = ["S", "M", "T", "W", "T", "F", "S"]
 const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0] // Monday-first, matches day_of_week's 0=Sun..6=Sat storage
 
+function greeting() {
+  const h = new Date().getHours()
+  if (h < 12) return "Good morning"
+  if (h < 17) return "Good afternoon"
+  return "Good evening"
+}
+
 function weekLabel() {
   const monday = mondayOf()
   const start = new Date(monday + "T00:00:00")
@@ -44,18 +51,21 @@ function formatDay(dateStr: string) {
   return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
 }
 
-function TileLink({ href, children }: { href: string; children: React.ReactNode }) {
+function SectionHeader({ title, sub }: { title: string; sub?: string }) {
   return (
-    <Link
-      href={href}
-      className="block bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-5 hover:border-[#c5f135]/40 transition"
-    >
-      {children}
-    </Link>
+    <div className="flex items-center gap-3 mb-4">
+      <div className="w-1 h-5 rounded-full bg-[#c5f135] shrink-0" />
+      <div>
+        <h2 className="text-sm font-black text-white tracking-tight leading-none">{title}</h2>
+        {sub && <p className="text-[10px] text-white/35 mt-0.5">{sub}</p>}
+      </div>
+      <div className="flex-1 h-px bg-[#2e3d1a]" />
+    </div>
   )
 }
 
 export default function CoachHomeContent({ userId }: { userId: string }) {
+  const [displayName, setDisplayName] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [clubId, setClubId] = useState<string | null>(null)
   const [clubName, setClubName] = useState("")
@@ -65,10 +75,16 @@ export default function CoachHomeContent({ userId }: { userId: string }) {
   const [upcomingRun, setUpcomingRun] = useState<UpcomingRun | null>(null)
   const [unreadCount, setUnreadCount] = useState(0)
 
+  const firstName = displayName?.split(" ")[0] ?? null
+
   useEffect(() => {
     const load = async () => {
-      const { data: clubs } = await supabase
-        .from("clubs").select("id, name").eq("user_id", userId).order("created_at").limit(1)
+      const [{ data: profile }, { data: clubs }] = await Promise.all([
+        supabase.from("profiles").select("display_name").eq("id", userId).single(),
+        supabase.from("clubs").select("id, name").eq("user_id", userId).order("created_at").limit(1),
+      ])
+      setDisplayName(profile?.display_name ?? null)
+
       const club = clubs?.[0]
       if (!club) { setLoading(false); return }
       setClubId(club.id)
@@ -114,7 +130,7 @@ export default function CoachHomeContent({ userId }: { userId: string }) {
       }
 
       // Unread messages, tracked separately from the general nav badge (which
-      // clears on any Home visit) so this tile stays accurate until they
+      // clears on any Home visit) so this section stays accurate until they
       // actually open Messages — see the matching write in director/page.tsx.
       const lastSeen = localStorage.getItem("coach_messages_last_seen") ?? "1970-01-01T00:00:00.000Z"
       const runIds = (clubRunsRes.data ?? []).map((r) => r.id)
@@ -143,130 +159,180 @@ export default function CoachHomeContent({ userId }: { userId: string }) {
 
   if (!clubId) {
     return (
-      <div className="min-h-screen bg-[#1a2110] flex flex-col items-center justify-center gap-3 px-6 text-center">
-        <p className="text-white/50 text-sm">You don&apos;t manage a klub yet.</p>
-        <Link href="/submit-club" className="px-5 py-2.5 bg-[#c5f135] text-[#1a2110] text-sm font-black rounded-full hover:bg-[#d4ff45] transition">
-          Create a Klub
-        </Link>
+      <div className="min-h-screen bg-[#1a2110]">
+        <div className="max-w-6xl mx-auto px-6 py-24">
+          <div className="max-w-md mx-auto bg-[#1e2d12] rounded-2xl p-12 text-center border border-[#2e3d1a]">
+            <p className="text-white font-bold text-lg">You don&apos;t manage a klub yet.</p>
+            <Link href="/submit-club" className="mt-5 inline-block px-6 py-3 bg-[#c5f135] text-[#1a2110] text-sm font-black rounded-full hover:bg-[#d4ff45] transition">
+              Create a Klub
+            </Link>
+          </div>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[#1a2110] pb-24">
-      <div className="max-w-2xl mx-auto px-5 py-6 space-y-4">
-        <p className="text-xs font-bold text-[#c5f135]/60 uppercase tracking-widest px-1">{clubName}</p>
-
-        {/* ── TRAINING SCHEDULE ── */}
-        <TileLink href="/director?tab=runs">
-          <div className="flex items-center gap-2 mb-4">
-            <ListChecks className="w-3.5 h-3.5 text-[#c5f135]" />
-            <h2 className="text-xs font-bold text-white uppercase tracking-widest">Training Schedule</h2>
-            <span className="text-[10px] text-white/35 ml-auto">Week of {weekLabel()}</span>
+    <div className="min-h-screen bg-[#1a2110]">
+      {/* ── GREETING BANNER ── */}
+      <div className="bg-[#1e2d12] border-b border-[#2e3d1a]">
+        <div className="max-w-6xl mx-auto px-6 py-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
+          <div>
+            <p suppressHydrationWarning className="text-xs font-bold text-[#c5f135]/60 uppercase tracking-widest mb-1">
+              {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+            </p>
+            <h1 suppressHydrationWarning className="text-3xl font-black text-white leading-tight">
+              {greeting()}{firstName ? `, ${firstName}` : ""}.
+            </h1>
+            <p className="text-sm text-white/40 mt-1.5">{clubName}</p>
           </div>
-          {paceGroups.length === 0 ? (
-            <p className="text-sm text-white/40">No pace groups set up yet.</p>
-          ) : (
-            <div className="space-y-2.5">
-              {paceGroups.map((pg) => {
-                const days = scheduleByPg[pg.id] ?? new Set<number>()
-                return (
-                  <div key={pg.id} className="flex items-center justify-between gap-3">
-                    <span className="text-sm font-semibold text-white/80 truncate">{pg.name}</span>
-                    <div className="flex items-center gap-1 shrink-0">
-                      {DAY_ORDER.map((day) => (
-                        <span
-                          key={day}
-                          className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black ${
-                            days.has(day) ? "bg-[#c5f135] text-[#1a2110]" : "bg-[#1a2110] text-white/25"
-                          }`}
-                        >
-                          {DAY_ABBR[day]}
-                        </span>
-                      ))}
-                    </div>
+          {analytics && (
+            <div className="flex items-center gap-3 shrink-0">
+              <div className="text-center px-5 py-3.5 rounded-2xl bg-[#2e3d1a] border border-[#3d5220] min-w-[80px]">
+                <p className="text-2xl font-black text-white leading-none">{analytics.audience.followerCount}</p>
+                <p className="text-[10px] font-bold text-white/35 uppercase tracking-widest mt-1">Followers</p>
+              </div>
+              <div className="text-center px-5 py-3.5 rounded-2xl bg-[#2e3d1a] border border-[#3d5220] min-w-[80px]">
+                <p className="text-2xl font-black text-[#c5f135] leading-none">{analytics.audience.paidMemberCount}</p>
+                <p className="text-[10px] font-bold text-white/35 uppercase tracking-widest mt-1">Members</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── MAIN CONTENT ── */}
+      <div className="max-w-6xl mx-auto px-6 py-8">
+        <div className="space-y-10">
+
+          {/* ── TRAINING SCHEDULE ── */}
+          <section>
+            <SectionHeader title="Training Schedule" sub={`Week of ${weekLabel()}`} />
+            <Link
+              href="/director?tab=runs"
+              className="block rounded-2xl overflow-hidden border border-[#2e3d1a] bg-[#1e2d12] hover:border-[#c5f135]/30 transition"
+            >
+              {paceGroups.length === 0 ? (
+                <div className="p-6 text-center">
+                  <p className="text-white/50 text-sm font-medium">No pace groups set up yet.</p>
+                  <p className="text-white/25 text-xs mt-1">Tap to set up pace groups and a weekly schedule.</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-[#2e3d1a]">
+                  {paceGroups.map((pg) => {
+                    const days = scheduleByPg[pg.id] ?? new Set<number>()
+                    return (
+                      <div key={pg.id} className="flex items-center justify-between gap-3 px-4 py-3.5">
+                        <span className="text-sm font-bold text-white truncate">{pg.name}</span>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {DAY_ORDER.map((day) => (
+                            <span
+                              key={day}
+                              className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black ${
+                                days.has(day) ? "bg-[#c5f135] text-[#1a2110]" : "bg-[#1a2110] text-white/25"
+                              }`}
+                            >
+                              {DAY_ABBR[day]}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </Link>
+          </section>
+
+          {/* ── ANALYTICS ── */}
+          <section>
+            <SectionHeader title="Analytics" sub="This month" />
+            <Link
+              href="/director/analytics"
+              className="flex items-center gap-3 rounded-2xl overflow-hidden border border-[#2e3d1a] bg-[#1e2d12] hover:border-[#c5f135]/30 transition px-4 py-4"
+            >
+              {!analytics ? (
+                <p className="text-sm text-white/40">Loading…</p>
+              ) : (
+                <div className="grid grid-cols-3 gap-3 flex-1">
+                  <div className="text-center">
+                    <p className="text-lg font-black text-white">{analytics.audience.followerCount}</p>
+                    <p className="text-[9px] text-white/40 uppercase tracking-widest mt-0.5">Followers</p>
                   </div>
-                )
-              })}
-            </div>
-          )}
-        </TileLink>
-
-        {/* ── MONTHLY ANALYTICS ── */}
-        <TileLink href="/director/analytics">
-          <div className="flex items-center gap-2 mb-4">
-            <BarChart3 className="w-3.5 h-3.5 text-[#c5f135]" />
-            <h2 className="text-xs font-bold text-white uppercase tracking-widest">Analytics</h2>
-            <ChevronRight className="w-3.5 h-3.5 text-white/20 ml-auto" />
-          </div>
-          {!analytics ? (
-            <p className="text-sm text-white/40">Loading…</p>
-          ) : (
-            <div className="grid grid-cols-3 gap-3">
-              <div className="text-center">
-                <p className="text-lg font-black text-white">{analytics.audience.followerCount}</p>
-                <p className="text-[9px] text-white/40 uppercase tracking-widest mt-0.5">Followers</p>
-              </div>
-              <div className="text-center">
-                <p className="text-lg font-black text-[#c5f135]">{analytics.audience.paidMemberCount}</p>
-                <p className="text-[9px] text-white/40 uppercase tracking-widest mt-0.5">Members</p>
-              </div>
-              <div className="text-center">
-                <p className="text-lg font-black text-white">
-                  {analytics.rsvpVsCheckin.rate !== null ? `${Math.round(analytics.rsvpVsCheckin.rate * 100)}%` : "—"}
-                </p>
-                <p className="text-[9px] text-white/40 uppercase tracking-widest mt-0.5">Show-up Rate</p>
-              </div>
-            </div>
-          )}
-        </TileLink>
-
-        {/* ── UPCOMING RUN (edit) ── */}
-        <Link
-          href={upcomingRun ? `/dashboard/${clubId}/edit-run/${upcomingRun.id}` : `/dashboard/${clubId}/create-run`}
-          className="block bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-5 hover:border-[#c5f135]/40 transition"
-        >
-          <div className="flex items-center gap-2 mb-4">
-            <CalendarPlus className="w-3.5 h-3.5 text-[#c5f135]" />
-            <h2 className="text-xs font-bold text-white uppercase tracking-widest">Upcoming Run</h2>
-            {upcomingRun && <Pencil className="w-3 h-3 text-white/20 ml-auto" />}
-          </div>
-          {upcomingRun ? (
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-sm font-bold text-white truncate">{upcomingRun.title}</p>
-                <p className="text-xs text-white/40 mt-0.5">
-                  {formatDay(upcomingRun.date)} · {formatRunTime(upcomingRun)}
-                  {upcomingRun.distance && ` · ${upcomingRun.distance}`}
-                </p>
-              </div>
+                  <div className="text-center">
+                    <p className="text-lg font-black text-[#c5f135]">{analytics.audience.paidMemberCount}</p>
+                    <p className="text-[9px] text-white/40 uppercase tracking-widest mt-0.5">Members</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-lg font-black text-white">
+                      {analytics.rsvpVsCheckin.rate !== null ? `${Math.round(analytics.rsvpVsCheckin.rate * 100)}%` : "—"}
+                    </p>
+                    <p className="text-[9px] text-white/40 uppercase tracking-widest mt-0.5">Show-up Rate</p>
+                  </div>
+                </div>
+              )}
               <ChevronRight className="w-4 h-4 text-white/20 shrink-0" />
-            </div>
-          ) : (
-            <p className="text-sm text-white/40">No upcoming runs — tap to schedule one.</p>
-          )}
-        </Link>
+            </Link>
+          </section>
 
-        {/* ── MESSAGES ── */}
-        <TileLink href="/director?tab=communicate">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
+          {/* ── UPCOMING RUN (edit) ── */}
+          <section>
+            <SectionHeader title="Upcoming Run" />
+            {upcomingRun ? (
+              <Link
+                href={`/dashboard/${clubId}/edit-run/${upcomingRun.id}`}
+                className="flex items-center gap-3 px-4 py-3.5 rounded-2xl overflow-hidden border border-[#2e3d1a] bg-[#1e2d12] hover:border-[#c5f135]/30 transition"
+              >
+                <div className="w-9 h-9 rounded-xl bg-[#2e3d1a] shrink-0 flex items-center justify-center">
+                  <CalendarCheck className="w-4 h-4 text-[#c5f135]" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-white truncate">{upcomingRun.title}</p>
+                  <p className="text-xs text-white/40 truncate mt-0.5">
+                    {formatDay(upcomingRun.date)} · {formatRunTime(upcomingRun)}
+                    {upcomingRun.distance && ` · ${upcomingRun.distance}`}
+                  </p>
+                </div>
+                <span className="shrink-0 text-[10px] font-bold text-white/30">Edit</span>
+                <ChevronRight className="w-4 h-4 text-white/20 shrink-0" />
+              </Link>
+            ) : (
+              <Link
+                href={`/dashboard/${clubId}/create-run`}
+                className="block bg-[#1e2d12] rounded-2xl p-10 text-center border border-[#2e3d1a] hover:border-[#c5f135]/30 transition"
+              >
+                <CalendarCheck className="w-10 h-10 text-white/15 mx-auto mb-3" />
+                <p className="text-white/50 text-sm font-medium">No upcoming runs.</p>
+                <p className="text-white/25 text-xs mt-1">Tap to schedule one.</p>
+              </Link>
+            )}
+          </section>
+
+          {/* ── MESSAGES ── */}
+          <section>
+            <SectionHeader title="Messages" />
+            <Link
+              href="/director?tab=communicate"
+              className="flex items-center gap-3 px-4 py-3.5 rounded-2xl overflow-hidden border border-[#2e3d1a] bg-[#1e2d12] hover:border-[#c5f135]/30 transition"
+            >
               <div className="w-9 h-9 rounded-full bg-[#2e3d1a] flex items-center justify-center shrink-0 relative">
                 <MessageSquare className="w-4 h-4 text-[#c5f135]" />
                 {unreadCount > 0 && (
                   <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-[#c5f135] ring-2 ring-[#1e2d12]" />
                 )}
               </div>
-              <div>
+              <div className="flex-1 min-w-0">
                 <p className="text-sm font-bold text-white">Messages</p>
                 <p className="text-xs text-white/40 mt-0.5">
                   {unreadCount > 0 ? `${unreadCount} new message${unreadCount === 1 ? "" : "s"}` : "All caught up"}
                 </p>
               </div>
-            </div>
-            <ChevronRight className="w-4 h-4 text-white/20 shrink-0" />
-          </div>
-        </TileLink>
+              <ChevronRight className="w-4 h-4 text-white/20 shrink-0" />
+            </Link>
+          </section>
+
+        </div>
+        <div className="h-8" />
       </div>
     </div>
   )
