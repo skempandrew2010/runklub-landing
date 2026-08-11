@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Compass, Trophy, UserCircle, Home, Stamp, Flame } from "lucide-react"
+import { Compass, Trophy, UserCircle, Home, Stamp, Flame, BarChart3 } from "lucide-react"
 import { useNavIdentity } from "@/hooks/useNavIdentity"
 import { useViewMode } from "@/hooks/useViewMode"
 
@@ -16,13 +16,21 @@ export default function Navbar() {
   const tabs = [
     { href: "/",           label: "Home",       Icon: Home,    badge: !showCoachTab && hasUnread },
     { href: "/explore",    label: "Discover",   Icon: Compass, badge: false },
-    { href: "/challenges", label: "Missions",   Icon: Flame,   badge: false },
+    ...(showCoachTab
+      ? [{ href: "/director/analytics", label: "Analytics", Icon: BarChart3, badge: false }]
+      : [{ href: "/challenges", label: "Missions", Icon: Flame, badge: false }]),
     ...(showCoachTab
       ? [{ href: "/director", label: "Director", Icon: Trophy, badge: hasUnread }]
       : [{ href: "/passport", label: "Passport", Icon: Stamp, badge: false }]),
   ]
 
-  const isActive = (href: string) => href === "/" ? pathname === "/" : pathname.startsWith(href)
+  const isActive = (href: string) => {
+    if (href === "/") return pathname === "/"
+    // "/director" and "/director/analytics" share a prefix — don't let the
+    // shorter Director tab light up while actually viewing Analytics.
+    if (href === "/director") return pathname === "/director" || (pathname.startsWith("/director/") && !pathname.startsWith("/director/analytics"))
+    return pathname.startsWith(href)
+  }
 
   const profileActive = pathname.startsWith("/profile")
   const initials = user?.email ? user.email[0].toUpperCase() : null
