@@ -165,6 +165,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
   const [isAdminMode, setIsAdminMode] = useState(false)
   const [members, setMembers] = useState<{ id: string; user_id: string; created_at: string; member_type: string; profiles: { display_name: string | null; avatar_url: string | null } | null; email: string | null }[]>([])
   const [membersLoading, setMembersLoading] = useState(false)
+  const [removingMemberId, setRemovingMemberId] = useState<string | null>(null)
   const [clubCoaches, setClubCoaches] = useState<{ id: string; name: string; user_id: string | null; pace_group_ids: string[] | null; region_ids: string[] | null; status: string }[]>([])
   const [clubPaceGroups, setClubPaceGroups] = useState<{ id: string; name: string }[]>([])
   const [coachInvites, setCoachInvites] = useState<{ id: string; email: string; name: string | null; pace_group_ids: string[] | null; created_at: string }[]>([])
@@ -640,6 +641,23 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
   const removeCoach = async (coachId: string) => {
     await supabase.from("coaches").delete().eq("id", coachId)
     setClubCoaches((prev) => prev.filter((c) => c.id !== coachId))
+  }
+
+  const removeMember = async (subscriptionId: string, displayName: string) => {
+    if (!confirm(`Remove ${displayName} from your klub? This cannot be undone — if they're a paid member their subscription will be canceled.`)) return
+    setRemovingMemberId(subscriptionId)
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) { setRemovingMemberId(null); return }
+    const res = await fetch("/api/director/remove-member", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ subscription_id: subscriptionId }),
+    })
+    const json = await res.json()
+    setRemovingMemberId(null)
+    if (!res.ok) { alert(json.error ?? "Couldn't remove that member. Try again."); return }
+    if (json.warning) alert(json.warning)
+    setMembers((prev) => prev.filter((m) => m.id !== subscriptionId))
   }
 
   const toggleCoachScopePaceGroup = async (coachId: string, pgId: string) => {
@@ -1428,6 +1446,13 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                       {m.member_type === "paid" ? "Paid" : "Free"}
                     </span>
                   )}
+                  <button
+                    onClick={() => removeMember(m.id, m.profiles?.display_name || "this runner")}
+                    disabled={removingMemberId === m.id}
+                    className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/5 text-white/30 border border-white/10 hover:bg-red-400/10 hover:text-red-400 hover:border-red-400/30 transition disabled:opacity-50"
+                  >
+                    {removingMemberId === m.id ? "…" : "Remove"}
+                  </button>
                 </div>
               )
             }
