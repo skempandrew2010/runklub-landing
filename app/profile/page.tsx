@@ -10,6 +10,7 @@ import { isNativeApp } from "@/utils/platform"
 import { PLANS, PLAN_ORDER } from "@/lib/plans"
 import { getUserTierProgress, type TierProgress } from "@/lib/checkins"
 import { TIER_ICONS } from "@/components/TierCard"
+import { useViewMode } from "@/hooks/useViewMode"
 
 type Profile = {
   id: string
@@ -51,6 +52,8 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false)
   const [roleChanging, setRoleChanging] = useState(false)
   const [openingPortal, setOpeningPortal] = useState(false)
+  const isManager = profile?.role === "manager"
+  const { viewMode, setViewMode } = useViewMode(isManager)
   const [subscribingClubId, setSubscribingClubId] = useState<string | null>(null)
   const [nativeApp, setNativeApp] = useState(false)
   const [tierProgress, setTierProgress] = useState<TierProgress | null>(null)
@@ -515,18 +518,20 @@ export default function ProfilePage() {
           <h2 className="text-xs font-bold text-white/40 tracking-widest uppercase px-1 mb-2">Account Type</h2>
           <div className="bg-[#1e2d12] rounded-2xl p-4">
             <p className="text-xs text-white/40 mb-3 leading-relaxed">
-              Switch between running a klub or joining one. This changes your Director tab.
+              {isManager
+                ? "Switch your view between directing your klub and browsing as a member — this doesn't change your account."
+                : "Switch between running a klub or joining one. This changes your Director tab."}
             </p>
             <div className="grid grid-cols-2 gap-2">
               {[
                 { key: "member", label: "Member", sub: "Join & discover klubs", Icon: Users },
-                { key: "manager", label: "Manager", sub: "Run & direct a klub", Icon: Trophy },
+                { key: "manager", label: "Coach", sub: "Run & direct a klub", Icon: Trophy },
               ].map(({ key, label, sub, Icon }) => {
-                const active = (profile?.role ?? "member") === key
+                const active = isManager ? viewMode === (key === "manager" ? "coach" : "member") : (profile?.role ?? "member") === key
                 return (
                   <button
                     key={key}
-                    onClick={() => changeRole(key)}
+                    onClick={() => isManager ? setViewMode(key === "manager" ? "coach" : "member") : changeRole(key)}
                     disabled={roleChanging}
                     className={`rounded-xl p-3.5 text-left border transition-all disabled:opacity-60
                       ${active
