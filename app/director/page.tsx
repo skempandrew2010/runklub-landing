@@ -447,6 +447,10 @@ function ManagerView({ userId }: { userId: string }) {
         .eq("club_id", clubId).eq("members_only", true).in("date", dates)
       const existingKeys = new Set(existingRuns?.map((r) => `${r.date}|${r.title}|${(r.time ?? "").slice(0, 5)}`) ?? [])
 
+      // One shared run per region/day/time — everyone meets at the same place, so
+      // pace groups aren't split into separate runs. All the club's pace groups are
+      // attached to it, which is what ties it to each group's own training schedule.
+      const paceGroupIds = paceGroups.map((pg) => pg.id)
       const toInsert = []
       for (const rd of regionDays) {
         const date = weekDates[rd.day_of_week]
@@ -454,22 +458,21 @@ function ManagerView({ userId }: { userId: string }) {
         const region = regions.find((r) => r.id === rd.region_id)
         if (!region) continue
         const times = timesForDay[rd.id]?.length ? timesForDay[rd.id] : ["06:00"]
-        for (const pg of paceGroups) {
-          const title = regions.length > 1 ? `${pg.name} · ${region.name}` : pg.name
-          for (const time of times) {
-            if (existingKeys.has(`${date}|${title}|${time}`)) continue
-            toInsert.push({
-              club_id: clubId,
-              created_by: userId,
-              kind: "run",
-              members_only: true,
-              is_public: false,
-              title,
-              date,
-              time,
-              timezone: runTimezone,
-            })
-          }
+        const title = regions.length > 1 ? region.name : "Members Run"
+        for (const time of times) {
+          if (existingKeys.has(`${date}|${title}|${time}`)) continue
+          toInsert.push({
+            club_id: clubId,
+            created_by: userId,
+            kind: "run",
+            members_only: true,
+            is_public: false,
+            title,
+            date,
+            time,
+            timezone: runTimezone,
+            pace_group_ids: paceGroupIds,
+          })
         }
       }
 
