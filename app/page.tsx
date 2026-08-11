@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import HubContent from "@/components/HubContent"
-import CoachHomeContent from "@/components/CoachHomeContent"
+import DirectorHomeContent from "@/components/DirectorHomeContent"
 import { useNavIdentity } from "@/hooks/useNavIdentity"
 import { useViewMode } from "@/hooks/useViewMode"
 
@@ -48,9 +48,9 @@ function FadeIn({ children, delay = 0, className = "" }: { children: React.React
 export default function RootPage() {
   const router = useRouter()
   const [signedIn, setSignedIn] = useState(false)
-  const { user, role, loaded: identityLoaded } = useNavIdentity()
+  const { user, role, loaded: identityLoaded, isCoach } = useNavIdentity()
   const isManager = role === "manager"
-  const { viewMode } = useViewMode(isManager)
+  const { viewMode } = useViewMode({ canDirector: isManager, canCoach: isCoach })
 
   useEffect(() => {
     const hash = window.location.hash
@@ -81,7 +81,7 @@ export default function RootPage() {
         </div>
       )
     }
-    if (isManager && viewMode === "coach") return <CoachHomeContent userId={user.id} />
+    if (isManager && viewMode === "director") return <DirectorHomeContent userId={user.id} />
     return <HubContent />
   }
 

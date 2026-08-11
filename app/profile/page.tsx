@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase"
 import { Club } from "@/types/club"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Bell, Ruler, Activity, Pencil, Check, X, Trophy, Users, ShieldCheck, Zap, ExternalLink, ChevronRight, Home } from "lucide-react"
+import { Bell, Ruler, Activity, Pencil, Check, X, Trophy, Users, ShieldCheck, Zap, ExternalLink, ChevronRight, Home, ClipboardList } from "lucide-react"
 import { isNativeApp } from "@/utils/platform"
 import { PLANS, PLAN_ORDER } from "@/lib/plans"
 import { PASSPORT_PREMIUM_PRICE_CENTS_MONTHLY_PLACEHOLDER, PASSPORT_PREMIUM_PRICE_CENTS_YEARLY_PLACEHOLDER } from "@/lib/passportPremium"
@@ -54,7 +54,8 @@ export default function ProfilePage() {
   const [roleChanging, setRoleChanging] = useState(false)
   const [openingPortal, setOpeningPortal] = useState(false)
   const isManager = profile?.role === "manager"
-  const { viewMode, setViewMode } = useViewMode(isManager)
+  const [isCoach, setIsCoach] = useState(false)
+  const { viewMode, setViewMode } = useViewMode({ canDirector: isManager, canCoach: isCoach })
   const [subscribingClubId, setSubscribingClubId] = useState<string | null>(null)
   const [nativeApp, setNativeApp] = useState(false)
   const [tierProgress, setTierProgress] = useState<TierProgress | null>(null)
@@ -90,6 +91,9 @@ export default function ProfilePage() {
 
       const { data: subs } = await supabase.from("subscriptions").select("clubs(*)").eq("user_id", user.id)
       setSubscribedClubs((subs || []).map((s: any) => s.clubs).filter(Boolean))
+
+      const { data: coachRows } = await supabase.from("coaches").select("id").eq("user_id", user.id).eq("status", "active")
+      setIsCoach((coachRows?.length ?? 0) > 0)
 
       // Count runs created by clubs the user coaches
       const clubIds = (clubs || []).map((c: any) => c.id)
@@ -229,7 +233,7 @@ export default function ProfilePage() {
   const displayName = profile?.display_name || user?.email?.split("@")[0] || "Runner"
   const username = profile?.username || displayName.toLowerCase()
   const location = profile?.location
-  const isCoach = myClubs.length > 0
+  const ownsKlub = myClubs.length > 0
   const isMember = subscribedClubs.length > 0
   const totalKlubs = myClubs.length + subscribedClubs.length
   const [bgColor, textColor] = getAvatarColors(displayName)
@@ -308,8 +312,13 @@ export default function ProfilePage() {
                     @{username}{location && <span> · {location}</span>}
                   </p>
                   <div className="flex gap-2 mt-3">
-                    {isCoach && (
+                    {ownsKlub && (
                       <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-[#c5f135]/10 text-[#c5f135] border border-[#c5f135]/30 flex items-center gap-1">
+                        <Activity className="w-3 h-3" /> DIRECTOR
+                      </span>
+                    )}
+                    {isCoach && (
+                      <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-400/10 text-amber-400 border border-amber-400/30 flex items-center gap-1">
                         <Activity className="w-3 h-3" /> COACH
                       </span>
                     )}
@@ -318,7 +327,7 @@ export default function ProfilePage() {
                         MEMBER
                       </span>
                     )}
-                    {!isCoach && !isMember && (
+                    {!ownsKlub && !isCoach && !isMember && (
                       <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-white/5 text-white/50 border border-white/10">
                         RUNNER
                       </span>
@@ -420,16 +429,20 @@ export default function ProfilePage() {
                 ? "Switch your view between directing your klub and browsing as a member — this doesn't change your account."
                 : "Switch between running a klub or joining one. This changes your Director tab."}
             </p>
-            <div className="grid grid-cols-2 gap-2">
-              {[
+            <div className={`grid gap-2 ${isCoach ? "grid-cols-3" : "grid-cols-2"}`}>
+              {([
                 { key: "member", label: "Member", sub: "Join & discover klubs", Icon: Users },
-                { key: "manager", label: "Coach", sub: "Run & direct a klub", Icon: Trophy },
-              ].map(({ key, label, sub, Icon }) => {
-                const active = isManager ? viewMode === (key === "manager" ? "coach" : "member") : (profile?.role ?? "member") === key
+                { key: "director", label: "Director", sub: "Run & direct a klub", Icon: Trophy },
+                ...(isCoach ? [{ key: "coach", label: "Coach", sub: "Assist a klub you're invited to", Icon: ClipboardList }] : []),
+              ] as { key: "member" | "director" | "coach"; label: string; sub: string; Icon: typeof Users }[]).map(({ key, label, sub, Icon }) => {
+                const active = viewMode === key
                 return (
                   <button
                     key={key}
-                    onClick={() => isManager ? setViewMode(key === "manager" ? "coach" : "member") : changeRole(key)}
+                    onClick={() => {
+                      if (key === "director" && !isManager) { changeRole("manager"); return }
+                      setViewMode(key)
+                    }}
                     disabled={roleChanging}
                     className={`rounded-xl p-3.5 text-left border transition-all disabled:opacity-60
                       ${active
@@ -511,8 +524,8 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* SUBSCRIPTION TIERS — coach view only, so directors see what each klub plan unlocks */}
-        {isManager && viewMode === "coach" && (
+        {/* SUBSCRIPTION TIERS — director view only, so directors see what each klub plan unlocks */}
+        {isManager && viewMode === "director" && (
           <div>
             <h2 className="text-xs font-bold text-white/40 tracking-widest uppercase px-1 mb-2">Subscription Tiers</h2>
             <div className="bg-[#1e2d12] rounded-2xl overflow-hidden divide-y divide-[#2e3d1a]">

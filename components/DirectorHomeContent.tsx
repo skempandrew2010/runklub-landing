@@ -64,7 +64,7 @@ function SectionHeader({ title, sub }: { title: string; sub?: string }) {
   )
 }
 
-export default function CoachHomeContent({ userId }: { userId: string }) {
+export default function DirectorHomeContent({ userId }: { userId: string }) {
   const [displayName, setDisplayName] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [clubId, setClubId] = useState<string | null>(null)
@@ -132,7 +132,7 @@ export default function CoachHomeContent({ userId }: { userId: string }) {
       // Unread messages, tracked separately from the general nav badge (which
       // clears on any Home visit) so this section stays accurate until they
       // actually open Messages — see the matching write in director/page.tsx.
-      const lastSeen = localStorage.getItem("coach_messages_last_seen") ?? "1970-01-01T00:00:00.000Z"
+      const lastSeen = localStorage.getItem("director_messages_last_seen") ?? "1970-01-01T00:00:00.000Z"
       const runIds = (clubRunsRes.data ?? []).map((r) => r.id)
       if (runIds.length > 0) {
         const { count } = await supabase

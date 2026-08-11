@@ -11,6 +11,7 @@ export function useNavIdentity() {
   const [loaded, setLoaded] = useState(false)
   const [hasUnread, setHasUnread] = useState(false)
   const [hasClub, setHasClub] = useState(false)
+  const [isCoach, setIsCoach] = useState(false)
 
   // Clear unread badge when user visits the director tab (managers) or Home (members — it's the Hub when signed in, where chats now live)
   useEffect(() => {
@@ -33,11 +34,13 @@ export function useNavIdentity() {
 
         // Check for unread messages across the user's runs
         const lastSeen = localStorage.getItem("director_last_seen") ?? "1970-01-01T00:00:00.000Z"
-        const [ownedRes, subsRes] = await Promise.all([
+        const [ownedRes, subsRes, coachRes] = await Promise.all([
           supabase.from("clubs").select("id").eq("user_id", user.id),
           supabase.from("subscriptions").select("club_id").eq("user_id", user.id),
+          supabase.from("coaches").select("id").eq("user_id", user.id).eq("status", "active"),
         ])
         setHasClub((ownedRes.data?.length ?? 0) > 0)
+        setIsCoach((coachRes.data?.length ?? 0) > 0)
         const clubIds = [
           ...((ownedRes.data || []).map((c: any) => c.id)),
           ...((subsRes.data || []).map((s: any) => s.club_id)),
@@ -67,10 +70,10 @@ export function useNavIdentity() {
     load()
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
-      if (!session?.user) { setRole("member"); setHasUnread(false); setHasClub(false); setAvatarUrl(null) }
+      if (!session?.user) { setRole("member"); setHasUnread(false); setHasClub(false); setIsCoach(false); setAvatarUrl(null) }
     })
     return () => listener.subscription.unsubscribe()
   }, [])
 
-  return { user, role, avatarUrl, loaded, hasUnread, hasClub }
+  return { user, role, avatarUrl, loaded, hasUnread, hasClub, isCoach }
 }

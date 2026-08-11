@@ -2,31 +2,34 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Compass, Trophy, UserCircle, Home, Stamp, Flame, BarChart3, PlusCircle } from "lucide-react"
+import { Compass, Trophy, UserCircle, Home, Stamp, Flame, BarChart3, PlusCircle, ClipboardList } from "lucide-react"
 import { useNavIdentity } from "@/hooks/useNavIdentity"
 import { useViewMode } from "@/hooks/useViewMode"
 
 export default function Navbar() {
   const pathname = usePathname()
-  const { user, role, avatarUrl, loaded, hasUnread, hasClub } = useNavIdentity()
+  const { user, role, avatarUrl, loaded, hasUnread, hasClub, isCoach } = useNavIdentity()
   const isManager = role === "manager"
-  const { viewMode } = useViewMode(isManager)
-  const showCoachTab = isManager && viewMode === "coach"
-  const needsClub = showCoachTab && !hasClub
+  const { viewMode } = useViewMode({ canDirector: isManager, canCoach: isCoach })
+  const showDirectorTabs = isManager && viewMode === "director"
+  const showCoachTab = isCoach && viewMode === "coach"
+  const needsClub = showDirectorTabs && !hasClub
 
   const tabs = [
-    { key: "home",     href: "/",           label: "Home",       Icon: Home,    badge: !showCoachTab && hasUnread },
+    { key: "home",     href: "/",           label: "Home",       Icon: Home,    badge: !showDirectorTabs && hasUnread },
     { key: "discover", href: "/explore",    label: "Discover",   Icon: Compass, badge: false },
-    ...(showCoachTab
+    ...(showDirectorTabs
       ? [needsClub
           ? { key: "analytics", href: "/submit-club", label: "Create a Klub", Icon: PlusCircle, badge: false }
           : { key: "analytics", href: "/director/analytics", label: "Analytics", Icon: BarChart3, badge: false }]
       : [{ key: "missions", href: "/challenges", label: "Missions", Icon: Flame, badge: false }]),
-    ...(showCoachTab
+    ...(showDirectorTabs
       ? [needsClub
           ? { key: "director", href: "/submit-club", label: "Create a Klub", Icon: PlusCircle, badge: false }
           : { key: "director", href: "/director", label: "Director", Icon: Trophy, badge: hasUnread }]
-      : [{ key: "passport", href: "/passport", label: "Passport", Icon: Stamp, badge: false }]),
+      : showCoachTab
+        ? [{ key: "coach", href: "/coach", label: "Coaches", Icon: ClipboardList, badge: false }]
+        : [{ key: "passport", href: "/passport", label: "Passport", Icon: Stamp, badge: false }]),
   ]
 
   const isActive = (href: string) => {

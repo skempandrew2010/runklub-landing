@@ -201,7 +201,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
   // Home visit) so the coach Home "Messages" tile stays accurate until they
   // actually open this tab — see the matching read in CoachHomeContent.
   useEffect(() => {
-    if (tab === "communicate") localStorage.setItem("coach_messages_last_seen", new Date().toISOString())
+    if (tab === "communicate") localStorage.setItem("director_messages_last_seen", new Date().toISOString())
   }, [tab])
 
   // Returning from Stripe's hosted Connect onboarding — the webhook alone
