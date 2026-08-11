@@ -25,12 +25,19 @@ export async function GET(req: NextRequest) {
     const { data: club } = await admin.from("clubs").select("id, name").eq("id", clubId).eq("user_id", user.id).single()
     if (!club) return NextResponse.json({ error: "Klub not found or unauthorized" }, { status: 403 })
 
-    const { data: subs } = await admin.from("subscriptions").select("user_id").eq("club_id", clubId)
+    const { data: subs } = await admin.from("subscriptions").select("user_id, member_type").eq("club_id", clubId)
     const memberIds = [...new Set((subs ?? []).map((s) => s.user_id))]
+    // A "member" is a paid subscriber (member_type='paid'); everyone else with a
+    // subscriptions row is a free "follower" — the two are mutually exclusive here,
+    // unlike the combined memberIds list used below for community-wide metrics.
+    const paidMemberIds = new Set((subs ?? []).filter((s) => s.member_type === "paid").map((s) => s.user_id))
+    const followerCount = memberIds.length - paidMemberIds.size
+    const paidMemberCount = paidMemberIds.size
 
     if (memberIds.length === 0) {
       return NextResponse.json({
         memberCount: 0,
+        audience: { followerCount: 0, paidMemberCount: 0 },
         recentWorkouts: [],
         crossClubCheckins: [],
         premium: { subscriberCount: 0, subscribers: [], referralSubscriberCount: 0, monthlyRevenueCents: 0, isPlaceholder: true },
@@ -157,6 +164,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       memberCount: memberIds.length,
+      audience: { followerCount, paidMemberCount },
       recentWorkouts,
       crossClubCheckins,
       premium: {

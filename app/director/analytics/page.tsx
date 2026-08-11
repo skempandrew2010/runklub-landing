@@ -10,6 +10,7 @@ type ClubOption = { id: string; name: string }
 
 type AnalyticsData = {
   memberCount: number
+  audience: { followerCount: number; paidMemberCount: number }
   recentWorkouts: {
     checkinId: string
     userId: string
@@ -149,12 +150,12 @@ export default function DirectorAnalyticsPage() {
           <div className="space-y-4">
             <div className="grid grid-cols-3 gap-3">
               <div className="bg-[#1e2d12] border border-[#2e3d1a] rounded-xl px-3 py-3 text-center">
-                <p className="text-xl font-black text-white">{data.memberCount}</p>
-                <p className="text-[10px] text-white/40 uppercase tracking-widest mt-1">Members</p>
+                <p className="text-xl font-black text-white">{data.audience.followerCount}</p>
+                <p className="text-[10px] text-white/40 uppercase tracking-widest mt-1">Followers</p>
               </div>
               <div className="bg-[#1e2d12] border border-[#2e3d1a] rounded-xl px-3 py-3 text-center">
-                <p className="text-xl font-black text-white">{data.premium.subscriberCount}</p>
-                <p className="text-[10px] text-white/40 uppercase tracking-widest mt-1">Premium Members</p>
+                <p className="text-xl font-black text-[#c5f135]">{data.audience.paidMemberCount}</p>
+                <p className="text-[10px] text-white/40 uppercase tracking-widest mt-1">Paid Members</p>
               </div>
               <div className="bg-[#1e2d12] border border-[#2e3d1a] rounded-xl px-3 py-3 text-center">
                 <p className="text-xl font-black text-white">${(data.premium.monthlyRevenueCents / 100).toFixed(2)}</p>
