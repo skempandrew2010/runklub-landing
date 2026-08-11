@@ -13,7 +13,7 @@ import {
   MessageSquare, MapPin,
   Zap, ShieldCheck,
   Globe, Lock, Check, X, Link2, Pencil, Trash2,
-  ChevronDown, ChevronRight, Repeat2, CreditCard,
+  ChevronDown, ChevronRight, Repeat2, CreditCard, Stamp,
 } from "lucide-react"
 import RegionsLocationsTab from "@/app/admin/club-model/manager/RegionsLocationsTab"
 import PaceGroupsTab from "@/app/admin/club-model/manager/PaceGroupsTab"
@@ -26,6 +26,7 @@ import CustomPacesTab from "./CustomPacesTab"
 import RunChatPanel from "@/components/RunChatPanel"
 import RunCheckInRoster from "@/components/RunCheckInRoster"
 import { PLANS } from "@/lib/plans"
+import { useViewMode } from "@/hooks/useViewMode"
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -134,6 +135,7 @@ type TabKey = (typeof ALL_TABS)[number]["key"]
 
 function ManagerView({ userId }: { userId: string }) {
   const router = useRouter()
+  const { setViewMode } = useViewMode(true)
   const [tab, setTab] = useState<TabKey>("runs")
   const [runPanel, setRunPanel] = useState<null | "create" | "create-weekly" | string>(null)
   const [myClubs, setMyClubs] = useState<ClubWithCount[]>([])
@@ -1091,6 +1093,12 @@ function ManagerView({ userId }: { userId: string }) {
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={() => setViewMode("member")}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-[#c5f135]/10 border border-[#c5f135]/25 text-[#c5f135] hover:bg-[#c5f135]/20 transition"
+            >
+              <Stamp className="w-3 h-3" /> View as Member
+            </button>
             <button
               onClick={() => { const link = `${window.location.origin}/clubs/${selectedClub.id}?join=1`; navigator.clipboard.writeText(link); setCopiedJoinLink(true); setTimeout(() => setCopiedJoinLink(false), 2500) }}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border border-[#2e3d1a] text-white/80 hover:text-[#c5f135] hover:border-[#c5f135]/30 transition"

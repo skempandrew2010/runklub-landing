@@ -4,18 +4,20 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Compass, Trophy, UserCircle, Home, Stamp, Flame } from "lucide-react"
 import { useNavIdentity } from "@/hooks/useNavIdentity"
+import { useViewMode } from "@/hooks/useViewMode"
 
 export default function BottomBar() {
   const pathname = usePathname()
   const { role, hasUnread } = useNavIdentity()
-
   const isManager = role === "manager"
+  const { viewMode } = useViewMode(isManager)
+  const showCoachTab = isManager && viewMode === "coach"
 
   const tabs = [
-    { href: "/",           label: "Home",     Icon: Home,    badge: !isManager && hasUnread },
+    { href: "/",           label: "Home",     Icon: Home,    badge: !showCoachTab && hasUnread },
     { href: "/explore",    label: "Discover", Icon: Compass, badge: false },
     { href: "/challenges", label: "Missions", Icon: Flame,   badge: false },
-    ...(isManager
+    ...(showCoachTab
       ? [{ href: "/director", label: "Director", Icon: Trophy,     badge: hasUnread }]
       : [{ href: "/passport", label: "Passport", Icon: Stamp,      badge: false }]),
     { href: "/profile",    label: "Profile",  Icon: UserCircle, badge: false },
