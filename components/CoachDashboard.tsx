@@ -7,6 +7,7 @@ import { formatRunTime } from "@/lib/timezone"
 import { ChevronDown, ChevronRight, MessageSquare, Users, CalendarCheck } from "lucide-react"
 import RunChatPanel, { type ChatTarget } from "@/components/RunChatPanel"
 import CoachCheckInRoster from "@/components/CoachCheckInRoster"
+import PendingCoachInviteBanner from "@/components/PendingCoachInviteBanner"
 
 type DashboardRun = {
   id: string
@@ -130,6 +131,8 @@ export default function CoachDashboard({ userId }: { userId: string }) {
   return (
     <div className="min-h-screen bg-[#1a2110] pb-24">
       <div className="max-w-2xl mx-auto px-5 py-6 space-y-10">
+
+        <PendingCoachInviteBanner />
 
         <div>
           <p className="text-xs font-bold text-[#c5f135]/60 uppercase tracking-widest mb-1">{data.clubName}</p>

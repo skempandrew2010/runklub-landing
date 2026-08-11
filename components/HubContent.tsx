@@ -6,6 +6,7 @@ import { localDateStr } from "@/utils/dates"
 import { CalendarCheck, ChevronRight, Users, Zap } from "lucide-react"
 import Link from "next/link"
 import ChallengeHubBanner from "@/components/ChallengeHubBanner"
+import PendingCoachInviteBanner from "@/components/PendingCoachInviteBanner"
 import { isVerifiedClub } from "@/utils/clubTier"
 import { formatRunTime } from "@/lib/timezone"
 import VerifiedBadge from "@/components/VerifiedBadge"
@@ -376,6 +377,7 @@ export default function HubContent() {
 
         {!loading && userId && (
           <div className="space-y-10">
+            <PendingCoachInviteBanner />
             <ChallengeHubBanner userId={userId} />
 
             {/* ── MY KLUBS (first) ── */}

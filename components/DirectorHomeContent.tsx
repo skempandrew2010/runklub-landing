@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase"
 import { mondayOf, localDateStr } from "@/utils/dates"
 import { formatRunTime } from "@/lib/timezone"
 import { CalendarCheck, ChevronRight, MessageSquare } from "lucide-react"
+import PendingCoachInviteBanner from "@/components/PendingCoachInviteBanner"
 
 type PaceGroup = { id: string; name: string }
 type ScheduleRow = { day_of_week: number; pace_group_id: string; workout_type_id: string | null }
@@ -204,6 +205,8 @@ export default function DirectorHomeContent({ userId }: { userId: string }) {
       {/* ── MAIN CONTENT ── */}
       <div className="max-w-6xl mx-auto px-6 py-8">
         <div className="space-y-10">
+
+          <PendingCoachInviteBanner />
 
           {/* ── TRAINING SCHEDULE ── */}
           <section>
