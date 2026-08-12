@@ -25,7 +25,7 @@ export default function BottomBar() {
     ...(showDirectorTabs
       ? [needsClub
           ? { key: "director", href: "/submit-club", label: "Create a Klub", Icon: PlusCircle, badge: false }
-          : { key: "director", href: "/director", label: isManager ? "Director" : "Coach", Icon: Trophy, badge: hasUnread }]
+          : { key: "director", href: "/director", label: isManager ? "Director" : "Coaches", Icon: Trophy, badge: hasUnread }]
       : [{ key: "passport", href: "/passport", label: "Passport", Icon: Stamp, badge: false }]),
     { key: "profile",   href: "/profile",    label: "Profile",  Icon: UserCircle, badge: false },
   ]
