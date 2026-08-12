@@ -218,9 +218,12 @@ export default function CoachDashboard({ userId, clubId, initialTab }: { userId:
                     const expanded = expandedRunId === run.id
                     return (
                       <div key={run.id} className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl overflow-hidden">
-                        <button
+                        <div
+                          role="button"
+                          tabIndex={0}
                           onClick={() => setExpandedRunId(expanded ? null : run.id)}
-                          className="w-full flex items-center gap-3 px-4 py-3.5 text-left"
+                          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setExpandedRunId(expanded ? null : run.id) } }}
+                          className="w-full flex items-center gap-3 px-4 py-3.5 text-left cursor-pointer"
                         >
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
@@ -241,7 +244,7 @@ export default function CoachDashboard({ userId, clubId, initialTab }: { userId:
                             <MessageSquare className="w-3.5 h-3.5 text-[#c5f135]" />
                           </button>
                           <ChevronDown className={`w-4 h-4 text-white/25 shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`} />
-                        </button>
+                        </div>
                         {expanded && (
                           <div className="px-4 pb-4 border-t border-[#2e3d1a] pt-3">
                             <CoachCheckInRoster runId={run.id} roster={data.roster.map((r) => ({ userId: r.userId, displayName: r.displayName, avatarUrl: r.avatarUrl }))} />
