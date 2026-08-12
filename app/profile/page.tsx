@@ -44,6 +44,7 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [myClubs, setMyClubs] = useState<Club[]>([])
   const [subscribedClubs, setSubscribedClubs] = useState<Club[]>([])
+  const [paidMemberships, setPaidMemberships] = useState<Club[]>([])
   const [coachClubs, setCoachClubs] = useState<Club[]>([])
   const [sessionCount, setSessionCount] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -58,6 +59,7 @@ export default function ProfilePage() {
   const [isCoach, setIsCoach] = useState(false)
   const { viewMode, setViewMode } = useViewMode(isManager || isCoach)
   const [subscribingClubId, setSubscribingClubId] = useState<string | null>(null)
+  const [managingMembershipId, setManagingMembershipId] = useState<string | null>(null)
   const [nativeApp, setNativeApp] = useState(false)
   const [tierProgress, setTierProgress] = useState<TierProgress | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -90,8 +92,10 @@ export default function ProfilePage() {
       const { data: clubs } = await supabase.from("clubs").select("id, name, city, image_url, tier, tier_expires_at, stripe_subscription_status").eq("user_id", user.id)
       setMyClubs((clubs || []) as any)
 
-      const { data: subs } = await supabase.from("subscriptions").select("clubs(*)").eq("user_id", user.id)
-      setSubscribedClubs((subs || []).map((s: any) => s.clubs).filter(Boolean))
+      const { data: subs } = await supabase.from("subscriptions").select("member_type, clubs(*)").eq("user_id", user.id)
+      const subRows = (subs || []) as any[]
+      setSubscribedClubs(subRows.map((s) => s.clubs).filter(Boolean))
+      setPaidMemberships(subRows.filter((s) => s.member_type === "paid" && s.clubs).map((s) => s.clubs))
 
       const { data: coachRows } = await supabase.from("coaches").select("id, club_id, clubs(*)").eq("user_id", user.id).eq("status", "active")
       setIsCoach((coachRows?.length ?? 0) > 0)
@@ -178,6 +182,30 @@ export default function ProfilePage() {
     } catch {
       alert("Could not open billing portal. Try again.")
       setOpeningPortal(false)
+    }
+  }
+
+  const manageMembership = async (clubId: string) => {
+    setManagingMembershipId(clubId)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { router.push("/login"); return }
+
+      const res = await fetch(`/api/clubs/${clubId}/billing-portal`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+
+      const data = await res.json()
+      if (data.url) {
+        window.location.href = data.url
+      } else {
+        alert(data.error ?? "Could not open billing portal")
+        setManagingMembershipId(null)
+      }
+    } catch {
+      alert("Could not open billing portal. Try again.")
+      setManagingMembershipId(null)
     }
   }
 
@@ -467,6 +495,39 @@ export default function ProfilePage() {
             </div>
           </div>
         </div>
+
+        {/* KLUB MEMBERSHIP — paid membership(s) as a runner, kept separate from the director plan below */}
+        {paidMemberships.length > 0 && (
+          <div>
+            <h2 className="text-xs font-bold text-white/40 tracking-widest uppercase px-1 mb-2">Klub Membership</h2>
+            <div className="bg-[#1e2d12] rounded-2xl overflow-hidden divide-y divide-[#2e3d1a]">
+              {paidMemberships.map((club) => (
+                <div key={club.id} className="flex items-center gap-3 px-4 py-3.5">
+                  <Users className="w-4 h-4 text-[#c5f135] shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-white truncate">{club.name}</p>
+                    <p className="text-xs text-white/40">Paid member</p>
+                  </div>
+                  {!nativeApp && (
+                    <button
+                      onClick={() => manageMembership(club.id)}
+                      disabled={managingMembershipId === club.id}
+                      className="text-xs font-black px-3 py-1.5 rounded-full shrink-0 bg-[#c5f135]/15 text-[#c5f135] border border-[#c5f135]/30 hover:bg-[#c5f135]/25 transition disabled:opacity-50"
+                    >
+                      {managingMembershipId === club.id ? "Opening…" : "Manage"}
+                    </button>
+                  )}
+                </div>
+              ))}
+              {nativeApp && (
+                <p className="px-4 py-3.5 text-xs text-white/40">
+                  Manage billing & subscriptions at{" "}
+                  <span className="text-[#c5f135] font-semibold">runklub.fit</span> on the web.
+                </p>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* MANAGE SUBSCRIPTIONS — shown for anyone who owns/manages a klub, even on Free */}
         {myClubs.length > 0 && (
