@@ -2348,10 +2348,11 @@ function DirectorPageInner() {
   )
 
   if (context === "coach") {
+    const requestedClubId = searchParams.get("club_id") ?? undefined
     return (
       <>
         {switchLink}
-        <CoachDashboard userId={user.id} />
+        <CoachDashboard userId={user.id} clubId={requestedClubId} />
       </>
     )
   }

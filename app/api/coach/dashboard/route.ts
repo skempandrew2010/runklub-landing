@@ -38,15 +38,22 @@ export async function GET(req: NextRequest) {
     const paceGroupIds: string[] = coach.pace_group_ids ?? []
     const regionIds: string[] = coach.region_ids ?? []
 
-    const { data: club } = await admin.from("clubs").select("id, name").eq("id", clubId).single()
+    const { data: club } = await admin.from("clubs").select("id, name, user_id").eq("id", clubId).single()
     if (!club) return NextResponse.json({ error: "Klub not found" }, { status: 404 })
+
+    const { data: directorProfile } = await admin.from("profiles").select("display_name, avatar_url").eq("id", club.user_id).maybeSingle()
 
     const today = new Date()
     const todayStr = today.toISOString().slice(0, 10)
     const thirtyDaysAgo = new Date(today); thirtyDaysAgo.setDate(today.getDate() - 30)
     const sixtyDaysAgo = new Date(today); sixtyDaysAgo.setDate(today.getDate() - 60)
+    // Monday of the current week, for the weekly training schedule below.
+    const dayOfWeek = today.getDay()
+    const mondayDiff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+    const monday = new Date(today); monday.setDate(today.getDate() + mondayDiff)
+    const mondayStr = monday.toISOString().slice(0, 10)
 
-    const [pgRes, regionRes, allRunsRes] = await Promise.all([
+    const [pgRes, regionRes, allRunsRes, scheduleRes] = await Promise.all([
       admin.from("pace_groups").select("id, name").in("id", paceGroupIds.length > 0 ? paceGroupIds : ["00000000-0000-0000-0000-000000000000"]),
       regionIds.length > 0 ? admin.from("regions").select("id, name").in("id", regionIds) : Promise.resolve({ data: [] }),
       // Titles follow the "PaceGroup · Branch" convention (see WeeklyScheduleTab/
@@ -59,10 +66,40 @@ export async function GET(req: NextRequest) {
         .gte("date", thirtyDaysAgo.toISOString().slice(0, 10))
         .order("date", { ascending: true })
         .order("time", { ascending: true }),
+      paceGroupIds.length > 0
+        ? admin.from("club_weekly_schedule")
+            .select("day_of_week, pace_group_id, workout_type_id, notes")
+            .eq("club_id", clubId).eq("week_of", mondayStr)
+            .in("pace_group_id", paceGroupIds)
+        : Promise.resolve({ data: [] }),
     ])
 
     const paceGroupNameById: Record<string, string> = {}
     for (const pg of pgRes.data ?? []) paceGroupNameById[pg.id] = pg.name
+
+    const workoutTypeIds = [...new Set(((scheduleRes.data ?? []) as any[]).map((r) => r.workout_type_id).filter(Boolean))]
+    const { data: workoutRows } = workoutTypeIds.length > 0
+      ? await admin.from("runs").select("id, title").in("id", workoutTypeIds)
+      : { data: [] }
+    const workoutTitleById: Record<string, string> = {}
+    for (const w of workoutRows ?? []) workoutTitleById[w.id] = w.title
+
+    // Monday-first display, matching day_of_week's 0=Sun..6=Sat storage.
+    const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0]
+    const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+    const weeklySchedule = (pgRes.data ?? []).map((pg) => {
+      const rowsForGroup = ((scheduleRes.data ?? []) as any[]).filter((r) => r.pace_group_id === pg.id)
+      const days = DAY_ORDER.map((d) => {
+        const row = rowsForGroup.find((r) => r.day_of_week === d)
+        return {
+          dayOfWeek: d,
+          dayLabel: DAY_LABELS[d],
+          workoutTitle: row?.workout_type_id ? workoutTitleById[row.workout_type_id] ?? null : null,
+          notes: row?.notes ?? null,
+        }
+      })
+      return { paceGroupId: pg.id, paceGroupName: pg.name, days }
+    })
 
     // A run is in this coach's scope if it has no pace_group_ids (open to
     // everyone) or overlaps their assigned groups.
@@ -138,8 +175,14 @@ export async function GET(req: NextRequest) {
       clubId: club.id,
       clubName: club.name,
       coachName: coach.name,
+      director: {
+        userId: club.user_id,
+        name: directorProfile?.display_name || "Director",
+        avatarUrl: directorProfile?.avatar_url ?? null,
+      },
       paceGroups: pgRes.data ?? [],
       regions: regionRes.data ?? [],
+      weeklySchedule,
       upcomingRuns: upcomingRuns.map((r) => ({
         id: r.id, title: r.title, date: r.date, time: r.time, timezone: r.timezone,
         distance: r.distance, meeting_point: r.meeting_point, members_only: r.members_only,

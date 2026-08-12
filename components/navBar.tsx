@@ -17,7 +17,7 @@ export default function Navbar() {
   const tabs = [
     { key: "home",     href: "/",           label: "Home",       Icon: Home,    badge: !showDirectorTabs && hasUnread },
     { key: "discover", href: "/explore",    label: "Discover",   Icon: Compass, badge: false },
-    ...(showDirectorTabs && isManager
+    ...(showDirectorTabs
       ? [needsClub
           ? { key: "analytics", href: "/submit-club", label: "Create a Klub", Icon: PlusCircle, badge: false }
           : { key: "analytics", href: "/director/analytics", label: "Analytics", Icon: BarChart3, badge: false }]

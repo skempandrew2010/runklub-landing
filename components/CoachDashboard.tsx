@@ -5,7 +5,7 @@ import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { formatRunTime } from "@/lib/timezone"
 import { ChevronDown, ChevronRight, MessageSquare, Users, CalendarCheck } from "lucide-react"
-import RunChatPanel, { type ChatTarget } from "@/components/RunChatPanel"
+import RunChatPanel, { type ChatTarget, type DmTarget } from "@/components/RunChatPanel"
 import CoachCheckInRoster from "@/components/CoachCheckInRoster"
 import PendingCoachInviteBanner from "@/components/PendingCoachInviteBanner"
 
@@ -29,12 +29,17 @@ type RosterEntry = {
   attendanceBucket: "active" | "at_risk" | "churned"
 }
 
+type ScheduleDay = { dayOfWeek: number; dayLabel: string; workoutTitle: string | null; notes: string | null }
+type PaceGroupSchedule = { paceGroupId: string; paceGroupName: string; days: ScheduleDay[] }
+
 type DashboardData = {
   clubId: string
   clubName: string
   coachName: string
+  director: { userId: string; name: string; avatarUrl: string | null }
   paceGroups: { id: string; name: string }[]
   regions: { id: string; name: string }[]
+  weeklySchedule: PaceGroupSchedule[]
   upcomingRuns: DashboardRun[]
   roster: RosterEntry[]
   analytics: {
@@ -77,23 +82,30 @@ function initialsOf(name: string) {
  * runs scoped to their pace group/branch, manual check-in, an attendance
  * summary with no revenue/payment data, and messaging.
  */
-export default function CoachDashboard({ userId }: { userId: string }) {
+export default function CoachDashboard({ userId, clubId }: { userId: string; clubId?: string }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [data, setData] = useState<DashboardData | null>(null)
   const [expandedRunId, setExpandedRunId] = useState<string | null>(null)
   const [chatTarget, setChatTarget] = useState<ChatTarget | null>(null)
+  const [chatInitialDm, setChatInitialDm] = useState<DmTarget | undefined>(undefined)
 
   useEffect(() => {
     const load = async () => {
-      const { data: coachRows } = await supabase.from("coaches").select("club_id").eq("user_id", userId).eq("status", "active").order("accepted_at").limit(1)
-      const clubId = coachRows?.[0]?.club_id
-      if (!clubId) { setLoading(false); return }
+      // A specific clubId (e.g. just accepted that klub's coach invite) skips
+      // the auto-pick entirely, so accepting an invite always scopes you to
+      // that klub instead of whichever one you coached first.
+      let targetClubId = clubId
+      if (!targetClubId) {
+        const { data: coachRows } = await supabase.from("coaches").select("club_id").eq("user_id", userId).eq("status", "active").order("accepted_at", { ascending: false }).limit(1)
+        targetClubId = coachRows?.[0]?.club_id
+      }
+      if (!targetClubId) { setLoading(false); return }
 
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) { setLoading(false); return }
 
-      const res = await fetch(`/api/coach/dashboard?club_id=${clubId}`, {
+      const res = await fetch(`/api/coach/dashboard?club_id=${targetClubId}`, {
         headers: { Authorization: `Bearer ${session.access_token}` },
       })
       const json = await res.json()
@@ -102,7 +114,7 @@ export default function CoachDashboard({ userId }: { userId: string }) {
       setLoading(false)
     }
     load()
-  }, [userId])
+  }, [userId, clubId])
 
   if (loading) {
     return (
@@ -143,6 +155,37 @@ export default function CoachDashboard({ userId }: { userId: string }) {
           </p>
         </div>
 
+        {/* ── TRAINING SCHEDULE ── */}
+        <section>
+          <SectionHeader title="Training Schedule" sub="This week · your pace group(s)" />
+          {data.weeklySchedule.length === 0 ? (
+            <div className="bg-[#1e2d12] rounded-2xl p-6 text-center border border-[#2e3d1a]">
+              <p className="text-white/40 text-sm">No pace group assigned yet.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {data.weeklySchedule.map((pg) => (
+                <div key={pg.paceGroupId} className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl overflow-hidden">
+                  <p className="text-xs font-bold text-white px-4 pt-3 pb-2">{pg.paceGroupName}</p>
+                  <div className="divide-y divide-[#2e3d1a]">
+                    {pg.days.map((d) => (
+                      <div key={d.dayOfWeek} className="flex items-center gap-3 px-4 py-2">
+                        <span className="text-[10px] font-bold text-white/35 uppercase tracking-widest w-8 shrink-0">{d.dayLabel}</span>
+                        {d.workoutTitle ? (
+                          <span className="text-xs font-semibold text-white">{d.workoutTitle}</span>
+                        ) : (
+                          <span className="text-xs text-white/25 italic">Rest</span>
+                        )}
+                        {d.notes && <span className="text-xs text-white/35 truncate">— {d.notes}</span>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
         {/* ── ANALYTICS (no revenue) ── */}
         <section>
           <SectionHeader title="Attendance" sub="Last 30 days · your scope only" />
@@ -159,10 +202,6 @@ export default function CoachDashboard({ userId }: { userId: string }) {
               <p className="text-lg font-black text-white">{showUp.rate !== null ? `${Math.round(showUp.rate * 100)}%` : "—"}</p>
               <p className="text-[9px] text-white/40 uppercase tracking-widest mt-0.5">Show-up Rate</p>
             </div>
-          </div>
-          <div className="flex items-center gap-4 mt-2 px-1 text-[11px] text-white/35">
-            <span><span className="text-yellow-400 font-bold">{retention.atRisk}</span> at risk (31–60d)</span>
-            <span><span className="text-red-400 font-bold">{retention.churned}</span> churned (&gt;60d)</span>
           </div>
         </section>
 
@@ -199,6 +238,7 @@ export default function CoachDashboard({ userId }: { userId: string }) {
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
+                          setChatInitialDm(undefined)
                           setChatTarget({ type: "run", id: run.id, title: run.title, date: run.date, time: run.time, timezone: run.timezone, distance: run.distance, meeting_point: run.meeting_point, clubName: data.clubName })
                         }}
                         className="shrink-0 w-8 h-8 rounded-full bg-[#2e3d1a] flex items-center justify-center hover:bg-[#3d5220] transition"
@@ -244,13 +284,11 @@ export default function CoachDashboard({ userId }: { userId: string }) {
                       {m.lastCheckinAt && ` · last run ${formatDay(m.lastCheckinAt.slice(0, 10))}`}
                     </p>
                   </div>
-                  <span className={`shrink-0 text-[9px] font-black px-2 py-0.5 rounded-full uppercase ${
-                    m.attendanceBucket === "active" ? "bg-[#c5f135]/10 text-[#c5f135]" :
-                    m.attendanceBucket === "at_risk" ? "bg-yellow-400/10 text-yellow-400" :
-                    "bg-red-400/10 text-red-400"
-                  }`}>
-                    {m.attendanceBucket === "at_risk" ? "at risk" : m.attendanceBucket}
-                  </span>
+                  {m.attendanceBucket === "active" && (
+                    <span className="shrink-0 text-[9px] font-black px-2 py-0.5 rounded-full uppercase bg-[#c5f135]/10 text-[#c5f135]">
+                      active
+                    </span>
+                  )}
                 </div>
               ))}
             </div>
@@ -260,25 +298,49 @@ export default function CoachDashboard({ userId }: { userId: string }) {
         {/* ── COMMUNICATE ── */}
         <section>
           <SectionHeader title="Messages" />
-          <button
-            onClick={() => setChatTarget({ type: "club", id: data.clubId, clubName: data.clubName })}
-            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-[#1e2d12] border border-[#2e3d1a] hover:border-[#c5f135]/30 transition text-left"
-          >
-            <div className="w-9 h-9 rounded-full bg-[#2e3d1a] flex items-center justify-center shrink-0">
-              <MessageSquare className="w-4 h-4 text-[#c5f135]" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-white">Klub Chat</p>
-              <p className="text-xs text-white/40 mt-0.5">Message the whole klub, or tap the bubble on a run to message just that run</p>
-            </div>
-            <ChevronRight className="w-4 h-4 text-white/20 shrink-0" />
-          </button>
+          <div className="space-y-2">
+            <button
+              onClick={() => {
+                setChatInitialDm({ userId: data.director.userId, name: data.director.name, avatarUrl: data.director.avatarUrl })
+                setChatTarget({ type: "club", id: data.clubId, clubName: data.clubName })
+              }}
+              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-[#1e2d12] border border-[#2e3d1a] hover:border-[#c5f135]/30 transition text-left"
+            >
+              <div className="w-9 h-9 rounded-full bg-[#2e3d1a] overflow-hidden flex items-center justify-center shrink-0">
+                {data.director.avatarUrl
+                  ? <img src={data.director.avatarUrl} alt="" className="w-full h-full object-cover" />
+                  : <span className="text-xs font-black text-[#c5f135]">{initialsOf(data.director.name)}</span>
+                }
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-white">Message {data.director.name}</p>
+                <p className="text-xs text-white/40 mt-0.5">Your klub&apos;s director</p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-white/20 shrink-0" />
+            </button>
+            <button
+              onClick={() => {
+                setChatInitialDm(undefined)
+                setChatTarget({ type: "club", id: data.clubId, clubName: data.clubName })
+              }}
+              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-[#1e2d12] border border-[#2e3d1a] hover:border-[#c5f135]/30 transition text-left"
+            >
+              <div className="w-9 h-9 rounded-full bg-[#2e3d1a] flex items-center justify-center shrink-0">
+                <MessageSquare className="w-4 h-4 text-[#c5f135]" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-white">Klub Chat</p>
+                <p className="text-xs text-white/40 mt-0.5">Message the whole klub, or tap the bubble on a run to message just that run</p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-white/20 shrink-0" />
+            </button>
+          </div>
         </section>
 
       </div>
 
       {chatTarget && userId && (
-        <RunChatPanel target={chatTarget} userId={userId} onClose={() => setChatTarget(null)} />
+        <RunChatPanel target={chatTarget} userId={userId} onClose={() => { setChatTarget(null); setChatInitialDm(undefined) }} initialDm={chatInitialDm} />
       )}
     </div>
   )

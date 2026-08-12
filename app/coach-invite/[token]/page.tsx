@@ -68,7 +68,7 @@ export default function CoachInvitePage() {
     }
 
     setState("accepted")
-    setTimeout(() => router.push("/director"), 2000)
+    setTimeout(() => router.push(`/director?as=coach&club_id=${json.club_id}`), 2000)
   }
 
   const club = invite?.clubs
@@ -132,7 +132,7 @@ export default function CoachInvitePage() {
           <CheckCircle className="w-12 h-12 text-[#c5f135] mx-auto mb-4" />
           <h1 className="text-xl font-black text-white mb-2">Already accepted!</h1>
           <p className="text-white/50 text-sm mb-6">You're already coaching at {clubName}.</p>
-          <Link href="/director" className="px-6 py-3 bg-[#c5f135] text-[#1a2110] text-sm font-black rounded-full">
+          <Link href={`/director?as=coach&club_id=${invite?.club_id}`} className="px-6 py-3 bg-[#c5f135] text-[#1a2110] text-sm font-black rounded-full">
             Go to Coach Dashboard
           </Link>
         </div>

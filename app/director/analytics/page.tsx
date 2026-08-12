@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { CalendarCheck, MapPin, Crown, DollarSign, Info, PartyPopper, TrendingDown, Mail } from "lucide-react"
 import { supabase } from "@/lib/supabase"
+import CoachAnalyticsView from "@/components/CoachAnalyticsView"
 
 type ClubOption = { id: string; name: string }
 
@@ -79,17 +80,34 @@ export default function DirectorAnalyticsPage() {
   const [data, setData] = useState<AnalyticsData | null>(null)
   const [dataLoading, setDataLoading] = useState(false)
   const [error, setError] = useState("")
+  const [mode, setMode] = useState<"director" | "coach" | null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
 
   useEffect(() => {
     const load = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push("/login"); return }
+      setUserId(user.id)
       const { data: prof } = await supabase.from("profiles").select("role").eq("id", user.id).single()
-      if (prof?.role !== "manager") { router.replace("/"); return }
-      const { data: myClubs } = await supabase.from("clubs").select("id, name").eq("user_id", user.id).order("name")
-      setClubs(myClubs ?? [])
-      setSelectedClubId(myClubs?.[0]?.id ?? null)
-      setLoading(false)
+
+      if (prof?.role === "manager") {
+        setMode("director")
+        const { data: myClubs } = await supabase.from("clubs").select("id, name").eq("user_id", user.id).order("name")
+        setClubs(myClubs ?? [])
+        setSelectedClubId(myClubs?.[0]?.id ?? null)
+        setLoading(false)
+        return
+      }
+
+      // Not a klub owner — an active coach lands on the scoped CoachAnalyticsView instead.
+      const { data: coachRows } = await supabase.from("coaches").select("id").eq("user_id", user.id).eq("status", "active").limit(1)
+      if ((coachRows?.length ?? 0) > 0) {
+        setMode("coach")
+        setLoading(false)
+        return
+      }
+
+      router.replace("/")
     }
     load()
   }, [router])
@@ -119,6 +137,8 @@ export default function DirectorAnalyticsPage() {
       </div>
     )
   }
+
+  if (mode === "coach") return <CoachAnalyticsView userId={userId!} />
 
   return (
     <div className="min-h-screen bg-[#1a2110] pb-24">
