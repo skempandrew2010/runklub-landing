@@ -743,44 +743,61 @@ export default function ProfilePage() {
                 <div className="px-4 py-3.5">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-sm font-bold text-white">Passport Credits</span>
-                    <div className="flex rounded-full bg-[#1a2110] p-0.5 border border-[#2e3d1a] shrink-0">
+                    <div className="flex items-center gap-1.5 rounded-full bg-[#1a2110] p-0.5 border border-[#2e3d1a] shrink-0">
                       {(["monthly", "yearly"] as const).map((interval) => (
                         <button
                           key={interval}
                           onClick={() => setPassportInterval(interval)}
-                          className={`px-2.5 py-1 rounded-full text-[10px] font-bold capitalize transition ${
+                          className={`relative px-2.5 py-1 rounded-full text-[10px] font-bold capitalize transition ${
                             passportInterval === interval ? "bg-[#c5f135] text-[#1a2110]" : "text-white/40"
                           }`}
                         >
                           {interval}
+                          {interval === "yearly" && (
+                            <span className={`absolute -top-2.5 -right-2 text-[8px] font-black px-1.5 py-0.5 rounded-full whitespace-nowrap ${
+                              passportInterval === "yearly" ? "bg-white text-[#1a2110]" : "bg-[#c5f135] text-[#1a2110]"
+                            }`}>
+                              SAVE 17%
+                            </span>
+                          )}
                         </button>
                       ))}
                     </div>
                   </div>
-                  <p className="text-xs text-white/40 mt-2 leading-relaxed">
-                    Check into partner klubs beyond your home klub using monthly credits.
-                    {passportInterval === "yearly" && " Yearly saves ~17% — credits still land every month."}
-                  </p>
+
+                  <div className="mt-3 flex items-start gap-2 bg-[#c5f135]/10 border border-[#c5f135]/30 rounded-xl px-3 py-2.5">
+                    <Zap className="w-3.5 h-3.5 text-[#c5f135] shrink-0 mt-0.5" />
+                    <p className="text-xs text-[#c5f135] leading-relaxed">
+                      <span className="font-black">Pay yearly, get ~17% more for your money</span> — 2 months free vs. paying monthly, and credits still land every month, not all at once.
+                    </p>
+                  </div>
+
                   {passportTiers.length > 0 && (
                     <div className="mt-3 grid grid-cols-2 gap-2">
-                      {passportTiers.map((t) => (
-                        <button
-                          key={t.tier}
-                          onClick={() => subscribeToPassportTier(t.tier)}
-                          disabled={subscribingPassportTier === t.tier}
-                          className="bg-[#1a2110] border border-[#2e3d1a] hover:border-[#c5f135]/40 rounded-xl px-3 py-2.5 text-center transition disabled:opacity-50"
-                        >
-                          <p className="text-xs font-black text-white">
-                            {passportInterval === "yearly"
-                              ? `$${(t.yearly_price_cents / 100).toFixed(0)}/yr`
-                              : `$${(t.monthly_price_cents / 100).toFixed(0)}/mo`}
-                          </p>
-                          <p className="text-[10px] text-white/40">{t.credits_per_month} credits/mo</p>
-                          <p className="text-[10px] font-bold text-[#c5f135] mt-1">
-                            {subscribingPassportTier === t.tier ? "Redirecting…" : "Subscribe"}
-                          </p>
-                        </button>
-                      ))}
+                      {passportTiers.map((t) => {
+                        const yearlyEquivalentOfMonthly = t.monthly_price_cents * 12
+                        return (
+                          <button
+                            key={t.tier}
+                            onClick={() => subscribeToPassportTier(t.tier)}
+                            disabled={subscribingPassportTier === t.tier}
+                            className="bg-[#1a2110] border border-[#2e3d1a] hover:border-[#c5f135]/40 rounded-xl px-3 py-2.5 text-center transition disabled:opacity-50"
+                          >
+                            {passportInterval === "yearly" ? (
+                              <>
+                                <p className="text-[10px] text-white/30 line-through">${(yearlyEquivalentOfMonthly / 100).toFixed(0)}/yr</p>
+                                <p className="text-xs font-black text-white">${(t.yearly_price_cents / 100).toFixed(0)}/yr</p>
+                              </>
+                            ) : (
+                              <p className="text-xs font-black text-white">${(t.monthly_price_cents / 100).toFixed(0)}/mo</p>
+                            )}
+                            <p className="text-[10px] text-white/40">{t.credits_per_month} credits/mo</p>
+                            <p className="text-[10px] font-bold text-[#c5f135] mt-1">
+                              {subscribingPassportTier === t.tier ? "Redirecting…" : "Subscribe"}
+                            </p>
+                          </button>
+                        )
+                      })}
                     </div>
                   )}
                 </div>
