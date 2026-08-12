@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import Stripe from "stripe"
 import { createClient } from "@supabase/supabase-js"
-import { PASSPORT_TIER_PRICE_ENV } from "@/lib/passportStripe"
+import { PASSPORT_TIER_PRICE_ENV, type PassportBillingInterval } from "@/lib/passportStripe"
 
 function getStripe() { return new Stripe(process.env.STRIPE_SECRET_KEY!) }
 
@@ -20,10 +20,11 @@ function getSupabaseAdmin() {
 // /api/passport/checkin's Stripe Transfer.
 export async function POST(req: NextRequest) {
   try {
-    const { tier } = await req.json()
+    const { tier, interval } = await req.json()
     if (![1, 2, 3, 4].includes(tier)) {
       return NextResponse.json({ error: "Invalid tier" }, { status: 400 })
     }
+    const billingInterval: PassportBillingInterval = interval === "yearly" ? "yearly" : "monthly"
 
     const token = req.headers.get("authorization")?.replace("Bearer ", "")
     if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -32,9 +33,9 @@ export async function POST(req: NextRequest) {
     const { data: { user }, error: authError } = await admin.auth.getUser(token)
     if (authError || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-    const priceId = PASSPORT_TIER_PRICE_ENV[tier]
+    const priceId = PASSPORT_TIER_PRICE_ENV[tier][billingInterval]
     if (!priceId) {
-      console.error(`Stripe price ID not configured for Passport tier ${tier}`)
+      console.error(`Stripe price ID not configured for Passport tier ${tier} (${billingInterval})`)
       return NextResponse.json({ error: "Pricing not yet configured for this tier — contact support" }, { status: 500 })
     }
 
@@ -75,8 +76,8 @@ export async function POST(req: NextRequest) {
       customer: customerId,
       mode: "subscription",
       line_items: [{ price: priceId, quantity: 1 }],
-      metadata: { passportProgram: "true", tier: String(tier), userId: user.id },
-      subscription_data: { metadata: { passportProgram: "true", tier: String(tier), userId: user.id } },
+      metadata: { passportProgram: "true", tier: String(tier), interval: billingInterval, userId: user.id },
+      subscription_data: { metadata: { passportProgram: "true", tier: String(tier), interval: billingInterval, userId: user.id } },
       success_url: `${appUrl}/profile?passport_subscribed=1`,
       cancel_url: `${appUrl}/profile?passport_cancelled=1`,
       allow_promotion_codes: true,

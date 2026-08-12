@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { CalendarCheck, Trophy, Zap, Clock, AlertTriangle } from "lucide-react"
 
-type Tier = { tier: number; name: string; monthly_price_cents: number; credits_per_month: number }
+type Tier = { tier: number; name: string; monthly_price_cents: number; yearly_price_cents: number; credits_per_month: number }
 type CheckinCost = { checkin_tier: "standard" | "premium"; credit_cost: number; club_payout_cents: number }
-type Subscription = { id: string; tier: number; status: string; current_period_end: string | null }
+type Subscription = { id: string; tier: number; status: string; billing_interval: string; next_credit_issue_at: string | null; current_period_end: string | null }
 type Batch = { id: string; credits_issued: number; credits_remaining: number; status: string; issued_at: string; expires_at: string }
 type ClubRow = { id: string; name: string; passport_checkin_tier: "standard" | "premium"; passport_annual_price_cents: number | null }
 type Checkin = { id: string; club_id: string; checkin_tier: string; credits_spent: number; payout_amount_cents: number; payout_status: string; checked_in_at: string }
@@ -31,6 +31,8 @@ export default function PassportCreditsTestPage() {
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState("")
   const [lastResult, setLastResult] = useState<{ clubName: string; creditsSpent: number; payoutCents: number; payoutStatus: string } | null>(null)
+  const [testInterval, setTestInterval] = useState<"monthly" | "yearly">("monthly")
+  const [cronResult, setCronResult] = useState<number | null>(null)
 
   const clubById: Record<string, ClubRow> = Object.fromEntries(clubs.map((c) => [c.id, c]))
   const costByTier: Record<string, CheckinCost> = Object.fromEntries(costs.map((c) => [c.checkin_tier, c]))
@@ -40,7 +42,7 @@ export default function PassportCreditsTestPage() {
 
   const refetchUserData = useCallback(async (uid: string) => {
     const [{ data: subData }, { data: batchData }, { data: checkinData }] = await Promise.all([
-      supabase.from("passport_subscriptions").select("id, tier, status, current_period_end").eq("user_id", uid).eq("status", "active").maybeSingle(),
+      supabase.from("passport_subscriptions").select("id, tier, status, billing_interval, next_credit_issue_at, current_period_end").eq("user_id", uid).eq("status", "active").maybeSingle(),
       supabase.from("passport_credit_batches").select("id, credits_issued, credits_remaining, status, issued_at, expires_at").eq("user_id", uid).order("issued_at", { ascending: true }),
       supabase.from("passport_checkins").select("id, club_id, checkin_tier, credits_spent, payout_amount_cents, payout_status, checked_in_at").eq("user_id", uid).order("checked_in_at", { ascending: false }).limit(20),
     ])
@@ -60,7 +62,7 @@ export default function PassportCreditsTestPage() {
       setUserId(user.id)
 
       const [{ data: tiersData }, { data: costsData }, { data: clubsData }] = await Promise.all([
-        supabase.from("passport_tiers").select("tier, name, monthly_price_cents, credits_per_month").order("tier"),
+        supabase.from("passport_tiers").select("tier, name, monthly_price_cents, yearly_price_cents, credits_per_month").order("tier"),
         supabase.from("passport_checkin_costs").select("checkin_tier, credit_cost, club_payout_cents"),
         supabase.from("clubs").select("id, name, passport_checkin_tier, passport_annual_price_cents").order("name").limit(50),
       ])
@@ -83,11 +85,30 @@ export default function PassportCreditsTestPage() {
       const res = await fetch("/api/admin/passport/create-test-subscription", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
-        body: JSON.stringify({ user_id: userId, tier }),
+        body: JSON.stringify({ user_id: userId, tier, billing_interval: testInterval }),
       })
       const json = await res.json()
       if (!res.ok) { setError(json.error ?? "Could not create test subscription"); return }
       await refetchUserData(userId)
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const runYearlyCron = async () => {
+    setBusy("yearly-cron")
+    setError("")
+    setCronResult(null)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch("/api/admin/passport/run-yearly-cron", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+      })
+      const json = await res.json()
+      if (!res.ok) { setError(json.error ?? "Could not run yearly cron"); return }
+      setCronResult(json.issuedCount)
+      if (userId) await refetchUserData(userId)
     } finally {
       setBusy(null)
     }
@@ -174,7 +195,22 @@ export default function PassportCreditsTestPage() {
 
         {/* SUBSCRIPTION */}
         <section>
-          <h2 className="text-xs font-bold text-white/40 tracking-widest uppercase px-1 mb-2">Subscription</h2>
+          <div className="flex items-center justify-between gap-2 mb-2 px-1">
+            <h2 className="text-xs font-bold text-white/40 tracking-widest uppercase">Subscription</h2>
+            <div className="flex rounded-full bg-[#1e2d12] p-0.5 border border-[#2e3d1a]">
+              {(["monthly", "yearly"] as const).map((interval) => (
+                <button
+                  key={interval}
+                  onClick={() => setTestInterval(interval)}
+                  className={`px-2.5 py-1 rounded-full text-[10px] font-bold capitalize transition ${
+                    testInterval === interval ? "bg-[#c5f135] text-[#1a2110]" : "text-white/40"
+                  }`}
+                >
+                  {interval}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl overflow-hidden">
             {subscription ? (
               <div className="px-4 py-3.5">
@@ -182,9 +218,16 @@ export default function PassportCreditsTestPage() {
                   <span className="text-sm font-bold text-white">
                     {tiers.find((t) => t.tier === subscription.tier)?.name ?? `Tier ${subscription.tier}`}
                   </span>
-                  <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-[#c5f135]/15 text-[#c5f135] border border-[#c5f135]/30">ACTIVE</span>
+                  <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-[#c5f135]/15 text-[#c5f135] border border-[#c5f135]/30 uppercase">
+                    {subscription.billing_interval}
+                  </span>
                 </div>
                 <p className="text-xs text-white/40 mt-1">{creditBalance} credits available</p>
+                {subscription.billing_interval === "yearly" && subscription.next_credit_issue_at && (
+                  <p className="text-xs text-white/40 mt-0.5">
+                    Next monthly batch due {new Date(subscription.next_credit_issue_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                  </p>
+                )}
                 <div className="flex flex-wrap gap-2 mt-3">
                   {tiers.map((t) => (
                     <button
@@ -192,7 +235,7 @@ export default function PassportCreditsTestPage() {
                       onClick={() => createSubscription(t.tier)}
                       disabled={busy === `sub-${t.tier}`}
                       className={`text-xs font-bold px-3 py-1.5 rounded-full transition disabled:opacity-50 ${
-                        t.tier === subscription.tier
+                        t.tier === subscription.tier && testInterval === subscription.billing_interval
                           ? "bg-[#c5f135] text-[#1a2110]"
                           : "bg-[#1a2110] text-white/60 border border-[#2e3d1a] hover:border-[#c5f135]/40"
                       }`}
@@ -208,6 +251,18 @@ export default function PassportCreditsTestPage() {
                 >
                   {busy === "issue" ? "Issuing…" : "Simulate monthly credit issuance"}
                 </button>
+                {subscription.billing_interval === "yearly" && (
+                  <button
+                    onClick={runYearlyCron}
+                    disabled={busy === "yearly-cron"}
+                    className="mt-2 w-full text-xs font-black px-3 py-2 rounded-full bg-[#2e3d1a] text-[#c5f135] border border-[#3d5220] hover:bg-[#3d5220] transition disabled:opacity-50"
+                  >
+                    {busy === "yearly-cron" ? "Running…" : "Run yearly credit cron (all users)"}
+                  </button>
+                )}
+                {cronResult !== null && (
+                  <p className="text-[10px] text-white/40 mt-1.5">Cron issued {cronResult} batch(es) across all due yearly subscribers.</p>
+                )}
               </div>
             ) : (
               <div className="px-4 py-3.5">
@@ -221,7 +276,11 @@ export default function PassportCreditsTestPage() {
                       className="bg-[#1a2110] border border-[#2e3d1a] hover:border-[#c5f135]/40 rounded-xl px-3 py-2.5 text-center transition disabled:opacity-50"
                     >
                       <p className="text-xs font-black text-white">{t.name}</p>
-                      <p className="text-[10px] text-white/40">${(t.monthly_price_cents / 100).toFixed(0)}/mo · {t.credits_per_month} credits</p>
+                      <p className="text-[10px] text-white/40">
+                        {testInterval === "yearly"
+                          ? `$${(t.yearly_price_cents / 100).toFixed(0)}/yr`
+                          : `$${(t.monthly_price_cents / 100).toFixed(0)}/mo`} · {t.credits_per_month} credits/mo
+                      </p>
                     </button>
                   ))}
                 </div>

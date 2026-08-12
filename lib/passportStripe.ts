@@ -1,19 +1,39 @@
-// Price-ID <-> tier mapping for the Passport credit program, shared between
-// the checkout route and the platform webhook so they can't drift. Monthly
-// only — there's no yearly option per the tier spec (unlike the klub SaaS
-// plans in lib/plans.ts).
+// Price-ID <-> tier/interval mapping for the Passport credit program,
+// shared between the checkout route and the platform webhook so they can't
+// drift. Monthly and yearly (annual gets ~17% off — $150/$250/$330/$400,
+// i.e. 10x the monthly price) both exist as real Stripe Prices; an annual
+// subscriber still gets credits issued monthly (see next_credit_issue_at +
+// the passport-yearly-monthly-credits cron), just billed once a year.
 
-export const PASSPORT_TIER_PRICE_ENV: Record<number, string | undefined> = {
-  1: process.env.STRIPE_PASSPORT_TIER1_PRICE_ID,
-  2: process.env.STRIPE_PASSPORT_TIER2_PRICE_ID,
-  3: process.env.STRIPE_PASSPORT_TIER3_PRICE_ID,
-  4: process.env.STRIPE_PASSPORT_TIER4_PRICE_ID,
+export type PassportBillingInterval = "monthly" | "yearly"
+
+export const PASSPORT_TIER_PRICE_ENV: Record<number, Record<PassportBillingInterval, string | undefined>> = {
+  1: {
+    monthly: process.env.STRIPE_PASSPORT_TIER1_MONTHLY_PRICE_ID,
+    yearly: process.env.STRIPE_PASSPORT_TIER1_YEARLY_PRICE_ID,
+  },
+  2: {
+    monthly: process.env.STRIPE_PASSPORT_TIER2_MONTHLY_PRICE_ID,
+    yearly: process.env.STRIPE_PASSPORT_TIER2_YEARLY_PRICE_ID,
+  },
+  3: {
+    monthly: process.env.STRIPE_PASSPORT_TIER3_MONTHLY_PRICE_ID,
+    yearly: process.env.STRIPE_PASSPORT_TIER3_YEARLY_PRICE_ID,
+  },
+  4: {
+    monthly: process.env.STRIPE_PASSPORT_TIER4_MONTHLY_PRICE_ID,
+    yearly: process.env.STRIPE_PASSPORT_TIER4_YEARLY_PRICE_ID,
+  },
 }
 
-export function passportTierForPriceId(priceId: string | null | undefined): number | null {
+export function passportTierAndIntervalForPriceId(
+  priceId: string | null | undefined
+): { tier: number; interval: PassportBillingInterval } | null {
   if (!priceId) return null
-  for (const [tier, envPriceId] of Object.entries(PASSPORT_TIER_PRICE_ENV)) {
-    if (envPriceId && envPriceId === priceId) return Number(tier)
+  for (const [tier, byInterval] of Object.entries(PASSPORT_TIER_PRICE_ENV)) {
+    for (const interval of ["monthly", "yearly"] as const) {
+      if (byInterval[interval] === priceId) return { tier: Number(tier), interval }
+    }
   }
   return null
 }

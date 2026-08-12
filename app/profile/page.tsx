@@ -44,8 +44,9 @@ export default function ProfilePage() {
   const [myClubs, setMyClubs] = useState<Club[]>([])
   const [subscribedClubs, setSubscribedClubs] = useState<Club[]>([])
   const [paidMemberships, setPaidMemberships] = useState<Club[]>([])
-  const [passportTiers, setPassportTiers] = useState<{ tier: number; name: string; monthly_price_cents: number; credits_per_month: number }[]>([])
-  const [passportSub, setPassportSub] = useState<{ tier: number; current_period_end: string | null } | null>(null)
+  const [passportTiers, setPassportTiers] = useState<{ tier: number; name: string; monthly_price_cents: number; yearly_price_cents: number; credits_per_month: number }[]>([])
+  const [passportSub, setPassportSub] = useState<{ tier: number; billing_interval: string; current_period_end: string | null } | null>(null)
+  const [passportInterval, setPassportInterval] = useState<"monthly" | "yearly">("monthly")
   const [passportCreditBalance, setPassportCreditBalance] = useState(0)
   const [coachClubs, setCoachClubs] = useState<Club[]>([])
   const [sessionCount, setSessionCount] = useState(0)
@@ -106,8 +107,8 @@ export default function ProfilePage() {
       setCoachClubs(((coachRows ?? []) as any[]).map((r) => r.clubs).filter(Boolean))
 
       const [{ data: passportTiersData }, { data: passportSubData }] = await Promise.all([
-        supabase.from("passport_tiers").select("tier, name, monthly_price_cents, credits_per_month").order("tier"),
-        supabase.from("passport_subscriptions").select("tier, current_period_end").eq("user_id", user.id).eq("status", "active").maybeSingle(),
+        supabase.from("passport_tiers").select("tier, name, monthly_price_cents, yearly_price_cents, credits_per_month").order("tier"),
+        supabase.from("passport_subscriptions").select("tier, billing_interval, current_period_end").eq("user_id", user.id).eq("status", "active").maybeSingle(),
       ])
       setPassportTiers(passportTiersData ?? [])
       setPassportSub(passportSubData ?? null)
@@ -242,7 +243,7 @@ export default function ProfilePage() {
       const res = await fetch("/api/passport/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ tier }),
+        body: JSON.stringify({ tier, interval: passportInterval }),
       })
 
       const data = await res.json()
@@ -719,7 +720,9 @@ export default function ProfilePage() {
                       <span className="text-sm font-bold text-white">
                         {passportTiers.find((t) => t.tier === passportSub.tier)?.name ?? `Tier ${passportSub.tier}`}
                       </span>
-                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-[#c5f135]/15 text-[#c5f135] border border-[#c5f135]/30">ACTIVE</span>
+                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-[#c5f135]/15 text-[#c5f135] border border-[#c5f135]/30">
+                        {passportSub.billing_interval === "yearly" ? "YEARLY" : "MONTHLY"}
+                      </span>
                     </div>
                     <span className="text-sm font-black text-[#c5f135] shrink-0">{passportCreditBalance} credits</span>
                   </div>
@@ -738,9 +741,25 @@ export default function ProfilePage() {
                 </div>
               ) : (
                 <div className="px-4 py-3.5">
-                  <span className="text-sm font-bold text-white">Passport Credits</span>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-bold text-white">Passport Credits</span>
+                    <div className="flex rounded-full bg-[#1a2110] p-0.5 border border-[#2e3d1a] shrink-0">
+                      {(["monthly", "yearly"] as const).map((interval) => (
+                        <button
+                          key={interval}
+                          onClick={() => setPassportInterval(interval)}
+                          className={`px-2.5 py-1 rounded-full text-[10px] font-bold capitalize transition ${
+                            passportInterval === interval ? "bg-[#c5f135] text-[#1a2110]" : "text-white/40"
+                          }`}
+                        >
+                          {interval}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   <p className="text-xs text-white/40 mt-2 leading-relaxed">
                     Check into partner klubs beyond your home klub using monthly credits.
+                    {passportInterval === "yearly" && " Yearly saves ~17% — credits still land every month."}
                   </p>
                   {passportTiers.length > 0 && (
                     <div className="mt-3 grid grid-cols-2 gap-2">
@@ -751,8 +770,12 @@ export default function ProfilePage() {
                           disabled={subscribingPassportTier === t.tier}
                           className="bg-[#1a2110] border border-[#2e3d1a] hover:border-[#c5f135]/40 rounded-xl px-3 py-2.5 text-center transition disabled:opacity-50"
                         >
-                          <p className="text-xs font-black text-white">${(t.monthly_price_cents / 100).toFixed(0)}/mo</p>
-                          <p className="text-[10px] text-white/40">{t.credits_per_month} credits</p>
+                          <p className="text-xs font-black text-white">
+                            {passportInterval === "yearly"
+                              ? `$${(t.yearly_price_cents / 100).toFixed(0)}/yr`
+                              : `$${(t.monthly_price_cents / 100).toFixed(0)}/mo`}
+                          </p>
+                          <p className="text-[10px] text-white/40">{t.credits_per_month} credits/mo</p>
                           <p className="text-[10px] font-bold text-[#c5f135] mt-1">
                             {subscribingPassportTier === t.tier ? "Redirecting…" : "Subscribe"}
                           </p>

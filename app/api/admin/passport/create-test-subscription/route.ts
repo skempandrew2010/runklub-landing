@@ -9,9 +9,10 @@ function getAdminSupabase() {
   )
 }
 
-// Test-only: there's no live Stripe checkout for Passport credits yet, so
-// this is the only way to get a passport_subscriptions row to test against.
-// Creates one with no stripe_subscription_id — never touches Stripe.
+// Test-only: real checkout now exists (/api/passport/checkout), but this
+// bypass is still useful for exercising credit mechanics (FIFO, expiration,
+// the yearly monthly-credit cron) without going through actual Stripe
+// payment each time. Creates a subscription row with no stripe_subscription_id.
 export async function POST(req: NextRequest) {
   try {
     const authHeader = req.headers.get("Authorization")
@@ -25,10 +26,15 @@ export async function POST(req: NextRequest) {
     const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).single()
     if (profile?.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
-    const { user_id, tier } = await req.json()
+    const { user_id, tier, billing_interval } = await req.json()
     if (!user_id || ![1, 2, 3, 4].includes(tier)) {
       return NextResponse.json({ error: "user_id and tier (1-4) are required" }, { status: 400 })
     }
+    const interval = billing_interval === "yearly" ? "yearly" : "monthly"
+    // Unlike the real webhook (which schedules ~30 days out, since Stripe
+    // only just billed them), test subs are due immediately — so hitting
+    // "Run yearly cron" right after creating one actually does something.
+    const nextCreditIssueAt = interval === "yearly" ? new Date().toISOString() : null
 
     const { data: existing } = await admin
       .from("passport_subscriptions")
@@ -40,7 +46,7 @@ export async function POST(req: NextRequest) {
     if (existing) {
       const { data: updated, error } = await admin
         .from("passport_subscriptions")
-        .update({ tier })
+        .update({ tier, billing_interval: interval, next_credit_issue_at: nextCreditIssueAt })
         .eq("id", existing.id)
         .select()
         .single()
@@ -50,7 +56,7 @@ export async function POST(req: NextRequest) {
 
     const { data: created, error } = await admin
       .from("passport_subscriptions")
-      .insert({ user_id, tier, status: "active" })
+      .insert({ user_id, tier, status: "active", billing_interval: interval, next_credit_issue_at: nextCreditIssueAt })
       .select()
       .single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
