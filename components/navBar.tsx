@@ -17,8 +17,12 @@ export default function Navbar() {
   // even if they also hold the manager role with no klub of their own yet.
   const needsClub = showDirectorTabs && isManager && !hasClub && !isCoach
   // With just one klub relationship, "Director"/"Coaches" alone is
-  // unambiguous. With more than one, name which klub tapping in lands on.
-  const directorSublabel = clubCount > 1 ? primaryClubName ?? undefined : undefined
+  // unambiguous. With more than one of the *same* kind (e.g. two coached
+  // klubs), name the one tapping in actually lands on. Being both a
+  // director and a coach shows the /director?as= picker instead of landing
+  // anywhere specific, so naming one there would be a straight-up lie.
+  const willShowPicker = isManager && isCoach
+  const directorSublabel = !willShowPicker && clubCount > 1 ? primaryClubName ?? undefined : undefined
 
   const tabs = [
     { key: "home",     href: "/",           label: "Home",       Icon: Home,    badge: !showDirectorTabs && hasUnread },
