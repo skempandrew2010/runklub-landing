@@ -12,6 +12,8 @@ export function useNavIdentity() {
   const [hasUnread, setHasUnread] = useState(false)
   const [hasClub, setHasClub] = useState(false)
   const [isCoach, setIsCoach] = useState(false)
+  const [clubCount, setClubCount] = useState(0)
+  const [primaryClubName, setPrimaryClubName] = useState<string | null>(null)
 
   // Clear unread badge when user visits the director tab (managers) or Home (members — it's the Hub when signed in, where chats now live)
   useEffect(() => {
@@ -35,14 +37,21 @@ export function useNavIdentity() {
         // Check for unread messages across the user's runs
         const lastSeen = localStorage.getItem("director_last_seen") ?? "1970-01-01T00:00:00.000Z"
         const [ownedRes, subsRes, coachRes] = await Promise.all([
-          supabase.from("clubs").select("id").eq("user_id", user.id),
+          supabase.from("clubs").select("id, name").eq("user_id", user.id).order("created_at"),
           supabase.from("subscriptions").select("club_id").eq("user_id", user.id),
-          supabase.from("coaches").select("id").eq("user_id", user.id).eq("status", "active"),
+          supabase.from("coaches").select("club_id, accepted_at, clubs(name)").eq("user_id", user.id).eq("status", "active").order("accepted_at", { ascending: false }),
         ])
-        setHasClub((ownedRes.data?.length ?? 0) > 0)
-        setIsCoach((coachRes.data?.length ?? 0) > 0)
+        const ownedClubs = (ownedRes.data ?? []) as { id: string; name: string }[]
+        const coachClubs = ((coachRes.data ?? []) as any[]).filter((r) => r.clubs)
+        setHasClub(ownedClubs.length > 0)
+        setIsCoach(coachClubs.length > 0)
+        setClubCount(ownedClubs.length + coachClubs.length)
+        // Matches whichever klub DirectorHomeContent (first owned, oldest
+        // first) or CoachDashboard (most recently accepted coach klub) would
+        // land on by default, so the nav label never claims a different one.
+        setPrimaryClubName(ownedClubs[0]?.name ?? coachClubs[0]?.clubs?.name ?? null)
         const clubIds = [
-          ...((ownedRes.data || []).map((c: any) => c.id)),
+          ...(ownedClubs.map((c) => c.id)),
           ...((subsRes.data || []).map((s: any) => s.club_id)),
         ]
         if (clubIds.length > 0) {
@@ -70,10 +79,10 @@ export function useNavIdentity() {
     load()
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
-      if (!session?.user) { setRole("member"); setHasUnread(false); setHasClub(false); setIsCoach(false); setAvatarUrl(null) }
+      if (!session?.user) { setRole("member"); setHasUnread(false); setHasClub(false); setIsCoach(false); setClubCount(0); setPrimaryClubName(null); setAvatarUrl(null) }
     })
     return () => listener.subscription.unsubscribe()
   }, [])
 
-  return { user, role, avatarUrl, loaded, hasUnread, hasClub, isCoach }
+  return { user, role, avatarUrl, loaded, hasUnread, hasClub, isCoach, clubCount, primaryClubName }
 }
