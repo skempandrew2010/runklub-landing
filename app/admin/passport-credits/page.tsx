@@ -10,7 +10,7 @@ type CheckinCost = { checkin_tier: "standard" | "premium"; credit_cost: number; 
 type Subscription = { id: string; tier: number; status: string; current_period_end: string | null }
 type Batch = { id: string; credits_issued: number; credits_remaining: number; status: string; issued_at: string; expires_at: string }
 type ClubRow = { id: string; name: string; passport_checkin_tier: "standard" | "premium"; passport_annual_price_cents: number | null }
-type Checkin = { id: string; club_id: string; checkin_tier: string; credits_spent: number; payout_amount_cents: number; checked_in_at: string }
+type Checkin = { id: string; club_id: string; checkin_tier: string; credits_spent: number; payout_amount_cents: number; payout_status: string; checked_in_at: string }
 
 function daysUntil(iso: string) {
   return Math.ceil((new Date(iso).getTime() - Date.now()) / 86400000)
@@ -30,7 +30,7 @@ export default function PassportCreditsTestPage() {
 
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState("")
-  const [lastResult, setLastResult] = useState<{ clubName: string; creditsSpent: number; payoutCents: number } | null>(null)
+  const [lastResult, setLastResult] = useState<{ clubName: string; creditsSpent: number; payoutCents: number; payoutStatus: string } | null>(null)
 
   const clubById: Record<string, ClubRow> = Object.fromEntries(clubs.map((c) => [c.id, c]))
   const costByTier: Record<string, CheckinCost> = Object.fromEntries(costs.map((c) => [c.checkin_tier, c]))
@@ -42,7 +42,7 @@ export default function PassportCreditsTestPage() {
     const [{ data: subData }, { data: batchData }, { data: checkinData }] = await Promise.all([
       supabase.from("passport_subscriptions").select("id, tier, status, current_period_end").eq("user_id", uid).eq("status", "active").maybeSingle(),
       supabase.from("passport_credit_batches").select("id, credits_issued, credits_remaining, status, issued_at, expires_at").eq("user_id", uid).order("issued_at", { ascending: true }),
-      supabase.from("passport_checkins").select("id, club_id, checkin_tier, credits_spent, payout_amount_cents, checked_in_at").eq("user_id", uid).order("checked_in_at", { ascending: false }).limit(20),
+      supabase.from("passport_checkins").select("id, club_id, checkin_tier, credits_spent, payout_amount_cents, payout_status, checked_in_at").eq("user_id", uid).order("checked_in_at", { ascending: false }).limit(20),
     ])
     setSubscription(subData ?? null)
     setBatches(batchData ?? [])
@@ -118,12 +118,16 @@ export default function PassportCreditsTestPage() {
     setError("")
     setLastResult(null)
     try {
-      const { data, error: rpcError } = await supabase.rpc("passport_redeem_checkin", { p_club_id: club.id })
-      if (rpcError) { setError(rpcError.message); return }
-      const cost = costByTier[club.passport_checkin_tier]
-      setLastResult({ clubName: club.name, creditsSpent: cost?.credit_cost ?? 0, payoutCents: cost?.club_payout_cents ?? 0 })
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch("/api/passport/checkin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ club_id: club.id }),
+      })
+      const json = await res.json()
+      if (!res.ok) { setError(json.error ?? "Check-in failed"); return }
+      setLastResult({ clubName: json.clubName, creditsSpent: json.creditsSpent, payoutCents: json.payoutCents, payoutStatus: json.payoutStatus })
       await refetchUserData(userId)
-      void data
     } finally {
       setBusy(null)
     }
@@ -143,7 +147,10 @@ export default function PassportCreditsTestPage() {
         <div>
           <p className="text-xs font-bold text-[#c5f135]/60 uppercase tracking-widest mb-1">Admin prototype</p>
           <h1 className="text-xl font-black text-white">Passport Credits — Test Tools</h1>
-          <p className="text-sm text-white/40 mt-1">Acts as your own signed-in account. No real Stripe calls happen here.</p>
+          <p className="text-sm text-white/40 mt-1">
+            Acts as your own signed-in account. Subscription/issuance tools here bypass Stripe, but Check In calls the real
+            /api/passport/checkin route — including an actual Connect Transfer to the klub if it's onboarded.
+          </p>
         </div>
 
         {error && (
@@ -154,10 +161,13 @@ export default function PassportCreditsTestPage() {
         )}
 
         {lastResult && (
-          <div className="flex items-center gap-2 bg-[#c5f135]/10 border border-[#c5f135]/30 rounded-xl px-3 py-2.5">
-            <Zap className="w-4 h-4 text-[#c5f135] shrink-0" />
-            <p className="text-xs text-[#c5f135]">
-              Checked in at <span className="font-bold">{lastResult.clubName}</span> — spent {lastResult.creditsSpent} credits, klub earns ${(lastResult.payoutCents / 100).toFixed(2)}.
+          <div className={`flex items-center gap-2 rounded-xl px-3 py-2.5 border ${
+            lastResult.payoutStatus === "paid" ? "bg-[#c5f135]/10 border-[#c5f135]/30" : "bg-yellow-500/10 border-yellow-500/30"
+          }`}>
+            <Zap className={`w-4 h-4 shrink-0 ${lastResult.payoutStatus === "paid" ? "text-[#c5f135]" : "text-yellow-400"}`} />
+            <p className={`text-xs ${lastResult.payoutStatus === "paid" ? "text-[#c5f135]" : "text-yellow-300"}`}>
+              Checked in at <span className="font-bold">{lastResult.clubName}</span> — spent {lastResult.creditsSpent} credits, klub earns ${(lastResult.payoutCents / 100).toFixed(2)}
+              {lastResult.payoutStatus === "paid" ? " (transferred)." : " — transfer failed, klub not fully onboarded to Connect."}
             </p>
           </div>
         )}
@@ -298,6 +308,11 @@ export default function PassportCreditsTestPage() {
                       {c.credits_spent} credits · ${(c.payout_amount_cents / 100).toFixed(2)} payout · {new Date(c.checked_in_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
                     </p>
                   </div>
+                  <span className={`text-[10px] font-black px-2 py-0.5 rounded-full shrink-0 uppercase ${
+                    c.payout_status === "paid" ? "bg-[#c5f135]/10 text-[#c5f135]" : c.payout_status === "failed" ? "bg-red-500/10 text-red-300" : "bg-white/5 text-white/40"
+                  }`}>
+                    {c.payout_status}
+                  </span>
                 </div>
               ))
             )}

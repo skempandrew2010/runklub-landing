@@ -62,6 +62,8 @@ export default function ProfilePage() {
   const { viewMode, setViewMode } = useViewMode(isManager || isCoach)
   const [subscribingClubId, setSubscribingClubId] = useState<string | null>(null)
   const [managingMembershipId, setManagingMembershipId] = useState<string | null>(null)
+  const [subscribingPassportTier, setSubscribingPassportTier] = useState<number | null>(null)
+  const [openingPassportPortal, setOpeningPassportPortal] = useState(false)
   const [nativeApp, setNativeApp] = useState(false)
   const [tierProgress, setTierProgress] = useState<TierProgress | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -228,6 +230,56 @@ export default function ProfilePage() {
     } catch {
       alert("Could not open billing portal. Try again.")
       setManagingMembershipId(null)
+    }
+  }
+
+  const subscribeToPassportTier = async (tier: number) => {
+    setSubscribingPassportTier(tier)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { router.push("/login"); return }
+
+      const res = await fetch("/api/passport/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ tier }),
+      })
+
+      const data = await res.json()
+      if (data.url) {
+        window.location.href = data.url
+      } else {
+        alert(data.error ?? "Could not start checkout")
+        setSubscribingPassportTier(null)
+      }
+    } catch {
+      alert("Could not start checkout. Try again.")
+      setSubscribingPassportTier(null)
+    }
+  }
+
+  const managePassportBilling = async () => {
+    setOpeningPassportPortal(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { router.push("/login"); return }
+
+      const res = await fetch("/api/stripe/portal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ returnPath: "/profile" }),
+      })
+
+      const data = await res.json()
+      if (data.url) {
+        window.location.href = data.url
+      } else {
+        alert(data.error ?? "Could not open billing portal")
+        setOpeningPassportPortal(false)
+      }
+    } catch {
+      alert("Could not open billing portal. Try again.")
+      setOpeningPassportPortal(false)
     }
   }
 
@@ -654,9 +706,8 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* PASSPORT CREDITS — member view only. Real data once a passport_subscriptions
-            row exists (from the internal test tooling); otherwise a tier preview, since
-            there's no live checkout flow for this product yet. */}
+        {/* PASSPORT CREDITS — member view only. Real Stripe checkout/portal now
+            that the credit program is functional, not just a preview. */}
         {viewMode === "member" && (
           <div>
             <h2 className="text-xs font-bold text-white/40 tracking-widest uppercase px-1 mb-2">Passport Credits</h2>
@@ -675,23 +726,37 @@ export default function ProfilePage() {
                   <p className="text-xs text-white/40 mt-2 leading-relaxed">
                     Spend credits checking in at partner klubs beyond your home klub — unspent credits expire 45 days after they're issued.
                   </p>
+                  {!nativeApp && (
+                    <button
+                      onClick={managePassportBilling}
+                      disabled={openingPassportPortal}
+                      className="mt-3 w-full text-xs font-black px-3 py-2 rounded-full bg-[#2e3d1a] text-[#c5f135] border border-[#3d5220] hover:bg-[#3d5220] transition disabled:opacity-50"
+                    >
+                      {openingPassportPortal ? "Opening…" : "Manage billing"}
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div className="px-4 py-3.5">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-white">Passport Credits</span>
-                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-white/10 text-white/50">COMING SOON</span>
-                  </div>
+                  <span className="text-sm font-bold text-white">Passport Credits</span>
                   <p className="text-xs text-white/40 mt-2 leading-relaxed">
-                    Check into partner klubs beyond your home klub using monthly credits. Not open for signups yet.
+                    Check into partner klubs beyond your home klub using monthly credits.
                   </p>
                   {passportTiers.length > 0 && (
                     <div className="mt-3 grid grid-cols-2 gap-2">
                       {passportTiers.map((t) => (
-                        <div key={t.tier} className="bg-[#1a2110] rounded-xl px-3 py-2 text-center">
+                        <button
+                          key={t.tier}
+                          onClick={() => subscribeToPassportTier(t.tier)}
+                          disabled={subscribingPassportTier === t.tier}
+                          className="bg-[#1a2110] border border-[#2e3d1a] hover:border-[#c5f135]/40 rounded-xl px-3 py-2.5 text-center transition disabled:opacity-50"
+                        >
                           <p className="text-xs font-black text-white">${(t.monthly_price_cents / 100).toFixed(0)}/mo</p>
                           <p className="text-[10px] text-white/40">{t.credits_per_month} credits</p>
-                        </div>
+                          <p className="text-[10px] font-bold text-[#c5f135] mt-1">
+                            {subscribingPassportTier === t.tier ? "Redirecting…" : "Subscribe"}
+                          </p>
+                        </button>
                       ))}
                     </div>
                   )}
