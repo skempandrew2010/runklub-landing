@@ -13,7 +13,7 @@ import {
   MessageSquare, MapPin,
   Zap, ShieldCheck,
   Globe, Lock, Check, X, Link2, Pencil, Trash2,
-  ChevronDown, ChevronRight, Repeat2, CreditCard, ClipboardList, PlusCircle,
+  ChevronDown, ChevronRight, Repeat2, CreditCard,
 } from "lucide-react"
 import RegionsLocationsTab from "@/app/admin/club-model/manager/RegionsLocationsTab"
 import PaceGroupsTab from "@/app/admin/club-model/manager/PaceGroupsTab"
@@ -26,6 +26,7 @@ import CustomPacesTab from "./CustomPacesTab"
 import RunChatPanel from "@/components/RunChatPanel"
 import RunCheckInRoster from "@/components/RunCheckInRoster"
 import CoachDashboard, { type CoachTabKey } from "@/components/CoachDashboard"
+import KlubContextPicker from "@/components/KlubContextPicker"
 import { PLANS } from "@/lib/plans"
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -2252,69 +2253,6 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
 
 // ── Main Page ──────────────────────────────────────────────────────────────────
 
-function ContextPicker({
-  hasDirectorClub,
-  directorClubName,
-  coachClubName,
-  onPick,
-}: {
-  hasDirectorClub: boolean
-  directorClubName: string | null
-  coachClubName: string | null
-  onPick: (context: "director" | "coach") => void
-}) {
-  return (
-    <div className="min-h-screen bg-[#1a2110] flex items-center justify-center px-5">
-      <div className="w-full max-w-sm">
-        <p className="text-xs font-bold text-[#c5f135]/60 uppercase tracking-widest mb-1 text-center">Director tab</p>
-        <h1 className="text-xl font-black text-white text-center mb-6">Which klub are you managing?</h1>
-        <div className="space-y-3">
-          {hasDirectorClub ? (
-            <button
-              onClick={() => onPick("director")}
-              className="w-full text-left p-5 rounded-2xl border border-[#2e3d1a] bg-[#1e2d12] hover:border-[#c5f135]/40 transition"
-            >
-              <Trophy className="w-5 h-5 text-[#c5f135] mb-2" />
-              <p className="text-base font-bold text-white">Director</p>
-              {directorClubName && (
-                <span className="inline-block mt-1.5 px-2.5 py-1 rounded-full bg-[#2e3d1a] text-[10px] font-bold text-[#c5f135]/80 max-w-full truncate">
-                  {directorClubName}
-                </span>
-              )}
-            </button>
-          ) : (
-            <Link
-              href="/submit-club"
-              className="block w-full text-left p-5 rounded-2xl border border-dashed border-[#2e3d1a] bg-[#1e2d12]/60 hover:border-[#c5f135]/40 transition"
-            >
-              <Trophy className="w-5 h-5 text-white/30 mb-2" />
-              <p className="text-base font-bold text-white/60">Director</p>
-              <p className="text-xs text-white/40 mt-0.5">You don&apos;t direct a klub yet</p>
-              <span className="inline-flex items-center gap-1 mt-2 px-2.5 py-1 rounded-full bg-[#c5f135]/10 text-[10px] font-bold text-[#c5f135]">
-                <PlusCircle className="w-3 h-3" /> Create a Klub
-              </span>
-            </Link>
-          )}
-          <button
-            onClick={() => onPick("coach")}
-            className="w-full text-left p-5 rounded-2xl border border-[#2e3d1a] bg-[#1e2d12] hover:border-[#c5f135]/40 transition"
-          >
-            <ClipboardList className="w-5 h-5 text-[#c5f135] mb-2" />
-            <p className="text-base font-bold text-white">Coach</p>
-            {coachClubName ? (
-              <span className="inline-block mt-1.5 px-2.5 py-1 rounded-full bg-[#2e3d1a] text-[10px] font-bold text-[#c5f135]/80 max-w-full truncate">
-                {coachClubName}
-              </span>
-            ) : (
-              <p className="text-xs text-white/40 mt-0.5">Manage the pace group you were invited to coach</p>
-            )}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 function DirectorPageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -2378,7 +2316,7 @@ function DirectorPageInner() {
   const requestedContext = searchParams.get("as")
   if (isManager && isCoach && requestedContext !== "director" && requestedContext !== "coach") {
     return (
-      <ContextPicker
+      <KlubContextPicker
         hasDirectorClub={hasDirectorClub}
         directorClubName={directorClubName}
         coachClubName={coachClubName}

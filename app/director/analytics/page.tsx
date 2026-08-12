@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import { CalendarCheck, MapPin, Crown, DollarSign, Info, PartyPopper, TrendingDown, Mail } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import CoachAnalyticsView from "@/components/CoachAnalyticsView"
+import KlubContextPicker from "@/components/KlubContextPicker"
 
 type ClubOption = { id: string; name: string }
 
@@ -82,6 +83,10 @@ export default function DirectorAnalyticsPage() {
   const [error, setError] = useState("")
   const [mode, setMode] = useState<"director" | "coach" | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
+  const [hasDirectorClub, setHasDirectorClub] = useState(false)
+  const [isCoachReal, setIsCoachReal] = useState(false)
+  const [directorClubName, setDirectorClubName] = useState<string | null>(null)
+  const [coachClubName, setCoachClubName] = useState<string | null>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -91,25 +96,38 @@ export default function DirectorAnalyticsPage() {
       const [{ data: prof }, { data: myClubs }, { data: coachRows }] = await Promise.all([
         supabase.from("profiles").select("role").eq("id", user.id).single(),
         supabase.from("clubs").select("id, name").eq("user_id", user.id).order("name"),
-        supabase.from("coaches").select("id").eq("user_id", user.id).eq("status", "active").limit(1),
+        supabase.from("coaches").select("club_id, accepted_at, clubs(id, name)").eq("user_id", user.id).eq("status", "active").order("accepted_at", { ascending: false }),
       ])
 
-      const ownsClub = (myClubs?.length ?? 0) > 0
-      const coachEligible = (coachRows?.length ?? 0) > 0
+      const ownedClubs = myClubs ?? []
+      const coachClubs = ((coachRows ?? []) as any[]).filter((r) => r.clubs)
+      const ownsClub = ownedClubs.length > 0
+      const coachEligible = coachClubs.length > 0
+      setHasDirectorClub(ownsClub)
+      setIsCoachReal(coachEligible)
+      setDirectorClubName(ownedClubs[0]?.name ?? null)
+      setCoachClubName(coachClubs[0]?.clubs?.name ?? null)
+      setClubs(ownedClubs)
 
-      // Prefer whichever role actually has something to show — a manager
-      // profile with no klub of their own yet, who also coaches elsewhere,
-      // should land on their real coach analytics, not an empty director view.
-      if (ownsClub || (prof?.role === "manager" && !coachEligible)) {
-        setMode("director")
-        setClubs(myClubs ?? [])
-        setSelectedClubId(myClubs?.[0]?.id ?? null)
+      // Someone who's both a director and an invited coach elsewhere needs
+      // to pick which klub they mean, same as the /director tab — leave
+      // `mode` unset so the picker renders. Single-role accounts (including
+      // a manager profile with no klub of their own yet) skip straight to
+      // their one option.
+      if (ownsClub && coachEligible) {
         setLoading(false)
         return
       }
 
       if (coachEligible) {
         setMode("coach")
+        setLoading(false)
+        return
+      }
+
+      if (ownsClub || prof?.role === "manager") {
+        setMode("director")
+        setSelectedClubId(ownedClubs[0]?.id ?? null)
         setLoading(false)
         return
       }
@@ -145,7 +163,42 @@ export default function DirectorAnalyticsPage() {
     )
   }
 
-  if (mode === "coach") return <CoachAnalyticsView userId={userId!} />
+  const dualRole = hasDirectorClub && isCoachReal
+
+  if (dualRole && mode === null) {
+    return (
+      <KlubContextPicker
+        eyebrow="Analytics"
+        title="Whose analytics do you want to see?"
+        hasDirectorClub={hasDirectorClub}
+        directorClubName={directorClubName}
+        coachClubName={coachClubName}
+        onPick={(context) => {
+          if (context === "coach") { setMode("coach"); return }
+          setSelectedClubId((prev) => prev ?? clubs[0]?.id ?? null)
+          setMode("director")
+        }}
+      />
+    )
+  }
+
+  const switchLink = dualRole && (
+    <button
+      onClick={() => setMode(null)}
+      className="fixed top-[calc(var(--safe-top)+8px)] right-3 z-50 px-3 py-1.5 rounded-full bg-[#1e2d12] border border-[#2e3d1a] text-[10px] font-bold text-white/50 hover:text-[#c5f135] hover:border-[#c5f135]/40 transition"
+    >
+      Switch klub
+    </button>
+  )
+
+  if (mode === "coach") {
+    return (
+      <>
+        {switchLink}
+        <CoachAnalyticsView userId={userId!} />
+      </>
+    )
+  }
 
   if (clubs.length === 0) {
     return (
@@ -160,6 +213,7 @@ export default function DirectorAnalyticsPage() {
 
   return (
     <div className="min-h-screen bg-[#1a2110] pb-24">
+      {switchLink}
       <div className="max-w-2xl mx-auto px-5 py-6">
         <div className="flex items-center justify-between gap-3 mb-6">
           <h1 className="text-xl font-black text-white">Analytics</h1>
