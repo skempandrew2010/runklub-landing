@@ -49,7 +49,7 @@ function FadeIn({ children, delay = 0, className = "" }: { children: React.React
 export default function RootPage() {
   const router = useRouter()
   const [signedIn, setSignedIn] = useState(false)
-  const { user, role, loaded: identityLoaded, isCoach } = useNavIdentity()
+  const { user, role, loaded: identityLoaded, isCoach, hasClub } = useNavIdentity()
   const isManager = role === "manager"
   const { viewMode } = useViewMode(isManager || isCoach)
 
@@ -82,8 +82,12 @@ export default function RootPage() {
         </div>
       )
     }
+    // Prefer whichever role actually has something to show — role=manager
+    // with no klub of their own yet, who's also an active coach elsewhere,
+    // should land on their real coach summary, not an empty "no klub" page.
+    if (isManager && hasClub && viewMode === "director") return <DirectorHomeContent userId={user.id} />
+    if (isCoach && viewMode === "director") return <CoachHomeSummary userId={user.id} />
     if (isManager && viewMode === "director") return <DirectorHomeContent userId={user.id} />
-    if (isCoach && !isManager && viewMode === "director") return <CoachHomeSummary userId={user.id} />
     return <HubContent />
   }
 
