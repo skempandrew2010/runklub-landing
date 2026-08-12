@@ -1,7 +1,7 @@
 // Price-ID <-> tier/interval mapping for the Passport credit program,
 // shared between the checkout route and the platform webhook so they can't
-// drift. Monthly and yearly (annual gets ~17% off — $150/$250/$330/$400,
-// i.e. 10x the monthly price) both exist as real Stripe Prices; an annual
+// drift. Monthly and yearly (annual gets 10% off — $162/$270/$356.40/$432,
+// i.e. monthly * 12 * 0.9) both exist as real Stripe Prices; an annual
 // subscriber still gets credits issued monthly (see next_credit_issue_at +
 // the passport-yearly-monthly-credits cron), just billed once a year.
 

@@ -757,7 +757,7 @@ export default function ProfilePage() {
                             <span className={`absolute -top-2.5 -right-2 text-[8px] font-black px-1.5 py-0.5 rounded-full whitespace-nowrap ${
                               passportInterval === "yearly" ? "bg-white text-[#1a2110]" : "bg-[#c5f135] text-[#1a2110]"
                             }`}>
-                              SAVE 17%
+                              SAVE 10%
                             </span>
                           )}
                         </button>
@@ -768,7 +768,7 @@ export default function ProfilePage() {
                   <div className="mt-3 flex items-start gap-2 bg-[#c5f135]/10 border border-[#c5f135]/30 rounded-xl px-3 py-2.5">
                     <Zap className="w-3.5 h-3.5 text-[#c5f135] shrink-0 mt-0.5" />
                     <p className="text-xs text-[#c5f135] leading-relaxed">
-                      <span className="font-black">Pay yearly, get ~17% more for your money</span> — 2 months free vs. paying monthly, and credits still land every month, not all at once.
+                      <span className="font-black">Pay yearly, save 10%</span> vs. paying monthly — and credits still land every month, not all at once.
                     </p>
                   </div>
 
