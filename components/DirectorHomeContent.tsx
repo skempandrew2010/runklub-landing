@@ -7,6 +7,7 @@ import { mondayOf, localDateStr } from "@/utils/dates"
 import { formatRunTime } from "@/lib/timezone"
 import { CalendarCheck, ChevronRight, MessageSquare } from "lucide-react"
 import PendingCoachInviteBanner from "@/components/PendingCoachInviteBanner"
+import YourKlubsSection from "@/components/YourKlubsSection"
 
 type PaceGroup = { id: string; name: string }
 type ScheduleRow = { day_of_week: number; pace_group_id: string; workout_type_id: string | null }
@@ -207,6 +208,8 @@ export default function DirectorHomeContent({ userId }: { userId: string }) {
         <div className="space-y-10">
 
           <PendingCoachInviteBanner />
+
+          <YourKlubsSection userId={userId} />
 
           {/* ── TRAINING SCHEDULE ── */}
           <section>

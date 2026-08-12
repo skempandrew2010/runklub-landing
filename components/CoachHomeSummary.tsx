@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase"
 import { formatRunTime } from "@/lib/timezone"
 import { CalendarCheck, ChevronRight, MessageSquare } from "lucide-react"
 import PendingCoachInviteBanner from "@/components/PendingCoachInviteBanner"
+import YourKlubsSection from "@/components/YourKlubsSection"
 
 type DashboardRun = {
   id: string
@@ -155,6 +156,8 @@ export default function CoachHomeSummary({ userId }: { userId: string }) {
         <div className="space-y-10">
 
           <PendingCoachInviteBanner />
+
+          <YourKlubsSection userId={userId} />
 
           {/* ── MEMBERS (roster + next run to check in) ── */}
           <section>
