@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Calendar, ChevronLeft, ChevronRight, X } from "lucide-react"
+import { Calendar, ChevronLeft, ChevronRight, X, Lock } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { mondayOf } from "@/utils/dates"
 import { type WorkoutSegment, formatWorkoutSegment, parseWorkoutStructure, WORKOUT_DRAG_MIME } from "@/lib/workouts"
@@ -26,7 +26,7 @@ type ScheduleRow = { day_of_week: number; workout_type_id: string | null; notes:
 type RunMarker = { hasRun: boolean; inPerson: boolean }
 type PaceGroup = { id: string; name: string }
 
-export default function WeeklyScheduleTab({ clubId }: { clubId: string }) {
+export default function WeeklyScheduleTab({ clubId, paceGroupIds, readOnly }: { clubId: string; paceGroupIds?: string[]; readOnly?: boolean }) {
   const thisMonday = mondayOf()
   const weekOptions = Array.from({ length: WEEKS_AHEAD }, (_, i) => addDays(thisMonday, i * 7))
 
@@ -47,8 +47,9 @@ export default function WeeklyScheduleTab({ clubId }: { clubId: string }) {
   const [overviewSchedule, setOverviewSchedule] = useState<Record<string, Record<number, string | null>>>({})
 
   useEffect(() => {
-    supabase.from("pace_groups").select("id, name").eq("club_id", clubId).order("pace_min")
-      .then(({ data }) => {
+    let query = supabase.from("pace_groups").select("id, name").eq("club_id", clubId).order("pace_min")
+    if (paceGroupIds) query = query.in("id", paceGroupIds.length > 0 ? paceGroupIds : ["00000000-0000-0000-0000-000000000000"])
+    query.then(({ data }) => {
         const groups = (data ?? []) as PaceGroup[]
         setPaceGroups(groups)
         setSelectedPaceGroupId((prev) => prev ?? groups[0]?.id ?? null)
@@ -59,7 +60,7 @@ export default function WeeklyScheduleTab({ clubId }: { clubId: string }) {
         setWorkouts(((data ?? []) as any[]).map((r) => ({ id: r.id, name: r.title, description: r.description, structure: parseWorkoutStructure(r.structure) })))
         setWorkoutsLoading(false)
       })
-  }, [clubId])
+  }, [clubId, paceGroupIds?.join(",")]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!selectedPaceGroupId) return
@@ -140,6 +141,11 @@ export default function WeeklyScheduleTab({ clubId }: { clubId: string }) {
 
   return (
     <div>
+      {readOnly && (
+        <div className="flex items-center gap-1.5 mb-3 text-[10px] font-bold text-white/30 uppercase tracking-widest">
+          <Lock className="w-2.5 h-2.5" /> Read-only — your director edits this
+        </div>
+      )}
       <div className="flex flex-wrap gap-1.5 mb-3">
         {paceGroups.map((pg) => (
           <button
@@ -200,16 +206,16 @@ export default function WeeklyScheduleTab({ clubId }: { clubId: string }) {
             return (
               <div
                 key={day}
-                onClick={() => setPickerDay(day)}
-                onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; setDragOverDay(day) }}
-                onDragLeave={() => setDragOverDay((d) => (d === day ? null : d))}
-                onDrop={(e) => {
+                onClick={readOnly ? undefined : () => setPickerDay(day)}
+                onDragOver={readOnly ? undefined : (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; setDragOverDay(day) }}
+                onDragLeave={readOnly ? undefined : () => setDragOverDay((d) => (d === day ? null : d))}
+                onDrop={readOnly ? undefined : (e) => {
                   e.preventDefault()
                   setDragOverDay(null)
                   const workoutId = e.dataTransfer.getData(WORKOUT_DRAG_MIME)
                   if (workoutId) saveDay(day, { workout_type_id: workoutId })
                 }}
-                className={`bg-[#1a2110] border rounded-xl p-3 flex flex-col gap-2 lg:min-w-0 transition-colors cursor-pointer ${
+                className={`bg-[#1a2110] border rounded-xl p-3 flex flex-col gap-2 lg:min-w-0 transition-colors ${readOnly ? "" : "cursor-pointer"} ${
                   dragOverDay === day
                     ? "border-[#c5f135] bg-[#c5f135]/5"
                     : runInfo?.inPerson
@@ -241,36 +247,44 @@ export default function WeeklyScheduleTab({ clubId }: { clubId: string }) {
                       </ul>
                     )}
                     {selected.description && <p className="text-[11px] text-white/50 leading-relaxed">{selected.description}</p>}
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); saveDay(day, { workout_type_id: null }) }}
-                      disabled={savingDay === day}
-                      className="text-[10px] font-bold text-white/30 hover:text-red-400 transition disabled:opacity-50"
-                    >
-                      Clear
-                    </button>
+                    {!readOnly && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); saveDay(day, { workout_type_id: null }) }}
+                        disabled={savingDay === day}
+                        className="text-[10px] font-bold text-white/30 hover:text-red-400 transition disabled:opacity-50"
+                      >
+                        Clear
+                      </button>
+                    )}
                   </div>
                 ) : (
                   <div className="border border-dashed border-[#2e3d1a] rounded-lg px-2 py-3 text-center">
-                    <p className="text-[11px] text-white/25">Rest day — click or drag a workout here</p>
+                    <p className="text-[11px] text-white/25">{readOnly ? "Rest day" : "Rest day — click or drag a workout here"}</p>
                   </div>
                 )}
 
-                <input
-                  value={row.notes ?? ""}
-                  onClick={(e) => e.stopPropagation()}
-                  onChange={(e) => setSchedule((prev) => ({ ...prev, [day]: { ...rowFor(day), notes: e.target.value } }))}
-                  onBlur={(e) => saveDay(day, { notes: e.target.value || null })}
-                  placeholder="Notes (optional)"
-                  className="w-full min-w-0 bg-[#1e2d12] border border-[#2e3d1a] rounded-lg text-white text-xs px-2 py-1.5 placeholder-white/25 focus:outline-none focus:border-[#c5f135]/50 transition"
-                />
+                {readOnly ? (
+                  row.notes && (
+                    <p className="w-full min-w-0 text-white/40 text-xs px-2 py-1.5 leading-relaxed">{row.notes}</p>
+                  )
+                ) : (
+                  <input
+                    value={row.notes ?? ""}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) => setSchedule((prev) => ({ ...prev, [day]: { ...rowFor(day), notes: e.target.value } }))}
+                    onBlur={(e) => saveDay(day, { notes: e.target.value || null })}
+                    placeholder="Notes (optional)"
+                    className="w-full min-w-0 bg-[#1e2d12] border border-[#2e3d1a] rounded-lg text-white text-xs px-2 py-1.5 placeholder-white/25 focus:outline-none focus:border-[#c5f135]/50 transition"
+                  />
+                )}
               </div>
             )
           })}
         </div>
       )}
 
-      {pickerDay !== null && (
+      {!readOnly && pickerDay !== null && (
         <div
           onClick={() => setPickerDay(null)}
           className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm"

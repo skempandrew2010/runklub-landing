@@ -4,10 +4,11 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { formatRunTime } from "@/lib/timezone"
-import { ChevronDown, ChevronRight, MessageSquare, Users, CalendarCheck, Lock } from "lucide-react"
+import { ChevronDown, ChevronRight, MessageSquare, Users, CalendarCheck } from "lucide-react"
 import RunChatPanel, { type ChatTarget, type DmTarget } from "@/components/RunChatPanel"
 import CoachCheckInRoster from "@/components/CoachCheckInRoster"
 import PendingCoachInviteBanner from "@/components/PendingCoachInviteBanner"
+import WeeklyScheduleTab from "@/app/director/WeeklyScheduleTab"
 
 type DashboardRun = {
   id: string
@@ -194,7 +195,7 @@ export default function CoachDashboard({ userId, clubId, initialTab }: { userId:
 
         {/* ── MEMBERS ── */}
         {tab === "members" && (
-          <div className="space-y-6">
+          <div key="members" className="space-y-6 animate-[fadeUp_0.2s_ease-out_forwards]">
             <section>
               <SectionHeader title="Upcoming Runs" sub="Tap a run to check people in" />
               {data.upcomingRuns.length === 0 ? (
@@ -283,7 +284,7 @@ export default function CoachDashboard({ userId, clubId, initialTab }: { userId:
 
         {/* ── COMMUNICATE ── */}
         {tab === "communicate" && (
-          <section>
+          <section key="communicate" className="animate-[fadeUp_0.2s_ease-out_forwards]">
             <SectionHeader title="Messages" />
             <div className="space-y-2">
               <button
@@ -321,45 +322,9 @@ export default function CoachDashboard({ userId, clubId, initialTab }: { userId:
 
         {/* ── SCHEDULE (read-only) ── */}
         {tab === "schedule" && (
-          <section>
-            <SectionHeader title="Training Schedule" sub="Read-only — your director edits this" />
-            {data.weeklySchedules.every((w) => w.paceGroups.length === 0) ? (
-              <div className="bg-[#1e2d12] rounded-2xl p-6 text-center border border-[#2e3d1a]">
-                <p className="text-white/40 text-sm">No pace group assigned yet.</p>
-              </div>
-            ) : (
-              <div className="space-y-5">
-                {data.weeklySchedules.map((week, i) => (
-                  <div key={week.weekOf}>
-                    <div className="flex items-center gap-2 mb-2 px-1">
-                      <p className="text-xs font-bold text-white/50">Week of {week.weekLabel}</p>
-                      {i === 0 && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-[#c5f135]/10 text-[#c5f135]">THIS WEEK</span>}
-                      <Lock className="w-2.5 h-2.5 text-white/20 ml-auto" />
-                    </div>
-                    <div className="space-y-3">
-                      {week.paceGroups.map((pg) => (
-                        <div key={pg.paceGroupId} className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl overflow-hidden">
-                          <p className="text-xs font-bold text-white px-4 pt-3 pb-2">{pg.paceGroupName}</p>
-                          <div className="divide-y divide-[#2e3d1a]">
-                            {pg.days.map((d) => (
-                              <div key={d.dayOfWeek} className="flex items-center gap-3 px-4 py-2">
-                                <span className="text-[10px] font-bold text-white/35 uppercase tracking-widest w-8 shrink-0">{d.dayLabel}</span>
-                                {d.workoutTitle ? (
-                                  <span className="text-xs font-semibold text-white">{d.workoutTitle}</span>
-                                ) : (
-                                  <span className="text-xs text-white/25 italic">Rest</span>
-                                )}
-                                {d.notes && <span className="text-xs text-white/35 truncate">— {d.notes}</span>}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+          <section key="schedule" className="animate-[fadeUp_0.2s_ease-out_forwards]">
+            <SectionHeader title="Training Schedule" sub="Same view as your director — you just can't edit it" />
+            <WeeklyScheduleTab clubId={data.clubId} paceGroupIds={data.paceGroups.map((pg) => pg.id)} readOnly />
           </section>
         )}
 
