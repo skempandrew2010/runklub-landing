@@ -88,20 +88,27 @@ export default function DirectorAnalyticsPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push("/login"); return }
       setUserId(user.id)
-      const { data: prof } = await supabase.from("profiles").select("role").eq("id", user.id).single()
+      const [{ data: prof }, { data: myClubs }, { data: coachRows }] = await Promise.all([
+        supabase.from("profiles").select("role").eq("id", user.id).single(),
+        supabase.from("clubs").select("id, name").eq("user_id", user.id).order("name"),
+        supabase.from("coaches").select("id").eq("user_id", user.id).eq("status", "active").limit(1),
+      ])
 
-      if (prof?.role === "manager") {
+      const ownsClub = (myClubs?.length ?? 0) > 0
+      const coachEligible = (coachRows?.length ?? 0) > 0
+
+      // Prefer whichever role actually has something to show — a manager
+      // profile with no klub of their own yet, who also coaches elsewhere,
+      // should land on their real coach analytics, not an empty director view.
+      if (ownsClub || (prof?.role === "manager" && !coachEligible)) {
         setMode("director")
-        const { data: myClubs } = await supabase.from("clubs").select("id, name").eq("user_id", user.id).order("name")
         setClubs(myClubs ?? [])
         setSelectedClubId(myClubs?.[0]?.id ?? null)
         setLoading(false)
         return
       }
 
-      // Not a klub owner — an active coach lands on the scoped CoachAnalyticsView instead.
-      const { data: coachRows } = await supabase.from("coaches").select("id").eq("user_id", user.id).eq("status", "active").limit(1)
-      if ((coachRows?.length ?? 0) > 0) {
+      if (coachEligible) {
         setMode("coach")
         setLoading(false)
         return
@@ -139,6 +146,17 @@ export default function DirectorAnalyticsPage() {
   }
 
   if (mode === "coach") return <CoachAnalyticsView userId={userId!} />
+
+  if (clubs.length === 0) {
+    return (
+      <div className="min-h-screen bg-[#1a2110] flex items-center justify-center px-6 text-center">
+        <div className="max-w-sm">
+          <p className="text-white font-bold text-lg mb-1">No klubs yet</p>
+          <p className="text-white/40 text-sm">Create your first run klub to see analytics here.</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-[#1a2110] pb-24">

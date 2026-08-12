@@ -12,7 +12,10 @@ export default function BottomBar() {
   const isManager = role === "manager"
   const { viewMode } = useViewMode(isManager || isCoach)
   const showDirectorTabs = (isManager || isCoach) && viewMode === "director"
-  const needsClub = showDirectorTabs && isManager && !hasClub
+  // Only prompt "Create a Klub" when there's truly nowhere else to go —
+  // someone who already coaches elsewhere gets Analytics/Coaches instead,
+  // even if they also hold the manager role with no klub of their own yet.
+  const needsClub = showDirectorTabs && isManager && !hasClub && !isCoach
 
   const tabs = [
     { key: "home",      href: "/",           label: "Home",     Icon: Home,    badge: !showDirectorTabs && hasUnread },
@@ -25,7 +28,7 @@ export default function BottomBar() {
     ...(showDirectorTabs
       ? [needsClub
           ? { key: "director", href: "/submit-club", label: "Create a Klub", Icon: PlusCircle, badge: false }
-          : { key: "director", href: "/director", label: isManager ? "Director" : "Coaches", Icon: Trophy, badge: hasUnread }]
+          : { key: "director", href: "/director", label: hasClub ? "Director" : "Coaches", Icon: Trophy, badge: hasUnread }]
       : [{ key: "passport", href: "/passport", label: "Passport", Icon: Stamp, badge: false }]),
     { key: "profile",   href: "/profile",    label: "Profile",  Icon: UserCircle, badge: false },
   ]
