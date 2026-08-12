@@ -2252,7 +2252,15 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
 
 // ── Main Page ──────────────────────────────────────────────────────────────────
 
-function ContextPicker({ onPick }: { onPick: (context: "director" | "coach") => void }) {
+function ContextPicker({
+  directorClubName,
+  coachClubName,
+  onPick,
+}: {
+  directorClubName: string | null
+  coachClubName: string | null
+  onPick: (context: "director" | "coach") => void
+}) {
   return (
     <div className="min-h-screen bg-[#1a2110] flex items-center justify-center px-5">
       <div className="w-full max-w-sm">
@@ -2265,7 +2273,9 @@ function ContextPicker({ onPick }: { onPick: (context: "director" | "coach") => 
           >
             <Trophy className="w-5 h-5 text-[#c5f135] mb-2" />
             <p className="text-base font-bold text-white">Director</p>
-            <p className="text-xs text-white/40 mt-0.5">Run the klub you own</p>
+            <p className="text-xs text-white/40 mt-0.5">
+              {directorClubName ? directorClubName : "Run the klub you own"}
+            </p>
           </button>
           <button
             onClick={() => onPick("coach")}
@@ -2273,7 +2283,9 @@ function ContextPicker({ onPick }: { onPick: (context: "director" | "coach") => 
           >
             <ClipboardList className="w-5 h-5 text-[#c5f135] mb-2" />
             <p className="text-base font-bold text-white">Coach</p>
-            <p className="text-xs text-white/40 mt-0.5">Manage the pace group you were invited to coach</p>
+            <p className="text-xs text-white/40 mt-0.5">
+              {coachClubName ? coachClubName : "Manage the pace group you were invited to coach"}
+            </p>
           </button>
         </div>
       </div>
@@ -2289,6 +2301,8 @@ function DirectorPageInner() {
   const [loading, setLoading] = useState(true)
   const [isManager, setIsManager] = useState(false)
   const [isCoach, setIsCoach] = useState(false)
+  const [directorClubName, setDirectorClubName] = useState<string | null>(null)
+  const [coachClubName, setCoachClubName] = useState<string | null>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -2296,13 +2310,15 @@ function DirectorPageInner() {
       if (!user) { router.push("/login"); return }
       setUser(user)
 
-      const [{ data: prof }, { data: coachRows }] = await Promise.all([
+      const [{ data: prof }, { data: ownedClubs }, { data: coachRows }] = await Promise.all([
         supabase.from("profiles").select("id, display_name, avatar_url, role").eq("id", user.id).single(),
-        supabase.from("coaches").select("id").eq("user_id", user.id).eq("status", "active").limit(1),
+        supabase.from("clubs").select("id, name").eq("user_id", user.id).order("created_at"),
+        supabase.from("coaches").select("club_id, accepted_at, clubs(name)").eq("user_id", user.id).eq("status", "active").order("accepted_at", { ascending: false }),
       ])
 
       const managerEligible = prof?.role === "manager"
-      const coachEligible = (coachRows?.length ?? 0) > 0
+      const coachClubs = ((coachRows ?? []) as any[]).filter((r) => r.clubs)
+      const coachEligible = coachClubs.length > 0
 
       if (!managerEligible && !coachEligible) {
         // Director dashboard is otherwise owner/coach-only — members' chats live in the Hub
@@ -2313,6 +2329,11 @@ function DirectorPageInner() {
       setProfile(prof)
       setIsManager(managerEligible)
       setIsCoach(coachEligible)
+      // Same "first owned, else most-recently-accepted coach klub" convention
+      // used by useNavIdentity — keeps the picker's names consistent with
+      // whichever klub each option actually lands on.
+      setDirectorClubName(ownedClubs?.[0]?.name ?? null)
+      setCoachClubName(coachClubs[0]?.clubs?.name ?? null)
       setLoading(false)
     }
     load()
@@ -2332,7 +2353,13 @@ function DirectorPageInner() {
   // pick which klub they mean before landing in either view.
   const requestedContext = searchParams.get("as")
   if (isManager && isCoach && requestedContext !== "director" && requestedContext !== "coach") {
-    return <ContextPicker onPick={(context) => router.push(`/director?as=${context}`)} />
+    return (
+      <ContextPicker
+        directorClubName={directorClubName}
+        coachClubName={coachClubName}
+        onPick={(context) => router.push(`/director?as=${context}`)}
+      />
+    )
   }
 
   const context = isManager && isCoach ? requestedContext : isCoach && !isManager ? "coach" : "director"
