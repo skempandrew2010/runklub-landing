@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from "react"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { supabase } from "@/lib/supabase"
-import { ArrowLeft, CalendarPlus, Repeat2, Globe, Lock } from "lucide-react"
+import { ArrowLeft, CalendarPlus, Repeat2, Globe, Lock, Bell } from "lucide-react"
 import mapboxSdk from "@mapbox/mapbox-sdk/services/geocoding"
 import { localDateStr } from "@/utils/dates"
 import { COMMON_TIMEZONES, getBrowserTimezone } from "@/lib/timezone"
@@ -86,6 +86,7 @@ function CreateRunContent() {
   const [isPublic, setIsPublic] = useState(true)
   const [repeatWeekly, setRepeatWeekly] = useState(isQuickParam)
   const [repeatWeeks, setRepeatWeeks] = useState(isQuickParam ? 12 : 4)
+  const [notifyFollowers, setNotifyFollowers] = useState(false)
   const [loading, setLoading] = useState(false)
 
   // New fields
@@ -197,6 +198,29 @@ function CreateRunContent() {
     }
   }
 
+  async function notifyFollowersOfNewRun(firstDate: string) {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+      const dateLabel = new Date(firstDate + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })
+      const bits = [dateLabel, time && new Date(`2000-01-01T${time}`).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })]
+      if (distance) bits.push(distance)
+      if (address) bits.push(address)
+      const messageLines = [bits.filter(Boolean).join(" · ")]
+      if (repeatWeekly) messageLines.push(`Repeats weekly for ${repeatWeeks} weeks.`)
+      await fetch(`/api/clubs/${clubId}/email-members`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({
+          subject: `New run: ${title || "Community Run"}`,
+          message: messageLines.join("\n"),
+        }),
+      })
+    } catch (err) {
+      console.error("notify followers error:", err)
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!date || !time) return
@@ -237,6 +261,9 @@ function CreateRunContent() {
       if (error) { console.error(error); setLoading(false); return }
 
       await saveTemplate()
+      if (notifyFollowers && baseRun.is_public) {
+        await notifyFollowersOfNewRun(dates[0])
+      }
       router.push(`/director`)
     } catch (err) {
       console.error(err)
@@ -430,7 +457,7 @@ function CreateRunContent() {
                     <div>
                       <p className="text-xs font-semibold text-white/70">{isPublic ? "Community Run" : "Members Only"}</p>
                       <p className="text-[11px] text-white/30 mt-0.5">
-                        {!clubIsPrivate ? "Make your klub Private in Settings to unlock this" : isPublic ? "Open to everyone" : "Only visible to approved members"}
+                        {!clubIsPrivate ? "Turn on the paid membership tier in Settings to unlock this" : isPublic ? "Open to everyone" : "Only visible to approved members"}
                       </p>
                     </div>
                   </div>
@@ -575,6 +602,22 @@ function CreateRunContent() {
               </div>
             )}
           </div>
+
+          {isPublic && (
+            <button type="button" onClick={() => setNotifyFollowers((v) => !v)}
+              className="w-full flex items-center justify-between gap-3 bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-4">
+              <div className="flex items-center gap-2.5">
+                <Bell className={`w-4 h-4 shrink-0 transition-colors ${notifyFollowers ? "text-[#c5f135]" : "text-white/30"}`} />
+                <div className="text-left">
+                  <p className="text-xs font-semibold text-white/70">Notify Followers</p>
+                  <p className="text-[11px] text-white/30 mt-0.5">Email everyone following your klub about this run</p>
+                </div>
+              </div>
+              <div className={`relative w-11 h-6 rounded-full shrink-0 transition-colors duration-300 ease-out ${notifyFollowers ? "bg-[#c5f135]" : "bg-[#2e3d1a]"}`}>
+                <div className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${notifyFollowers ? "translate-x-[22px]" : "translate-x-0"}`} />
+              </div>
+            </button>
+          )}
 
           <button type="submit" disabled={loading || !date || !time || (quickMode && dayOfWeek === null)}
             className="w-full flex items-center justify-center gap-2 py-3.5 bg-[#c5f135] text-[#1a2110] text-sm font-black rounded-2xl disabled:opacity-40 hover:bg-[#d4ff45] transition">

@@ -6,6 +6,7 @@ import { localDateStr } from "@/utils/dates"
 import { CalendarCheck, ChevronRight, Users, Zap } from "lucide-react"
 import Link from "next/link"
 import ChallengeHubBanner from "@/components/ChallengeHubBanner"
+import PendingCoachInviteBanner from "@/components/PendingCoachInviteBanner"
 import { isVerifiedClub } from "@/utils/clubTier"
 import { formatRunTime } from "@/lib/timezone"
 import VerifiedBadge from "@/components/VerifiedBadge"
@@ -161,20 +162,26 @@ export default function HubContent() {
 
       const todayDate = localDateStr()
 
-      const [coachRes, subsRes] = await Promise.all([
+      const [coachRes, subsRes, coachingRes] = await Promise.all([
         supabase.from("clubs").select("id, name, image_url, city, user_id, tier").eq("user_id", user.id),
         supabase
           .from("subscriptions")
           .select("member_type, clubs(id, name, image_url, city, user_id, tier)")
           .eq("user_id", user.id),
+        supabase
+          .from("coaches")
+          .select("club_id, clubs(id, name, image_url, city, user_id, tier)")
+          .eq("user_id", user.id)
+          .eq("status", "active"),
       ])
 
       const coachClubs: Club[] = coachRes.data || []
       const subRows = (subsRes.data || []) as any[]
       const subClubs: Club[] = subRows.map((s) => s.clubs).filter(Boolean)
+      const coachingClubs: Club[] = ((coachingRes.data || []) as any[]).map((r) => r.clubs).filter(Boolean)
       setHasPaidMembership(subRows.some((s) => s.member_type === "paid"))
       const clubMap = new Map<string, Club>()
-      ;[...coachClubs, ...subClubs].forEach((c) => {
+      ;[...coachClubs, ...coachingClubs, ...subClubs].forEach((c) => {
         if (!clubMap.has(c.id)) clubMap.set(c.id, c)
       })
       const allClubs = Array.from(clubMap.values())
@@ -376,6 +383,7 @@ export default function HubContent() {
 
         {!loading && userId && (
           <div className="space-y-10">
+            <PendingCoachInviteBanner />
             <ChallengeHubBanner userId={userId} />
 
             {/* ── MY KLUBS (first) ── */}

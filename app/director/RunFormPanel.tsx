@@ -4,12 +4,24 @@ import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { ArrowLeft, CalendarPlus, Check, Globe, Lock, Repeat2 } from "lucide-react"
 import mapboxSdk from "@mapbox/mapbox-sdk/services/geocoding"
-import { localDateStr } from "@/utils/dates"
+import { localDateStr, mondayOf } from "@/utils/dates"
 import { COMMON_TIMEZONES, getBrowserTimezone } from "@/lib/timezone"
+import { type WorkoutSegment, formatWorkoutSegment, parseWorkoutStructure } from "@/lib/workouts"
+import AddressAutocomplete from "@/components/AddressAutocomplete"
 
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 const DAY_FULL = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+const MAX_DESCRIPTION_WORDS = 100
+
+function countWords(text: string): number {
+  return text.trim() ? text.trim().split(/\s+/).length : 0
+}
+
+function limitWords(text: string, max: number): string {
+  const words = text.trim().split(/\s+/).filter(Boolean)
+  return words.length <= max ? text : words.slice(0, max).join(" ")
+}
 
 function nextDateForWeekday(target: number): string {
   const today = new Date()
@@ -26,7 +38,7 @@ const TAG_GROUPS = [
 ]
 
 type PaceGroup = { id: string; name: string; pace_min: number; pace_max: number }
-type WorkoutType = { id: string; name: string }
+type WorkoutType = { id: string; name: string; description: string | null; structure: WorkoutSegment[] }
 type Coach = { id: string; name: string }
 type Region = { id: string; name: string }
 type Location = { id: string; name: string; address: string | null; region_id: string }
@@ -95,6 +107,7 @@ export default function RunFormPanel({
   const [repeatWeeks, setRepeatWeeks] = useState(quickMode ? 12 : 4)
   const [selectedPaceGroupIds, setSelectedPaceGroupIds] = useState<string[]>([])
   const [selectedWorkoutTypeId, setSelectedWorkoutTypeId] = useState("")
+  const [workoutManuallySet, setWorkoutManuallySet] = useState(false)
   const [selectedCoachId, setSelectedCoachId] = useState("")
   const [saving, setSaving] = useState(false)
 
@@ -110,12 +123,14 @@ export default function RunFormPanel({
   const [selectedLocationId, setSelectedLocationId] = useState("")
   const [templates, setTemplates] = useState<RunTemplate[]>([])
   const [dataLoading, setDataLoading] = useState(true)
+  const [clubHome, setClubHome] = useState<{ lat: number; lng: number } | null>(null)
+  const [weeklySchedule, setWeeklySchedule] = useState<Record<string, Record<number, string | null>>>({})
 
   useEffect(() => {
     const load = async () => {
-      const [pg, wt, co, tpl, regionRows, clubRow] = await Promise.all([
+      const [pg, wt, co, tpl, regionRows, clubRow, sched] = await Promise.all([
         supabase.from("pace_groups").select("id, name, pace_min, pace_max").eq("club_id", clubId).order("pace_min"),
-        supabase.from("runs").select("id, title").eq("club_id", clubId).eq("kind", "workout").order("title"),
+        supabase.from("runs").select("id, title, description, structure").eq("club_id", clubId).eq("kind", "workout").order("title"),
         supabase.from("coaches").select("id, name").eq("club_id", clubId).order("name"),
         isEdit
           ? Promise.resolve({ data: [] })
@@ -125,14 +140,23 @@ export default function RunFormPanel({
               .order("last_used_at", { ascending: false })
               .limit(8),
         supabase.from("regions").select("id, name").eq("club_id", clubId).order("name"),
-        supabase.from("clubs").select("default_timezone").eq("id", clubId).single(),
+        supabase.from("clubs").select("default_timezone, latitude, longitude").eq("id", clubId).single(),
+        supabase.from("club_weekly_schedule").select("day_of_week, week_of, pace_group_id, workout_type_id").eq("club_id", clubId),
       ])
       setPaceGroups((pg.data as PaceGroup[]) || [])
-      setWorkoutTypes(((wt.data ?? []) as any[]).map((r) => ({ id: r.id, name: r.title })))
+      setWorkoutTypes(((wt.data ?? []) as any[]).map((r) => ({ id: r.id, name: r.title, description: r.description, structure: parseWorkoutStructure(r.structure) })))
       setCoaches((co.data as Coach[]) || [])
       if (!isEdit) setTemplates((tpl.data as RunTemplate[]) || [])
-      const clubDefaultTz = (clubRow.data as { default_timezone: string | null } | null)?.default_timezone
-      if (!isEdit && clubDefaultTz) setTimezone(clubDefaultTz)
+      const scheduleByKey: Record<string, Record<number, string | null>> = {}
+      for (const row of (sched.data ?? []) as { day_of_week: number; week_of: string; pace_group_id: string; workout_type_id: string | null }[]) {
+        const key = `${row.pace_group_id}_${row.week_of}`
+        if (!scheduleByKey[key]) scheduleByKey[key] = {}
+        scheduleByKey[key][row.day_of_week] = row.workout_type_id
+      }
+      setWeeklySchedule(scheduleByKey)
+      const clubInfo = clubRow.data as { default_timezone: string | null; latitude: number | null; longitude: number | null } | null
+      if (!isEdit && clubInfo?.default_timezone) setTimezone(clubInfo.default_timezone)
+      setClubHome(clubInfo?.latitude != null && clubInfo?.longitude != null ? { lat: clubInfo.latitude, lng: clubInfo.longitude } : null)
 
       const fetchedRegions = (regionRows.data as Region[]) || []
       setRegions(fetchedRegions)
@@ -150,7 +174,7 @@ export default function RunFormPanel({
           setTitle(run.title ?? "")
           setDate(run.date ?? "")
           setTime(run.time ?? "")
-          setTimezone(run.timezone ?? clubDefaultTz ?? getBrowserTimezone())
+          setTimezone(run.timezone ?? clubInfo?.default_timezone ?? getBrowserTimezone())
           setDistance(run.distance ?? "")
           setAddress(run.meeting_point ?? "")
           setManageMode(run.external_url ? "external" : "runklub")
@@ -162,6 +186,7 @@ export default function RunFormPanel({
           setMembersOnly(run.members_only ?? false)
           setSelectedPaceGroupIds(run.pace_group_ids ?? [])
           setSelectedWorkoutTypeId(run.workout_type_id ?? "")
+          setWorkoutManuallySet(true)
           setSelectedCoachId(run.coach_id ?? "")
           if (run.meeting_point) {
             const match = fetchedLocs.find((l) => l.address === run.meeting_point || l.name === run.meeting_point)
@@ -174,6 +199,17 @@ export default function RunFormPanel({
     load()
   }, [clubId, runId, isEdit])
 
+  // Suggest whatever the weekly training schedule has for this run's pace group,
+  // specific week, and day of week — only for new runs with a pace group picked,
+  // and only until the director picks a workout themselves.
+  useEffect(() => {
+    if (isEdit || workoutManuallySet || !date || selectedPaceGroupIds.length === 0) return
+    const runDate = new Date(`${date}T00:00:00`)
+    const key = `${selectedPaceGroupIds[0]}_${mondayOf(runDate)}`
+    const suggested = weeklySchedule[key]?.[runDate.getDay()]
+    if (suggested) setSelectedWorkoutTypeId(suggested)
+  }, [date, isEdit, workoutManuallySet, weeklySchedule, selectedPaceGroupIds]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const applyTemplate = (tpl: RunTemplate) => {
     setTitle(tpl.title)
     setDistance(tpl.distance || "")
@@ -183,6 +219,7 @@ export default function RunFormPanel({
     setSelectedTags(tpl.tags || [])
     setSelectedPaceGroupIds(tpl.pace_group_ids || [])
     setSelectedWorkoutTypeId(tpl.workout_type_id || "")
+    setWorkoutManuallySet(true)
     setSelectedCoachId(tpl.coach_id || "")
     setMembersOnly(tpl.members_only)
   }
@@ -425,6 +462,14 @@ export default function RunFormPanel({
                   {!branchesEnabled ? "Available on Growth and above" : "Used to pin this run on the discover map"}
                 </p>
               </div>
+              <AddressAutocomplete
+                placeholder="Type an address or place name…"
+                value={selectedLocationId ? "" : address}
+                onChange={(v) => { setSelectedLocationId(""); setAddress(v) }}
+                onSelect={(s) => { setSelectedLocationId(""); setAddress(s.placeName) }}
+                proximity={clubHome}
+                className={ic}
+              />
               {locations.length > 0 ? (
                 <div className="space-y-3">
                   {regions.map((region) => {
@@ -487,34 +532,61 @@ export default function RunFormPanel({
 
         {(!quickMode || showAdvanced) && (
           <>
-            {/* Workout */}
+            {/* Description */}
+            <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-4">
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-semibold text-white/50">Description <span className="text-white/25 font-normal">(optional)</span></label>
+                <span className={`text-[10px] font-semibold ${countWords(description) >= MAX_DESCRIPTION_WORDS ? "text-[#c5f135]" : "text-white/25"}`}>
+                  {countWords(description)}/{MAX_DESCRIPTION_WORDS} words
+                </span>
+              </div>
+              <textarea value={description} onChange={(e) => setDescription(limitWords(e.target.value, MAX_DESCRIPTION_WORDS))}
+                placeholder="Weather, meeting details, anything else…" rows={3} className={`${ic} resize-none`} />
+            </div>
+
+            {/* Add Workout */}
             <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-4 space-y-3">
               <div>
-                <p className="text-xs font-semibold text-white/50 mb-0.5">Workout</p>
+                <p className="text-xs font-semibold text-white/50 mb-0.5">Add Workout</p>
                 <p className="text-[11px] text-white/25">
                   {workoutTypes.length > 0 ? "Pick from your workout library" : "Add workouts in Runs → Workout Library to link them here"}
                 </p>
               </div>
               {workoutTypes.length > 0 && (
                 <div className="flex flex-wrap gap-2">
-                  <button type="button" onClick={() => setSelectedWorkoutTypeId("")}
+                  <button type="button" onClick={() => { setSelectedWorkoutTypeId(""); setWorkoutManuallySet(true) }}
                     className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${!selectedWorkoutTypeId ? "bg-[#c5f135] text-[#1a2110] border-[#c5f135]" : "bg-transparent text-white/50 border-[#2e3d1a] hover:border-[#c5f135]/40"}`}>
                     No workout
                   </button>
                   {workoutTypes.map((wt) => (
                     <button key={wt.id} type="button"
-                      onClick={() => setSelectedWorkoutTypeId(selectedWorkoutTypeId === wt.id ? "" : wt.id)}
+                      onClick={() => { setSelectedWorkoutTypeId(selectedWorkoutTypeId === wt.id ? "" : wt.id); setWorkoutManuallySet(true) }}
                       className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${selectedWorkoutTypeId === wt.id ? "bg-[#c5f135] text-[#1a2110] border-[#c5f135]" : "bg-transparent text-white/50 border-[#2e3d1a] hover:border-[#c5f135]/40 hover:text-white/70"}`}>
                       {wt.name}
                     </button>
                   ))}
                 </div>
               )}
-              <div>
-                <label className={lc}>Notes <span className="text-white/25 font-normal">(optional)</span></label>
-                <textarea value={description} onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Pace, terrain, workout details…" rows={3} className={`${ic} resize-none`} />
-              </div>
+              {selectedWorkoutTypeId && !workoutManuallySet && (
+                <p className="text-[11px] text-[#c5f135]/70">Suggested from your weekly training schedule — pick another to override.</p>
+              )}
+              {selectedWorkoutTypeId && (() => {
+                const wt = workoutTypes.find((w) => w.id === selectedWorkoutTypeId)
+                if (!wt || (wt.structure.length === 0 && !wt.description)) return null
+                return (
+                  <div className="bg-[#1a2110] border border-[#c5f135]/20 rounded-xl px-3 py-2.5 space-y-2">
+                    <p className="text-[10px] font-bold text-[#c5f135]/60 uppercase tracking-widest">{wt.name} — what runners will see</p>
+                    {wt.structure.length > 0 && (
+                      <ul className="space-y-1">
+                        {wt.structure.map((seg, i) => (
+                          <li key={i} className="text-xs text-white/80 font-semibold">{formatWorkoutSegment(seg)}</li>
+                        ))}
+                      </ul>
+                    )}
+                    {wt.description && <p className="text-xs text-white/60 leading-relaxed">{wt.description}</p>}
+                  </div>
+                )
+              })()}
             </div>
 
             {/* Groups & Visibility */}

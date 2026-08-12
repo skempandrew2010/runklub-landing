@@ -80,6 +80,16 @@ a:active {
   opacity: 0.85;
 }
 
+/* Bottom-sheet/modal entrance — used via animate-[fadeUp_...] across the app
+   (WeeklyScheduleTab pickers, join banners, check-in/buddy modals, etc).
+   A few pages also declare a near-identical scoped copy via <style jsx>;
+   this global version is what makes it actually work everywhere else, since
+   an animation referencing an undefined @keyframes name is silently a no-op. */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 /* Page content fades in on route change */
 @keyframes page-enter {
   from { opacity: 0; transform: translateY(6px); }

@@ -314,7 +314,7 @@ export default function EditRunPage() {
                   {membersOnly ? "Members Only" : "Community Run"}
                 </p>
                 <p className="text-[11px] text-white/30 mt-0.5">
-                  {!clubIsPrivate ? "Make your klub Private in Settings to unlock this" : membersOnly ? "Only visible to approved members" : "Visible to everyone on the discover map"}
+                  {!clubIsPrivate ? "Turn on the paid membership tier in Settings to unlock this" : membersOnly ? "Only visible to approved members" : "Visible to everyone on the discover map"}
                 </p>
               </div>
             </div>

@@ -2,25 +2,50 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Compass, Trophy, UserCircle, Home, Stamp, Flame } from "lucide-react"
+import { Compass, Trophy, UserCircle, Home, Stamp, Flame, BarChart3, PlusCircle } from "lucide-react"
 import { useNavIdentity } from "@/hooks/useNavIdentity"
+import { useViewMode } from "@/hooks/useViewMode"
 
 export default function Navbar() {
   const pathname = usePathname()
-  const { user, role, avatarUrl, loaded, hasUnread } = useNavIdentity()
-
+  const { user, role, avatarUrl, loaded, hasUnread, hasClub, isCoach, clubCount, primaryClubName } = useNavIdentity()
   const isManager = role === "manager"
+  const { viewMode } = useViewMode(isManager || isCoach)
+  const showDirectorTabs = (isManager || isCoach) && viewMode === "director"
+  // Only prompt "Create a Klub" when there's truly nowhere else to go —
+  // someone who already coaches elsewhere gets Analytics/Coaches instead,
+  // even if they also hold the manager role with no klub of their own yet.
+  const needsClub = showDirectorTabs && isManager && !hasClub && !isCoach
+  // With just one klub relationship, "Director"/"Coaches" alone is
+  // unambiguous. With more than one of the *same* kind (e.g. two coached
+  // klubs), name the one tapping in actually lands on. Being both a
+  // director and a coach shows the /director?as= picker instead of landing
+  // anywhere specific, so naming one there would be a straight-up lie.
+  const willShowPicker = isManager && isCoach
+  const directorSublabel = !willShowPicker && clubCount > 1 ? primaryClubName ?? undefined : undefined
 
   const tabs = [
-    { href: "/",           label: "Home",       Icon: Home,    badge: !isManager && hasUnread },
-    { href: "/explore",    label: "Discover",   Icon: Compass, badge: false },
-    { href: "/challenges", label: "Missions",   Icon: Flame,   badge: false },
-    ...(isManager
-      ? [{ href: "/director", label: "Director", Icon: Trophy, badge: hasUnread }]
-      : [{ href: "/passport", label: "Passport", Icon: Stamp, badge: false }]),
+    { key: "home",     href: "/",           label: "Home",       Icon: Home,    badge: !showDirectorTabs && hasUnread },
+    { key: "discover", href: "/explore",    label: "Discover",   Icon: Compass, badge: false },
+    ...(showDirectorTabs
+      ? [needsClub
+          ? { key: "analytics", href: "/submit-club", label: "Create a Klub", Icon: PlusCircle, badge: false }
+          : { key: "analytics", href: "/director/analytics", label: "Analytics", Icon: BarChart3, badge: false }]
+      : [{ key: "missions", href: "/challenges", label: "Missions", Icon: Flame, badge: false }]),
+    ...(showDirectorTabs
+      ? [needsClub
+          ? { key: "director", href: "/submit-club", label: "Create a Klub", Icon: PlusCircle, badge: false }
+          : { key: "director", href: "/director", label: hasClub ? "Director" : "Coaches", Icon: Trophy, badge: hasUnread, sublabel: directorSublabel }]
+      : [{ key: "passport", href: "/passport", label: "Passport", Icon: Stamp, badge: false }]),
   ]
 
-  const isActive = (href: string) => href === "/" ? pathname === "/" : pathname.startsWith(href)
+  const isActive = (href: string) => {
+    if (href === "/") return pathname === "/"
+    // "/director" and "/director/analytics" share a prefix — don't let the
+    // shorter Director tab light up while actually viewing Analytics.
+    if (href === "/director") return pathname === "/director" || (pathname.startsWith("/director/") && !pathname.startsWith("/director/analytics"))
+    return pathname.startsWith(href)
+  }
 
   const profileActive = pathname.startsWith("/profile")
   const initials = user?.email ? user.email[0].toUpperCase() : null
@@ -38,11 +63,13 @@ export default function Navbar() {
 
         {/* Main nav tabs — centered */}
         <div className="flex items-center gap-5 sm:gap-6">
-          {tabs.map(({ href, label, Icon, badge }) => {
+          {tabs.map((tab) => {
+            const { key, href, label, Icon, badge } = tab
+            const sublabel = "sublabel" in tab ? tab.sublabel : undefined
             const active = isActive(href)
             return (
               <Link
-                key={href}
+                key={key}
                 href={href}
                 className={`flex flex-col items-center justify-center gap-1 px-2 sm:px-4 py-2 rounded-xl transition ${active ? "bg-[#c5f135]/10" : "hover:bg-[#2e3d1a]"}`}
               >
@@ -55,9 +82,14 @@ export default function Navbar() {
                     <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-[#c5f135] ring-2 ring-[#1a2110]" />
                   )}
                 </div>
-                <span className={`hidden sm:block text-[10px] font-semibold tracking-wide transition-colors ${active ? "text-[#c5f135]" : "text-white/30"}`}>
+                <span className={`hidden sm:block text-[10px] font-semibold tracking-wide leading-tight transition-colors ${active ? "text-[#c5f135]" : "text-white/30"}`}>
                   {label}
                 </span>
+                {sublabel && (
+                  <span className={`hidden sm:block text-[8px] leading-tight max-w-[80px] truncate transition-colors ${active ? "text-[#c5f135]/60" : "text-white/20"}`}>
+                    {sublabel}
+                  </span>
+                )}
               </Link>
             )
           })}

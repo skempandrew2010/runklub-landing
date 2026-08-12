@@ -466,11 +466,6 @@ export default function PassportPage() {
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        // Passport is member-only — directors manage klubs from their Director dashboard
-        const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
-        if (profile?.role === "manager") { router.replace("/"); return }
-      }
       setUserId(user?.id ?? null)
       if (user) {
         const [passportData, progressData, bookData, tierData, statesData] = await Promise.all([

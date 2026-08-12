@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Clock, MapPin, MessageSquare, CheckCircle2, ExternalLink } from "lucide-react"
+import { ArrowLeft, Clock, MapPin, MessageSquare, CheckCircle2, ExternalLink, PartyPopper } from "lucide-react"
 import { supabase } from "@/lib/supabase"
-import { localDateStr } from "@/utils/dates"
+import { localDateStr, mondayOf } from "@/utils/dates"
 import { getTagStyle } from "@/utils/tagStyle"
 import { formatRunTime, type TimedRun } from "@/lib/timezone"
 import RunChatPanel from "@/components/RunChatPanel"
@@ -14,6 +14,7 @@ import CheckInCelebration from "@/components/CheckInCelebration"
 import CheckInProximityMap from "@/components/CheckInProximityMap"
 import { resolveCheckinTarget, getCurrentPosition } from "@/lib/checkinGeofence"
 import type { CheckInResult } from "@/lib/server/checkin"
+import { type WorkoutSegment, formatWorkoutSegment, parseWorkoutStructure } from "@/lib/workouts"
 
 function formatTime(run: TimedRun) {
   return formatRunTime(run)
@@ -40,6 +41,7 @@ export type Run = {
   timezone: string | null
   run_lat: number | null
   run_lng: number | null
+  workout: { title: string; description: string | null; structure: WorkoutSegment[] } | null
 }
 
 export type Club = {
@@ -66,6 +68,10 @@ export default function RunPageClient({ runId }: { runId: string }) {
   const [showMissionModal, setShowMissionModal] = useState(false)
   const [position, setPosition] = useState<{ lat: number; lng: number } | null>(null)
   const [positionError, setPositionError] = useState<string | null>(null)
+  const [personalizedWorkout, setPersonalizedWorkout] = useState<{ title: string; description: string | null; structure: WorkoutSegment[] } | null>(null)
+  const [rsvpCount, setRsvpCount] = useState(0)
+  const [myRsvp, setMyRsvp] = useState(false)
+  const [rsvpSaving, setRsvpSaving] = useState(false)
 
   // Fetched client-side (not server-side with the anon key) so RLS evaluates
   // as the actual signed-in visitor — otherwise an approved member clicking
@@ -75,7 +81,7 @@ export default function RunPageClient({ runId }: { runId: string }) {
       const { data, error } = await supabase
         .from("runs")
         .select(
-          "id, club_id, title, date, time, distance, meeting_point, city, external_url, description, tags, is_in_person, members_only, timezone, run_lat, run_lng, clubs(id, name, image_url, latitude, longitude, city, tier)"
+          "id, club_id, title, date, time, distance, meeting_point, city, external_url, description, tags, is_in_person, members_only, timezone, run_lat, run_lng, clubs(id, name, image_url, latitude, longitude, city, tier), workout:workout_type_id(title, description, structure)"
         )
         .eq("id", runId)
         .maybeSingle()
@@ -100,6 +106,13 @@ export default function RunPageClient({ runId }: { runId: string }) {
         timezone: data.timezone,
         run_lat: data.run_lat,
         run_lng: data.run_lng,
+        workout: data.workout
+          ? {
+              title: (data.workout as any).title,
+              description: (data.workout as any).description,
+              structure: parseWorkoutStructure((data.workout as any).structure),
+            }
+          : null,
       })
       setClub(clubData)
 
@@ -137,6 +150,77 @@ export default function RunPageClient({ runId }: { runId: string }) {
       .eq("user_id", userId)
       .maybeSingle()
       .then(({ data }) => setCheckedIn(!!data))
+  }, [userId, run])
+
+  useEffect(() => {
+    if (!run) return
+    supabase
+      .from("rsvps")
+      .select("id", { count: "exact", head: true })
+      .eq("run_id", run.id)
+      .eq("going", true)
+      .then(({ count }) => setRsvpCount(count ?? 0))
+    if (userId) {
+      supabase
+        .from("rsvps")
+        .select("going")
+        .eq("run_id", run.id)
+        .eq("user_id", userId)
+        .maybeSingle()
+        .then(({ data }) => setMyRsvp(!!data?.going))
+    }
+  }, [userId, run])
+
+  const toggleRsvp = async () => {
+    if (!run) return
+    if (!userId) { router.push("/login"); return }
+    const next = !myRsvp
+    setMyRsvp(next)
+    setRsvpCount((c) => Math.max(0, c + (next ? 1 : -1)))
+    setRsvpSaving(true)
+    await supabase.from("rsvps").upsert(
+      { run_id: run.id, user_id: userId, going: next, updated_at: new Date().toISOString() },
+      { onConflict: "run_id,user_id" }
+    )
+    setRsvpSaving(false)
+  }
+
+  // For members-only runs shared across pace groups, show the viewer their own
+  // group's workout for this day (from the Weekly Training Schedule) instead of
+  // whatever single workout the run itself might have set.
+  useEffect(() => {
+    if (!userId || !run || !run.members_only) { setPersonalizedWorkout(null); return }
+    let cancelled = false
+    const load = async () => {
+      const { data: member } = await supabase
+        .from("members")
+        .select("pace_group_id")
+        .eq("club_id", run.club_id)
+        .eq("user_id", userId)
+        .maybeSingle()
+      if (cancelled || !member?.pace_group_id) { if (!cancelled) setPersonalizedWorkout(null); return }
+
+      const runDate = new Date(`${run.date}T00:00:00`)
+      const { data: sched } = await supabase
+        .from("club_weekly_schedule")
+        .select("workout_type_id")
+        .eq("pace_group_id", member.pace_group_id)
+        .eq("day_of_week", runDate.getDay())
+        .eq("week_of", mondayOf(runDate))
+        .maybeSingle()
+      if (cancelled || !sched?.workout_type_id) { if (!cancelled) setPersonalizedWorkout(null); return }
+
+      const { data: workout } = await supabase
+        .from("runs")
+        .select("title, description, structure")
+        .eq("id", sched.workout_type_id)
+        .maybeSingle()
+      if (!cancelled) {
+        setPersonalizedWorkout(workout ? { title: workout.title, description: workout.description, structure: parseWorkoutStructure(workout.structure) } : null)
+      }
+    }
+    load()
+    return () => { cancelled = true }
   }, [userId, run])
 
   // Best-effort — just for the "how far away am I" readout, so a denial
@@ -234,13 +318,56 @@ export default function RunPageClient({ runId }: { runId: string }) {
             </p>
           )}
 
-          {run.is_in_person && (
-            <CheckInProximityMap
-              target={resolveCheckinTarget(run, club, cityFallback)}
-              position={position}
-              positionError={positionError}
-            />
+          {!run.external_url && (
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <span className="flex items-center gap-1.5 text-sm text-white/50">
+                <PartyPopper className="w-3.5 h-3.5 text-[#c5f135]" />
+                {rsvpCount} going
+              </span>
+              <button
+                onClick={toggleRsvp}
+                disabled={rsvpSaving}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-black transition disabled:opacity-50 ${
+                  myRsvp
+                    ? "bg-[#c5f135]/15 text-[#c5f135] border border-[#c5f135]/30"
+                    : "bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45]"
+                }`}
+              >
+                {myRsvp ? "I'm Going ✓" : "RSVP"}
+              </button>
+            </div>
           )}
+
+          {run.is_in_person && (
+            <div className="mb-4">
+              <CheckInProximityMap
+                target={resolveCheckinTarget(run, club, cityFallback)}
+                position={position}
+                positionError={positionError}
+              />
+            </div>
+          )}
+
+          {(personalizedWorkout ?? run.workout) && (() => {
+            const effectiveWorkout = personalizedWorkout ?? run.workout!
+            return (
+              <div className="bg-[#1e2d12] border border-[#c5f135]/25 rounded-2xl p-4 mb-4">
+                <p className="text-[10px] font-black text-[#c5f135] uppercase tracking-widest mb-1.5">
+                  {personalizedWorkout ? "Your Workout" : "Today's Workout"} · {effectiveWorkout.title}
+                </p>
+                {effectiveWorkout.structure.length > 0 && (
+                  <ul className="space-y-1 mb-2">
+                    {effectiveWorkout.structure.map((seg, i) => (
+                      <li key={i} className="text-sm text-white/90 font-semibold">{formatWorkoutSegment(seg)}</li>
+                    ))}
+                  </ul>
+                )}
+                {effectiveWorkout.description && (
+                  <p className="text-sm text-white/70 leading-relaxed">{effectiveWorkout.description}</p>
+                )}
+              </div>
+            )
+          })()}
 
           {run.description && (
             <p className="text-sm text-white/60 leading-relaxed mb-4">{run.description}</p>

@@ -5,11 +5,13 @@ import { supabase } from "@/lib/supabase"
 import { Club } from "@/types/club"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Bell, Ruler, Activity, Pencil, Check, X, Trophy, Users, ShieldCheck, Zap, ExternalLink, ChevronRight, Home } from "lucide-react"
+import { Bell, Ruler, Activity, Pencil, Check, X, Trophy, Users, ShieldCheck, Zap, ExternalLink, ChevronRight, Home, ClipboardList } from "lucide-react"
 import { isNativeApp } from "@/utils/platform"
 import { PLANS, PLAN_ORDER } from "@/lib/plans"
+import { PASSPORT_PREMIUM_PRICE_CENTS_MONTHLY_PLACEHOLDER, PASSPORT_PREMIUM_PRICE_CENTS_YEARLY_PLACEHOLDER } from "@/lib/passportPremium"
 import { getUserTierProgress, type TierProgress } from "@/lib/checkins"
 import { TIER_ICONS } from "@/components/TierCard"
+import { useViewMode } from "@/hooks/useViewMode"
 
 type Profile = {
   id: string
@@ -42,6 +44,7 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [myClubs, setMyClubs] = useState<Club[]>([])
   const [subscribedClubs, setSubscribedClubs] = useState<Club[]>([])
+  const [coachClubs, setCoachClubs] = useState<Club[]>([])
   const [sessionCount, setSessionCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(false)
@@ -51,6 +54,9 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false)
   const [roleChanging, setRoleChanging] = useState(false)
   const [openingPortal, setOpeningPortal] = useState(false)
+  const isManager = profile?.role === "manager"
+  const [isCoach, setIsCoach] = useState(false)
+  const { viewMode, setViewMode } = useViewMode(isManager || isCoach)
   const [subscribingClubId, setSubscribingClubId] = useState<string | null>(null)
   const [nativeApp, setNativeApp] = useState(false)
   const [tierProgress, setTierProgress] = useState<TierProgress | null>(null)
@@ -86,6 +92,10 @@ export default function ProfilePage() {
 
       const { data: subs } = await supabase.from("subscriptions").select("clubs(*)").eq("user_id", user.id)
       setSubscribedClubs((subs || []).map((s: any) => s.clubs).filter(Boolean))
+
+      const { data: coachRows } = await supabase.from("coaches").select("id, club_id, clubs(*)").eq("user_id", user.id).eq("status", "active")
+      setIsCoach((coachRows?.length ?? 0) > 0)
+      setCoachClubs(((coachRows ?? []) as any[]).map((r) => r.clubs).filter(Boolean))
 
       // Count runs created by clubs the user coaches
       const clubIds = (clubs || []).map((c: any) => c.id)
@@ -225,17 +235,18 @@ export default function ProfilePage() {
   const displayName = profile?.display_name || user?.email?.split("@")[0] || "Runner"
   const username = profile?.username || displayName.toLowerCase()
   const location = profile?.location
-  const isCoach = myClubs.length > 0
+  const ownsKlub = myClubs.length > 0
   const isMember = subscribedClubs.length > 0
-  const totalKlubs = myClubs.length + subscribedClubs.length
   const [bgColor, textColor] = getAvatarColors(displayName)
   const initial = displayName[0]?.toUpperCase() || "R"
   const allKlubs = Array.from(
     new Map([
       ...subscribedClubs.map((c) => ({ ...c, role: "MEMBER" as const })),
-      ...myClubs.map((c) => ({ ...c, role: "COACH" as const })),
+      ...myClubs.map((c) => ({ ...c, role: "DIRECTOR" as const })),
+      ...coachClubs.map((c) => ({ ...c, role: "COACH" as const })),
     ].map((c) => [c.id, c])).values()
   )
+  const totalKlubs = allKlubs.length
 
   return (
     <div className="min-h-screen bg-[#1a2110]">
@@ -304,8 +315,13 @@ export default function ProfilePage() {
                     @{username}{location && <span> · {location}</span>}
                   </p>
                   <div className="flex gap-2 mt-3">
-                    {isCoach && (
+                    {ownsKlub && (
                       <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-[#c5f135]/10 text-[#c5f135] border border-[#c5f135]/30 flex items-center gap-1">
+                        <Activity className="w-3 h-3" /> DIRECTOR
+                      </span>
+                    )}
+                    {isCoach && (
+                      <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-400/10 text-amber-400 border border-amber-400/30 flex items-center gap-1">
                         <Activity className="w-3 h-3" /> COACH
                       </span>
                     )}
@@ -314,7 +330,7 @@ export default function ProfilePage() {
                         MEMBER
                       </span>
                     )}
-                    {!isCoach && !isMember && (
+                    {!ownsKlub && !isCoach && !isMember && (
                       <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-white/5 text-white/50 border border-white/10">
                         RUNNER
                       </span>
@@ -389,7 +405,7 @@ export default function ProfilePage() {
                       <Home className="w-3.5 h-3.5" />
                     </button>
                     <span className={`text-xs font-bold px-2.5 py-1 rounded-full shrink-0
-                      ${club.role === "COACH"
+                      ${club.role !== "MEMBER"
                         ? "bg-[#c5f135]/10 text-[#c5f135] border border-[#c5f135]/30"
                         : "bg-white/5 text-white/50 border border-white/10"
                       }`}>
@@ -403,6 +419,51 @@ export default function ProfilePage() {
               <Link href="/explore" className="text-xs text-[#c5f135] font-semibold hover:underline">
                 + Discover more klubs
               </Link>
+            </div>
+          </div>
+        </div>
+
+        {/* ACCOUNT TYPE */}
+        <div>
+          <h2 className="text-xs font-bold text-white/40 tracking-widest uppercase px-1 mb-2">Account Type</h2>
+          <div className="bg-[#1e2d12] rounded-2xl p-4">
+            <p className="text-xs text-white/40 mb-3 leading-relaxed">
+              {isManager || isCoach
+                ? "Switch your view between the Director tab and browsing as a member — this doesn't change your account."
+                : "Switch between running a klub or joining one. This changes your Director tab."}
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                { key: "member", label: "Member", sub: "Join & discover klubs", Icon: Users },
+                {
+                  key: "director",
+                  label: isManager ? "Director" : "Coach",
+                  sub: isManager ? "Run & direct a klub" : isCoach ? "Coach a pace group you're invited to" : "Run & direct a klub",
+                  Icon: isManager ? Trophy : ClipboardList,
+                },
+              ] as { key: "member" | "director"; label: string; sub: string; Icon: typeof Users }[]).map(({ key, label, sub, Icon }) => {
+                const active = viewMode === key
+                return (
+                  <button
+                    key={key}
+                    onClick={() => {
+                      if (key === "director" && !isManager && !isCoach) { changeRole("manager"); return }
+                      setViewMode(key)
+                    }}
+                    disabled={roleChanging}
+                    className={`rounded-xl p-3.5 text-left border transition-all disabled:opacity-60
+                      ${active
+                        ? "bg-[#c5f135]/10 border-[#c5f135] shadow-[0_0_0_1px_#c5f135]"
+                        : "bg-[#1a2110] border-[#2e3d1a] hover:border-white/20"
+                      }`}
+                  >
+                    <Icon className={`w-5 h-5 mb-2 ${active ? "text-[#c5f135]" : "text-white/30"}`} />
+                    <p className={`text-sm font-bold ${active ? "text-white" : "text-white/50"}`}>{label}</p>
+                    <p className={`text-xs mt-0.5 ${active ? "text-white/50" : "text-white/25"}`}>{sub}</p>
+                    {active && <Check className="w-3.5 h-3.5 text-[#c5f135] mt-1.5" />}
+                  </button>
+                )
+              })}
             </div>
           </div>
         </div>
@@ -470,8 +531,8 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* SUBSCRIPTION TIERS — directors only, so they know what each plan unlocks */}
-        {profile?.role === "manager" && (
+        {/* SUBSCRIPTION TIERS — director view only, so directors see what each klub plan unlocks */}
+        {isManager && viewMode === "director" && (
           <div>
             <h2 className="text-xs font-bold text-white/40 tracking-widest uppercase px-1 mb-2">Subscription Tiers</h2>
             <div className="bg-[#1e2d12] rounded-2xl overflow-hidden divide-y divide-[#2e3d1a]">
@@ -510,40 +571,29 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* ACCOUNT TYPE */}
-        <div>
-          <h2 className="text-xs font-bold text-white/40 tracking-widest uppercase px-1 mb-2">Account Type</h2>
-          <div className="bg-[#1e2d12] rounded-2xl p-4">
-            <p className="text-xs text-white/40 mb-3 leading-relaxed">
-              Switch between running a klub or joining one. This changes your Director tab.
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { key: "member", label: "Member", sub: "Join & discover klubs", Icon: Users },
-                { key: "manager", label: "Manager", sub: "Run & direct a klub", Icon: Trophy },
-              ].map(({ key, label, sub, Icon }) => {
-                const active = (profile?.role ?? "member") === key
-                return (
-                  <button
-                    key={key}
-                    onClick={() => changeRole(key)}
-                    disabled={roleChanging}
-                    className={`rounded-xl p-3.5 text-left border transition-all disabled:opacity-60
-                      ${active
-                        ? "bg-[#c5f135]/10 border-[#c5f135] shadow-[0_0_0_1px_#c5f135]"
-                        : "bg-[#1a2110] border-[#2e3d1a] hover:border-white/20"
-                      }`}
-                  >
-                    <Icon className={`w-5 h-5 mb-2 ${active ? "text-[#c5f135]" : "text-white/30"}`} />
-                    <p className={`text-sm font-bold ${active ? "text-white" : "text-white/50"}`}>{label}</p>
-                    <p className={`text-xs mt-0.5 ${active ? "text-white/50" : "text-white/25"}`}>{sub}</p>
-                    {active && <Check className="w-3.5 h-3.5 text-[#c5f135] mt-1.5" />}
-                  </button>
-                )
-              })}
+        {/* PASSPORT PREMIUM — member view only; no checkout flow exists yet, shown as a preview */}
+        {viewMode === "member" && (
+          <div>
+            <h2 className="text-xs font-bold text-white/40 tracking-widest uppercase px-1 mb-2">Passport Premium</h2>
+            <div className="bg-[#1e2d12] rounded-2xl overflow-hidden">
+              <div className="px-4 py-3.5">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-white">Passport Premium</span>
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-white/10 text-white/50">COMING SOON</span>
+                  </div>
+                  <span className="text-sm font-black text-[#c5f135] shrink-0 text-right">
+                    ${(PASSPORT_PREMIUM_PRICE_CENTS_MONTHLY_PLACEHOLDER / 100).toFixed(2)}/mo
+                    <span className="block text-[10px] font-semibold text-white/30">or ${(PASSPORT_PREMIUM_PRICE_CENTS_YEARLY_PLACEHOLDER / 100).toFixed(2)}/yr</span>
+                  </span>
+                </div>
+                <p className="text-xs text-white/40 mt-2 leading-relaxed">
+                  A platform-wide subscription with extra Passport perks across every klub you visit. Not open for signups yet — pricing shown is a preview.
+                </p>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* PREFERENCES */}
         <div>

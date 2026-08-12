@@ -217,11 +217,11 @@ export default function ClubCard({
           </p>
         )}
 
-        {/* Membership type */}
+        {/* Membership type — following is always free; this just flags a paid tier for private runs */}
         {(() => {
-          const m = club.membership_type
-          const label = m === "optional_paid" ? "Free + Paid Options" : m === "paid_required" ? "Membership Required" : "Free to Join"
-          const cls = m === "optional_paid" ? "bg-amber-400/10 text-amber-400 border-amber-400/25" : m === "paid_required" ? "bg-orange-400/10 text-orange-400 border-orange-400/25" : "bg-[#c5f135]/10 text-[#c5f135] border-[#c5f135]/25"
+          const hasMembership = club.membership_type === "optional_paid" || club.membership_type === "paid_required"
+          const label = hasMembership ? "Free + Paid Options" : "Free to Join"
+          const cls = hasMembership ? "bg-amber-400/10 text-amber-400 border-amber-400/25" : "bg-[#c5f135]/10 text-[#c5f135] border-[#c5f135]/25"
           return <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full border mt-1 ${cls}`}>{label}</span>
         })()}
 

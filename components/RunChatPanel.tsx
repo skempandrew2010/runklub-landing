@@ -38,7 +38,7 @@ type ChatMessage = {
   profiles: { display_name: string | null; avatar_url: string | null } | null
 }
 
-type DmTarget = { userId: string; name: string; avatarUrl: string | null }
+export type DmTarget = { userId: string; name: string; avatarUrl: string | null }
 
 function formatTime(target: { date: string; time: string; timezone?: string | null }) {
   return formatRunTime(target)
@@ -62,12 +62,14 @@ export default function RunChatPanel({
   target,
   userId,
   onClose,
+  initialDm,
 }: {
   target: ChatTarget
   userId: string
   onClose: () => void
+  initialDm?: DmTarget
 }) {
-  const [dm, setDm] = useState<DmTarget | null>(null)
+  const [dm, setDm] = useState<DmTarget | null>(initialDm ?? null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState("")
   const [sending, setSending] = useState(false)
