@@ -8,7 +8,6 @@ import { useRouter } from "next/navigation"
 import { Bell, Ruler, Activity, Pencil, Check, X, Trophy, Users, ShieldCheck, Zap, ExternalLink, ChevronRight, Home, ClipboardList } from "lucide-react"
 import { isNativeApp } from "@/utils/platform"
 import { PLANS, PLAN_ORDER } from "@/lib/plans"
-import { PASSPORT_PREMIUM_PRICE_CENTS_MONTHLY_PLACEHOLDER, PASSPORT_PREMIUM_PRICE_CENTS_YEARLY_PLACEHOLDER } from "@/lib/passportPremium"
 import { getUserTierProgress, type TierProgress } from "@/lib/checkins"
 import { TIER_ICONS } from "@/components/TierCard"
 import { useViewMode } from "@/hooks/useViewMode"
@@ -45,6 +44,9 @@ export default function ProfilePage() {
   const [myClubs, setMyClubs] = useState<Club[]>([])
   const [subscribedClubs, setSubscribedClubs] = useState<Club[]>([])
   const [paidMemberships, setPaidMemberships] = useState<Club[]>([])
+  const [passportTiers, setPassportTiers] = useState<{ tier: number; name: string; monthly_price_cents: number; credits_per_month: number }[]>([])
+  const [passportSub, setPassportSub] = useState<{ tier: number; current_period_end: string | null } | null>(null)
+  const [passportCreditBalance, setPassportCreditBalance] = useState(0)
   const [coachClubs, setCoachClubs] = useState<Club[]>([])
   const [sessionCount, setSessionCount] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -100,6 +102,26 @@ export default function ProfilePage() {
       const { data: coachRows } = await supabase.from("coaches").select("id, club_id, clubs(*)").eq("user_id", user.id).eq("status", "active")
       setIsCoach((coachRows?.length ?? 0) > 0)
       setCoachClubs(((coachRows ?? []) as any[]).map((r) => r.clubs).filter(Boolean))
+
+      const [{ data: passportTiersData }, { data: passportSubData }] = await Promise.all([
+        supabase.from("passport_tiers").select("tier, name, monthly_price_cents, credits_per_month").order("tier"),
+        supabase.from("passport_subscriptions").select("tier, current_period_end").eq("user_id", user.id).eq("status", "active").maybeSingle(),
+      ])
+      setPassportTiers(passportTiersData ?? [])
+      setPassportSub(passportSubData ?? null)
+      if (passportSubData) {
+        const { data: batches } = await supabase
+          .from("passport_credit_batches")
+          .select("credits_remaining, expires_at")
+          .eq("user_id", user.id)
+          .eq("status", "active")
+          .gt("credits_remaining", 0)
+        const now = new Date()
+        const balance = (batches ?? [])
+          .filter((b) => new Date(b.expires_at) > now)
+          .reduce((sum, b) => sum + b.credits_remaining, 0)
+        setPassportCreditBalance(balance)
+      }
 
       // Count runs created by clubs the user coaches
       const clubIds = (clubs || []).map((c: any) => c.id)
@@ -632,26 +654,49 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* PASSPORT PREMIUM — member view only; no checkout flow exists yet, shown as a preview */}
+        {/* PASSPORT CREDITS — member view only. Real data once a passport_subscriptions
+            row exists (from the internal test tooling); otherwise a tier preview, since
+            there's no live checkout flow for this product yet. */}
         {viewMode === "member" && (
           <div>
-            <h2 className="text-xs font-bold text-white/40 tracking-widest uppercase px-1 mb-2">Passport Premium</h2>
+            <h2 className="text-xs font-bold text-white/40 tracking-widest uppercase px-1 mb-2">Passport Credits</h2>
             <div className="bg-[#1e2d12] rounded-2xl overflow-hidden">
-              <div className="px-4 py-3.5">
-                <div className="flex items-center justify-between gap-2">
+              {passportSub ? (
+                <div className="px-4 py-3.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-white">
+                        {passportTiers.find((t) => t.tier === passportSub.tier)?.name ?? `Tier ${passportSub.tier}`}
+                      </span>
+                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-[#c5f135]/15 text-[#c5f135] border border-[#c5f135]/30">ACTIVE</span>
+                    </div>
+                    <span className="text-sm font-black text-[#c5f135] shrink-0">{passportCreditBalance} credits</span>
+                  </div>
+                  <p className="text-xs text-white/40 mt-2 leading-relaxed">
+                    Spend credits checking in at partner klubs beyond your home klub — unspent credits expire 45 days after they're issued.
+                  </p>
+                </div>
+              ) : (
+                <div className="px-4 py-3.5">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-white">Passport Premium</span>
+                    <span className="text-sm font-bold text-white">Passport Credits</span>
                     <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-white/10 text-white/50">COMING SOON</span>
                   </div>
-                  <span className="text-sm font-black text-[#c5f135] shrink-0 text-right">
-                    ${(PASSPORT_PREMIUM_PRICE_CENTS_MONTHLY_PLACEHOLDER / 100).toFixed(2)}/mo
-                    <span className="block text-[10px] font-semibold text-white/30">or ${(PASSPORT_PREMIUM_PRICE_CENTS_YEARLY_PLACEHOLDER / 100).toFixed(2)}/yr</span>
-                  </span>
+                  <p className="text-xs text-white/40 mt-2 leading-relaxed">
+                    Check into partner klubs beyond your home klub using monthly credits. Not open for signups yet.
+                  </p>
+                  {passportTiers.length > 0 && (
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      {passportTiers.map((t) => (
+                        <div key={t.tier} className="bg-[#1a2110] rounded-xl px-3 py-2 text-center">
+                          <p className="text-xs font-black text-white">${(t.monthly_price_cents / 100).toFixed(0)}/mo</p>
+                          <p className="text-[10px] text-white/40">{t.credits_per_month} credits</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <p className="text-xs text-white/40 mt-2 leading-relaxed">
-                  A platform-wide subscription with extra Passport perks across every klub you visit. Not open for signups yet — pricing shown is a preview.
-                </p>
-              </div>
+              )}
             </div>
           </div>
         )}

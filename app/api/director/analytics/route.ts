@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
         audience: { followerCount: 0, paidMemberCount: 0 },
         recentWorkouts: [],
         crossClubCheckins: [],
-        premium: { subscriberCount: 0, subscribers: [], referralSubscriberCount: 0, monthlyRevenueCents: 0, isPlaceholder: true },
+        passportCheckins: { checkinCount: 0, totalPayoutCents: 0, recentCheckins: [] },
         rsvpVsCheckin: { totalRsvps: 0, totalCheckins: 0, rate: null, recentRuns: [] },
         retention: { active: 0, atRisk: 0, churned: 0 },
         emailEngagement: { totalSent: 0, delivered: 0, opened: 0, clicked: 0, bounced: 0, complained: 0, openRate: null, clickRate: null },
@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
     const thirtyDaysAgo = new Date(today); thirtyDaysAgo.setDate(today.getDate() - 30)
     const sixtyDaysAgo = new Date(today); sixtyDaysAgo.setDate(today.getDate() - 60)
 
-    const [profilesRes, recentCheckinsRes, otherClubCheckinsRes, premiumRes, referralRes, recentRunsRes, lastCheckinRes, emailSendsRes] = await Promise.all([
+    const [profilesRes, recentCheckinsRes, otherClubCheckinsRes, passportCheckinsRes, recentRunsRes, lastCheckinRes, emailSendsRes] = await Promise.all([
       admin.from("profiles").select("id, display_name, avatar_url").in("id", memberIds),
       admin.from("run_checkins")
         .select("id, user_id, checked_in_at, run_id, runs(title, date)")
@@ -65,14 +65,13 @@ export async function GET(req: NextRequest) {
         .neq("club_id", clubId)
         .order("first_checkin_at", { ascending: false })
         .limit(50),
-      admin.from("passport_premium_subscriptions")
-        .select("user_id, started_at")
-        .in("user_id", memberIds)
-        .eq("status", "active"),
-      admin.from("passport_premium_subscriptions")
-        .select("price_cents, referral_pct")
-        .eq("referring_club_id", clubId)
-        .eq("status", "active"),
+      // Passport check-ins: runners from *other* klubs redeeming credits at
+      // this one — the payout this club earns from the Passport program.
+      admin.from("passport_checkins")
+        .select("id, user_id, credits_spent, payout_amount_cents, checked_in_at")
+        .eq("club_id", clubId)
+        .order("checked_in_at", { ascending: false })
+        .limit(50),
       // RSVP vs check-in: runs at this club in the last 30 days (including today).
       admin.from("runs")
         .select("id, title, date, rsvps(going), run_checkins(id)")
@@ -97,6 +96,17 @@ export async function GET(req: NextRequest) {
     const profileById: Record<string, { display_name: string | null; avatar_url: string | null }> = {}
     for (const p of profilesRes.data ?? []) profileById[p.id] = { display_name: p.display_name, avatar_url: p.avatar_url }
 
+    // Passport check-ins are visiting runners from *other* klubs, so their
+    // profiles won't already be in profileById (that's only this club's own
+    // members) — fetch the handful needed separately.
+    const passportCheckinRows = (passportCheckinsRes.data ?? []) as any[]
+    const passportVisitorIds = [...new Set(passportCheckinRows.map((c) => c.user_id))]
+    const passportProfileById: Record<string, { display_name: string | null }> = {}
+    if (passportVisitorIds.length > 0) {
+      const { data: passportProfiles } = await admin.from("profiles").select("id, display_name").in("id", passportVisitorIds)
+      for (const p of passportProfiles ?? []) passportProfileById[p.id] = { display_name: p.display_name }
+    }
+
     const recentWorkouts = ((recentCheckinsRes.data ?? []) as any[]).map((c) => ({
       checkinId: c.id,
       userId: c.user_id,
@@ -117,16 +127,15 @@ export async function GET(req: NextRequest) {
       firstCheckinAt: c.first_checkin_at,
     }))
 
-    const premiumSubscribers = ((premiumRes.data ?? []) as any[]).map((s) => ({
-      userId: s.user_id,
-      displayName: profileById[s.user_id]?.display_name ?? "Runner",
-      startedAt: s.started_at,
+    const passportCheckinList = passportCheckinRows.map((c) => ({
+      checkinId: c.id,
+      userId: c.user_id,
+      displayName: passportProfileById[c.user_id]?.display_name ?? "Runner",
+      creditsSpent: c.credits_spent,
+      payoutCents: c.payout_amount_cents,
+      checkedInAt: c.checked_in_at,
     }))
-
-    const monthlyRevenueCents = ((referralRes.data ?? []) as any[]).reduce(
-      (sum, s) => sum + Math.round(s.price_cents * Number(s.referral_pct)),
-      0
-    )
+    const passportTotalPayoutCents = passportCheckinRows.reduce((sum, c) => sum + c.payout_amount_cents, 0)
 
     const recentRuns = ((recentRunsRes.data ?? []) as any[]).map((r) => {
       const rsvpCount = ((r.rsvps ?? []) as { going: boolean }[]).filter((x) => x.going).length
@@ -167,12 +176,10 @@ export async function GET(req: NextRequest) {
       audience: { followerCount, paidMemberCount },
       recentWorkouts,
       crossClubCheckins,
-      premium: {
-        subscriberCount: premiumSubscribers.length,
-        subscribers: premiumSubscribers,
-        referralSubscriberCount: (referralRes.data ?? []).length,
-        monthlyRevenueCents,
-        isPlaceholder: true,
+      passportCheckins: {
+        checkinCount: passportCheckinList.length,
+        totalPayoutCents: passportTotalPayoutCents,
+        recentCheckins: passportCheckinList.slice(0, 10),
       },
       rsvpVsCheckin: {
         totalRsvps,
