@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { formatRunTime } from "@/lib/timezone"
-import { ChevronDown, ChevronRight, MessageSquare, Users, CalendarCheck } from "lucide-react"
+import { ChevronDown, ChevronRight, MessageSquare, Users, CalendarCheck, Lock } from "lucide-react"
 import RunChatPanel, { type ChatTarget, type DmTarget } from "@/components/RunChatPanel"
 import CoachCheckInRoster from "@/components/CoachCheckInRoster"
 import PendingCoachInviteBanner from "@/components/PendingCoachInviteBanner"
@@ -30,7 +30,7 @@ type RosterEntry = {
 }
 
 type ScheduleDay = { dayOfWeek: number; dayLabel: string; workoutTitle: string | null; notes: string | null }
-type PaceGroupSchedule = { paceGroupId: string; paceGroupName: string; days: ScheduleDay[] }
+type WeekSchedule = { weekOf: string; weekLabel: string; paceGroups: { paceGroupId: string; paceGroupName: string; days: ScheduleDay[] }[] }
 
 type DashboardData = {
   clubId: string
@@ -39,7 +39,7 @@ type DashboardData = {
   director: { userId: string; name: string; avatarUrl: string | null }
   paceGroups: { id: string; name: string }[]
   regions: { id: string; name: string }[]
-  weeklySchedule: PaceGroupSchedule[]
+  weeklySchedules: WeekSchedule[]
   upcomingRuns: DashboardRun[]
   roster: RosterEntry[]
   analytics: {
@@ -48,6 +48,14 @@ type DashboardData = {
     showUp: { totalRsvps: number; totalCheckins: number; rate: number | null }
   }
 }
+
+export type CoachTabKey = "members" | "communicate" | "schedule"
+type TabKey = CoachTabKey
+const TABS: { key: TabKey; label: string }[] = [
+  { key: "members", label: "Members" },
+  { key: "communicate", label: "Communicate" },
+  { key: "schedule", label: "Schedule" },
+]
 
 function SectionHeader({ title, sub }: { title: string; sub?: string }) {
   return (
@@ -78,11 +86,14 @@ function initialsOf(name: string) {
 /**
  * The limited "Coach" view of /director — rendered instead of the full
  * ManagerView when the signed-in user doesn't own the klub but is an active
- * coach for one. Same tab (/director), different content: roster + upcoming
- * runs scoped to their pace group/branch, manual check-in, an attendance
- * summary with no revenue/payment data, and messaging.
+ * coach for one. Deliberately narrower than the director's tab set: just
+ * Members (roster + check-in, scoped to their pace group/branch),
+ * Communicate (klub chat + DM the director), and a read-only multi-week
+ * Schedule. No analytics here — that's its own Analytics tab — and no
+ * editing the training plan.
  */
-export default function CoachDashboard({ userId, clubId }: { userId: string; clubId?: string }) {
+export default function CoachDashboard({ userId, clubId, initialTab }: { userId: string; clubId?: string; initialTab?: TabKey }) {
+  const [tab, setTab] = useState<TabKey>(initialTab ?? "members")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [data, setData] = useState<DashboardData | null>(null)
@@ -138,11 +149,22 @@ export default function CoachDashboard({ userId, clubId }: { userId: string; clu
     )
   }
 
-  const { retention, showUp } = data.analytics
+  const openDirectorDm = () => {
+    setChatInitialDm({ userId: data.director.userId, name: data.director.name, avatarUrl: data.director.avatarUrl })
+    setChatTarget({ type: "club", id: data.clubId, clubName: data.clubName })
+  }
+  const openKlubChat = () => {
+    setChatInitialDm(undefined)
+    setChatTarget({ type: "club", id: data.clubId, clubName: data.clubName })
+  }
+  const openRunChat = (run: DashboardRun) => {
+    setChatInitialDm(undefined)
+    setChatTarget({ type: "run", id: run.id, title: run.title, date: run.date, time: run.time, timezone: run.timezone, distance: run.distance, meeting_point: run.meeting_point, clubName: data.clubName })
+  }
 
   return (
     <div className="min-h-screen bg-[#1a2110] pb-24">
-      <div className="max-w-2xl mx-auto px-5 py-6 space-y-10">
+      <div className="max-w-2xl mx-auto px-5 py-6 space-y-6">
 
         <PendingCoachInviteBanner />
 
@@ -155,187 +177,191 @@ export default function CoachDashboard({ userId, clubId }: { userId: string; clu
           </p>
         </div>
 
-        {/* ── TRAINING SCHEDULE ── */}
-        <section>
-          <SectionHeader title="Training Schedule" sub="This week · your pace group(s)" />
-          {data.weeklySchedule.length === 0 ? (
-            <div className="bg-[#1e2d12] rounded-2xl p-6 text-center border border-[#2e3d1a]">
-              <p className="text-white/40 text-sm">No pace group assigned yet.</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {data.weeklySchedule.map((pg) => (
-                <div key={pg.paceGroupId} className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl overflow-hidden">
-                  <p className="text-xs font-bold text-white px-4 pt-3 pb-2">{pg.paceGroupName}</p>
-                  <div className="divide-y divide-[#2e3d1a]">
-                    {pg.days.map((d) => (
-                      <div key={d.dayOfWeek} className="flex items-center gap-3 px-4 py-2">
-                        <span className="text-[10px] font-bold text-white/35 uppercase tracking-widest w-8 shrink-0">{d.dayLabel}</span>
-                        {d.workoutTitle ? (
-                          <span className="text-xs font-semibold text-white">{d.workoutTitle}</span>
-                        ) : (
-                          <span className="text-xs text-white/25 italic">Rest</span>
-                        )}
-                        {d.notes && <span className="text-xs text-white/35 truncate">— {d.notes}</span>}
-                      </div>
-                    ))}
-                  </div>
+        {/* ── TAB STRIP ── */}
+        <div className="flex gap-2 bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-1">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`flex-1 py-2 rounded-xl text-xs font-black transition ${
+                tab === t.key ? "bg-[#c5f135] text-[#1a2110]" : "text-white/50 hover:text-white"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {/* ── MEMBERS ── */}
+        {tab === "members" && (
+          <div className="space-y-6">
+            <section>
+              <SectionHeader title="Upcoming Runs" sub="Tap a run to check people in" />
+              {data.upcomingRuns.length === 0 ? (
+                <div className="bg-[#1e2d12] rounded-2xl p-8 text-center border border-[#2e3d1a]">
+                  <CalendarCheck className="w-8 h-8 text-white/15 mx-auto mb-2" />
+                  <p className="text-white/40 text-sm">No upcoming runs in your scope.</p>
                 </div>
-              ))}
-            </div>
-          )}
-        </section>
+              ) : (
+                <div className="space-y-2">
+                  {data.upcomingRuns.map((run) => {
+                    const expanded = expandedRunId === run.id
+                    return (
+                      <div key={run.id} className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl overflow-hidden">
+                        <button
+                          onClick={() => setExpandedRunId(expanded ? null : run.id)}
+                          className="w-full flex items-center gap-3 px-4 py-3.5 text-left"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-bold text-white truncate">{run.title}</p>
+                              {run.members_only && (
+                                <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-white/10 text-white/50 border border-white/10">MEMBERS</span>
+                              )}
+                            </div>
+                            <p className="text-xs text-white/40 mt-0.5">
+                              {formatDay(run.date)} · {formatRunTime(run)}
+                              {run.distance && ` · ${run.distance}`}
+                            </p>
+                          </div>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); openRunChat(run) }}
+                            className="shrink-0 w-8 h-8 rounded-full bg-[#2e3d1a] flex items-center justify-center hover:bg-[#3d5220] transition"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5 text-[#c5f135]" />
+                          </button>
+                          <ChevronDown className={`w-4 h-4 text-white/25 shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`} />
+                        </button>
+                        {expanded && (
+                          <div className="px-4 pb-4 border-t border-[#2e3d1a] pt-3">
+                            <CoachCheckInRoster runId={run.id} roster={data.roster.map((r) => ({ userId: r.userId, displayName: r.displayName, avatarUrl: r.avatarUrl }))} />
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </section>
 
-        {/* ── ANALYTICS (no revenue) ── */}
-        <section>
-          <SectionHeader title="Attendance" sub="Last 30 days · your scope only" />
-          <div className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-4 grid grid-cols-3 gap-3">
-            <div className="text-center">
-              <p className="text-lg font-black text-white">{data.analytics.rosterSize}</p>
-              <p className="text-[9px] text-white/40 uppercase tracking-widest mt-0.5">Roster</p>
-            </div>
-            <div className="text-center">
-              <p className="text-lg font-black text-[#c5f135]">{retention.active}</p>
-              <p className="text-[9px] text-white/40 uppercase tracking-widest mt-0.5">Active</p>
-            </div>
-            <div className="text-center">
-              <p className="text-lg font-black text-white">{showUp.rate !== null ? `${Math.round(showUp.rate * 100)}%` : "—"}</p>
-              <p className="text-[9px] text-white/40 uppercase tracking-widest mt-0.5">Show-up Rate</p>
-            </div>
-          </div>
-        </section>
-
-        {/* ── UPCOMING RUNS + CHECK-IN ── */}
-        <section>
-          <SectionHeader title="Upcoming Runs" sub="Tap a run to check people in" />
-          {data.upcomingRuns.length === 0 ? (
-            <div className="bg-[#1e2d12] rounded-2xl p-8 text-center border border-[#2e3d1a]">
-              <CalendarCheck className="w-8 h-8 text-white/15 mx-auto mb-2" />
-              <p className="text-white/40 text-sm">No upcoming runs in your scope.</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {data.upcomingRuns.map((run) => {
-                const expanded = expandedRunId === run.id
-                return (
-                  <div key={run.id} className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl overflow-hidden">
-                    <button
-                      onClick={() => setExpandedRunId(expanded ? null : run.id)}
-                      className="w-full flex items-center gap-3 px-4 py-3.5 text-left"
-                    >
+            <section>
+              <SectionHeader title="Your Roster" sub="Who belongs to your pace group" />
+              {data.roster.length === 0 ? (
+                <div className="bg-[#1e2d12] rounded-2xl p-8 text-center border border-[#2e3d1a]">
+                  <Users className="w-8 h-8 text-white/15 mx-auto mb-2" />
+                  <p className="text-white/40 text-sm">No one&apos;s in your pace group yet.</p>
+                </div>
+              ) : (
+                <div className="bg-[#1e2d12] rounded-2xl overflow-hidden border border-[#2e3d1a] divide-y divide-[#2e3d1a]">
+                  {data.roster.map((m, i) => (
+                    <div key={m.userId ?? i} className="flex items-center gap-3 px-4 py-3">
+                      <div className="w-8 h-8 rounded-full shrink-0 bg-[#2e3d1a] overflow-hidden flex items-center justify-center">
+                        {m.avatarUrl
+                          ? <img src={m.avatarUrl} alt="" className="w-full h-full object-cover" />
+                          : <span className="text-[10px] font-black text-[#c5f135]">{initialsOf(m.displayName)}</span>
+                        }
+                      </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-bold text-white truncate">{run.title}</p>
-                          {run.members_only && (
-                            <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-white/10 text-white/50 border border-white/10">MEMBERS</span>
-                          )}
-                        </div>
-                        <p className="text-xs text-white/40 mt-0.5">
-                          {formatDay(run.date)} · {formatRunTime(run)}
-                          {run.distance && ` · ${run.distance}`}
+                        <p className="text-sm font-bold text-white truncate">{m.displayName}</p>
+                        <p className="text-xs text-white/40 truncate">
+                          {m.paceGroupName ?? "—"}
+                          {m.lastCheckinAt && ` · last run ${formatDay(m.lastCheckinAt.slice(0, 10))}`}
                         </p>
                       </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setChatInitialDm(undefined)
-                          setChatTarget({ type: "run", id: run.id, title: run.title, date: run.date, time: run.time, timezone: run.timezone, distance: run.distance, meeting_point: run.meeting_point, clubName: data.clubName })
-                        }}
-                        className="shrink-0 w-8 h-8 rounded-full bg-[#2e3d1a] flex items-center justify-center hover:bg-[#3d5220] transition"
-                      >
-                        <MessageSquare className="w-3.5 h-3.5 text-[#c5f135]" />
-                      </button>
-                      <ChevronDown className={`w-4 h-4 text-white/25 shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`} />
-                    </button>
-                    {expanded && (
-                      <div className="px-4 pb-4 border-t border-[#2e3d1a] pt-3">
-                        <CoachCheckInRoster runId={run.id} roster={data.roster.map((r) => ({ userId: r.userId, displayName: r.displayName, avatarUrl: r.avatarUrl }))} />
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </section>
-
-        {/* ── ROSTER ── */}
-        <section>
-          <SectionHeader title="Your Roster" sub="Who belongs to your pace group" />
-          {data.roster.length === 0 ? (
-            <div className="bg-[#1e2d12] rounded-2xl p-8 text-center border border-[#2e3d1a]">
-              <Users className="w-8 h-8 text-white/15 mx-auto mb-2" />
-              <p className="text-white/40 text-sm">No one&apos;s in your pace group yet.</p>
-            </div>
-          ) : (
-            <div className="bg-[#1e2d12] rounded-2xl overflow-hidden border border-[#2e3d1a] divide-y divide-[#2e3d1a]">
-              {data.roster.map((m, i) => (
-                <div key={m.userId ?? i} className="flex items-center gap-3 px-4 py-3">
-                  <div className="w-8 h-8 rounded-full shrink-0 bg-[#2e3d1a] overflow-hidden flex items-center justify-center">
-                    {m.avatarUrl
-                      ? <img src={m.avatarUrl} alt="" className="w-full h-full object-cover" />
-                      : <span className="text-[10px] font-black text-[#c5f135]">{initialsOf(m.displayName)}</span>
-                    }
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-white truncate">{m.displayName}</p>
-                    <p className="text-xs text-white/40 truncate">
-                      {m.paceGroupName ?? "—"}
-                      {m.lastCheckinAt && ` · last run ${formatDay(m.lastCheckinAt.slice(0, 10))}`}
-                    </p>
-                  </div>
-                  {m.attendanceBucket === "active" && (
-                    <span className="shrink-0 text-[9px] font-black px-2 py-0.5 rounded-full uppercase bg-[#c5f135]/10 text-[#c5f135]">
-                      active
-                    </span>
-                  )}
+                      {m.attendanceBucket === "active" && (
+                        <span className="shrink-0 text-[9px] font-black px-2 py-0.5 rounded-full uppercase bg-[#c5f135]/10 text-[#c5f135]">
+                          active
+                        </span>
+                      )}
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          )}
-        </section>
+              )}
+            </section>
+          </div>
+        )}
 
         {/* ── COMMUNICATE ── */}
-        <section>
-          <SectionHeader title="Messages" />
-          <div className="space-y-2">
-            <button
-              onClick={() => {
-                setChatInitialDm({ userId: data.director.userId, name: data.director.name, avatarUrl: data.director.avatarUrl })
-                setChatTarget({ type: "club", id: data.clubId, clubName: data.clubName })
-              }}
-              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-[#1e2d12] border border-[#2e3d1a] hover:border-[#c5f135]/30 transition text-left"
-            >
-              <div className="w-9 h-9 rounded-full bg-[#2e3d1a] overflow-hidden flex items-center justify-center shrink-0">
-                {data.director.avatarUrl
-                  ? <img src={data.director.avatarUrl} alt="" className="w-full h-full object-cover" />
-                  : <span className="text-xs font-black text-[#c5f135]">{initialsOf(data.director.name)}</span>
-                }
+        {tab === "communicate" && (
+          <section>
+            <SectionHeader title="Messages" />
+            <div className="space-y-2">
+              <button
+                onClick={openDirectorDm}
+                className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-[#1e2d12] border border-[#2e3d1a] hover:border-[#c5f135]/30 transition text-left"
+              >
+                <div className="w-9 h-9 rounded-full bg-[#2e3d1a] overflow-hidden flex items-center justify-center shrink-0">
+                  {data.director.avatarUrl
+                    ? <img src={data.director.avatarUrl} alt="" className="w-full h-full object-cover" />
+                    : <span className="text-xs font-black text-[#c5f135]">{initialsOf(data.director.name)}</span>
+                  }
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-white">Message {data.director.name}</p>
+                  <p className="text-xs text-white/40 mt-0.5">Your klub&apos;s director</p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-white/20 shrink-0" />
+              </button>
+              <button
+                onClick={openKlubChat}
+                className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-[#1e2d12] border border-[#2e3d1a] hover:border-[#c5f135]/30 transition text-left"
+              >
+                <div className="w-9 h-9 rounded-full bg-[#2e3d1a] flex items-center justify-center shrink-0">
+                  <MessageSquare className="w-4 h-4 text-[#c5f135]" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-white">Klub Chat</p>
+                  <p className="text-xs text-white/40 mt-0.5">Message the whole klub, or tap the bubble on a run to message just that run</p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-white/20 shrink-0" />
+              </button>
+            </div>
+          </section>
+        )}
+
+        {/* ── SCHEDULE (read-only) ── */}
+        {tab === "schedule" && (
+          <section>
+            <SectionHeader title="Training Schedule" sub="Read-only — your director edits this" />
+            {data.weeklySchedules.every((w) => w.paceGroups.length === 0) ? (
+              <div className="bg-[#1e2d12] rounded-2xl p-6 text-center border border-[#2e3d1a]">
+                <p className="text-white/40 text-sm">No pace group assigned yet.</p>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-white">Message {data.director.name}</p>
-                <p className="text-xs text-white/40 mt-0.5">Your klub&apos;s director</p>
+            ) : (
+              <div className="space-y-5">
+                {data.weeklySchedules.map((week, i) => (
+                  <div key={week.weekOf}>
+                    <div className="flex items-center gap-2 mb-2 px-1">
+                      <p className="text-xs font-bold text-white/50">Week of {week.weekLabel}</p>
+                      {i === 0 && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-[#c5f135]/10 text-[#c5f135]">THIS WEEK</span>}
+                      <Lock className="w-2.5 h-2.5 text-white/20 ml-auto" />
+                    </div>
+                    <div className="space-y-3">
+                      {week.paceGroups.map((pg) => (
+                        <div key={pg.paceGroupId} className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl overflow-hidden">
+                          <p className="text-xs font-bold text-white px-4 pt-3 pb-2">{pg.paceGroupName}</p>
+                          <div className="divide-y divide-[#2e3d1a]">
+                            {pg.days.map((d) => (
+                              <div key={d.dayOfWeek} className="flex items-center gap-3 px-4 py-2">
+                                <span className="text-[10px] font-bold text-white/35 uppercase tracking-widest w-8 shrink-0">{d.dayLabel}</span>
+                                {d.workoutTitle ? (
+                                  <span className="text-xs font-semibold text-white">{d.workoutTitle}</span>
+                                ) : (
+                                  <span className="text-xs text-white/25 italic">Rest</span>
+                                )}
+                                {d.notes && <span className="text-xs text-white/35 truncate">— {d.notes}</span>}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
-              <ChevronRight className="w-4 h-4 text-white/20 shrink-0" />
-            </button>
-            <button
-              onClick={() => {
-                setChatInitialDm(undefined)
-                setChatTarget({ type: "club", id: data.clubId, clubName: data.clubName })
-              }}
-              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-[#1e2d12] border border-[#2e3d1a] hover:border-[#c5f135]/30 transition text-left"
-            >
-              <div className="w-9 h-9 rounded-full bg-[#2e3d1a] flex items-center justify-center shrink-0">
-                <MessageSquare className="w-4 h-4 text-[#c5f135]" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-white">Klub Chat</p>
-                <p className="text-xs text-white/40 mt-0.5">Message the whole klub, or tap the bubble on a run to message just that run</p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-white/20 shrink-0" />
-            </button>
-          </div>
-        </section>
+            )}
+          </section>
+        )}
 
       </div>
 

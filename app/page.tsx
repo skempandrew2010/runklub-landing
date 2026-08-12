@@ -6,6 +6,7 @@ import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import HubContent from "@/components/HubContent"
 import DirectorHomeContent from "@/components/DirectorHomeContent"
+import CoachHomeSummary from "@/components/CoachHomeSummary"
 import { useNavIdentity } from "@/hooks/useNavIdentity"
 import { useViewMode } from "@/hooks/useViewMode"
 
@@ -82,6 +83,7 @@ export default function RootPage() {
       )
     }
     if (isManager && viewMode === "director") return <DirectorHomeContent userId={user.id} />
+    if (isCoach && !isManager && viewMode === "director") return <CoachHomeSummary userId={user.id} />
     return <HubContent />
   }
 

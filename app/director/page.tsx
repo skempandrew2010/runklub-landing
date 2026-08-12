@@ -25,7 +25,7 @@ import WeeklyScheduleTab from "./WeeklyScheduleTab"
 import CustomPacesTab from "./CustomPacesTab"
 import RunChatPanel from "@/components/RunChatPanel"
 import RunCheckInRoster from "@/components/RunCheckInRoster"
-import CoachDashboard from "@/components/CoachDashboard"
+import CoachDashboard, { type CoachTabKey } from "@/components/CoachDashboard"
 import { PLANS } from "@/lib/plans"
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -2349,10 +2349,13 @@ function DirectorPageInner() {
 
   if (context === "coach") {
     const requestedClubId = searchParams.get("club_id") ?? undefined
+    const requestedCoachTab = searchParams.get("tab")
+    const coachTabs: CoachTabKey[] = ["members", "communicate", "schedule"]
+    const initialCoachTab = coachTabs.includes(requestedCoachTab as CoachTabKey) ? (requestedCoachTab as CoachTabKey) : undefined
     return (
       <>
         {switchLink}
-        <CoachDashboard userId={user.id} clubId={requestedClubId} />
+        <CoachDashboard userId={user.id} clubId={requestedClubId} initialTab={initialCoachTab} />
       </>
     )
   }
