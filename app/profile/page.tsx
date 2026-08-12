@@ -44,6 +44,7 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [myClubs, setMyClubs] = useState<Club[]>([])
   const [subscribedClubs, setSubscribedClubs] = useState<Club[]>([])
+  const [coachClubs, setCoachClubs] = useState<Club[]>([])
   const [sessionCount, setSessionCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(false)
@@ -92,8 +93,9 @@ export default function ProfilePage() {
       const { data: subs } = await supabase.from("subscriptions").select("clubs(*)").eq("user_id", user.id)
       setSubscribedClubs((subs || []).map((s: any) => s.clubs).filter(Boolean))
 
-      const { data: coachRows } = await supabase.from("coaches").select("id").eq("user_id", user.id).eq("status", "active")
+      const { data: coachRows } = await supabase.from("coaches").select("id, club_id, clubs(*)").eq("user_id", user.id).eq("status", "active")
       setIsCoach((coachRows?.length ?? 0) > 0)
+      setCoachClubs(((coachRows ?? []) as any[]).map((r) => r.clubs).filter(Boolean))
 
       // Count runs created by clubs the user coaches
       const clubIds = (clubs || []).map((c: any) => c.id)
@@ -235,15 +237,16 @@ export default function ProfilePage() {
   const location = profile?.location
   const ownsKlub = myClubs.length > 0
   const isMember = subscribedClubs.length > 0
-  const totalKlubs = myClubs.length + subscribedClubs.length
   const [bgColor, textColor] = getAvatarColors(displayName)
   const initial = displayName[0]?.toUpperCase() || "R"
   const allKlubs = Array.from(
     new Map([
       ...subscribedClubs.map((c) => ({ ...c, role: "MEMBER" as const })),
-      ...myClubs.map((c) => ({ ...c, role: "COACH" as const })),
+      ...myClubs.map((c) => ({ ...c, role: "DIRECTOR" as const })),
+      ...coachClubs.map((c) => ({ ...c, role: "COACH" as const })),
     ].map((c) => [c.id, c])).values()
   )
+  const totalKlubs = allKlubs.length
 
   return (
     <div className="min-h-screen bg-[#1a2110]">
@@ -402,7 +405,7 @@ export default function ProfilePage() {
                       <Home className="w-3.5 h-3.5" />
                     </button>
                     <span className={`text-xs font-bold px-2.5 py-1 rounded-full shrink-0
-                      ${club.role === "COACH"
+                      ${club.role !== "MEMBER"
                         ? "bg-[#c5f135]/10 text-[#c5f135] border border-[#c5f135]/30"
                         : "bg-white/5 text-white/50 border border-white/10"
                       }`}>
