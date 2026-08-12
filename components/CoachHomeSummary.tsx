@@ -156,6 +156,55 @@ export default function CoachHomeSummary({ userId }: { userId: string }) {
 
           <PendingCoachInviteBanner />
 
+          {/* ── MEMBERS (roster + next run to check in) ── */}
+          <section>
+            <SectionHeader title="Members" sub={`${data.analytics.rosterSize} in your pace group(s)`} />
+            <Link
+              href={`/director?as=coach&club_id=${clubId}&tab=members`}
+              className="block rounded-2xl overflow-hidden border border-[#2e3d1a] bg-[#1e2d12] hover:border-[#c5f135]/30 transition"
+            >
+              {upcomingRun ? (
+                <div className="flex items-center gap-3 px-4 py-3.5">
+                  <div className="w-9 h-9 rounded-xl bg-[#2e3d1a] shrink-0 flex items-center justify-center">
+                    <CalendarCheck className="w-4 h-4 text-[#c5f135]" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-white truncate">{upcomingRun.title}</p>
+                    <p className="text-xs text-white/40 truncate mt-0.5">
+                      {formatDay(upcomingRun.date)} · {formatRunTime(upcomingRun)}
+                      {upcomingRun.distance && ` · ${upcomingRun.distance}`}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-[10px] font-bold text-white/30">Check In</span>
+                  <ChevronRight className="w-4 h-4 text-white/20 shrink-0" />
+                </div>
+              ) : (
+                <div className="flex items-center gap-3 px-4 py-6">
+                  <p className="flex-1 text-sm text-white/40">No upcoming runs in your scope — tap to see your roster.</p>
+                  <ChevronRight className="w-4 h-4 text-white/20 shrink-0" />
+                </div>
+              )}
+            </Link>
+          </section>
+
+          {/* ── COMMUNICATE ── */}
+          <section>
+            <SectionHeader title="Communicate" />
+            <Link
+              href={`/director?as=coach&club_id=${clubId}&tab=communicate`}
+              className="flex items-center gap-3 px-4 py-3.5 rounded-2xl overflow-hidden border border-[#2e3d1a] bg-[#1e2d12] hover:border-[#c5f135]/30 transition"
+            >
+              <div className="w-9 h-9 rounded-full bg-[#2e3d1a] flex items-center justify-center shrink-0">
+                <MessageSquare className="w-4 h-4 text-[#c5f135]" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-white">Messages</p>
+                <p className="text-xs text-white/40 mt-0.5">Message your athletes or the klub director</p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-white/20 shrink-0" />
+            </Link>
+          </section>
+
           {/* ── TRAINING SCHEDULE ── */}
           <section>
             <SectionHeader title="Training Schedule" sub={thisWeek ? `Week of ${thisWeek.weekLabel} · read-only` : undefined} />
@@ -216,53 +265,6 @@ export default function CoachHomeSummary({ userId }: { userId: string }) {
                   </p>
                   <p className="text-[9px] text-white/40 uppercase tracking-widest mt-0.5">Show-up Rate</p>
                 </div>
-              </div>
-              <ChevronRight className="w-4 h-4 text-white/20 shrink-0" />
-            </Link>
-          </section>
-
-          {/* ── UPCOMING RUN (check in) ── */}
-          <section>
-            <SectionHeader title="Upcoming Run" />
-            {upcomingRun ? (
-              <Link
-                href={`/director?as=coach&club_id=${clubId}&tab=members`}
-                className="flex items-center gap-3 px-4 py-3.5 rounded-2xl overflow-hidden border border-[#2e3d1a] bg-[#1e2d12] hover:border-[#c5f135]/30 transition"
-              >
-                <div className="w-9 h-9 rounded-xl bg-[#2e3d1a] shrink-0 flex items-center justify-center">
-                  <CalendarCheck className="w-4 h-4 text-[#c5f135]" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-white truncate">{upcomingRun.title}</p>
-                  <p className="text-xs text-white/40 truncate mt-0.5">
-                    {formatDay(upcomingRun.date)} · {formatRunTime(upcomingRun)}
-                    {upcomingRun.distance && ` · ${upcomingRun.distance}`}
-                  </p>
-                </div>
-                <span className="shrink-0 text-[10px] font-bold text-white/30">Check In</span>
-                <ChevronRight className="w-4 h-4 text-white/20 shrink-0" />
-              </Link>
-            ) : (
-              <div className="bg-[#1e2d12] rounded-2xl p-10 text-center border border-[#2e3d1a]">
-                <CalendarCheck className="w-10 h-10 text-white/15 mx-auto mb-3" />
-                <p className="text-white/50 text-sm font-medium">No upcoming runs in your scope.</p>
-              </div>
-            )}
-          </section>
-
-          {/* ── MESSAGES ── */}
-          <section>
-            <SectionHeader title="Messages" />
-            <Link
-              href={`/director?as=coach&club_id=${clubId}&tab=communicate`}
-              className="flex items-center gap-3 px-4 py-3.5 rounded-2xl overflow-hidden border border-[#2e3d1a] bg-[#1e2d12] hover:border-[#c5f135]/30 transition"
-            >
-              <div className="w-9 h-9 rounded-full bg-[#2e3d1a] flex items-center justify-center shrink-0">
-                <MessageSquare className="w-4 h-4 text-[#c5f135]" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-white">Messages</p>
-                <p className="text-xs text-white/40 mt-0.5">Message your athletes or the klub director</p>
               </div>
               <ChevronRight className="w-4 h-4 text-white/20 shrink-0" />
             </Link>
