@@ -179,18 +179,27 @@ export default function CoachDashboard({ userId, clubId, initialTab }: { userId:
         </div>
 
         {/* ── TAB STRIP ── */}
-        <div className="flex gap-2 bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-1">
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={`flex-1 py-2 rounded-xl text-xs font-black transition ${
-                tab === t.key ? "bg-[#c5f135] text-[#1a2110]" : "text-white/50 hover:text-white"
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
+        <div className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-1">
+          <div className="relative flex">
+            <div
+              className="absolute top-0 bottom-0 rounded-xl bg-[#c5f135] transition-transform duration-300 ease-out"
+              style={{
+                width: `${100 / TABS.length}%`,
+                transform: `translateX(${TABS.findIndex((t) => t.key === tab) * 100}%)`,
+              }}
+            />
+            {TABS.map((t) => (
+              <button
+                key={t.key}
+                onClick={() => setTab(t.key)}
+                className={`relative z-10 flex-1 py-2 rounded-xl text-xs font-black transition-colors duration-300 ${
+                  tab === t.key ? "text-[#1a2110]" : "text-white/50 hover:text-white"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* ── MEMBERS ── */}
