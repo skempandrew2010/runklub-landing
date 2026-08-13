@@ -372,7 +372,7 @@ export default function DirectorAnalyticsPage() {
             </Card>
 
             <Card title="Member Retention" icon={<TrendingDown className="w-3.5 h-3.5 text-[#c5f135]" />}>
-              <p className="text-xs text-white/35 mb-3 -mt-1">Based on each member&apos;s most recent check-in at this klub</p>
+              <p className="text-xs text-white/35 mb-3 -mt-1">Based on each member&apos;s most recent check-in — or, if they haven&apos;t checked in yet, how long ago they signed up</p>
               <div className="grid grid-cols-3 gap-3">
                 <div className="bg-[#1a2110] rounded-xl px-3 py-3 text-center">
                   <p className="text-lg font-black text-[#c5f135]">{data.retention.active}</p>

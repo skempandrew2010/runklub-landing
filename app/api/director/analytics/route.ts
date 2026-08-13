@@ -163,13 +163,25 @@ export async function GET(req: NextRequest) {
     for (const c of (lastCheckinRes.data ?? []) as { user_id: string; checked_in_at: string }[]) {
       if (!lastCheckinByUser[c.user_id]) lastCheckinByUser[c.user_id] = c.checked_in_at
     }
+    const signupByUser: Record<string, string> = {}
+    for (const s of subs ?? []) signupByUser[s.user_id] = s.created_at
+
     let active = 0, atRisk = 0, churned = 0
     for (const id of memberIds) {
       const last = lastCheckinByUser[id]
-      if (!last) { churned++; continue }
-      const lastDate = new Date(last)
-      if (lastDate >= thirtyDaysAgo) active++
-      else if (lastDate >= sixtyDaysAgo) atRisk++
+      if (last) {
+        const lastDate = new Date(last)
+        if (lastDate >= thirtyDaysAgo) active++
+        else if (lastDate >= sixtyDaysAgo) atRisk++
+        else churned++
+        continue
+      }
+      // No check-in yet — measure the retention window from when they
+      // signed up rather than auto-churning, so a brand-new member isn't
+      // flagged "churned" before they've had a chance to attend anything.
+      const signupDate = signupByUser[id] ? new Date(signupByUser[id]) : null
+      if (signupDate && signupDate >= thirtyDaysAgo) active++
+      else if (signupDate && signupDate >= sixtyDaysAgo) atRisk++
       else churned++
     }
 
