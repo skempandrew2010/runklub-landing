@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import Stripe from "stripe"
 import { createClient } from "@supabase/supabase-js"
+import { Resend } from "resend"
+
+const FROM = process.env.RESEND_FROM_EMAIL ?? "RunKlub <info@runklub.fit>"
 
 function getStripe() { return new Stripe(process.env.STRIPE_SECRET_KEY!) }
 
@@ -9,6 +12,60 @@ function getSupabaseAdmin() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
+}
+
+// Fires once per brand-new paid signup (checkout.session.completed only
+// happens at the start of a subscription, never on renewals — those go
+// through customer.subscription.updated instead), so there's no risk of
+// emailing the director every billing cycle.
+async function notifyDirectorOfNewMember(clubId: string, memberUserId: string, priceCents: number | null) {
+  const admin = getSupabaseAdmin()
+  const { data: club } = await admin.from("clubs").select("id, name, user_id").eq("id", clubId).single()
+  if (!club) return
+
+  const [{ data: memberProfile }, { data: directorUser }] = await Promise.all([
+    admin.from("profiles").select("display_name").eq("id", memberUserId).single(),
+    admin.auth.admin.getUserById(club.user_id),
+  ])
+
+  const directorEmail = directorUser?.user?.email
+  if (!directorEmail) return
+
+  const memberName = memberProfile?.display_name || "A runner"
+  const priceLine = priceCents ? `They're paying $${(priceCents / 100).toFixed(2)}/mo.` : ""
+
+  try {
+    const resend = new Resend(process.env.RESEND_API_KEY)
+    await resend.emails.send({
+      from: FROM,
+      to: directorEmail,
+      subject: `${memberName} just became a paying member of ${club.name}`,
+      html: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f4;padding:32px 0;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="background:#1a2110;border-radius:16px;overflow:hidden;max-width:600px;width:100%;">
+        <tr><td style="padding:24px 32px;border-bottom:1px solid #2e3d1a;">
+          <span style="font-size:20px;font-weight:900;color:#ffffff;">Run</span><span style="font-size:20px;font-weight:900;color:#c5f135;">Klub</span>
+        </td></tr>
+        <tr><td style="padding:32px;">
+          <h1 style="margin:0 0 16px;font-size:20px;font-weight:900;color:#ffffff;">New paying member 🎉</h1>
+          <p style="margin:0 0 8px;font-size:15px;line-height:1.7;color:rgba(255,255,255,0.8);">
+            <strong style="color:#ffffff;">${memberName}</strong> just subscribed to <strong style="color:#ffffff;">${club.name}</strong>. ${priceLine}
+          </p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`,
+      text: `${memberName} just subscribed to ${club.name}. ${priceLine}`,
+    })
+  } catch (err) {
+    console.error("notifyDirectorOfNewMember email error:", err)
+  }
 }
 
 // Reverts a member to a plain (free) follower — used for both a subscription
@@ -73,6 +130,9 @@ export async function POST(req: NextRequest) {
           stripe_subscription_id: session.subscription as string,
           stripe_customer_id: session.customer as string,
         }, { onConflict: "user_id,club_id" })
+
+        const { data: club } = await getSupabaseAdmin().from("clubs").select("membership_price_cents").eq("id", clubId).single()
+        await notifyDirectorOfNewMember(clubId, userId, club?.membership_price_cents ?? null)
         break
       }
 

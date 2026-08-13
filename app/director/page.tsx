@@ -1444,7 +1444,9 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                   </div>
                   {showSplit && (
                     <span className={`text-[10px] font-black px-2 py-0.5 rounded-full shrink-0 ${m.member_type === "paid" ? "bg-[#c5f135]/15 text-[#c5f135] border border-[#c5f135]/30" : "bg-white/5 text-white/30 border border-white/10"}`}>
-                      {m.member_type === "paid" ? "Paid" : "Free"}
+                      {m.member_type === "paid"
+                        ? selectedClub.membership_price_cents ? `$${(selectedClub.membership_price_cents / 100).toFixed(2)}/mo` : "Paid"
+                        : "Free"}
                     </span>
                   )}
                   <button
@@ -1569,7 +1571,13 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                     <Card>
                       <div className="flex items-center justify-between mb-3">
                         <SectionTitle>Paying Members</SectionTitle>
-                        <span className="text-xs font-semibold text-white/30">{paidMembers.length}</span>
+                        {paidMembers.length > 0 && selectedClub.membership_price_cents ? (
+                          <span className="text-xs font-black text-[#c5f135]">
+                            ${((paidMembers.length * selectedClub.membership_price_cents) / 100).toFixed(2)}/mo total
+                          </span>
+                        ) : (
+                          <span className="text-xs font-semibold text-white/30">{paidMembers.length}</span>
+                        )}
                       </div>
                       {paidMembers.length === 0
                         ? <p className="text-sm text-white/80">No paying members yet.</p>
