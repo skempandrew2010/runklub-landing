@@ -18,7 +18,7 @@ function getSupabaseAdmin() {
 // happens at the start of a subscription, never on renewals — those go
 // through customer.subscription.updated instead), so there's no risk of
 // emailing the director every billing cycle.
-async function notifyDirectorOfNewMember(clubId: string, memberUserId: string, priceCents: number | null, billingInterval: "monthly" | "yearly") {
+async function notifyDirectorOfNewMember(clubId: string, memberUserId: string, priceCents: number | null, billingInterval: "monthly" | "yearly", planName: string | null) {
   const admin = getSupabaseAdmin()
   const { data: club } = await admin.from("clubs").select("id, name, user_id").eq("id", clubId).single()
   if (!club) return
@@ -32,7 +32,8 @@ async function notifyDirectorOfNewMember(clubId: string, memberUserId: string, p
   if (!directorEmail) return
 
   const memberName = memberProfile?.display_name || "A runner"
-  const priceLine = priceCents ? `They're paying $${(priceCents / 100).toFixed(2)}/${billingInterval === "yearly" ? "yr" : "mo"}.` : ""
+  const planLabel = planName ? ` (${planName})` : ""
+  const priceLine = priceCents ? `They're paying $${(priceCents / 100).toFixed(2)}/${billingInterval === "yearly" ? "yr" : "mo"}${planLabel}.` : ""
 
   try {
     const resend = new Resend(process.env.RESEND_API_KEY)
@@ -120,7 +121,7 @@ export async function POST(req: NextRequest) {
       //    ongoing status still comes from customer.subscription.updated. ──
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session
-        const { clubId, userId, billingInterval, priceCents } = session.metadata ?? {}
+        const { clubId, userId, billingInterval, priceCents, planId, planName } = session.metadata ?? {}
         if (!clubId || !userId || !session.subscription || !session.customer) break
 
         const interval: "monthly" | "yearly" = billingInterval === "yearly" ? "yearly" : "monthly"
@@ -134,16 +135,18 @@ export async function POST(req: NextRequest) {
           stripe_customer_id: session.customer as string,
           billing_interval: interval,
           price_cents: snapshotPrice,
+          plan_id: planId ?? null,
+          plan_name: planName ?? null,
         }, { onConflict: "user_id,club_id" })
 
-        await notifyDirectorOfNewMember(clubId, userId, snapshotPrice, interval)
+        await notifyDirectorOfNewMember(clubId, userId, snapshotPrice, interval, planName ?? null)
         break
       }
 
       // ── Subscription renewed, past due, or reactivated ──
       case "customer.subscription.updated": {
         const sub = event.data.object as Stripe.Subscription
-        const { clubId, userId, billingInterval, priceCents } = sub.metadata ?? {}
+        const { clubId, userId, billingInterval, priceCents, planId, planName } = sub.metadata ?? {}
         if (!clubId || !userId) break
 
         if (["active", "trialing"].includes(sub.status)) {
@@ -155,6 +158,8 @@ export async function POST(req: NextRequest) {
             stripe_customer_id: sub.customer as string,
             billing_interval: billingInterval === "yearly" ? "yearly" : "monthly",
             price_cents: priceCents ? Number(priceCents) : null,
+            plan_id: planId ?? null,
+            plan_name: planName ?? null,
           }, { onConflict: "user_id,club_id" })
         } else if (["canceled", "unpaid"].includes(sub.status)) {
           // past_due is deliberately not treated as terminal — Stripe is

@@ -22,10 +22,18 @@ export async function GET(req: NextRequest) {
     const clubId = req.nextUrl.searchParams.get("club_id")
     if (!clubId) return NextResponse.json({ error: "club_id is required" }, { status: 400 })
 
-    const { data: club } = await admin.from("clubs").select("id, name, membership_price_cents, membership_yearly_price_cents").eq("id", clubId).eq("user_id", user.id).single()
+    const { data: club } = await admin.from("clubs").select("id, name").eq("id", clubId).eq("user_id", user.id).single()
     if (!club) return NextResponse.json({ error: "Klub not found or unauthorized" }, { status: 403 })
 
-    const { data: subs } = await admin.from("subscriptions").select("user_id, member_type, created_at, billing_interval, price_cents").eq("club_id", clubId)
+    const { data: activePlans } = await admin
+      .from("club_membership_plans")
+      .select("id, name, price_cents, billing_interval")
+      .eq("club_id", clubId)
+      .eq("is_active", true)
+      .order("created_at")
+    const plans = (activePlans ?? []).map((p) => ({ id: p.id, name: p.name, priceCents: p.price_cents, billingInterval: p.billing_interval }))
+
+    const { data: subs } = await admin.from("subscriptions").select("user_id, member_type, created_at, billing_interval, price_cents, plan_name").eq("club_id", clubId)
     const memberIds = [...new Set((subs ?? []).map((s) => s.user_id))]
     // A "member" is a paid subscriber (member_type='paid'); everyone else with a
     // subscriptions row is a free "follower" — the two are mutually exclusive here,
@@ -47,8 +55,7 @@ export async function GET(req: NextRequest) {
         audience: { followerCount: 0, paidMemberCount: 0 },
         membershipRevenue: {
           totalCents: 0,
-          monthlyPriceCents: club.membership_price_cents,
-          yearlyPriceCents: club.membership_yearly_price_cents,
+          plans,
           members: [],
         },
         recentWorkouts: [],
@@ -158,6 +165,7 @@ export async function GET(req: NextRequest) {
         joinedAt: s.created_at,
         priceCents: s.price_cents,
         billingInterval: s.billing_interval ?? "monthly",
+        planName: s.plan_name,
       }))
       .sort((a, b) => (b.joinedAt ?? "").localeCompare(a.joinedAt ?? ""))
 
@@ -212,8 +220,7 @@ export async function GET(req: NextRequest) {
       audience: { followerCount, paidMemberCount },
       membershipRevenue: {
         totalCents: membershipRevenueCents,
-        monthlyPriceCents: club.membership_price_cents,
-        yearlyPriceCents: club.membership_yearly_price_cents,
+        plans,
         members: payingMembers,
       },
       recentWorkouts,

@@ -88,8 +88,6 @@ type ClubWithCount = {
   membership_type: MembershipType
   website: string | null
   default_timezone: string | null
-  membership_price_cents: number | null
-  membership_yearly_price_cents: number | null
   stripe_connect_account_id: string | null
   stripe_connect_charges_enabled: boolean
   stripe_connect_payouts_enabled: boolean
@@ -165,7 +163,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
   const [nativeApp, setNativeApp] = useState(false)
   const [tierOverride, setTierOverride] = useState<"free" | "starter" | "growth" | "enterprise" | null>(null)
   const [isAdminMode, setIsAdminMode] = useState(false)
-  const [members, setMembers] = useState<{ id: string; user_id: string; created_at: string; member_type: string; billing_interval: string | null; price_cents: number | null; profiles: { display_name: string | null; avatar_url: string | null } | null; email: string | null }[]>([])
+  const [members, setMembers] = useState<{ id: string; user_id: string; created_at: string; member_type: string; billing_interval: string | null; price_cents: number | null; plan_name: string | null; profiles: { display_name: string | null; avatar_url: string | null } | null; email: string | null }[]>([])
   const [membersLoading, setMembersLoading] = useState(false)
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null)
   const [clubCoaches, setClubCoaches] = useState<{ id: string; name: string; user_id: string | null; pace_group_ids: string[] | null; region_ids: string[] | null; status: string }[]>([])
@@ -202,12 +200,14 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
   const [runSaving, setRunSaving] = useState<Set<string>>(new Set())
   const [attendanceCounts, setAttendanceCounts] = useState<Record<string, number>>({})
   const [connecting, setConnecting] = useState(false)
-  const [priceInput, setPriceInput] = useState("")
-  const [savingPrice, setSavingPrice] = useState(false)
-  const [priceError, setPriceError] = useState("")
-  const [yearlyPriceInput, setYearlyPriceInput] = useState("")
-  const [savingYearlyPrice, setSavingYearlyPrice] = useState(false)
-  const [yearlyPriceError, setYearlyPriceError] = useState("")
+  const [membershipPlans, setMembershipPlans] = useState<{ id: string; name: string; price_cents: number; billing_interval: string; is_active: boolean }[]>([])
+  const [plansLoading, setPlansLoading] = useState(false)
+  const [newPlanName, setNewPlanName] = useState("")
+  const [newPlanPrice, setNewPlanPrice] = useState("")
+  const [newPlanInterval, setNewPlanInterval] = useState<"monthly" | "yearly">("monthly")
+  const [creatingPlan, setCreatingPlan] = useState(false)
+  const [planError, setPlanError] = useState("")
+  const [archivingPlanId, setArchivingPlanId] = useState<string | null>(null)
 
   useEffect(() => {
     setNativeApp(isNativeApp())
@@ -290,7 +290,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
 
   const loadMembers = async (clubId: string) => {
     const [{ data: subs }, { data: emailRows }] = await Promise.all([
-      supabase.from("subscriptions").select("id, user_id, created_at, member_type, billing_interval, price_cents").eq("club_id", clubId).order("created_at", { ascending: false }),
+      supabase.from("subscriptions").select("id, user_id, created_at, member_type, billing_interval, price_cents, plan_name").eq("club_id", clubId).order("created_at", { ascending: false }),
       supabase.rpc("get_club_member_emails", { p_club_id: clubId }),
     ])
     const rows = (subs as any[]) || []
@@ -298,6 +298,11 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
     const emailByUserId = new Map(((emailRows as any[]) || []).map((r) => [r.user_id, r.email]))
     setMembers(rows.map((s) => ({ ...s, profiles: profs.get(s.user_id) ?? null, email: emailByUserId.get(s.user_id) ?? null })))
   }
+
+  useEffect(() => {
+    if (tab !== "settings" || !selectedClubId) return
+    loadMembershipPlans(selectedClubId)
+  }, [tab, selectedClubId])
 
   useEffect(() => {
     if (tab !== "members" || !selectedClubId) return
@@ -329,7 +334,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
     const load = async () => {
       const { data: clubs } = await supabase
         .from("clubs")
-        .select("id, name, city, location, meeting_day, meeting_time, image_url, tier, is_public, instagram_handle, membership_type, website, default_timezone, membership_price_cents, membership_yearly_price_cents, stripe_connect_account_id, stripe_connect_charges_enabled, stripe_connect_payouts_enabled, stripe_connect_details_submitted")
+        .select("id, name, city, location, meeting_day, meeting_time, image_url, tier, is_public, instagram_handle, membership_type, website, default_timezone, stripe_connect_account_id, stripe_connect_charges_enabled, stripe_connect_payouts_enabled, stripe_connect_details_submitted")
         .eq("user_id", userId)
       const rawClubs = clubs || []
       const clubIds = rawClubs.map((c: any) => c.id)
@@ -828,8 +833,8 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
     const club = myClubs.find((c) => c.id === selectedClubId)
     if (!club) return
     const next: MembershipType = club.membership_type === "free" ? "paid_required" : "free"
-    if (next === "free" && club.membership_price_cents) {
-      alert("Remove your membership price before turning off the paid membership tier.")
+    if (next === "free" && membershipPlans.some((p) => p.is_active)) {
+      alert("Archive your membership plans before turning off the paid membership tier.")
       return
     }
     const { error } = await supabase.from("clubs").update({ membership_type: next }).eq("id", selectedClubId)
@@ -857,41 +862,60 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
     }
   }
 
-  const savePrice = async (interval: "monthly" | "yearly", override?: number | null) => {
+  const loadMembershipPlans = async (clubId: string) => {
+    setPlansLoading(true)
+    const { data } = await supabase
+      .from("club_membership_plans")
+      .select("id, name, price_cents, billing_interval, is_active")
+      .eq("club_id", clubId)
+      .order("created_at")
+    setMembershipPlans(data ?? [])
+    setPlansLoading(false)
+  }
+
+  const createMembershipPlan = async () => {
     if (!selectedClubId) return
-    const setSaving = interval === "yearly" ? setSavingYearlyPrice : setSavingPrice
-    const setError = interval === "yearly" ? setYearlyPriceError : setPriceError
-    const input = interval === "yearly" ? yearlyPriceInput : priceInput
-    setSaving(true)
-    setError("")
-    let priceCents: number | null
-    if (override !== undefined) {
-      priceCents = override
-    } else {
-      const trimmed = input.trim()
-      priceCents = trimmed === "" ? null : Math.round(parseFloat(trimmed) * 100)
-      if (priceCents !== null && (!Number.isFinite(priceCents) || Number.isNaN(priceCents))) {
-        setError("Enter a valid dollar amount")
-        setSaving(false)
-        return
-      }
-    }
+    setPlanError("")
+    const trimmedName = newPlanName.trim()
+    if (!trimmedName) { setPlanError("Enter a plan name"); return }
+    const priceCents = Math.round(parseFloat(newPlanPrice) * 100)
+    if (!Number.isFinite(priceCents) || Number.isNaN(priceCents)) { setPlanError("Enter a valid dollar amount"); return }
+    setCreatingPlan(true)
     const { data: { session } } = await supabase.auth.getSession()
-    if (!session) { setSaving(false); return }
-    const res = await fetch("/api/director/connect/set-price", {
+    if (!session) { setCreatingPlan(false); return }
+    const res = await fetch("/api/director/connect/membership-plans", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ clubId: selectedClubId, interval, priceCents }),
+      body: JSON.stringify({ clubId: selectedClubId, name: trimmedName, priceCents, billingInterval: newPlanInterval }),
     })
     const json = await res.json()
-    setSaving(false)
-    if (!res.ok) { setError(json.error ?? "Couldn't save price"); return }
-    const field = interval === "yearly" ? "membership_yearly_price_cents" : "membership_price_cents"
+    setCreatingPlan(false)
+    if (!res.ok) { setPlanError(json.error ?? "Couldn't create plan"); return }
+    setMembershipPlans((prev) => [...prev, json])
+    setNewPlanName("")
+    setNewPlanPrice("")
     setMyClubs((prev) => prev.map((c) => c.id === selectedClubId
-      ? { ...c, [field]: priceCents, membership_type: priceCents && c.membership_type === "free" ? "paid_required" : c.membership_type }
+      ? { ...c, membership_type: c.membership_type === "free" ? "paid_required" : c.membership_type }
       : c
     ))
-    if (interval === "yearly") setYearlyPriceInput(""); else setPriceInput("")
+  }
+
+  const setPlanActive = async (planId: string, isActive: boolean) => {
+    setArchivingPlanId(planId)
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) { setArchivingPlanId(null); return }
+    const res = isActive
+      ? await fetch("/api/director/connect/membership-plans", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+          body: JSON.stringify({ planId, isActive: true }),
+        })
+      : await fetch(`/api/director/connect/membership-plans?planId=${planId}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        })
+    setArchivingPlanId(null)
+    if (res.ok) setMembershipPlans((prev) => prev.map((p) => p.id === planId ? { ...p, is_active: isActive } : p))
   }
 
   const updateDefaultTimezone = async (tz: string) => {
@@ -1454,7 +1478,10 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold text-white truncate">{m.profiles?.display_name || "Runner"}</p>
                     {m.email && <p className="text-xs text-white/60 truncate">{m.email}</p>}
-                    <p className="text-xs text-white/80">Joined {new Date(m.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</p>
+                    <p className="text-xs text-white/80">
+                      Joined {new Date(m.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      {m.plan_name && ` · ${m.plan_name}`}
+                    </p>
                   </div>
                   {showSplit && (
                     <span className={`text-[10px] font-black px-2 py-0.5 rounded-full shrink-0 ${m.member_type === "paid" ? "bg-[#c5f135]/15 text-[#c5f135] border border-[#c5f135]/30" : "bg-white/5 text-white/30 border border-white/10"}`}>
@@ -2088,62 +2115,70 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                   </>
                 ) : (
                   <>
-                    <div className="flex items-center gap-3 p-3 rounded-xl bg-[#1a2110] border border-[#2e3d1a] mb-3">
+                    <div className="flex items-center gap-3 p-3 rounded-xl bg-[#1a2110] border border-[#2e3d1a] mb-4">
                       <CreditCard className="w-4 h-4 text-[#c5f135] shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-white">Stripe Connected</p>
                         <p className="text-xs text-white/80 mt-0.5">
-                          {selectedClub.membership_price_cents || selectedClub.membership_yearly_price_cents
-                            ? [
-                                selectedClub.membership_price_cents ? `$${(selectedClub.membership_price_cents / 100).toFixed(2)}/mo` : null,
-                                selectedClub.membership_yearly_price_cents ? `$${(selectedClub.membership_yearly_price_cents / 100).toFixed(2)}/yr` : null,
-                              ].filter(Boolean).join(" · ") + " per member"
-                            : "No membership price set yet"}
+                          Create as many named plans as you want — members pick whichever one you offer.
                         </p>
                       </div>
                     </div>
 
-                    <label className="block text-xs font-semibold text-white/80 mb-1.5">Monthly membership price</label>
-                    <div className="flex gap-2">
-                      <div className="flex-1">
-                        <Input
-                          type="number"
-                          min="3"
-                          max="1000"
-                          step="0.01"
-                          placeholder={selectedClub.membership_price_cents ? (selectedClub.membership_price_cents / 100).toFixed(2) : "e.g. 10.00"}
-                          value={priceInput}
-                          onChange={(e) => setPriceInput(e.target.value)}
-                        />
+                    {plansLoading ? (
+                      <div className="flex justify-center py-4">
+                        <div className="w-5 h-5 border-2 border-[#c5f135]/30 border-t-[#c5f135] rounded-full animate-spin" />
                       </div>
-                      <Button onClick={() => savePrice("monthly")} disabled={savingPrice}>{savingPrice ? "…" : "Save"}</Button>
-                      {selectedClub.membership_price_cents && (
-                        <Button variant="ghost" onClick={() => savePrice("monthly", null)} disabled={savingPrice}>Clear</Button>
-                      )}
-                    </div>
-                    {priceError && <p className="text-red-400 text-xs mt-2">{priceError}</p>}
-                    <p className="text-xs text-white/40 mt-2 mb-4">$3–$1,000/mo. Setting either price replaces free approval requests with paid signups.</p>
+                    ) : membershipPlans.length > 0 ? (
+                      <div className="space-y-2 mb-4">
+                        {membershipPlans.map((plan) => (
+                          <div key={plan.id} className={`flex items-center gap-3 p-3 rounded-xl border ${plan.is_active ? "bg-[#1a2110] border-[#2e3d1a]" : "bg-[#1a2110]/50 border-[#2e3d1a]/50"}`}>
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-sm font-bold truncate ${plan.is_active ? "text-white" : "text-white/40 line-through"}`}>{plan.name}</p>
+                              <p className="text-xs text-white/50">${(plan.price_cents / 100).toFixed(2)}/{plan.billing_interval === "yearly" ? "yr" : "mo"}</p>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              onClick={() => setPlanActive(plan.id, !plan.is_active)}
+                              disabled={archivingPlanId === plan.id}
+                            >
+                              {archivingPlanId === plan.id ? "…" : plan.is_active ? "Archive" : "Reactivate"}
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-white/80 mb-4">No membership plans yet — add one below.</p>
+                    )}
 
-                    <label className="block text-xs font-semibold text-white/80 mb-1.5">Yearly membership price (optional)</label>
-                    <div className="flex gap-2">
-                      <div className="flex-1">
-                        <Input
-                          type="number"
-                          min="30"
-                          max="10000"
-                          step="0.01"
-                          placeholder={selectedClub.membership_yearly_price_cents ? (selectedClub.membership_yearly_price_cents / 100).toFixed(2) : "e.g. 100.00"}
-                          value={yearlyPriceInput}
-                          onChange={(e) => setYearlyPriceInput(e.target.value)}
-                        />
+                    <label className="block text-xs font-semibold text-white/80 mb-1.5">Add a plan</label>
+                    <div className="space-y-2">
+                      <Input placeholder="Plan name — e.g. Monthly, Student Rate, Family Plan" value={newPlanName} onChange={(e) => setNewPlanName(e.target.value)} />
+                      <div className="flex gap-2">
+                        <div className="flex-1">
+                          <Input
+                            type="number"
+                            min={newPlanInterval === "yearly" ? "30" : "3"}
+                            max={newPlanInterval === "yearly" ? "10000" : "1000"}
+                            step="0.01"
+                            placeholder="e.g. 10.00"
+                            value={newPlanPrice}
+                            onChange={(e) => setNewPlanPrice(e.target.value)}
+                          />
+                        </div>
+                        <select
+                          value={newPlanInterval}
+                          onChange={(e) => setNewPlanInterval(e.target.value as "monthly" | "yearly")}
+                          className="bg-[#111a0a] border border-[#2e3d1a] rounded-xl px-3 text-sm text-white focus:outline-none focus:border-[#c5f135]/50"
+                        >
+                          <option value="monthly">/month</option>
+                          <option value="yearly">/year</option>
+                        </select>
+                        <Button onClick={createMembershipPlan} disabled={creatingPlan}>{creatingPlan ? "…" : "Add"}</Button>
                       </div>
-                      <Button onClick={() => savePrice("yearly")} disabled={savingYearlyPrice}>{savingYearlyPrice ? "…" : "Save"}</Button>
-                      {selectedClub.membership_yearly_price_cents && (
-                        <Button variant="ghost" onClick={() => savePrice("yearly", null)} disabled={savingYearlyPrice}>Clear</Button>
-                      )}
                     </div>
-                    {yearlyPriceError && <p className="text-red-400 text-xs mt-2">{yearlyPriceError}</p>}
-                    <p className="text-xs text-white/40 mt-2">$30–$10,000/yr. Offer this alongside or instead of monthly — members pick whichever you set.</p>
+                    {planError && <p className="text-red-400 text-xs mt-2">{planError}</p>}
+                    <p className="text-xs text-white/40 mt-2">$3–$1,000/mo or $30–$10,000/yr per plan. Adding a plan replaces free approval requests with paid signups.</p>
                   </>
                 )}
               </Card>
