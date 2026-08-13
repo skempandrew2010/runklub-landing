@@ -22,10 +22,10 @@ export async function GET(req: NextRequest) {
     const clubId = req.nextUrl.searchParams.get("club_id")
     if (!clubId) return NextResponse.json({ error: "club_id is required" }, { status: 400 })
 
-    const { data: club } = await admin.from("clubs").select("id, name, membership_price_cents").eq("id", clubId).eq("user_id", user.id).single()
+    const { data: club } = await admin.from("clubs").select("id, name, membership_price_cents, membership_yearly_price_cents").eq("id", clubId).eq("user_id", user.id).single()
     if (!club) return NextResponse.json({ error: "Klub not found or unauthorized" }, { status: 403 })
 
-    const { data: subs } = await admin.from("subscriptions").select("user_id, member_type, created_at").eq("club_id", clubId)
+    const { data: subs } = await admin.from("subscriptions").select("user_id, member_type, created_at, billing_interval, price_cents").eq("club_id", clubId)
     const memberIds = [...new Set((subs ?? []).map((s) => s.user_id))]
     // A "member" is a paid subscriber (member_type='paid'); everyone else with a
     // subscriptions row is a free "follower" — the two are mutually exclusive here,
@@ -34,14 +34,23 @@ export async function GET(req: NextRequest) {
     const paidMemberIds = new Set(paidSubs.map((s) => s.user_id))
     const followerCount = memberIds.length - paidMemberIds.size
     const paidMemberCount = paidMemberIds.size
-    const priceCents = club.membership_price_cents ?? 0
-    const membershipRevenueCents = paidMemberCount * priceCents
+    // Monthly-equivalent total across a mix of monthly/yearly members —
+    // yearly contributions are divided by 12 so this is a real MRR figure.
+    const membershipRevenueCents = paidSubs.reduce((sum, s) => {
+      if (!s.price_cents) return sum
+      return sum + (s.billing_interval === "yearly" ? s.price_cents / 12 : s.price_cents)
+    }, 0)
 
     if (memberIds.length === 0) {
       return NextResponse.json({
         memberCount: 0,
         audience: { followerCount: 0, paidMemberCount: 0 },
-        membershipRevenue: { totalCents: 0, priceCents, members: [] },
+        membershipRevenue: {
+          totalCents: 0,
+          monthlyPriceCents: club.membership_price_cents,
+          yearlyPriceCents: club.membership_yearly_price_cents,
+          members: [],
+        },
         recentWorkouts: [],
         crossClubCheckins: [],
         passportCheckins: { checkinCount: 0, totalPayoutCents: 0, recentCheckins: [] },
@@ -147,7 +156,8 @@ export async function GET(req: NextRequest) {
         displayName: profileById[s.user_id]?.display_name ?? "Runner",
         avatarUrl: profileById[s.user_id]?.avatar_url ?? null,
         joinedAt: s.created_at,
-        priceCents,
+        priceCents: s.price_cents,
+        billingInterval: s.billing_interval ?? "monthly",
       }))
       .sort((a, b) => (b.joinedAt ?? "").localeCompare(a.joinedAt ?? ""))
 
@@ -200,7 +210,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       memberCount: memberIds.length,
       audience: { followerCount, paidMemberCount },
-      membershipRevenue: { totalCents: membershipRevenueCents, priceCents, members: payingMembers },
+      membershipRevenue: {
+        totalCents: membershipRevenueCents,
+        monthlyPriceCents: club.membership_price_cents,
+        yearlyPriceCents: club.membership_yearly_price_cents,
+        members: payingMembers,
+      },
       recentWorkouts,
       crossClubCheckins,
       passportCheckins: {

@@ -10,22 +10,29 @@ function getSupabaseAdmin() {
 
 const MIN_PRICE_CENTS = 300
 const MAX_PRICE_CENTS = 100000
+const MIN_YEARLY_PRICE_CENTS = 3000
+const MAX_YEARLY_PRICE_CENTS = 1000000
+
+type Interval = "monthly" | "yearly"
 
 // POST /api/director/connect/set-price — sets or clears a klub's monthly
-// membership price. Setting a price for the first time flips membership_type
-// to paid_required (a price on a still-public klub would never be reachable)
-// and supersedes any pending free-approval requests, since paying replaces
-// that flow entirely once a price exists. Clearing a price is blocked while
-// any member has a live Stripe subscription — cancel them first rather than
-// silently orphaning it.
+// and/or yearly membership price (independently — a klub can offer just
+// one, both, or neither). Setting a price for the first time flips
+// membership_type to paid_required (a price on a still-public klub would
+// never be reachable) and supersedes any pending free-approval requests,
+// since paying replaces that flow entirely once a price exists. Clearing a
+// price is blocked while any member has a live Stripe subscription on that
+// interval — cancel them first rather than silently orphaning it.
 export async function POST(req: NextRequest) {
   try {
-    const { clubId, priceCents } = await req.json()
+    const { clubId, interval, priceCents } = await req.json()
 
     const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
     if (!clubId || !UUID_RE.test(clubId)) {
       return NextResponse.json({ error: "Invalid klub ID" }, { status: 400 })
     }
+    const billingInterval: Interval = interval === "yearly" ? "yearly" : "monthly"
+    const column = billingInterval === "yearly" ? "membership_yearly_price_cents" : "membership_price_cents"
 
     const token = req.headers.get("authorization")?.replace("Bearer ", "")
     if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -36,7 +43,7 @@ export async function POST(req: NextRequest) {
 
     const { data: club } = await admin
       .from("clubs")
-      .select("id, membership_type, stripe_connect_charges_enabled")
+      .select("id, membership_type, membership_price_cents, membership_yearly_price_cents, stripe_connect_charges_enabled")
       .eq("id", clubId)
       .eq("user_id", user.id)
       .single()
@@ -49,28 +56,31 @@ export async function POST(req: NextRequest) {
         .select("id", { count: "exact", head: true })
         .eq("club_id", clubId)
         .eq("member_type", "paid")
+        .eq("billing_interval", billingInterval)
         .not("stripe_subscription_id", "is", null)
 
       if ((count ?? 0) > 0) {
         return NextResponse.json(
-          { error: "Cancel active paying members' subscriptions before removing the price" },
+          { error: `Cancel active ${billingInterval} members' subscriptions before removing this price` },
           { status: 400 }
         )
       }
 
-      await admin.from("clubs").update({ membership_price_cents: null }).eq("id", clubId)
+      await admin.from("clubs").update({ [column]: null }).eq("id", clubId)
       return NextResponse.json({ ok: true })
     }
 
-    if (!Number.isInteger(priceCents) || priceCents < MIN_PRICE_CENTS || priceCents > MAX_PRICE_CENTS) {
-      return NextResponse.json({ error: "Price must be between $3.00 and $1,000.00" }, { status: 400 })
+    const min = billingInterval === "yearly" ? MIN_YEARLY_PRICE_CENTS : MIN_PRICE_CENTS
+    const max = billingInterval === "yearly" ? MAX_YEARLY_PRICE_CENTS : MAX_PRICE_CENTS
+    if (!Number.isInteger(priceCents) || priceCents < min || priceCents > max) {
+      return NextResponse.json({ error: `Price must be between $${(min / 100).toFixed(2)} and $${(max / 100).toFixed(2)}` }, { status: 400 })
     }
 
     if (!club.stripe_connect_charges_enabled) {
       return NextResponse.json({ error: "Finish connecting Stripe before setting a price" }, { status: 400 })
     }
 
-    const updates: Record<string, unknown> = { membership_price_cents: priceCents }
+    const updates: Record<string, unknown> = { [column]: priceCents }
     if (club.membership_type === "free") updates.membership_type = "paid_required"
     await admin.from("clubs").update(updates).eq("id", clubId)
 

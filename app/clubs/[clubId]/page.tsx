@@ -60,7 +60,7 @@ export default async function ClubPage({ params }: Props) {
   const [{ data: club }, { data: runs }, { count: memberCount }] = await Promise.all([
     getSupabase()
       .from("clubs")
-      .select("id, name, city, location, description, instagram_handle, image_url, tier, is_public, user_id, membership_type, website, latitude, longitude, membership_price_cents, stripe_connect_charges_enabled")
+      .select("id, name, city, location, description, instagram_handle, image_url, tier, is_public, user_id, membership_type, website, latitude, longitude, membership_price_cents, membership_yearly_price_cents, stripe_connect_charges_enabled")
       .eq("id", clubId)
       .maybeSingle(),
     getSupabase()

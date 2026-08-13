@@ -89,6 +89,7 @@ type ClubWithCount = {
   website: string | null
   default_timezone: string | null
   membership_price_cents: number | null
+  membership_yearly_price_cents: number | null
   stripe_connect_account_id: string | null
   stripe_connect_charges_enabled: boolean
   stripe_connect_payouts_enabled: boolean
@@ -164,7 +165,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
   const [nativeApp, setNativeApp] = useState(false)
   const [tierOverride, setTierOverride] = useState<"free" | "starter" | "growth" | "enterprise" | null>(null)
   const [isAdminMode, setIsAdminMode] = useState(false)
-  const [members, setMembers] = useState<{ id: string; user_id: string; created_at: string; member_type: string; profiles: { display_name: string | null; avatar_url: string | null } | null; email: string | null }[]>([])
+  const [members, setMembers] = useState<{ id: string; user_id: string; created_at: string; member_type: string; billing_interval: string | null; price_cents: number | null; profiles: { display_name: string | null; avatar_url: string | null } | null; email: string | null }[]>([])
   const [membersLoading, setMembersLoading] = useState(false)
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null)
   const [clubCoaches, setClubCoaches] = useState<{ id: string; name: string; user_id: string | null; pace_group_ids: string[] | null; region_ids: string[] | null; status: string }[]>([])
@@ -204,6 +205,9 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
   const [priceInput, setPriceInput] = useState("")
   const [savingPrice, setSavingPrice] = useState(false)
   const [priceError, setPriceError] = useState("")
+  const [yearlyPriceInput, setYearlyPriceInput] = useState("")
+  const [savingYearlyPrice, setSavingYearlyPrice] = useState(false)
+  const [yearlyPriceError, setYearlyPriceError] = useState("")
 
   useEffect(() => {
     setNativeApp(isNativeApp())
@@ -286,7 +290,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
 
   const loadMembers = async (clubId: string) => {
     const [{ data: subs }, { data: emailRows }] = await Promise.all([
-      supabase.from("subscriptions").select("id, user_id, created_at, member_type").eq("club_id", clubId).order("created_at", { ascending: false }),
+      supabase.from("subscriptions").select("id, user_id, created_at, member_type, billing_interval, price_cents").eq("club_id", clubId).order("created_at", { ascending: false }),
       supabase.rpc("get_club_member_emails", { p_club_id: clubId }),
     ])
     const rows = (subs as any[]) || []
@@ -325,7 +329,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
     const load = async () => {
       const { data: clubs } = await supabase
         .from("clubs")
-        .select("id, name, city, location, meeting_day, meeting_time, image_url, tier, is_public, instagram_handle, membership_type, website, default_timezone, membership_price_cents, stripe_connect_account_id, stripe_connect_charges_enabled, stripe_connect_payouts_enabled, stripe_connect_details_submitted")
+        .select("id, name, city, location, meeting_day, meeting_time, image_url, tier, is_public, instagram_handle, membership_type, website, default_timezone, membership_price_cents, membership_yearly_price_cents, stripe_connect_account_id, stripe_connect_charges_enabled, stripe_connect_payouts_enabled, stripe_connect_details_submitted")
         .eq("user_id", userId)
       const rawClubs = clubs || []
       const clubIds = rawClubs.map((c: any) => c.id)
@@ -853,37 +857,41 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
     }
   }
 
-  const savePrice = async (override?: number | null) => {
+  const savePrice = async (interval: "monthly" | "yearly", override?: number | null) => {
     if (!selectedClubId) return
-    setSavingPrice(true)
-    setPriceError("")
+    const setSaving = interval === "yearly" ? setSavingYearlyPrice : setSavingPrice
+    const setError = interval === "yearly" ? setYearlyPriceError : setPriceError
+    const input = interval === "yearly" ? yearlyPriceInput : priceInput
+    setSaving(true)
+    setError("")
     let priceCents: number | null
     if (override !== undefined) {
       priceCents = override
     } else {
-      const trimmed = priceInput.trim()
+      const trimmed = input.trim()
       priceCents = trimmed === "" ? null : Math.round(parseFloat(trimmed) * 100)
       if (priceCents !== null && (!Number.isFinite(priceCents) || Number.isNaN(priceCents))) {
-        setPriceError("Enter a valid dollar amount")
-        setSavingPrice(false)
+        setError("Enter a valid dollar amount")
+        setSaving(false)
         return
       }
     }
     const { data: { session } } = await supabase.auth.getSession()
-    if (!session) { setSavingPrice(false); return }
+    if (!session) { setSaving(false); return }
     const res = await fetch("/api/director/connect/set-price", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ clubId: selectedClubId, priceCents }),
+      body: JSON.stringify({ clubId: selectedClubId, interval, priceCents }),
     })
     const json = await res.json()
-    setSavingPrice(false)
-    if (!res.ok) { setPriceError(json.error ?? "Couldn't save price"); return }
+    setSaving(false)
+    if (!res.ok) { setError(json.error ?? "Couldn't save price"); return }
+    const field = interval === "yearly" ? "membership_yearly_price_cents" : "membership_price_cents"
     setMyClubs((prev) => prev.map((c) => c.id === selectedClubId
-      ? { ...c, membership_price_cents: priceCents, membership_type: priceCents && c.membership_type === "free" ? "paid_required" : c.membership_type }
+      ? { ...c, [field]: priceCents, membership_type: priceCents && c.membership_type === "free" ? "paid_required" : c.membership_type }
       : c
     ))
-    setPriceInput("")
+    if (interval === "yearly") setYearlyPriceInput(""); else setPriceInput("")
   }
 
   const updateDefaultTimezone = async (tz: string) => {
@@ -1427,6 +1435,12 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
             const paidMembers = members.filter((m) => m.member_type === "paid")
             const communityMembers = members.filter((m) => m.member_type !== "paid")
             const showSplit = selectedClub.membership_type !== "free" && selectedClub.is_public
+            // Monthly-equivalent total across a mix of monthly/yearly members —
+            // yearly contributions are divided by 12 so this is a real MRR figure.
+            const monthlyEquivalentRevenueCents = paidMembers.reduce((sum, m) => {
+              if (!m.price_cents) return sum
+              return sum + (m.billing_interval === "yearly" ? m.price_cents / 12 : m.price_cents)
+            }, 0)
 
             const MemberRow = ({ m }: { m: typeof members[number] }) => {
               return (
@@ -1445,7 +1459,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                   {showSplit && (
                     <span className={`text-[10px] font-black px-2 py-0.5 rounded-full shrink-0 ${m.member_type === "paid" ? "bg-[#c5f135]/15 text-[#c5f135] border border-[#c5f135]/30" : "bg-white/5 text-white/30 border border-white/10"}`}>
                       {m.member_type === "paid"
-                        ? selectedClub.membership_price_cents ? `$${(selectedClub.membership_price_cents / 100).toFixed(2)}/mo` : "Paid"
+                        ? m.price_cents ? `$${(m.price_cents / 100).toFixed(2)}/${m.billing_interval === "yearly" ? "yr" : "mo"}` : "Paid"
                         : "Free"}
                     </span>
                   )}
@@ -1571,9 +1585,9 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                     <Card>
                       <div className="flex items-center justify-between mb-3">
                         <SectionTitle>Paying Members</SectionTitle>
-                        {paidMembers.length > 0 && selectedClub.membership_price_cents ? (
+                        {paidMembers.length > 0 && monthlyEquivalentRevenueCents > 0 ? (
                           <span className="text-xs font-black text-[#c5f135]">
-                            ${((paidMembers.length * selectedClub.membership_price_cents) / 100).toFixed(2)}/mo total
+                            ${(monthlyEquivalentRevenueCents / 100).toFixed(2)}/mo total
                           </span>
                         ) : (
                           <span className="text-xs font-semibold text-white/30">{paidMembers.length}</span>
@@ -2079,12 +2093,16 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-white">Stripe Connected</p>
                         <p className="text-xs text-white/80 mt-0.5">
-                          {selectedClub.membership_price_cents
-                            ? `Charging $${(selectedClub.membership_price_cents / 100).toFixed(2)}/mo per member`
+                          {selectedClub.membership_price_cents || selectedClub.membership_yearly_price_cents
+                            ? [
+                                selectedClub.membership_price_cents ? `$${(selectedClub.membership_price_cents / 100).toFixed(2)}/mo` : null,
+                                selectedClub.membership_yearly_price_cents ? `$${(selectedClub.membership_yearly_price_cents / 100).toFixed(2)}/yr` : null,
+                              ].filter(Boolean).join(" · ") + " per member"
                             : "No membership price set yet"}
                         </p>
                       </div>
                     </div>
+
                     <label className="block text-xs font-semibold text-white/80 mb-1.5">Monthly membership price</label>
                     <div className="flex gap-2">
                       <div className="flex-1">
@@ -2098,13 +2116,34 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                           onChange={(e) => setPriceInput(e.target.value)}
                         />
                       </div>
-                      <Button onClick={() => savePrice()} disabled={savingPrice}>{savingPrice ? "…" : "Save"}</Button>
+                      <Button onClick={() => savePrice("monthly")} disabled={savingPrice}>{savingPrice ? "…" : "Save"}</Button>
                       {selectedClub.membership_price_cents && (
-                        <Button variant="ghost" onClick={() => savePrice(null)} disabled={savingPrice}>Clear</Button>
+                        <Button variant="ghost" onClick={() => savePrice("monthly", null)} disabled={savingPrice}>Clear</Button>
                       )}
                     </div>
                     {priceError && <p className="text-red-400 text-xs mt-2">{priceError}</p>}
-                    <p className="text-xs text-white/40 mt-2">$3–$1,000/mo. Setting a price replaces free approval requests with paid signups.</p>
+                    <p className="text-xs text-white/40 mt-2 mb-4">$3–$1,000/mo. Setting either price replaces free approval requests with paid signups.</p>
+
+                    <label className="block text-xs font-semibold text-white/80 mb-1.5">Yearly membership price (optional)</label>
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <Input
+                          type="number"
+                          min="30"
+                          max="10000"
+                          step="0.01"
+                          placeholder={selectedClub.membership_yearly_price_cents ? (selectedClub.membership_yearly_price_cents / 100).toFixed(2) : "e.g. 100.00"}
+                          value={yearlyPriceInput}
+                          onChange={(e) => setYearlyPriceInput(e.target.value)}
+                        />
+                      </div>
+                      <Button onClick={() => savePrice("yearly")} disabled={savingYearlyPrice}>{savingYearlyPrice ? "…" : "Save"}</Button>
+                      {selectedClub.membership_yearly_price_cents && (
+                        <Button variant="ghost" onClick={() => savePrice("yearly", null)} disabled={savingYearlyPrice}>Clear</Button>
+                      )}
+                    </div>
+                    {yearlyPriceError && <p className="text-red-400 text-xs mt-2">{yearlyPriceError}</p>}
+                    <p className="text-xs text-white/40 mt-2">$30–$10,000/yr. Offer this alongside or instead of monthly — members pick whichever you set.</p>
                   </>
                 )}
               </Card>

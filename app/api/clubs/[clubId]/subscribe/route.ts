@@ -13,10 +13,11 @@ function getSupabaseAdmin() {
 }
 
 // POST /api/clubs/[clubId]/subscribe — creates a Checkout Session for a
-// runner to pay a klub's monthly membership price. Everything here runs
-// inside the connected account's own namespace ({ stripeAccount }) so the
-// resulting Customer/Subscription/Charge belong to the klub, not RunKlub —
-// that's what actually routes the money there. application_fee_percent on
+// runner to pay a klub's monthly or yearly membership price (director's
+// choice which interval(s) to offer). Everything here runs inside the
+// connected account's own namespace ({ stripeAccount }) so the resulting
+// Customer/Subscription/Charge belong to the klub, not RunKlub — that's
+// what actually routes the money there. application_fee_percent on
 // subscription_data is RunKlub's cut, scaled by the klub's SaaS tier.
 export async function POST(
   req: NextRequest,
@@ -24,6 +25,8 @@ export async function POST(
 ) {
   try {
     const { clubId } = await params
+    const { interval } = await req.json().catch(() => ({ interval: undefined }))
+    const billingInterval: "monthly" | "yearly" = interval === "yearly" ? "yearly" : "monthly"
 
     const token = req.headers.get("authorization")?.replace("Bearer ", "")
     if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -34,12 +37,14 @@ export async function POST(
 
     const { data: club } = await admin
       .from("clubs")
-      .select("id, name, tier, membership_price_cents, membership_currency, stripe_connect_account_id, stripe_connect_charges_enabled")
+      .select("id, name, tier, membership_price_cents, membership_yearly_price_cents, membership_currency, stripe_connect_account_id, stripe_connect_charges_enabled")
       .eq("id", clubId)
       .single()
 
     if (!club) return NextResponse.json({ error: "Klub not found" }, { status: 404 })
-    if (!club.membership_price_cents || !club.stripe_connect_account_id || !club.stripe_connect_charges_enabled) {
+
+    const priceCents = billingInterval === "yearly" ? club.membership_yearly_price_cents : club.membership_price_cents
+    if (!priceCents || !club.stripe_connect_account_id || !club.stripe_connect_charges_enabled) {
       return NextResponse.json({ error: "This klub isn't accepting paid memberships right now" }, { status: 400 })
     }
 
@@ -89,17 +94,17 @@ export async function POST(
         line_items: [{
           price_data: {
             currency: club.membership_currency ?? "usd",
-            unit_amount: club.membership_price_cents,
-            recurring: { interval: "month" },
-            product_data: { name: `${club.name} Monthly Membership` },
+            unit_amount: priceCents,
+            recurring: { interval: billingInterval === "yearly" ? "year" : "month" },
+            product_data: { name: `${club.name} ${billingInterval === "yearly" ? "Yearly" : "Monthly"} Membership` },
           },
           quantity: 1,
         }],
         subscription_data: {
           application_fee_percent: feePct,
-          metadata: { clubId, userId: user.id },
+          metadata: { clubId, userId: user.id, billingInterval, priceCents: String(priceCents) },
         },
-        metadata: { clubId, userId: user.id },
+        metadata: { clubId, userId: user.id, billingInterval, priceCents: String(priceCents) },
         success_url: `${appUrl}/clubs/${clubId}?subscribed=1`,
         cancel_url: `${appUrl}/clubs/${clubId}?subscribe_cancelled=1`,
       },

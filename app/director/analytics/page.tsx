@@ -15,8 +15,9 @@ type AnalyticsData = {
   audience: { followerCount: number; paidMemberCount: number }
   membershipRevenue: {
     totalCents: number
-    priceCents: number
-    members: { userId: string; displayName: string; avatarUrl: string | null; joinedAt: string; priceCents: number }[]
+    monthlyPriceCents: number | null
+    yearlyPriceCents: number | null
+    members: { userId: string; displayName: string; avatarUrl: string | null; joinedAt: string; priceCents: number | null; billingInterval: string }[]
   }
   recentWorkouts: {
     checkinId: string
@@ -260,9 +261,10 @@ export default function DirectorAnalyticsPage() {
 
             <Card title="Membership Revenue by Member" icon={<Users className="w-3.5 h-3.5 text-[#c5f135]" />}>
               <p className="text-xs text-white/35 mb-3 -mt-1">
-                {data.membershipRevenue.priceCents > 0
-                  ? `$${(data.membershipRevenue.priceCents / 100).toFixed(2)}/mo per paid member`
-                  : "No membership price set"}
+                {[
+                  data.membershipRevenue.monthlyPriceCents ? `$${(data.membershipRevenue.monthlyPriceCents / 100).toFixed(2)}/mo` : null,
+                  data.membershipRevenue.yearlyPriceCents ? `$${(data.membershipRevenue.yearlyPriceCents / 100).toFixed(2)}/yr` : null,
+                ].filter(Boolean).join(" · ") || "No membership price set"}
               </p>
               {data.membershipRevenue.members.length === 0 ? (
                 <p className="text-sm text-white/50">No paying members yet.</p>
@@ -283,7 +285,9 @@ export default function DirectorAnalyticsPage() {
                           Member since {new Date(m.joinedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                         </p>
                       </div>
-                      <span className="text-xs font-black text-[#c5f135] shrink-0">${(m.priceCents / 100).toFixed(2)}/mo</span>
+                      <span className="text-xs font-black text-[#c5f135] shrink-0">
+                        {m.priceCents ? `$${(m.priceCents / 100).toFixed(2)}/${m.billingInterval === "yearly" ? "yr" : "mo"}` : "—"}
+                      </span>
                     </div>
                   ))}
                 </div>
