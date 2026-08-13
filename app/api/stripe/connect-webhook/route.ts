@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import Stripe from "stripe"
 import { createClient } from "@supabase/supabase-js"
+import { Resend } from "resend"
+
+const FROM = process.env.RESEND_FROM_EMAIL ?? "RunKlub <info@runklub.fit>"
 
 function getStripe() { return new Stripe(process.env.STRIPE_SECRET_KEY!) }
 
@@ -9,6 +12,62 @@ function getSupabaseAdmin() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
+}
+
+// Fires once per brand-new paid signup (checkout.session.completed only
+// happens at the start of a subscription, never on renewals — those go
+// through customer.subscription.updated instead), so there's no risk of
+// emailing the director every billing cycle.
+async function notifyDirectorOfNewMember(clubId: string, memberUserId: string, priceCents: number | null, billingInterval: "monthly" | "yearly" | "seasonal", planName: string | null) {
+  const admin = getSupabaseAdmin()
+  const { data: club } = await admin.from("clubs").select("id, name, user_id").eq("id", clubId).single()
+  if (!club) return
+
+  const [{ data: memberProfile }, { data: directorUser }] = await Promise.all([
+    admin.from("profiles").select("display_name").eq("id", memberUserId).single(),
+    admin.auth.admin.getUserById(club.user_id),
+  ])
+
+  const directorEmail = directorUser?.user?.email
+  if (!directorEmail) return
+
+  const memberName = memberProfile?.display_name || "A runner"
+  const planLabel = planName ? ` (${planName})` : ""
+  const rate = billingInterval === "yearly" ? "/yr" : billingInterval === "seasonal" ? " one-time" : "/mo"
+  const priceLine = priceCents ? `They're paying $${(priceCents / 100).toFixed(2)}${rate}${planLabel}.` : ""
+
+  try {
+    const resend = new Resend(process.env.RESEND_API_KEY)
+    await resend.emails.send({
+      from: FROM,
+      to: directorEmail,
+      subject: `${memberName} just became a paying member of ${club.name}`,
+      html: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f4;padding:32px 0;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="background:#1a2110;border-radius:16px;overflow:hidden;max-width:600px;width:100%;">
+        <tr><td style="padding:24px 32px;border-bottom:1px solid #2e3d1a;">
+          <span style="font-size:20px;font-weight:900;color:#ffffff;">Run</span><span style="font-size:20px;font-weight:900;color:#c5f135;">Klub</span>
+        </td></tr>
+        <tr><td style="padding:32px;">
+          <h1 style="margin:0 0 16px;font-size:20px;font-weight:900;color:#ffffff;">New paying member 🎉</h1>
+          <p style="margin:0 0 8px;font-size:15px;line-height:1.7;color:rgba(255,255,255,0.8);">
+            <strong style="color:#ffffff;">${memberName}</strong> just subscribed to <strong style="color:#ffffff;">${club.name}</strong>. ${priceLine}
+          </p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`,
+      text: `${memberName} just subscribed to ${club.name}. ${priceLine}`,
+    })
+  } catch (err) {
+    console.error("notifyDirectorOfNewMember email error:", err)
+  }
 }
 
 // Reverts a member to a plain (free) follower — used for both a subscription
@@ -60,11 +119,43 @@ export async function POST(req: NextRequest) {
       }
 
       // ── Member's checkout completed — fast-path grant. Authoritative
-      //    ongoing status still comes from customer.subscription.updated. ──
+      //    ongoing status for recurring plans still comes from
+      //    customer.subscription.updated; seasonal (one-time) plans are
+      //    only ever granted here, since there's no subscription object. ──
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session
-        const { clubId, userId } = session.metadata ?? {}
-        if (!clubId || !userId || !session.subscription || !session.customer) break
+        const { clubId, userId, billingInterval, priceCents, planId, planName, seasonEndDate } = session.metadata ?? {}
+        if (!clubId || !userId || !session.customer) break
+
+        const interval: "monthly" | "yearly" | "seasonal" =
+          billingInterval === "yearly" ? "yearly" : billingInterval === "seasonal" ? "seasonal" : "monthly"
+        const snapshotPrice = priceCents ? Number(priceCents) : null
+
+        if (interval === "seasonal") {
+          if (!session.payment_intent) break
+          // seasonEndDate is a plain "YYYY-MM-DD" from the plan — everyone
+          // who joins this season shares the same fixed end date, rather
+          // than each getting a personal window starting at signup.
+          const expiresAt = seasonEndDate ? `${seasonEndDate}T23:59:59.000Z` : null
+
+          await getSupabaseAdmin().from("subscriptions").upsert({
+            user_id: userId,
+            club_id: clubId,
+            member_type: "paid",
+            stripe_subscription_id: null,
+            stripe_customer_id: session.customer as string,
+            billing_interval: interval,
+            price_cents: snapshotPrice,
+            plan_id: planId ?? null,
+            plan_name: planName ?? null,
+            expires_at: expiresAt,
+          }, { onConflict: "user_id,club_id" })
+
+          await notifyDirectorOfNewMember(clubId, userId, snapshotPrice, interval, planName ?? null)
+          break
+        }
+
+        if (!session.subscription) break
 
         await getSupabaseAdmin().from("subscriptions").upsert({
           user_id: userId,
@@ -72,14 +163,21 @@ export async function POST(req: NextRequest) {
           member_type: "paid",
           stripe_subscription_id: session.subscription as string,
           stripe_customer_id: session.customer as string,
+          billing_interval: interval,
+          price_cents: snapshotPrice,
+          plan_id: planId ?? null,
+          plan_name: planName ?? null,
+          expires_at: null,
         }, { onConflict: "user_id,club_id" })
+
+        await notifyDirectorOfNewMember(clubId, userId, snapshotPrice, interval, planName ?? null)
         break
       }
 
       // ── Subscription renewed, past due, or reactivated ──
       case "customer.subscription.updated": {
         const sub = event.data.object as Stripe.Subscription
-        const { clubId, userId } = sub.metadata ?? {}
+        const { clubId, userId, billingInterval, priceCents, planId, planName } = sub.metadata ?? {}
         if (!clubId || !userId) break
 
         if (["active", "trialing"].includes(sub.status)) {
@@ -89,6 +187,10 @@ export async function POST(req: NextRequest) {
             member_type: "paid",
             stripe_subscription_id: sub.id,
             stripe_customer_id: sub.customer as string,
+            billing_interval: billingInterval === "yearly" ? "yearly" : "monthly",
+            price_cents: priceCents ? Number(priceCents) : null,
+            plan_id: planId ?? null,
+            plan_name: planName ?? null,
           }, { onConflict: "user_id,club_id" })
         } else if (["canceled", "unpaid"].includes(sub.status)) {
           // past_due is deliberately not treated as terminal — Stripe is

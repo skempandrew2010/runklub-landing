@@ -31,7 +31,6 @@ export type Club = {
   website?: string | null
   latitude?: number | null
   longitude?: number | null
-  membership_price_cents?: number | null
   stripe_connect_charges_enabled?: boolean | null
 }
 
@@ -92,6 +91,7 @@ export default function ClubPageClient({
   const [showClubChat, setShowClubChat] = useState(false)
   const [isPaidMember, setIsPaidMember] = useState(false)
   const [memberOnlyRuns, setMemberOnlyRuns] = useState<Run[]>([])
+  const [membershipPlans, setMembershipPlans] = useState<{ id: string; name: string; price_cents: number; billing_interval: string; season_start_date: string | null; season_end_date: string | null }[]>([])
 
   // Refs for section-visibility tracking
   const runsRef = useRef<HTMLDivElement>(null)
@@ -102,6 +102,21 @@ export default function ClubPageClient({
   useEffect(() => {
     track("club_viewed", { clubId: club.id, clubName: club.name, city: club.city ?? "unknown" })
   }, [club.id, club.name, club.city])
+
+  useEffect(() => {
+    const today = localDateStr()
+    supabase
+      .from("club_membership_plans")
+      .select("id, name, price_cents, billing_interval, season_start_date, season_end_date")
+      .eq("club_id", club.id)
+      .eq("is_active", true)
+      // A seasonal plan whose season has already ended shouldn't be offered
+      // to new signups — everyone else (monthly/yearly, or a season still
+      // upcoming/current) stays visible.
+      .or(`billing_interval.neq.seasonal,season_end_date.gte.${today}`)
+      .order("created_at")
+      .then(({ data }) => setMembershipPlans(data ?? []))
+  }, [club.id])
 
   // Track section visibility via IntersectionObserver
   useEffect(() => {
@@ -199,7 +214,7 @@ export default function ClubPageClient({
     if (!error) setJoinRequestStatus("pending")
   }
 
-  const handleSubscribe = async () => {
+  const handleSubscribe = async (planId: string) => {
     if (!userId) { router.push("/login"); return }
     setSubscribing(true)
     const { data: { session } } = await supabase.auth.getSession()
@@ -207,6 +222,7 @@ export default function ClubPageClient({
     const res = await fetch(`/api/clubs/${club.id}/subscribe`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ planId }),
     })
     const json = await res.json()
     if (res.ok && json.url) {
@@ -350,15 +366,32 @@ export default function ClubPageClient({
               )}
 
               {!isPaidMember ? (
-                club.membership_price_cents ? (
+                membershipPlans.length > 0 ? (
                   club.stripe_connect_charges_enabled ? (
-                    <button
-                      onClick={handleSubscribe}
-                      disabled={subscribing}
-                      className="px-5 py-2.5 rounded-full text-sm font-black transition disabled:opacity-60 bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45]"
-                    >
-                      {subscribing ? "…" : `Subscribe — $${(club.membership_price_cents / 100).toFixed(2)}/mo`}
-                    </button>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {membershipPlans.map((plan) => (
+                        <button
+                          key={plan.id}
+                          onClick={() => handleSubscribe(plan.id)}
+                          disabled={subscribing}
+                          className={`px-4 py-2.5 rounded-full text-sm font-black transition disabled:opacity-60 ${
+                            plan === membershipPlans[0]
+                              ? "bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45]"
+                              : "bg-[#1e2d12] border border-[#c5f135]/50 text-[#c5f135] hover:border-[#c5f135]"
+                          }`}
+                        >
+                          {subscribing
+                            ? "…"
+                            : `Join ${plan.name} — $${(plan.price_cents / 100).toFixed(2)}${
+                                plan.billing_interval === "yearly"
+                                  ? "/yr"
+                                  : plan.billing_interval === "seasonal" && plan.season_start_date && plan.season_end_date
+                                  ? ` one-time (${new Date(plan.season_start_date + "T00:00:00").toLocaleDateString("en-US", { month: "short" })}–${new Date(plan.season_end_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", year: "numeric" })})`
+                                  : "/mo"
+                              }`}
+                        </button>
+                      ))}
+                    </div>
                   ) : (
                     <span className="px-5 py-2.5 rounded-full text-sm font-black bg-[#1e2d12] border border-white/20 text-white/50">
                       Membership signups paused
@@ -379,17 +412,16 @@ export default function ClubPageClient({
                     {requestingJoin ? "…" : joinRequestStatus === "pending" ? "Request Pending" : joinRequestStatus === "rejected" ? "Request Declined" : "Request to Join"}
                   </button>
                 )
-              ) : club.membership_price_cents ? (
+              ) : (
+                // A paying member can always manage/cancel their billing,
+                // even if the specific plan they joined has since been
+                // archived and no longer shows in the join options above.
                 <button
                   onClick={handleManageMembership}
                   className="px-5 py-2.5 rounded-full text-sm font-black bg-[#1e2d12] border border-[#c5f135]/50 text-[#c5f135] hover:border-[#c5f135]/80 transition"
                 >
                   Member · Manage
                 </button>
-              ) : (
-                <span className="px-5 py-2.5 rounded-full text-sm font-black bg-[#1e2d12] border border-[#c5f135]/50 text-[#c5f135]">
-                  Member
-                </span>
               )}
             </>
           ) : (

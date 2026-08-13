@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import Stripe from "stripe"
 import { createClient } from "@supabase/supabase-js"
+import { passportTierAndIntervalForPriceId, type PassportBillingInterval } from "@/lib/passportStripe"
 
 function getStripe() { return new Stripe(process.env.STRIPE_SECRET_KEY!); }
 
@@ -38,6 +39,63 @@ export async function POST(req: NextRequest) {
       // ── One-time payment completed (Verified) or subscription checkout started (Pro) ──
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session
+
+        // Passport credit subscription — distinguished from klub SaaS
+        // checkout by metadata, since both share this one platform-level
+        // webhook/secret. Only creates the subscriptions row; the first
+        // credit batch is issued by invoice.paid below (same event that
+        // fires on every renewal), not here, so there's exactly one place
+        // that ever calls passport_issue_credits.
+        if (session.metadata?.passportProgram === "true") {
+          const { userId, tier } = session.metadata
+          if (!userId || !tier || !session.subscription || !session.customer) break
+
+          const billingInterval: PassportBillingInterval = session.metadata.interval === "yearly" ? "yearly" : "monthly"
+          // Yearly subscribers get their first monthly batch from
+          // invoice.paid (below) same as everyone else; this schedules the
+          // *second* one, since Stripe won't invoice them again for a year.
+          const nextCreditIssueAt = billingInterval === "yearly"
+            ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+            : null
+
+          const admin = getSupabaseAdmin()
+          const stripeSubId = session.subscription as string
+
+          // Idempotent against Stripe's at-least-once webhook delivery (a
+          // redelivered event re-updates the same row) and defensive against
+          // a stale active row for this user from an earlier subscription
+          // our webhook missed the cancellation of — either way, update
+          // rather than insert, so we never hit the one-active-subscription-
+          // per-user unique index.
+          const { data: existing } = await admin
+            .from("passport_subscriptions")
+            .select("id")
+            .or(`stripe_subscription_id.eq.${stripeSubId},and(user_id.eq.${userId},status.eq.active)`)
+            .maybeSingle()
+
+          if (existing) {
+            await admin.from("passport_subscriptions").update({
+              tier: Number(tier),
+              status: "active",
+              billing_interval: billingInterval,
+              next_credit_issue_at: nextCreditIssueAt,
+              stripe_subscription_id: stripeSubId,
+              stripe_customer_id: session.customer as string,
+            }).eq("id", existing.id)
+          } else {
+            await admin.from("passport_subscriptions").insert({
+              user_id: userId,
+              tier: Number(tier),
+              status: "active",
+              billing_interval: billingInterval,
+              next_credit_issue_at: nextCreditIssueAt,
+              stripe_subscription_id: stripeSubId,
+              stripe_customer_id: session.customer as string,
+            })
+          }
+          break
+        }
+
         const { clubId, tier } = session.metadata ?? {}
         if (!clubId || !tier) break
 
@@ -52,9 +110,79 @@ export async function POST(req: NextRequest) {
         break
       }
 
+      // ── Invoice paid — for Passport, this is the subscriber's billing
+      //    date and the only trigger for issuing a credit batch (covers
+      //    both the first payment and every renewal, so issuance never has
+      //    to be duplicated in checkout.session.completed). ──
+      case "invoice.paid": {
+        const invoice = event.data.object as Stripe.Invoice
+        const subscriptionId = (invoice as any).subscription as string | null
+        if (!subscriptionId) break
+
+        const admin = getSupabaseAdmin()
+        const { data: passportSub } = await admin
+          .from("passport_subscriptions")
+          .select("id, status, billing_interval")
+          .eq("stripe_subscription_id", subscriptionId)
+          .maybeSingle()
+
+        if (!passportSub || passportSub.status !== "active") break
+
+        const { error } = await admin.rpc("passport_issue_credits", { p_subscription_id: passportSub.id })
+        if (error) console.error("passport_issue_credits failed for invoice.paid:", error)
+
+        // A yearly subscriber only reaches this case at signup and once a
+        // year at renewal — either way, restart their monthly cadence for
+        // the new period (this invoice's payment already covered month 1).
+        if (passportSub.billing_interval === "yearly") {
+          await admin.from("passport_subscriptions").update({
+            next_credit_issue_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+          }).eq("id", passportSub.id)
+        }
+        break
+      }
+
       // ── Subscription renewed, plan-changed, or payment failed ──
       case "customer.subscription.updated": {
         const sub = event.data.object as Stripe.Subscription
+
+        if (sub.metadata?.passportProgram === "true") {
+          const admin = getSupabaseAdmin()
+          const priceId = sub.items.data[0]?.price?.id
+          const resolved = passportTierAndIntervalForPriceId(priceId)
+          const isActive = ["active", "trialing"].includes(sub.status)
+          const updates: Record<string, unknown> = {
+            status: isActive ? "active" : sub.status === "past_due" ? "past_due" : "canceled",
+            current_period_start: (sub as any).current_period_start
+              ? new Date((sub as any).current_period_start * 1000).toISOString() : null,
+            current_period_end: (sub as any).current_period_end
+              ? new Date((sub as any).current_period_end * 1000).toISOString() : null,
+          }
+          // A plan switch (upgrade/downgrade, or monthly<->yearly) takes
+          // effect at the next billing date, not immediately — invoice.paid
+          // issues credits at whatever tier/interval is on the row *then*,
+          // so just keep tier/interval in sync with Stripe's current price
+          // rather than issuing anything here.
+          if (resolved) {
+            updates.tier = resolved.tier
+            updates.billing_interval = resolved.interval
+            if (resolved.interval === "yearly") {
+              // Switched into yearly — if there's no schedule yet, start one.
+              const { data: current } = await admin
+                .from("passport_subscriptions")
+                .select("next_credit_issue_at")
+                .eq("stripe_subscription_id", sub.id)
+                .maybeSingle()
+              if (!current?.next_credit_issue_at) {
+                updates.next_credit_issue_at = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+              }
+            } else {
+              updates.next_credit_issue_at = null
+            }
+          }
+          await admin.from("passport_subscriptions").update(updates).eq("stripe_subscription_id", sub.id)
+          break
+        }
 
         const { data: club } = await getSupabaseAdmin()
           .from("clubs")
@@ -86,6 +214,16 @@ export async function POST(req: NextRequest) {
       // ── Subscription cancelled ──
       case "customer.subscription.deleted": {
         const sub = event.data.object as Stripe.Subscription
+
+        if (sub.metadata?.passportProgram === "true") {
+          // Already-issued, unexpired credit batches are left alone — they
+          // remain spendable until their normal 45-day expiration.
+          await getSupabaseAdmin().from("passport_subscriptions").update({
+            status: "canceled",
+            canceled_at: new Date().toISOString(),
+          }).eq("stripe_subscription_id", sub.id)
+          break
+        }
 
         const { data: club } = await getSupabaseAdmin()
           .from("clubs")

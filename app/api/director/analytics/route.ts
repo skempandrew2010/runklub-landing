@@ -25,22 +25,44 @@ export async function GET(req: NextRequest) {
     const { data: club } = await admin.from("clubs").select("id, name").eq("id", clubId).eq("user_id", user.id).single()
     if (!club) return NextResponse.json({ error: "Klub not found or unauthorized" }, { status: 403 })
 
-    const { data: subs } = await admin.from("subscriptions").select("user_id, member_type").eq("club_id", clubId)
+    const { data: activePlans } = await admin
+      .from("club_membership_plans")
+      .select("id, name, price_cents, billing_interval")
+      .eq("club_id", clubId)
+      .eq("is_active", true)
+      .order("created_at")
+    const plans = (activePlans ?? []).map((p) => ({ id: p.id, name: p.name, priceCents: p.price_cents, billingInterval: p.billing_interval }))
+
+    const { data: subs } = await admin.from("subscriptions").select("user_id, member_type, created_at, billing_interval, price_cents, plan_name").eq("club_id", clubId)
     const memberIds = [...new Set((subs ?? []).map((s) => s.user_id))]
     // A "member" is a paid subscriber (member_type='paid'); everyone else with a
     // subscriptions row is a free "follower" — the two are mutually exclusive here,
     // unlike the combined memberIds list used below for community-wide metrics.
-    const paidMemberIds = new Set((subs ?? []).filter((s) => s.member_type === "paid").map((s) => s.user_id))
+    const paidSubs = (subs ?? []).filter((s) => s.member_type === "paid")
+    const paidMemberIds = new Set(paidSubs.map((s) => s.user_id))
     const followerCount = memberIds.length - paidMemberIds.size
     const paidMemberCount = paidMemberIds.size
+    // Monthly-equivalent total across a mix of monthly/yearly members —
+    // yearly contributions are divided by 12 so this is a real MRR figure.
+    // Seasonal (one-time, non-renewing) payments are deliberately excluded
+    // — they're not recurring revenue.
+    const membershipRevenueCents = paidSubs.reduce((sum, s) => {
+      if (!s.price_cents || s.billing_interval === "seasonal") return sum
+      return sum + (s.billing_interval === "yearly" ? s.price_cents / 12 : s.price_cents)
+    }, 0)
 
     if (memberIds.length === 0) {
       return NextResponse.json({
         memberCount: 0,
         audience: { followerCount: 0, paidMemberCount: 0 },
+        membershipRevenue: {
+          totalCents: 0,
+          plans,
+          members: [],
+        },
         recentWorkouts: [],
         crossClubCheckins: [],
-        premium: { subscriberCount: 0, subscribers: [], referralSubscriberCount: 0, monthlyRevenueCents: 0, isPlaceholder: true },
+        passportCheckins: { checkinCount: 0, totalPayoutCents: 0, recentCheckins: [] },
         rsvpVsCheckin: { totalRsvps: 0, totalCheckins: 0, rate: null, recentRuns: [] },
         retention: { active: 0, atRisk: 0, churned: 0 },
         emailEngagement: { totalSent: 0, delivered: 0, opened: 0, clicked: 0, bounced: 0, complained: 0, openRate: null, clickRate: null },
@@ -52,7 +74,7 @@ export async function GET(req: NextRequest) {
     const thirtyDaysAgo = new Date(today); thirtyDaysAgo.setDate(today.getDate() - 30)
     const sixtyDaysAgo = new Date(today); sixtyDaysAgo.setDate(today.getDate() - 60)
 
-    const [profilesRes, recentCheckinsRes, otherClubCheckinsRes, premiumRes, referralRes, recentRunsRes, lastCheckinRes, emailSendsRes] = await Promise.all([
+    const [profilesRes, recentCheckinsRes, otherClubCheckinsRes, passportCheckinsRes, recentRunsRes, lastCheckinRes, emailSendsRes] = await Promise.all([
       admin.from("profiles").select("id, display_name, avatar_url").in("id", memberIds),
       admin.from("run_checkins")
         .select("id, user_id, checked_in_at, run_id, runs(title, date)")
@@ -65,14 +87,13 @@ export async function GET(req: NextRequest) {
         .neq("club_id", clubId)
         .order("first_checkin_at", { ascending: false })
         .limit(50),
-      admin.from("passport_premium_subscriptions")
-        .select("user_id, started_at")
-        .in("user_id", memberIds)
-        .eq("status", "active"),
-      admin.from("passport_premium_subscriptions")
-        .select("price_cents, referral_pct")
-        .eq("referring_club_id", clubId)
-        .eq("status", "active"),
+      // Passport check-ins: runners from *other* klubs redeeming credits at
+      // this one — the payout this club earns from the Passport program.
+      admin.from("passport_checkins")
+        .select("id, user_id, credits_spent, payout_amount_cents, checked_in_at")
+        .eq("club_id", clubId)
+        .order("checked_in_at", { ascending: false })
+        .limit(50),
       // RSVP vs check-in: runs at this club in the last 30 days (including today).
       admin.from("runs")
         .select("id, title, date, rsvps(going), run_checkins(id)")
@@ -97,6 +118,17 @@ export async function GET(req: NextRequest) {
     const profileById: Record<string, { display_name: string | null; avatar_url: string | null }> = {}
     for (const p of profilesRes.data ?? []) profileById[p.id] = { display_name: p.display_name, avatar_url: p.avatar_url }
 
+    // Passport check-ins are visiting runners from *other* klubs, so their
+    // profiles won't already be in profileById (that's only this club's own
+    // members) — fetch the handful needed separately.
+    const passportCheckinRows = (passportCheckinsRes.data ?? []) as any[]
+    const passportVisitorIds = [...new Set(passportCheckinRows.map((c) => c.user_id))]
+    const passportProfileById: Record<string, { display_name: string | null }> = {}
+    if (passportVisitorIds.length > 0) {
+      const { data: passportProfiles } = await admin.from("profiles").select("id, display_name").in("id", passportVisitorIds)
+      for (const p of passportProfiles ?? []) passportProfileById[p.id] = { display_name: p.display_name }
+    }
+
     const recentWorkouts = ((recentCheckinsRes.data ?? []) as any[]).map((c) => ({
       checkinId: c.id,
       userId: c.user_id,
@@ -117,16 +149,27 @@ export async function GET(req: NextRequest) {
       firstCheckinAt: c.first_checkin_at,
     }))
 
-    const premiumSubscribers = ((premiumRes.data ?? []) as any[]).map((s) => ({
-      userId: s.user_id,
-      displayName: profileById[s.user_id]?.display_name ?? "Runner",
-      startedAt: s.started_at,
+    const passportCheckinList = passportCheckinRows.map((c) => ({
+      checkinId: c.id,
+      userId: c.user_id,
+      displayName: passportProfileById[c.user_id]?.display_name ?? "Runner",
+      creditsSpent: c.credits_spent,
+      payoutCents: c.payout_amount_cents,
+      checkedInAt: c.checked_in_at,
     }))
+    const passportTotalPayoutCents = passportCheckinRows.reduce((sum, c) => sum + c.payout_amount_cents, 0)
 
-    const monthlyRevenueCents = ((referralRes.data ?? []) as any[]).reduce(
-      (sum, s) => sum + Math.round(s.price_cents * Number(s.referral_pct)),
-      0
-    )
+    const payingMembers = paidSubs
+      .map((s) => ({
+        userId: s.user_id,
+        displayName: profileById[s.user_id]?.display_name ?? "Runner",
+        avatarUrl: profileById[s.user_id]?.avatar_url ?? null,
+        joinedAt: s.created_at,
+        priceCents: s.price_cents,
+        billingInterval: s.billing_interval ?? "monthly",
+        planName: s.plan_name,
+      }))
+      .sort((a, b) => (b.joinedAt ?? "").localeCompare(a.joinedAt ?? ""))
 
     const recentRuns = ((recentRunsRes.data ?? []) as any[]).map((r) => {
       const rsvpCount = ((r.rsvps ?? []) as { going: boolean }[]).filter((x) => x.going).length
@@ -140,13 +183,25 @@ export async function GET(req: NextRequest) {
     for (const c of (lastCheckinRes.data ?? []) as { user_id: string; checked_in_at: string }[]) {
       if (!lastCheckinByUser[c.user_id]) lastCheckinByUser[c.user_id] = c.checked_in_at
     }
+    const signupByUser: Record<string, string> = {}
+    for (const s of subs ?? []) signupByUser[s.user_id] = s.created_at
+
     let active = 0, atRisk = 0, churned = 0
     for (const id of memberIds) {
       const last = lastCheckinByUser[id]
-      if (!last) { churned++; continue }
-      const lastDate = new Date(last)
-      if (lastDate >= thirtyDaysAgo) active++
-      else if (lastDate >= sixtyDaysAgo) atRisk++
+      if (last) {
+        const lastDate = new Date(last)
+        if (lastDate >= thirtyDaysAgo) active++
+        else if (lastDate >= sixtyDaysAgo) atRisk++
+        else churned++
+        continue
+      }
+      // No check-in yet — measure the retention window from when they
+      // signed up rather than auto-churning, so a brand-new member isn't
+      // flagged "churned" before they've had a chance to attend anything.
+      const signupDate = signupByUser[id] ? new Date(signupByUser[id]) : null
+      if (signupDate && signupDate >= thirtyDaysAgo) active++
+      else if (signupDate && signupDate >= sixtyDaysAgo) atRisk++
       else churned++
     }
 
@@ -165,14 +220,17 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       memberCount: memberIds.length,
       audience: { followerCount, paidMemberCount },
+      membershipRevenue: {
+        totalCents: membershipRevenueCents,
+        plans,
+        members: payingMembers,
+      },
       recentWorkouts,
       crossClubCheckins,
-      premium: {
-        subscriberCount: premiumSubscribers.length,
-        subscribers: premiumSubscribers,
-        referralSubscriberCount: (referralRes.data ?? []).length,
-        monthlyRevenueCents,
-        isPlaceholder: true,
+      passportCheckins: {
+        checkinCount: passportCheckinList.length,
+        totalPayoutCents: passportTotalPayoutCents,
+        recentCheckins: passportCheckinList.slice(0, 10),
       },
       rsvpVsCheckin: {
         totalRsvps,
