@@ -357,7 +357,7 @@ export default function ClubPageClient({
                       disabled={subscribing}
                       className="px-5 py-2.5 rounded-full text-sm font-black transition disabled:opacity-60 bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45]"
                     >
-                      {subscribing ? "…" : `Subscribe — $${(club.membership_price_cents / 100).toFixed(2)}/mo`}
+                      {subscribing ? "…" : `Join for $${(club.membership_price_cents / 100).toFixed(2)}/mo`}
                     </button>
                   ) : (
                     <span className="px-5 py-2.5 rounded-full text-sm font-black bg-[#1e2d12] border border-white/20 text-white/50">
