@@ -278,7 +278,7 @@ export default function PassportCreditsTestPage() {
                       <p className="text-xs font-black text-white">{t.name}</p>
                       <p className="text-[10px] text-white/40">
                         {testInterval === "yearly"
-                          ? `$${(t.yearly_price_cents / 100).toFixed(0)}/yr`
+                          ? `$${(t.yearly_price_cents / 1200).toFixed(2)}/mo (billed $${(t.yearly_price_cents / 100).toFixed(0)}/yr)`
                           : `$${(t.monthly_price_cents / 100).toFixed(0)}/mo`} · {t.credits_per_month} credits/mo
                       </p>
                     </button>

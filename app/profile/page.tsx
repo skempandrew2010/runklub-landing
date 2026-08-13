@@ -775,7 +775,7 @@ export default function ProfilePage() {
                   {passportTiers.length > 0 && (
                     <div className="mt-3 grid grid-cols-2 gap-2">
                       {passportTiers.map((t) => {
-                        const yearlyEquivalentOfMonthly = t.monthly_price_cents * 12
+                        const effectiveMonthlyCents = t.yearly_price_cents / 12
                         return (
                           <button
                             key={t.tier}
@@ -785,8 +785,9 @@ export default function ProfilePage() {
                           >
                             {passportInterval === "yearly" ? (
                               <>
-                                <p className="text-[10px] text-white/30 line-through">${(yearlyEquivalentOfMonthly / 100).toFixed(0)}/yr</p>
-                                <p className="text-xs font-black text-white">${(t.yearly_price_cents / 100).toFixed(0)}/yr</p>
+                                <p className="text-[10px] text-white/30 line-through">${(t.monthly_price_cents / 100).toFixed(2)}/mo</p>
+                                <p className="text-xs font-black text-white">${(effectiveMonthlyCents / 100).toFixed(2)}/mo</p>
+                                <p className="text-[9px] text-white/40">billed ${(t.yearly_price_cents / 100).toFixed(0)}/yr</p>
                               </>
                             ) : (
                               <p className="text-xs font-black text-white">${(t.monthly_price_cents / 100).toFixed(0)}/mo</p>
