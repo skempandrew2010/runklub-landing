@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { CalendarCheck, MapPin, Crown, DollarSign, PartyPopper, TrendingDown, Mail } from "lucide-react"
+import { CalendarCheck, MapPin, Crown, DollarSign, PartyPopper, TrendingDown, Mail, Users } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import CoachAnalyticsView from "@/components/CoachAnalyticsView"
 import KlubContextPicker from "@/components/KlubContextPicker"
@@ -13,6 +13,11 @@ type ClubOption = { id: string; name: string }
 type AnalyticsData = {
   memberCount: number
   audience: { followerCount: number; paidMemberCount: number }
+  membershipRevenue: {
+    totalCents: number
+    priceCents: number
+    members: { userId: string; displayName: string; avatarUrl: string | null; joinedAt: string; priceCents: number }[]
+  }
   recentWorkouts: {
     checkinId: string
     userId: string
@@ -234,7 +239,7 @@ export default function DirectorAnalyticsPage() {
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="bg-[#1e2d12] border border-[#2e3d1a] rounded-xl px-3 py-3 text-center">
                 <p className="text-xl font-black text-white">{data.audience.followerCount}</p>
                 <p className="text-[10px] text-white/40 uppercase tracking-widest mt-1">Followers</p>
@@ -244,10 +249,46 @@ export default function DirectorAnalyticsPage() {
                 <p className="text-[10px] text-white/40 uppercase tracking-widest mt-1">Paid Members</p>
               </div>
               <div className="bg-[#1e2d12] border border-[#2e3d1a] rounded-xl px-3 py-3 text-center">
+                <p className="text-xl font-black text-[#c5f135]">${(data.membershipRevenue.totalCents / 100).toFixed(2)}</p>
+                <p className="text-[10px] text-white/40 uppercase tracking-widest mt-1">Membership /mo</p>
+              </div>
+              <div className="bg-[#1e2d12] border border-[#2e3d1a] rounded-xl px-3 py-3 text-center">
                 <p className="text-xl font-black text-white">${(data.passportCheckins.totalPayoutCents / 100).toFixed(2)}</p>
                 <p className="text-[10px] text-white/40 uppercase tracking-widest mt-1">Passport Payouts</p>
               </div>
             </div>
+
+            <Card title="Membership Revenue by Member" icon={<Users className="w-3.5 h-3.5 text-[#c5f135]" />}>
+              <p className="text-xs text-white/35 mb-3 -mt-1">
+                {data.membershipRevenue.priceCents > 0
+                  ? `$${(data.membershipRevenue.priceCents / 100).toFixed(2)}/mo per paid member`
+                  : "No membership price set"}
+              </p>
+              {data.membershipRevenue.members.length === 0 ? (
+                <p className="text-sm text-white/50">No paying members yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {data.membershipRevenue.members.map((m) => (
+                    <div key={m.userId} className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-[#2e3d1a] overflow-hidden flex items-center justify-center shrink-0">
+                        {m.avatarUrl ? (
+                          <img src={m.avatarUrl} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-[10px] font-black text-[#c5f135]">{initialsOf(m.displayName)}</span>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-bold text-white truncate">{m.displayName}</p>
+                        <p className="text-xs text-white/40 truncate">
+                          Member since {new Date(m.joinedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                        </p>
+                      </div>
+                      <span className="text-xs font-black text-[#c5f135] shrink-0">${(m.priceCents / 100).toFixed(2)}/mo</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
 
             <Card title="Recent Workout Attendance" icon={<CalendarCheck className="w-3.5 h-3.5 text-[#c5f135]" />}>
               {data.recentWorkouts.length === 0 ? (
