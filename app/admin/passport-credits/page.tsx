@@ -31,7 +31,7 @@ export default function PassportCreditsTestPage() {
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState("")
   const [lastResult, setLastResult] = useState<{ clubName: string; creditsSpent: number; payoutCents: number; payoutStatus: string } | null>(null)
-  const [testInterval, setTestInterval] = useState<"monthly" | "yearly">("monthly")
+  const [testInterval, setTestInterval] = useState<"monthly" | "yearly">("yearly")
   const [cronResult, setCronResult] = useState<number | null>(null)
 
   const clubById: Record<string, ClubRow> = Object.fromEntries(clubs.map((c) => [c.id, c]))
@@ -198,7 +198,7 @@ export default function PassportCreditsTestPage() {
           <div className="flex items-center justify-between gap-2 mb-2 px-1">
             <h2 className="text-xs font-bold text-white/40 tracking-widest uppercase">Subscription</h2>
             <div className="flex rounded-full bg-[#1e2d12] p-0.5 border border-[#2e3d1a]">
-              {(["monthly", "yearly"] as const).map((interval) => (
+              {(["yearly", "monthly"] as const).map((interval) => (
                 <button
                   key={interval}
                   onClick={() => setTestInterval(interval)}

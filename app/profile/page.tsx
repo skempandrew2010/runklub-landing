@@ -46,7 +46,7 @@ export default function ProfilePage() {
   const [paidMemberships, setPaidMemberships] = useState<Club[]>([])
   const [passportTiers, setPassportTiers] = useState<{ tier: number; name: string; monthly_price_cents: number; yearly_price_cents: number; credits_per_month: number }[]>([])
   const [passportSub, setPassportSub] = useState<{ tier: number; billing_interval: string; current_period_end: string | null } | null>(null)
-  const [passportInterval, setPassportInterval] = useState<"monthly" | "yearly">("monthly")
+  const [passportInterval, setPassportInterval] = useState<"monthly" | "yearly">("yearly")
   const [passportCreditBalance, setPassportCreditBalance] = useState(0)
   const [coachClubs, setCoachClubs] = useState<Club[]>([])
   const [sessionCount, setSessionCount] = useState(0)
@@ -744,7 +744,7 @@ export default function ProfilePage() {
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-sm font-bold text-white">Passport Credits</span>
                     <div className="flex items-center gap-1.5 rounded-full bg-[#1a2110] p-0.5 border border-[#2e3d1a] shrink-0">
-                      {(["monthly", "yearly"] as const).map((interval) => (
+                      {(["yearly", "monthly"] as const).map((interval) => (
                         <button
                           key={interval}
                           onClick={() => setPassportInterval(interval)}
