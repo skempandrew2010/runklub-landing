@@ -200,12 +200,13 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
   const [runSaving, setRunSaving] = useState<Set<string>>(new Set())
   const [attendanceCounts, setAttendanceCounts] = useState<Record<string, number>>({})
   const [connecting, setConnecting] = useState(false)
-  const [membershipPlans, setMembershipPlans] = useState<{ id: string; name: string; price_cents: number; billing_interval: string; duration_months: number | null; is_active: boolean }[]>([])
+  const [membershipPlans, setMembershipPlans] = useState<{ id: string; name: string; price_cents: number; billing_interval: string; season_start_date: string | null; season_end_date: string | null; is_active: boolean }[]>([])
   const [plansLoading, setPlansLoading] = useState(false)
   const [newPlanName, setNewPlanName] = useState("")
   const [newPlanPrice, setNewPlanPrice] = useState("")
   const [newPlanInterval, setNewPlanInterval] = useState<"monthly" | "yearly" | "seasonal">("monthly")
-  const [newPlanDuration, setNewPlanDuration] = useState("3")
+  const [newPlanSeasonStart, setNewPlanSeasonStart] = useState("")
+  const [newPlanSeasonEnd, setNewPlanSeasonEnd] = useState("")
   const [creatingPlan, setCreatingPlan] = useState(false)
   const [planError, setPlanError] = useState("")
   const [archivingPlanId, setArchivingPlanId] = useState<string | null>(null)
@@ -867,7 +868,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
     setPlansLoading(true)
     const { data } = await supabase
       .from("club_membership_plans")
-      .select("id, name, price_cents, billing_interval, duration_months, is_active")
+      .select("id, name, price_cents, billing_interval, season_start_date, season_end_date, is_active")
       .eq("club_id", clubId)
       .order("created_at")
     setMembershipPlans(data ?? [])
@@ -881,9 +882,8 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
     if (!trimmedName) { setPlanError("Enter a plan name"); return }
     const priceCents = Math.round(parseFloat(newPlanPrice) * 100)
     if (!Number.isFinite(priceCents) || Number.isNaN(priceCents)) { setPlanError("Enter a valid dollar amount"); return }
-    const durationMonths = newPlanInterval === "seasonal" ? parseInt(newPlanDuration, 10) : undefined
-    if (newPlanInterval === "seasonal" && (!Number.isInteger(durationMonths) || durationMonths! < 1 || durationMonths! > 24)) {
-      setPlanError("Duration must be between 1 and 24 months")
+    if (newPlanInterval === "seasonal" && (!newPlanSeasonStart || !newPlanSeasonEnd)) {
+      setPlanError("Pick a start and end month")
       return
     }
     setCreatingPlan(true)
@@ -892,7 +892,13 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
     const res = await fetch("/api/director/connect/membership-plans", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ clubId: selectedClubId, name: trimmedName, priceCents, billingInterval: newPlanInterval, durationMonths }),
+      body: JSON.stringify({
+        clubId: selectedClubId,
+        name: trimmedName,
+        priceCents,
+        billingInterval: newPlanInterval,
+        ...(newPlanInterval === "seasonal" ? { seasonStartMonth: newPlanSeasonStart, seasonEndMonth: newPlanSeasonEnd } : {}),
+      }),
     })
     const json = await res.json()
     setCreatingPlan(false)
@@ -900,6 +906,8 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
     setMembershipPlans((prev) => [...prev, json])
     setNewPlanName("")
     setNewPlanPrice("")
+    setNewPlanSeasonStart("")
+    setNewPlanSeasonEnd("")
     setMyClubs((prev) => prev.map((c) => c.id === selectedClubId
       ? { ...c, membership_type: c.membership_type === "free" ? "paid_required" : c.membership_type }
       : c
@@ -2147,8 +2155,8 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                             <div className="flex-1 min-w-0">
                               <p className={`text-sm font-bold truncate ${plan.is_active ? "text-white" : "text-white/40 line-through"}`}>{plan.name}</p>
                               <p className="text-xs text-white/50">
-                                {plan.billing_interval === "seasonal"
-                                  ? `$${(plan.price_cents / 100).toFixed(2)} one-time · ${plan.duration_months} mo`
+                                {plan.billing_interval === "seasonal" && plan.season_start_date && plan.season_end_date
+                                  ? `$${(plan.price_cents / 100).toFixed(2)} one-time · ${new Date(plan.season_start_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", year: "numeric" })} – ${new Date(plan.season_end_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", year: "numeric" })}`
                                   : `$${(plan.price_cents / 100).toFixed(2)}/${plan.billing_interval === "yearly" ? "yr" : "mo"}`}
                               </p>
                             </div>
@@ -2173,7 +2181,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                         <div className="flex-1">
                           <Input
                             type="number"
-                            min={newPlanInterval === "monthly" ? "3" : "3"}
+                            min="3"
                             max={newPlanInterval === "monthly" ? "1000" : "10000"}
                             step="0.01"
                             placeholder="e.g. 10.00"
@@ -2190,28 +2198,25 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                           <option value="yearly">/year</option>
                           <option value="seasonal">one-time (seasonal)</option>
                         </select>
-                        {newPlanInterval === "seasonal" && (
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <div className="w-16">
-                              <Input
-                                type="number"
-                                min="1"
-                                max="24"
-                                step="1"
-                                value={newPlanDuration}
-                                onChange={(e) => setNewPlanDuration(e.target.value)}
-                              />
-                            </div>
-                            <span className="text-xs text-white/50">mo</span>
-                          </div>
-                        )}
                         <Button onClick={createMembershipPlan} disabled={creatingPlan}>{creatingPlan ? "…" : "Add"}</Button>
                       </div>
+                      {newPlanInterval === "seasonal" && (
+                        <div className="flex gap-2">
+                          <div className="flex-1">
+                            <label className="block text-[10px] font-semibold text-white/50 mb-1">Start month</label>
+                            <Input type="month" value={newPlanSeasonStart} onChange={(e) => setNewPlanSeasonStart(e.target.value)} />
+                          </div>
+                          <div className="flex-1">
+                            <label className="block text-[10px] font-semibold text-white/50 mb-1">End month</label>
+                            <Input type="month" value={newPlanSeasonEnd} onChange={(e) => setNewPlanSeasonEnd(e.target.value)} />
+                          </div>
+                        </div>
+                      )}
                     </div>
                     {planError && <p className="text-red-400 text-xs mt-2">{planError}</p>}
                     <p className="text-xs text-white/40 mt-2">
                       {newPlanInterval === "seasonal"
-                        ? "Seasonal is a one-time payment that expires on its own after the set number of months — no auto-renewal."
+                        ? "Seasonal is a one-time payment that expires on its own at the end of the selected month — no auto-renewal."
                         : "$3–$1,000/mo or up to $10,000/yr per plan."} Adding a plan replaces free approval requests with paid signups.
                     </p>
                   </>

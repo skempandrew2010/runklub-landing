@@ -15,11 +15,11 @@ function getSupabaseAdmin() {
 // POST /api/clubs/[clubId]/subscribe — creates a Checkout Session for a
 // runner to pay for one of the klub's named membership plans (director's
 // own custom lineup — could be "Monthly", "Yearly", "Student Rate", a
-// 3-month "Summer Season" plan, whatever they've set up). Monthly/yearly
-// are real recurring Stripe subscriptions; seasonal is a one-time payment
-// that expires on its own after duration_months with no auto-renewal (no
-// Stripe subscription object at all). Everything here runs inside the
-// connected account's own namespace ({ stripeAccount }) so the resulting
+// "Summer Season" plan covering a specific calendar range, whatever they've
+// set up). Monthly/yearly are real recurring Stripe subscriptions; seasonal
+// is a one-time payment tied to the plan's fixed season_end_date, with no
+// auto-renewal and no Stripe subscription object at all. Everything here
+// runs inside the connected account's own namespace ({ stripeAccount }) so the resulting
 // Customer/Subscription-or-PaymentIntent/Charge belong to the klub, not
 // RunKlub — that's what actually routes the money there. The
 // application_fee_percent/application_fee_amount is RunKlub's cut, scaled
@@ -53,7 +53,7 @@ export async function POST(
 
     const { data: plan } = await admin
       .from("club_membership_plans")
-      .select("id, name, price_cents, billing_interval, duration_months, is_active")
+      .select("id, name, price_cents, billing_interval, season_start_date, season_end_date, is_active")
       .eq("id", planId)
       .eq("club_id", clubId)
       .eq("is_active", true)
@@ -63,6 +63,9 @@ export async function POST(
       return NextResponse.json({ error: "This klub isn't accepting paid memberships right now" }, { status: 400 })
     }
     const isSeasonal = plan.billing_interval === "seasonal"
+    if (isSeasonal && plan.season_end_date && plan.season_end_date < new Date().toISOString().slice(0, 10)) {
+      return NextResponse.json({ error: "This season has already ended" }, { status: 400 })
+    }
 
     const { data: existingSub } = await admin
       .from("subscriptions")
@@ -117,7 +120,7 @@ export async function POST(
       planName: plan.name,
       billingInterval: plan.billing_interval,
       priceCents: String(plan.price_cents),
-      ...(isSeasonal ? { durationMonths: String(plan.duration_months) } : {}),
+      ...(isSeasonal ? { seasonEndDate: plan.season_end_date! } : {}),
     }
 
     const session = await stripe.checkout.sessions.create(
@@ -129,7 +132,7 @@ export async function POST(
               price_data: {
                 currency: club.membership_currency ?? "usd",
                 unit_amount: plan.price_cents,
-                product_data: { name: `${club.name} — ${plan.name} (${plan.duration_months} mo)` },
+                product_data: { name: `${club.name} — ${plan.name}` },
               },
               quantity: 1,
             }],

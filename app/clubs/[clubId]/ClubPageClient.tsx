@@ -91,7 +91,7 @@ export default function ClubPageClient({
   const [showClubChat, setShowClubChat] = useState(false)
   const [isPaidMember, setIsPaidMember] = useState(false)
   const [memberOnlyRuns, setMemberOnlyRuns] = useState<Run[]>([])
-  const [membershipPlans, setMembershipPlans] = useState<{ id: string; name: string; price_cents: number; billing_interval: string; duration_months: number | null }[]>([])
+  const [membershipPlans, setMembershipPlans] = useState<{ id: string; name: string; price_cents: number; billing_interval: string; season_start_date: string | null; season_end_date: string | null }[]>([])
 
   // Refs for section-visibility tracking
   const runsRef = useRef<HTMLDivElement>(null)
@@ -104,11 +104,16 @@ export default function ClubPageClient({
   }, [club.id, club.name, club.city])
 
   useEffect(() => {
+    const today = localDateStr()
     supabase
       .from("club_membership_plans")
-      .select("id, name, price_cents, billing_interval, duration_months")
+      .select("id, name, price_cents, billing_interval, season_start_date, season_end_date")
       .eq("club_id", club.id)
       .eq("is_active", true)
+      // A seasonal plan whose season has already ended shouldn't be offered
+      // to new signups — everyone else (monthly/yearly, or a season still
+      // upcoming/current) stays visible.
+      .or(`billing_interval.neq.seasonal,season_end_date.gte.${today}`)
       .order("created_at")
       .then(({ data }) => setMembershipPlans(data ?? []))
   }, [club.id])
@@ -380,8 +385,8 @@ export default function ClubPageClient({
                             : `Join ${plan.name} — $${(plan.price_cents / 100).toFixed(2)}${
                                 plan.billing_interval === "yearly"
                                   ? "/yr"
-                                  : plan.billing_interval === "seasonal"
-                                  ? ` one-time (${plan.duration_months} mo)`
+                                  : plan.billing_interval === "seasonal" && plan.season_start_date && plan.season_end_date
+                                  ? ` one-time (${new Date(plan.season_start_date + "T00:00:00").toLocaleDateString("en-US", { month: "short" })}–${new Date(plan.season_end_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", year: "numeric" })})`
                                   : "/mo"
                               }`}
                         </button>

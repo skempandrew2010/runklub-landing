@@ -20,6 +20,19 @@ function resolveInterval(billingInterval: unknown): Interval {
   return billingInterval === "yearly" ? "yearly" : billingInterval === "seasonal" ? "seasonal" : "monthly"
 }
 
+const MONTH_RE = /^\d{4}-\d{2}$/
+
+// "2026-06" -> "2026-06-01" (first day of that month)
+function monthToStartDate(month: string): string {
+  return `${month}-01`
+}
+
+// "2026-08" -> "2026-08-31" (last day of that month) via day 0 of the next month
+function monthToEndDate(month: string): string {
+  const [year, mon] = month.split("-").map(Number)
+  return new Date(Date.UTC(year, mon, 0)).toISOString().slice(0, 10)
+}
+
 async function getAuthedUser(req: NextRequest) {
   const token = req.headers.get("authorization")?.replace("Bearer ", "")
   if (!token) return null
@@ -29,15 +42,17 @@ async function getAuthedUser(req: NextRequest) {
 }
 
 // POST /api/director/connect/membership-plans — creates a named custom
-// membership plan (e.g. "Student Rate", "Family Plan", a 3-month "Summer
-// Season" plan) for a klub. A klub can have any number of active plans at
-// once, in any mix of monthly/yearly/seasonal — runners pick whichever they
-// want on the klub page. Seasonal plans are a one-time payment (not a
-// recurring Stripe subscription) that expires after durationMonths with no
-// auto-renewal — handled entirely in the subscribe route / webhook, not here.
+// membership plan (e.g. "Student Rate", "Family Plan", a "Summer Season"
+// plan covering June-August) for a klub. A klub can have any number of
+// active plans at once, in any mix of monthly/yearly/seasonal — runners
+// pick whichever they want on the klub page. Seasonal plans are a one-time
+// payment (not a recurring Stripe subscription) tied to a real calendar
+// range the director picks — everyone who joins a given season shares the
+// same end date, unlike a rolling "N months from signup" window — handled
+// entirely in the subscribe route / webhook, not here.
 export async function POST(req: NextRequest) {
   try {
-    const { clubId, name, priceCents, billingInterval, durationMonths } = await req.json()
+    const { clubId, name, priceCents, billingInterval, seasonStartMonth, seasonEndMonth } = await req.json()
 
     const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
     if (!clubId || !UUID_RE.test(clubId)) return NextResponse.json({ error: "Invalid klub ID" }, { status: 400 })
@@ -53,11 +68,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `Price must be between $${(range.min / 100).toFixed(2)} and $${(range.max / 100).toFixed(2)}` }, { status: 400 })
     }
 
-    let months: number | null = null
+    let seasonStartDate: string | null = null
+    let seasonEndDate: string | null = null
     if (interval === "seasonal") {
-      months = Number(durationMonths)
-      if (!Number.isInteger(months) || months < 1 || months > 24) {
-        return NextResponse.json({ error: "Duration must be between 1 and 24 months" }, { status: 400 })
+      if (!MONTH_RE.test(seasonStartMonth ?? "") || !MONTH_RE.test(seasonEndMonth ?? "")) {
+        return NextResponse.json({ error: "Pick a start and end month" }, { status: 400 })
+      }
+      seasonStartDate = monthToStartDate(seasonStartMonth)
+      seasonEndDate = monthToEndDate(seasonEndMonth)
+      if (seasonEndDate <= seasonStartDate) {
+        return NextResponse.json({ error: "End month must be after the start month" }, { status: 400 })
       }
     }
 
@@ -78,7 +98,7 @@ export async function POST(req: NextRequest) {
 
     const { data: plan, error } = await admin
       .from("club_membership_plans")
-      .insert({ club_id: clubId, name: trimmedName, price_cents: priceCents, billing_interval: interval, duration_months: months })
+      .insert({ club_id: clubId, name: trimmedName, price_cents: priceCents, billing_interval: interval, season_start_date: seasonStartDate, season_end_date: seasonEndDate })
       .select()
       .single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -104,7 +124,7 @@ export async function POST(req: NextRequest) {
 // their subscriptions row), so editing here only affects new signups.
 export async function PATCH(req: NextRequest) {
   try {
-    const { planId, name, priceCents, billingInterval, durationMonths, isActive } = await req.json()
+    const { planId, name, priceCents, billingInterval, seasonStartMonth, seasonEndMonth, isActive } = await req.json()
     const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
     if (!planId || !UUID_RE.test(planId)) return NextResponse.json({ error: "Invalid plan ID" }, { status: 400 })
 
@@ -134,11 +154,16 @@ export async function PATCH(req: NextRequest) {
       }
       updates.price_cents = priceCents
     }
-    if (durationMonths !== undefined) {
-      if (interval !== "seasonal") return NextResponse.json({ error: "Duration only applies to seasonal plans" }, { status: 400 })
-      const months = Number(durationMonths)
-      if (!Number.isInteger(months) || months < 1 || months > 24) return NextResponse.json({ error: "Duration must be between 1 and 24 months" }, { status: 400 })
-      updates.duration_months = months
+    if (seasonStartMonth !== undefined || seasonEndMonth !== undefined) {
+      if (interval !== "seasonal") return NextResponse.json({ error: "Season dates only apply to seasonal plans" }, { status: 400 })
+      if (!MONTH_RE.test(seasonStartMonth ?? "") || !MONTH_RE.test(seasonEndMonth ?? "")) {
+        return NextResponse.json({ error: "Pick a start and end month" }, { status: 400 })
+      }
+      const seasonEndDate = monthToEndDate(seasonEndMonth)
+      const seasonStartDate = monthToStartDate(seasonStartMonth)
+      if (seasonEndDate <= seasonStartDate) return NextResponse.json({ error: "End month must be after the start month" }, { status: 400 })
+      updates.season_start_date = seasonStartDate
+      updates.season_end_date = seasonEndDate
     }
     if (isActive !== undefined) updates.is_active = !!isActive
 

@@ -124,7 +124,7 @@ export async function POST(req: NextRequest) {
       //    only ever granted here, since there's no subscription object. ──
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session
-        const { clubId, userId, billingInterval, priceCents, planId, planName, durationMonths } = session.metadata ?? {}
+        const { clubId, userId, billingInterval, priceCents, planId, planName, seasonEndDate } = session.metadata ?? {}
         if (!clubId || !userId || !session.customer) break
 
         const interval: "monthly" | "yearly" | "seasonal" =
@@ -133,8 +133,10 @@ export async function POST(req: NextRequest) {
 
         if (interval === "seasonal") {
           if (!session.payment_intent) break
-          const months = durationMonths ? Number(durationMonths) : null
-          const expiresAt = months ? new Date(Date.now() + months * 30 * 24 * 60 * 60 * 1000).toISOString() : null
+          // seasonEndDate is a plain "YYYY-MM-DD" from the plan — everyone
+          // who joins this season shares the same fixed end date, rather
+          // than each getting a personal window starting at signup.
+          const expiresAt = seasonEndDate ? `${seasonEndDate}T23:59:59.000Z` : null
 
           await getSupabaseAdmin().from("subscriptions").upsert({
             user_id: userId,
