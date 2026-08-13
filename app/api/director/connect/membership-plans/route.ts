@@ -8,9 +8,16 @@ function getSupabaseAdmin() {
   )
 }
 
-const PRICE_RANGES: Record<"monthly" | "yearly", { min: number; max: number }> = {
+type Interval = "monthly" | "yearly" | "seasonal"
+
+const PRICE_RANGES: Record<Interval, { min: number; max: number }> = {
   monthly: { min: 300, max: 100000 },
-  yearly: { min: 3000, max: 1000000 },
+  yearly: { min: 300, max: 1000000 },
+  seasonal: { min: 300, max: 1000000 },
+}
+
+function resolveInterval(billingInterval: unknown): Interval {
+  return billingInterval === "yearly" ? "yearly" : billingInterval === "seasonal" ? "seasonal" : "monthly"
 }
 
 async function getAuthedUser(req: NextRequest) {
@@ -22,12 +29,15 @@ async function getAuthedUser(req: NextRequest) {
 }
 
 // POST /api/director/connect/membership-plans — creates a named custom
-// membership plan (e.g. "Student Rate", "Family Plan") for a klub. A klub
-// can have any number of active plans at once, in any mix of monthly/yearly
-// — runners pick whichever they want on the klub page.
+// membership plan (e.g. "Student Rate", "Family Plan", a 3-month "Summer
+// Season" plan) for a klub. A klub can have any number of active plans at
+// once, in any mix of monthly/yearly/seasonal — runners pick whichever they
+// want on the klub page. Seasonal plans are a one-time payment (not a
+// recurring Stripe subscription) that expires after durationMonths with no
+// auto-renewal — handled entirely in the subscribe route / webhook, not here.
 export async function POST(req: NextRequest) {
   try {
-    const { clubId, name, priceCents, billingInterval } = await req.json()
+    const { clubId, name, priceCents, billingInterval, durationMonths } = await req.json()
 
     const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
     if (!clubId || !UUID_RE.test(clubId)) return NextResponse.json({ error: "Invalid klub ID" }, { status: 400 })
@@ -37,10 +47,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Plan name must be 1-60 characters" }, { status: 400 })
     }
 
-    const interval: "monthly" | "yearly" = billingInterval === "yearly" ? "yearly" : "monthly"
+    const interval = resolveInterval(billingInterval)
     const range = PRICE_RANGES[interval]
     if (!Number.isInteger(priceCents) || priceCents < range.min || priceCents > range.max) {
       return NextResponse.json({ error: `Price must be between $${(range.min / 100).toFixed(2)} and $${(range.max / 100).toFixed(2)}` }, { status: 400 })
+    }
+
+    let months: number | null = null
+    if (interval === "seasonal") {
+      months = Number(durationMonths)
+      if (!Number.isInteger(months) || months < 1 || months > 24) {
+        return NextResponse.json({ error: "Duration must be between 1 and 24 months" }, { status: 400 })
+      }
     }
 
     const user = await getAuthedUser(req)
@@ -60,7 +78,7 @@ export async function POST(req: NextRequest) {
 
     const { data: plan, error } = await admin
       .from("club_membership_plans")
-      .insert({ club_id: clubId, name: trimmedName, price_cents: priceCents, billing_interval: interval })
+      .insert({ club_id: clubId, name: trimmedName, price_cents: priceCents, billing_interval: interval, duration_months: months })
       .select()
       .single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -86,7 +104,7 @@ export async function POST(req: NextRequest) {
 // their subscriptions row), so editing here only affects new signups.
 export async function PATCH(req: NextRequest) {
   try {
-    const { planId, name, priceCents, billingInterval, isActive } = await req.json()
+    const { planId, name, priceCents, billingInterval, durationMonths, isActive } = await req.json()
     const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
     if (!planId || !UUID_RE.test(planId)) return NextResponse.json({ error: "Invalid plan ID" }, { status: 400 })
 
@@ -107,7 +125,7 @@ export async function PATCH(req: NextRequest) {
       if (!trimmedName || trimmedName.length > 60) return NextResponse.json({ error: "Plan name must be 1-60 characters" }, { status: 400 })
       updates.name = trimmedName
     }
-    const interval: "monthly" | "yearly" = billingInterval === "yearly" ? "yearly" : billingInterval === "monthly" ? "monthly" : (plan.billing_interval as "monthly" | "yearly")
+    const interval = billingInterval !== undefined ? resolveInterval(billingInterval) : (plan.billing_interval as Interval)
     if (billingInterval !== undefined) updates.billing_interval = interval
     if (priceCents !== undefined) {
       const range = PRICE_RANGES[interval]
@@ -115,6 +133,12 @@ export async function PATCH(req: NextRequest) {
         return NextResponse.json({ error: `Price must be between $${(range.min / 100).toFixed(2)} and $${(range.max / 100).toFixed(2)}` }, { status: 400 })
       }
       updates.price_cents = priceCents
+    }
+    if (durationMonths !== undefined) {
+      if (interval !== "seasonal") return NextResponse.json({ error: "Duration only applies to seasonal plans" }, { status: 400 })
+      const months = Number(durationMonths)
+      if (!Number.isInteger(months) || months < 1 || months > 24) return NextResponse.json({ error: "Duration must be between 1 and 24 months" }, { status: 400 })
+      updates.duration_months = months
     }
     if (isActive !== undefined) updates.is_active = !!isActive
 

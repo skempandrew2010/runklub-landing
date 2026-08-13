@@ -14,12 +14,16 @@ function getSupabaseAdmin() {
 
 // POST /api/clubs/[clubId]/subscribe — creates a Checkout Session for a
 // runner to pay for one of the klub's named membership plans (director's
-// own custom lineup — could be "Monthly", "Yearly", "Student Rate",
-// whatever they've set up). Everything here runs inside the connected
-// account's own namespace ({ stripeAccount }) so the resulting
-// Customer/Subscription/Charge belong to the klub, not RunKlub — that's
-// what actually routes the money there. application_fee_percent on
-// subscription_data is RunKlub's cut, scaled by the klub's SaaS tier.
+// own custom lineup — could be "Monthly", "Yearly", "Student Rate", a
+// 3-month "Summer Season" plan, whatever they've set up). Monthly/yearly
+// are real recurring Stripe subscriptions; seasonal is a one-time payment
+// that expires on its own after duration_months with no auto-renewal (no
+// Stripe subscription object at all). Everything here runs inside the
+// connected account's own namespace ({ stripeAccount }) so the resulting
+// Customer/Subscription-or-PaymentIntent/Charge belong to the klub, not
+// RunKlub — that's what actually routes the money there. The
+// application_fee_percent/application_fee_amount is RunKlub's cut, scaled
+// by the klub's SaaS tier.
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ clubId: string }> }
@@ -49,7 +53,7 @@ export async function POST(
 
     const { data: plan } = await admin
       .from("club_membership_plans")
-      .select("id, name, price_cents, billing_interval, is_active")
+      .select("id, name, price_cents, billing_interval, duration_months, is_active")
       .eq("id", planId)
       .eq("club_id", clubId)
       .eq("is_active", true)
@@ -58,15 +62,20 @@ export async function POST(
     if (!plan || !club.stripe_connect_account_id || !club.stripe_connect_charges_enabled) {
       return NextResponse.json({ error: "This klub isn't accepting paid memberships right now" }, { status: 400 })
     }
+    const isSeasonal = plan.billing_interval === "seasonal"
 
     const { data: existingSub } = await admin
       .from("subscriptions")
-      .select("id, member_type, stripe_customer_id, stripe_subscription_id")
+      .select("id, member_type, stripe_customer_id, stripe_subscription_id, expires_at")
       .eq("user_id", user.id)
       .eq("club_id", clubId)
       .maybeSingle()
 
-    if (existingSub?.member_type === "paid" && existingSub.stripe_subscription_id) {
+    const alreadyPaid = existingSub?.member_type === "paid" && (
+      !!existingSub.stripe_subscription_id ||
+      (existingSub.expires_at ? new Date(existingSub.expires_at) > new Date() : false)
+    )
+    if (alreadyPaid) {
       return NextResponse.json({ error: "You're already a paying member of this klub" }, { status: 400 })
     }
 
@@ -78,12 +87,16 @@ export async function POST(
     if (customerId) {
       // Don't trust our own DB alone — a failed/delayed webhook could leave
       // it stale while Stripe already has an active subscription for them.
-      const existing = await stripe.subscriptions.list(
-        { customer: customerId, status: "active", limit: 1 },
-        { stripeAccount }
-      )
-      if (existing.data.length > 0) {
-        return NextResponse.json({ error: "You're already a paying member of this klub" }, { status: 400 })
+      // Only meaningful for recurring plans; a one-time seasonal payment has
+      // no ongoing Stripe subscription object to check.
+      if (!isSeasonal) {
+        const existing = await stripe.subscriptions.list(
+          { customer: customerId, status: "active", limit: 1 },
+          { stripeAccount }
+        )
+        if (existing.data.length > 0) {
+          return NextResponse.json({ error: "You're already a paying member of this klub" }, { status: 400 })
+        }
       }
     } else {
       const customer = await stripe.customers.create(
@@ -104,29 +117,50 @@ export async function POST(
       planName: plan.name,
       billingInterval: plan.billing_interval,
       priceCents: String(plan.price_cents),
+      ...(isSeasonal ? { durationMonths: String(plan.duration_months) } : {}),
     }
 
     const session = await stripe.checkout.sessions.create(
-      {
-        mode: "subscription",
-        customer: customerId,
-        line_items: [{
-          price_data: {
-            currency: club.membership_currency ?? "usd",
-            unit_amount: plan.price_cents,
-            recurring: { interval: plan.billing_interval === "yearly" ? "year" : "month" },
-            product_data: { name: `${club.name} — ${plan.name}` },
+      isSeasonal
+        ? {
+            mode: "payment",
+            customer: customerId,
+            line_items: [{
+              price_data: {
+                currency: club.membership_currency ?? "usd",
+                unit_amount: plan.price_cents,
+                product_data: { name: `${club.name} — ${plan.name} (${plan.duration_months} mo)` },
+              },
+              quantity: 1,
+            }],
+            payment_intent_data: {
+              application_fee_amount: Math.round((plan.price_cents * feePct) / 100),
+              metadata,
+            },
+            metadata,
+            success_url: `${appUrl}/clubs/${clubId}?subscribed=1`,
+            cancel_url: `${appUrl}/clubs/${clubId}?subscribe_cancelled=1`,
+          }
+        : {
+            mode: "subscription",
+            customer: customerId,
+            line_items: [{
+              price_data: {
+                currency: club.membership_currency ?? "usd",
+                unit_amount: plan.price_cents,
+                recurring: { interval: plan.billing_interval === "yearly" ? "year" : "month" },
+                product_data: { name: `${club.name} — ${plan.name}` },
+              },
+              quantity: 1,
+            }],
+            subscription_data: {
+              application_fee_percent: feePct,
+              metadata,
+            },
+            metadata,
+            success_url: `${appUrl}/clubs/${clubId}?subscribed=1`,
+            cancel_url: `${appUrl}/clubs/${clubId}?subscribe_cancelled=1`,
           },
-          quantity: 1,
-        }],
-        subscription_data: {
-          application_fee_percent: feePct,
-          metadata,
-        },
-        metadata,
-        success_url: `${appUrl}/clubs/${clubId}?subscribed=1`,
-        cancel_url: `${appUrl}/clubs/${clubId}?subscribe_cancelled=1`,
-      },
       { stripeAccount }
     )
 

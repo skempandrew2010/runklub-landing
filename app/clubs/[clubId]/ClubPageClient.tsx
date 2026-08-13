@@ -91,7 +91,7 @@ export default function ClubPageClient({
   const [showClubChat, setShowClubChat] = useState(false)
   const [isPaidMember, setIsPaidMember] = useState(false)
   const [memberOnlyRuns, setMemberOnlyRuns] = useState<Run[]>([])
-  const [membershipPlans, setMembershipPlans] = useState<{ id: string; name: string; price_cents: number; billing_interval: string }[]>([])
+  const [membershipPlans, setMembershipPlans] = useState<{ id: string; name: string; price_cents: number; billing_interval: string; duration_months: number | null }[]>([])
 
   // Refs for section-visibility tracking
   const runsRef = useRef<HTMLDivElement>(null)
@@ -106,7 +106,7 @@ export default function ClubPageClient({
   useEffect(() => {
     supabase
       .from("club_membership_plans")
-      .select("id, name, price_cents, billing_interval")
+      .select("id, name, price_cents, billing_interval, duration_months")
       .eq("club_id", club.id)
       .eq("is_active", true)
       .order("created_at")
@@ -375,7 +375,15 @@ export default function ClubPageClient({
                               : "bg-[#1e2d12] border border-[#c5f135]/50 text-[#c5f135] hover:border-[#c5f135]"
                           }`}
                         >
-                          {subscribing ? "…" : `Join ${plan.name} — $${(plan.price_cents / 100).toFixed(2)}/${plan.billing_interval === "yearly" ? "yr" : "mo"}`}
+                          {subscribing
+                            ? "…"
+                            : `Join ${plan.name} — $${(plan.price_cents / 100).toFixed(2)}${
+                                plan.billing_interval === "yearly"
+                                  ? "/yr"
+                                  : plan.billing_interval === "seasonal"
+                                  ? ` one-time (${plan.duration_months} mo)`
+                                  : "/mo"
+                              }`}
                         </button>
                       ))}
                     </div>

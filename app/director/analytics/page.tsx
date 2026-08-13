@@ -261,7 +261,7 @@ export default function DirectorAnalyticsPage() {
             <Card title="Membership Revenue by Member" icon={<Users className="w-3.5 h-3.5 text-[#c5f135]" />}>
               <p className="text-xs text-white/35 mb-3 -mt-1">
                 {data.membershipRevenue.plans.length > 0
-                  ? data.membershipRevenue.plans.map((p) => `${p.name} $${(p.priceCents / 100).toFixed(2)}/${p.billingInterval === "yearly" ? "yr" : "mo"}`).join(" · ")
+                  ? data.membershipRevenue.plans.map((p) => `${p.name} $${(p.priceCents / 100).toFixed(2)}${p.billingInterval === "yearly" ? "/yr" : p.billingInterval === "seasonal" ? " one-time" : "/mo"}`).join(" · ")
                   : "No membership plans set"}
               </p>
               {data.membershipRevenue.members.length === 0 ? (
@@ -285,7 +285,7 @@ export default function DirectorAnalyticsPage() {
                         </p>
                       </div>
                       <span className="text-xs font-black text-[#c5f135] shrink-0">
-                        {m.priceCents ? `$${(m.priceCents / 100).toFixed(2)}/${m.billingInterval === "yearly" ? "yr" : "mo"}` : "—"}
+                        {m.priceCents ? `$${(m.priceCents / 100).toFixed(2)}${m.billingInterval === "yearly" ? "/yr" : m.billingInterval === "seasonal" ? " one-time" : "/mo"}` : "—"}
                       </span>
                     </div>
                   ))}

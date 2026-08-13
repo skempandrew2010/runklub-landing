@@ -18,7 +18,7 @@ function getSupabaseAdmin() {
 // happens at the start of a subscription, never on renewals — those go
 // through customer.subscription.updated instead), so there's no risk of
 // emailing the director every billing cycle.
-async function notifyDirectorOfNewMember(clubId: string, memberUserId: string, priceCents: number | null, billingInterval: "monthly" | "yearly", planName: string | null) {
+async function notifyDirectorOfNewMember(clubId: string, memberUserId: string, priceCents: number | null, billingInterval: "monthly" | "yearly" | "seasonal", planName: string | null) {
   const admin = getSupabaseAdmin()
   const { data: club } = await admin.from("clubs").select("id, name, user_id").eq("id", clubId).single()
   if (!club) return
@@ -33,7 +33,8 @@ async function notifyDirectorOfNewMember(clubId: string, memberUserId: string, p
 
   const memberName = memberProfile?.display_name || "A runner"
   const planLabel = planName ? ` (${planName})` : ""
-  const priceLine = priceCents ? `They're paying $${(priceCents / 100).toFixed(2)}/${billingInterval === "yearly" ? "yr" : "mo"}${planLabel}.` : ""
+  const rate = billingInterval === "yearly" ? "/yr" : billingInterval === "seasonal" ? " one-time" : "/mo"
+  const priceLine = priceCents ? `They're paying $${(priceCents / 100).toFixed(2)}${rate}${planLabel}.` : ""
 
   try {
     const resend = new Resend(process.env.RESEND_API_KEY)
@@ -118,14 +119,41 @@ export async function POST(req: NextRequest) {
       }
 
       // ── Member's checkout completed — fast-path grant. Authoritative
-      //    ongoing status still comes from customer.subscription.updated. ──
+      //    ongoing status for recurring plans still comes from
+      //    customer.subscription.updated; seasonal (one-time) plans are
+      //    only ever granted here, since there's no subscription object. ──
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session
-        const { clubId, userId, billingInterval, priceCents, planId, planName } = session.metadata ?? {}
-        if (!clubId || !userId || !session.subscription || !session.customer) break
+        const { clubId, userId, billingInterval, priceCents, planId, planName, durationMonths } = session.metadata ?? {}
+        if (!clubId || !userId || !session.customer) break
 
-        const interval: "monthly" | "yearly" = billingInterval === "yearly" ? "yearly" : "monthly"
+        const interval: "monthly" | "yearly" | "seasonal" =
+          billingInterval === "yearly" ? "yearly" : billingInterval === "seasonal" ? "seasonal" : "monthly"
         const snapshotPrice = priceCents ? Number(priceCents) : null
+
+        if (interval === "seasonal") {
+          if (!session.payment_intent) break
+          const months = durationMonths ? Number(durationMonths) : null
+          const expiresAt = months ? new Date(Date.now() + months * 30 * 24 * 60 * 60 * 1000).toISOString() : null
+
+          await getSupabaseAdmin().from("subscriptions").upsert({
+            user_id: userId,
+            club_id: clubId,
+            member_type: "paid",
+            stripe_subscription_id: null,
+            stripe_customer_id: session.customer as string,
+            billing_interval: interval,
+            price_cents: snapshotPrice,
+            plan_id: planId ?? null,
+            plan_name: planName ?? null,
+            expires_at: expiresAt,
+          }, { onConflict: "user_id,club_id" })
+
+          await notifyDirectorOfNewMember(clubId, userId, snapshotPrice, interval, planName ?? null)
+          break
+        }
+
+        if (!session.subscription) break
 
         await getSupabaseAdmin().from("subscriptions").upsert({
           user_id: userId,
@@ -137,6 +165,7 @@ export async function POST(req: NextRequest) {
           price_cents: snapshotPrice,
           plan_id: planId ?? null,
           plan_name: planName ?? null,
+          expires_at: null,
         }, { onConflict: "user_id,club_id" })
 
         await notifyDirectorOfNewMember(clubId, userId, snapshotPrice, interval, planName ?? null)

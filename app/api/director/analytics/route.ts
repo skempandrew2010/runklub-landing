@@ -44,8 +44,10 @@ export async function GET(req: NextRequest) {
     const paidMemberCount = paidMemberIds.size
     // Monthly-equivalent total across a mix of monthly/yearly members —
     // yearly contributions are divided by 12 so this is a real MRR figure.
+    // Seasonal (one-time, non-renewing) payments are deliberately excluded
+    // — they're not recurring revenue.
     const membershipRevenueCents = paidSubs.reduce((sum, s) => {
-      if (!s.price_cents) return sum
+      if (!s.price_cents || s.billing_interval === "seasonal") return sum
       return sum + (s.billing_interval === "yearly" ? s.price_cents / 12 : s.price_cents)
     }, 0)
 
