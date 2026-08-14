@@ -989,10 +989,10 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
   const isEnterprise = tier === "enterprise"
   const isPaid = !isFree
 
-  const UPSELL_INFO: Record<"starter" | "growth" | "enterprise", { name: string; price: string; trial: boolean; headline: string; features: string[] }> = {
-    starter:    { name: "Starter",    price: "$24.99/mo", trial: true,  headline: "More tools for your klub",  features: ["Private member-only runs", "Weekly email reminders", "Charge members to join", "Verified badge"] },
-    growth:     { name: "Growth",     price: "$49.99/mo", trial: false, headline: "Scale up your klub",        features: ["Everything in Starter", "Workout library", "One branch + unlimited locations", "Up to 10 coaches", "Priority placement"] },
-    enterprise: { name: "Enterprise", price: "$99.99/mo", trial: false, headline: "Take your klub to the top", features: ["Everything in Growth", "Unlimited branches", "First in city search", "Event payments at 1%"] },
+  const UPSELL_INFO: Record<"starter" | "growth" | "enterprise", { name: string; price: string; headline: string; features: string[] }> = {
+    starter:    { name: "Starter",    price: "$24.99/mo", headline: "More tools for your klub",  features: ["Private member-only runs", "Weekly email reminders", "Charge members to join", "Verified badge"] },
+    growth:     { name: "Growth",     price: "$49.99/mo", headline: "Scale up your klub",        features: ["Everything in Starter", "Workout library", "One branch + unlimited locations", "Up to 10 coaches", "Priority placement"] },
+    enterprise: { name: "Enterprise", price: "$99.99/mo", headline: "Take your klub to the top", features: ["Everything in Growth", "Unlimited branches", "First in city search", "Event payments at 1%"] },
   }
 
   const makeUpgradeCard = (targetTier: "starter" | "growth" | "enterprise", highlighted: boolean) => {
@@ -1012,7 +1012,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
           <p className="text-xs text-white/80">Upgrade at <span className="text-[#c5f135] font-semibold">runklub.fit</span> on the web.</p>
         ) : (
           <Button onClick={() => startCheckout(targetTier)} disabled={upgrading} className="w-full text-center">
-            {upgrading ? "Redirecting…" : info.trial ? "Start 1-month free trial" : `Upgrade to ${info.name}`}
+            {upgrading ? "Redirecting…" : `Upgrade to ${info.name}`}
           </Button>
         )}
       </div>
@@ -2346,7 +2346,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                     <div className="flex gap-2 flex-wrap">
                       {!isEnterprise && (
                         <Button onClick={() => startCheckout(isGrowth ? "enterprise" : isStarter ? "growth" : "starter", billingInterval)} disabled={upgrading}>
-                          {upgrading ? "Redirecting…" : isGrowth ? "Upgrade to Enterprise" : isStarter ? "Upgrade to Growth" : "Start free trial"}
+                          {upgrading ? "Redirecting…" : isGrowth ? "Upgrade to Enterprise" : isStarter ? "Upgrade to Growth" : "Upgrade to Starter"}
                         </Button>
                       )}
                       <Link href="/profile">
