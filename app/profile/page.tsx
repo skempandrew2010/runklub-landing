@@ -62,6 +62,7 @@ export default function ProfilePage() {
   const [isCoach, setIsCoach] = useState(false)
   const { viewMode, setViewMode } = useViewMode(isManager || isCoach)
   const [subscribingClubId, setSubscribingClubId] = useState<string | null>(null)
+  const [upgradePickerClubId, setUpgradePickerClubId] = useState<string | null>(null)
   const [managingMembershipId, setManagingMembershipId] = useState<string | null>(null)
   const [subscribingPassportTier, setSubscribingPassportTier] = useState<number | null>(null)
   const [openingPassportPortal, setOpeningPassportPortal] = useState(false)
@@ -154,7 +155,7 @@ export default function ProfilePage() {
     setEditing(false)
   }
 
-  const startCheckout = async (clubId: string) => {
+  const startCheckout = async (clubId: string, tier: "starter" | "growth" | "enterprise") => {
     setSubscribingClubId(clubId)
     try {
       const { data: { session } } = await supabase.auth.getSession()
@@ -166,7 +167,7 @@ export default function ProfilePage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ clubId, tier: "starter", interval: "monthly" }),
+        body: JSON.stringify({ clubId, tier, interval: "monthly" }),
       })
 
       const data = await res.json()
@@ -614,33 +615,49 @@ export default function ProfilePage() {
                 const isFree = tier === "free"
                 const isPremium = tier === "growth" || tier === "enterprise"
                 return (
-                  <div key={club.id} className="flex items-center gap-3 px-4 py-3.5">
-                    {isPremium
-                      ? <Zap className="w-4 h-4 text-[#c5f135] shrink-0" />
-                      : <ShieldCheck className="w-4 h-4 text-white/30 shrink-0" />
-                    }
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-white truncate">{club.name}</p>
-                      <p className="text-xs text-white/40 capitalize">{tier} plan</p>
+                  <div key={club.id}>
+                    <div className="flex items-center gap-3 px-4 py-3.5">
+                      {isPremium
+                        ? <Zap className="w-4 h-4 text-[#c5f135] shrink-0" />
+                        : <ShieldCheck className="w-4 h-4 text-white/30 shrink-0" />
+                      }
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-white truncate">{club.name}</p>
+                        <p className="text-xs text-white/40 capitalize">{tier} plan</p>
+                      </div>
+                      {isFree ? (
+                        !nativeApp && (
+                          <button
+                            onClick={() => setUpgradePickerClubId(upgradePickerClubId === club.id ? null : club.id)}
+                            disabled={subscribingClubId === club.id}
+                            className="text-xs font-black px-3 py-1.5 rounded-full shrink-0 bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45] transition disabled:opacity-50"
+                          >
+                            {subscribingClubId === club.id ? "Redirecting…" : "Upgrade"}
+                          </button>
+                        )
+                      ) : (
+                        <span className={`text-xs font-black px-2.5 py-1 rounded-full shrink-0
+                          ${isPremium
+                            ? "bg-[#c5f135] text-[#1a2110]"
+                            : "bg-[#c5f135]/15 text-[#c5f135] border border-[#c5f135]/30"
+                          }`}>
+                          {tier.toUpperCase()}
+                        </span>
+                      )}
                     </div>
-                    {isFree ? (
-                      !nativeApp && (
-                        <button
-                          onClick={() => startCheckout(club.id)}
-                          disabled={subscribingClubId === club.id}
-                          className="text-xs font-black px-3 py-1.5 rounded-full shrink-0 bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45] transition disabled:opacity-50"
-                        >
-                          {subscribingClubId === club.id ? "Redirecting…" : "Subscribe"}
-                        </button>
-                      )
-                    ) : (
-                      <span className={`text-xs font-black px-2.5 py-1 rounded-full shrink-0
-                        ${isPremium
-                          ? "bg-[#c5f135] text-[#1a2110]"
-                          : "bg-[#c5f135]/15 text-[#c5f135] border border-[#c5f135]/30"
-                        }`}>
-                        {tier.toUpperCase()}
-                      </span>
+                    {isFree && !nativeApp && upgradePickerClubId === club.id && (
+                      <div className="flex gap-2 flex-wrap px-4 pb-3.5">
+                        {(["starter", "growth", "enterprise"] as const).map((t) => (
+                          <button
+                            key={t}
+                            onClick={() => startCheckout(club.id, t)}
+                            disabled={subscribingClubId === club.id}
+                            className="text-xs font-bold px-3 py-1.5 rounded-full shrink-0 bg-[#1a2110] text-white border border-[#2e3d1a] hover:border-[#c5f135]/40 transition disabled:opacity-50"
+                          >
+                            {subscribingClubId === club.id ? "…" : `${PLANS[t].name} · $${PLANS[t].price!.monthly}/mo`}
+                          </button>
+                        ))}
+                      </div>
                     )}
                   </div>
                 )
