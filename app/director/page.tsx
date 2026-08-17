@@ -2297,7 +2297,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-white/80 mb-1">Waiver Link <span className="font-normal text-white/25">(optional)</span></label>
-                      <p className="text-[11px] text-white/40 mb-1">Add a link to your klub's liability waiver — we'll show it to runners before they join or check in.</p>
+                      <p className="text-[11px] text-white/40 mb-1">Add a link to your klub&apos;s liability waiver — we&apos;ll show it to runners before they join or check in.</p>
                       <Input value={editForm.waiver} onChange={(e) => setEditForm({ ...editForm, waiver: e.target.value })} placeholder="https://forms.google.com/..." />
                     </div>
                     <div className="flex gap-2 pt-1">
