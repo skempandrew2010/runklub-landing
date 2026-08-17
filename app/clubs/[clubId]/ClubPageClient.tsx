@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
-import { Heart, MapPin, Clock, Users, ArrowLeft, ExternalLink, MessageSquare, ChevronRight, Globe } from "lucide-react"
+import { Heart, MapPin, Clock, Users, ArrowLeft, ExternalLink, MessageSquare, ChevronRight, Globe, FileText } from "lucide-react"
 import { getTagStyle } from "@/utils/tagStyle"
 import { localDateStr } from "@/utils/dates"
 import { formatRunTime } from "@/lib/timezone"
@@ -32,6 +32,7 @@ export type Club = {
   latitude?: number | null
   longitude?: number | null
   stripe_connect_charges_enabled?: boolean | null
+  waiver_url?: string | null
 }
 
 export type Run = {
@@ -466,6 +467,19 @@ export default function ClubPageClient({
             >
               <ExternalLink className="w-4 h-4 shrink-0" />
               Website
+            </a>
+          )}
+
+          {club.waiver_url && (
+            <a
+              href={club.waiver_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => interceptExternalClick(e, club.waiver_url!)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-[#1e2d12] border border-[#2e3d1a] text-white/60 hover:text-white hover:border-white/30 transition text-sm font-semibold"
+            >
+              <FileText className="w-4 h-4 shrink-0" />
+              Waiver
             </a>
           )}
 

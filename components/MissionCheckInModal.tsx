@@ -24,6 +24,7 @@ export type MissionCheckInClub = {
   latitude: number | null
   longitude: number | null
   tier: string | null
+  waiver_url?: string | null
 }
 
 /** Shown before a check-in completes: pick which Mission to spotlight, then confirm location + submit. */
