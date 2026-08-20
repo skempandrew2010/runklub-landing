@@ -13,6 +13,8 @@ import MissionCheckInModal from "@/components/MissionCheckInModal"
 import CheckInCelebration from "@/components/CheckInCelebration"
 import CheckInProximityMap from "@/components/CheckInProximityMap"
 import { resolveCheckinTarget, getCurrentPosition } from "@/lib/checkinGeofence"
+import WaiverAckModal from "@/components/WaiverAckModal"
+import { needsWaiverAck, acknowledgeWaiver } from "@/lib/waiver"
 import type { CheckInResult } from "@/lib/server/checkin"
 import { type WorkoutSegment, formatWorkoutSegment, parseWorkoutStructure } from "@/lib/workouts"
 
@@ -52,6 +54,7 @@ export type Club = {
   longitude: number | null
   city: string | null
   tier: string | null
+  waiver_url: string | null
 }
 
 export default function RunPageClient({ runId }: { runId: string }) {
@@ -72,6 +75,7 @@ export default function RunPageClient({ runId }: { runId: string }) {
   const [rsvpCount, setRsvpCount] = useState(0)
   const [myRsvp, setMyRsvp] = useState(false)
   const [rsvpSaving, setRsvpSaving] = useState(false)
+  const [showWaiverModal, setShowWaiverModal] = useState(false)
 
   // Fetched client-side (not server-side with the anon key) so RLS evaluates
   // as the actual signed-in visitor — otherwise an approved member clicking
@@ -81,7 +85,7 @@ export default function RunPageClient({ runId }: { runId: string }) {
       const { data, error } = await supabase
         .from("runs")
         .select(
-          "id, club_id, title, date, time, distance, meeting_point, city, external_url, description, tags, is_in_person, members_only, timezone, run_lat, run_lng, clubs(id, name, image_url, latitude, longitude, city, tier), workout:workout_type_id(title, description, structure)"
+          "id, club_id, title, date, time, distance, meeting_point, city, external_url, description, tags, is_in_person, members_only, timezone, run_lat, run_lng, clubs(id, name, image_url, latitude, longitude, city, tier, waiver_url), workout:workout_type_id(title, description, structure)"
         )
         .eq("id", runId)
         .maybeSingle()
@@ -256,8 +260,19 @@ export default function RunPageClient({ runId }: { runId: string }) {
   const isToday = run.date === todayStr
   const canCheckIn = isToday && run.is_in_person
 
-  const openCheckIn = () => {
+  const openCheckIn = async () => {
     if (!userId || !sessionToken) { router.push("/login"); return }
+    if (club && (await needsWaiverAck(userId, club.id, club.waiver_url))) {
+      setShowWaiverModal(true)
+      return
+    }
+    setShowMissionModal(true)
+  }
+
+  const handleWaiverAcknowledged = async () => {
+    if (!userId || !club) return
+    await acknowledgeWaiver(userId, club.id)
+    setShowWaiverModal(false)
     setShowMissionModal(true)
   }
 
@@ -455,6 +470,15 @@ export default function RunPageClient({ runId }: { runId: string }) {
           }}
           userId={userId}
           onClose={() => setShowChat(false)}
+        />
+      )}
+
+      {showWaiverModal && club?.waiver_url && (
+        <WaiverAckModal
+          clubName={club.name}
+          waiverUrl={club.waiver_url}
+          onAcknowledge={handleWaiverAcknowledged}
+          onClose={() => setShowWaiverModal(false)}
         />
       )}
 

@@ -87,6 +87,7 @@ type ClubWithCount = {
   instagram_handle: string | null
   membership_type: MembershipType
   website: string | null
+  waiver_url: string | null
   default_timezone: string | null
   stripe_connect_account_id: string | null
   stripe_connect_charges_enabled: boolean
@@ -143,7 +144,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
   const [loading, setLoading] = useState(true)
   const [selectedRun, setSelectedRun] = useState<RunWithClub | null>(null)
   const [editing, setEditing] = useState(false)
-  const [editForm, setEditForm] = useState({ name: "", city: "", location: "", day: "", time: "", instagram: "", website: "", membership: "free" as MembershipType })
+  const [editForm, setEditForm] = useState({ name: "", city: "", location: "", day: "", time: "", instagram: "", website: "", waiver: "", membership: "free" as MembershipType })
   const [savingEdit, setSavingEdit] = useState(false)
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
@@ -336,7 +337,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
     const load = async () => {
       const { data: clubs } = await supabase
         .from("clubs")
-        .select("id, name, city, location, meeting_day, meeting_time, image_url, tier, is_public, instagram_handle, membership_type, website, default_timezone, stripe_connect_account_id, stripe_connect_charges_enabled, stripe_connect_payouts_enabled, stripe_connect_details_submitted")
+        .select("id, name, city, location, meeting_day, meeting_time, image_url, tier, is_public, instagram_handle, membership_type, website, waiver_url, default_timezone, stripe_connect_account_id, stripe_connect_charges_enabled, stripe_connect_payouts_enabled, stripe_connect_details_submitted")
         .eq("user_id", userId)
       const rawClubs = clubs || []
       const clubIds = rawClubs.map((c: any) => c.id)
@@ -364,7 +365,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
   useEffect(() => {
     const club = myClubs.find((c) => c.id === selectedClubId)
     if (!club) return
-    setEditForm({ name: club.name ?? "", city: club.city ?? "", location: club.location ?? "", day: club.meeting_day ?? "", time: club.meeting_time ?? "", instagram: club.instagram_handle ?? "", website: club.website ?? "", membership: club.membership_type ?? "free" })
+    setEditForm({ name: club.name ?? "", city: club.city ?? "", location: club.location ?? "", day: club.meeting_day ?? "", time: club.meeting_time ?? "", instagram: club.instagram_handle ?? "", website: club.website ?? "", waiver: club.waiver_url ?? "", membership: club.membership_type ?? "free" })
     setEditing(false)
   }, [selectedClubId]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -790,7 +791,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
         image_url = publicUrl
       }
     }
-    const updates: Record<string, unknown> = { name: editForm.name, city: editForm.city, location: editForm.location, meeting_day: editForm.day || null, meeting_time: editForm.time || null, instagram_handle: rawHandle || null, website: editForm.website.trim() || null, membership_type: editForm.membership }
+    const updates: Record<string, unknown> = { name: editForm.name, city: editForm.city, location: editForm.location, meeting_day: editForm.day || null, meeting_time: editForm.time || null, instagram_handle: rawHandle || null, website: editForm.website.trim() || null, waiver_url: editForm.waiver.trim() || null, membership_type: editForm.membership }
     if (image_url) updates.image_url = image_url
 
     const currentClub = myClubs.find((c) => c.id === selectedClubId)
@@ -2293,6 +2294,11 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                     <div>
                       <label className="block text-xs font-semibold text-white/80 mb-1">Website <span className="font-normal text-white/25">(optional)</span></label>
                       <Input value={editForm.website} onChange={(e) => setEditForm({ ...editForm, website: e.target.value })} placeholder="https://yourklub.com" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-white/80 mb-1">Waiver Link <span className="font-normal text-white/25">(optional)</span></label>
+                      <p className="text-[11px] text-white/40 mb-1">Add a link to your klub&apos;s liability waiver — we&apos;ll show it to runners before they join or check in.</p>
+                      <Input value={editForm.waiver} onChange={(e) => setEditForm({ ...editForm, waiver: e.target.value })} placeholder="https://forms.google.com/..." />
                     </div>
                     <div className="flex gap-2 pt-1">
                       <Button onClick={saveEdit} disabled={savingEdit}>{savingEdit ? "Saving…" : "Save"}</Button>

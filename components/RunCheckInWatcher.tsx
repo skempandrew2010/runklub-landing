@@ -12,18 +12,21 @@ import {
 } from "@/lib/checkinGeofence"
 import MissionCheckInModal, { type MissionCheckInRun, type MissionCheckInClub } from "@/components/MissionCheckInModal"
 import CheckInCelebration from "@/components/CheckInCelebration"
+import WaiverAckModal from "@/components/WaiverAckModal"
+import { needsWaiverAck, acknowledgeWaiver } from "@/lib/waiver"
 import type { CheckInResult } from "@/lib/server/checkin"
 
 const POLL_INTERVAL_MS = 45_000
 
 type CandidateRun = MissionCheckInRun & { club_id: string }
 type CelebrationState = { data: CheckInResult; run: CandidateRun; clubName: string }
+type PromptState = { run: CandidateRun; club: MissionCheckInClub; needsWaiver: boolean }
 
 /** Proactively prompts a member to check in once they're within 0.1mi of a run they're about to start (or just started). Runs only while the app is open in the foreground. */
 export default function RunCheckInWatcher() {
   const [sessionToken, setSessionToken] = useState<string | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
-  const [prompt, setPrompt] = useState<{ run: CandidateRun; club: MissionCheckInClub } | null>(null)
+  const [prompt, setPrompt] = useState<PromptState | null>(null)
   const [celebration, setCelebration] = useState<CelebrationState | null>(null)
   const pausedRef = useRef(false)
 
@@ -52,7 +55,7 @@ export default function RunCheckInWatcher() {
       const today = localDateStr()
       const { data: runs } = await supabase
         .from("runs")
-        .select("id, title, date, time, timezone, run_lat, run_lng, club_id, clubs(name, latitude, longitude, tier)")
+        .select("id, title, date, time, timezone, run_lat, run_lng, club_id, clubs(name, latitude, longitude, tier, waiver_url)")
         .in("club_id", clubIds)
         .eq("kind", "run")
         .eq("is_in_person", true)
@@ -82,9 +85,11 @@ export default function RunCheckInWatcher() {
           const distance = getDistanceMiles(pos.coords.latitude, pos.coords.longitude, target.lat, target.lng)
           if (distance <= PROXIMITY_CHECKIN_RADIUS_MILES) {
             pausedRef.current = true
+            const needsWaiver = await needsWaiverAck(userId, r.club_id, r.clubs.waiver_url)
             setPrompt({
               run: { id: r.id, title: r.title, date: r.date, time: r.time, timezone: r.timezone, run_lat: r.run_lat, run_lng: r.run_lng, club_id: r.club_id },
               club: r.clubs,
+              needsWaiver,
             })
             return
           }
@@ -102,6 +107,12 @@ export default function RunCheckInWatcher() {
   const dismissPrompt = () => {
     pausedRef.current = false
     setPrompt(null)
+  }
+
+  const handleWaiverAcknowledged = async () => {
+    if (!userId || !prompt) return
+    await acknowledgeWaiver(userId, prompt.run.club_id)
+    setPrompt((prev) => prev && { ...prev, needsWaiver: false })
   }
 
   const handleCheckedIn = (data: CheckInResult) => {
@@ -131,6 +142,17 @@ export default function RunCheckInWatcher() {
   }
 
   if (!prompt || !sessionToken) return null
+
+  if (prompt.needsWaiver && prompt.club.waiver_url) {
+    return (
+      <WaiverAckModal
+        clubName={prompt.club.name}
+        waiverUrl={prompt.club.waiver_url}
+        onAcknowledge={handleWaiverAcknowledged}
+        onClose={dismissPrompt}
+      />
+    )
+  }
 
   return (
     <MissionCheckInModal
