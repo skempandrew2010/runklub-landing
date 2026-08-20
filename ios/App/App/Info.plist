@@ -24,6 +24,10 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>RunKlub uses your location to confirm you're at the run site when you check in.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>RunKlub uses your camera to let you take a photo for your profile or klub listing.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
