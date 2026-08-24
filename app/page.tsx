@@ -209,6 +209,35 @@ export default function RootPage() {
         </FadeIn>
       </section>
 
+      {/* Passport payouts — for directors, shown before club management pricing/CTAs */}
+      <section className="max-w-3xl mx-auto px-6 py-16 border-t border-[#2e3d1a]">
+        <FadeIn>
+          <div className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-8 flex flex-col sm:flex-row items-start sm:items-center gap-6">
+            <div className="flex-1">
+              <p className="text-xs font-bold text-[#c5f135]/60 uppercase tracking-widest mb-2">Already running a klub?</p>
+              <h3 className="text-xl font-black text-white mb-2">Earn extra revenue from Passport check-ins.</h3>
+              <p className="text-white/50 text-sm leading-relaxed mb-2">
+                RunKlub Passport is a monthly credit subscription runners buy directly from RunKlub. It&apos;s built specifically for paid training klubs: once you&apos;re enrolled, any Passport subscriber can check into your klub&apos;s runs, even if they&apos;ve never joined as a paying member, and you get paid automatically for every check-in.
+              </p>
+              <p className="text-white/50 text-sm leading-relaxed">
+                It&apos;s completely separate from your klub&apos;s own membership tools and dues, so enrolling here changes nothing about how you run your klub day to day, and you can leave anytime. No contract, no effect on your existing members.
+              </p>
+            </div>
+            <div className="shrink-0 flex flex-col items-start sm:items-end gap-2">
+              <a
+                href="https://calendly.com/runklubinfo/30min"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-6 py-3 bg-[#c5f135] text-[#1a2110] font-black rounded-full text-sm hover:bg-[#d4fb4d] transition whitespace-nowrap"
+              >
+                Book a Discovery Call
+              </a>
+              <p className="text-white/30 text-xs max-w-[180px] sm:text-right">We vet every klub on a quick call before enrolling them.</p>
+            </div>
+          </div>
+        </FadeIn>
+      </section>
+
       {/* Director plans */}
       <section className="max-w-4xl mx-auto px-6 py-16 border-t border-[#2e3d1a]">
         <FadeIn>
@@ -296,35 +325,6 @@ export default function RootPage() {
 
         <FadeIn delay={100}>
           <p className="text-xs text-white/25 text-center mt-6">All plans include a free klub page. No contract, cancel anytime.</p>
-        </FadeIn>
-      </section>
-
-      {/* Passport payouts — for directors, separate from klub plans above */}
-      <section className="max-w-3xl mx-auto px-6 py-16 border-t border-[#2e3d1a]">
-        <FadeIn>
-          <div className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-8 flex flex-col sm:flex-row items-start sm:items-center gap-6">
-            <div className="flex-1">
-              <p className="text-xs font-bold text-[#c5f135]/60 uppercase tracking-widest mb-2">Already running a klub?</p>
-              <h3 className="text-xl font-black text-white mb-2">Earn extra revenue from Passport check-ins.</h3>
-              <p className="text-white/50 text-sm leading-relaxed mb-2">
-                RunKlub Passport is a monthly credit subscription runners buy directly from RunKlub. It&apos;s built specifically for paid training klubs: once you&apos;re enrolled, any Passport subscriber can check into your klub&apos;s runs, even if they&apos;ve never joined as a paying member, and you get paid automatically for every check-in.
-              </p>
-              <p className="text-white/50 text-sm leading-relaxed">
-                It&apos;s completely separate from your klub&apos;s own membership tools and dues, so enrolling here changes nothing about how you run your klub day to day, and you can leave anytime. No contract, no effect on your existing members.
-              </p>
-            </div>
-            <div className="shrink-0 flex flex-col items-start sm:items-end gap-2">
-              <a
-                href="https://calendly.com/runklubinfo/30min"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-6 py-3 bg-[#c5f135] text-[#1a2110] font-black rounded-full text-sm hover:bg-[#d4fb4d] transition whitespace-nowrap"
-              >
-                Book a Discovery Call
-              </a>
-              <p className="text-white/30 text-xs max-w-[180px] sm:text-right">We vet every klub on a quick call before enrolling them.</p>
-            </div>
-          </div>
         </FadeIn>
       </section>
 
