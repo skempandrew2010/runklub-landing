@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { supabase } from "@/lib/supabase"
 import { localDateStr } from "@/utils/dates"
-import { CalendarCheck, ChevronRight, Users, Zap } from "lucide-react"
+import { CalendarCheck, ChevronRight, Users, Zap, Crown } from "lucide-react"
 import Link from "next/link"
 import ChallengeHubBanner from "@/components/ChallengeHubBanner"
 import PendingCoachInviteBanner from "@/components/PendingCoachInviteBanner"
@@ -385,6 +385,23 @@ export default function HubContent() {
           <div className="space-y-10">
             <PendingCoachInviteBanner />
             <ChallengeHubBanner userId={userId} />
+
+            {/* ── PASSPORT (front and center) ── */}
+            <Link
+              href="/passport/credits"
+              className="block rounded-2xl overflow-hidden border border-[#c5f135]/30 bg-gradient-to-br from-[#c5f135]/15 to-[#1e2d12] hover:border-[#c5f135]/60 transition px-5 py-5 sm:px-6 sm:py-6"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-11 h-11 rounded-xl bg-[#c5f135]/15 border border-[#c5f135]/30 flex items-center justify-center shrink-0">
+                  <Crown className="w-5 h-5 text-[#c5f135]" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-base font-black text-white">RunKlub Passport</p>
+                  <p className="text-xs text-white/50 mt-0.5">Buy credits, check into any klub's runs beyond your own.</p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-white/30 shrink-0" />
+              </div>
+            </Link>
 
             {/* ── MY KLUBS (first) ── */}
             <section>

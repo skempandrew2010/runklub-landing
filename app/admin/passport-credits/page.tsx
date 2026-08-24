@@ -6,11 +6,10 @@ import { supabase } from "@/lib/supabase"
 import { CalendarCheck, Trophy, Zap, Clock, AlertTriangle } from "lucide-react"
 
 type Tier = { tier: number; name: string; monthly_price_cents: number; yearly_price_cents: number; credits_per_month: number }
-type CheckinCost = { checkin_tier: "standard" | "premium"; credit_cost: number; club_payout_cents: number }
 type Subscription = { id: string; tier: number; status: string; billing_interval: string; next_credit_issue_at: string | null; current_period_end: string | null }
 type Batch = { id: string; credits_issued: number; credits_remaining: number; status: string; issued_at: string; expires_at: string }
-type ClubRow = { id: string; name: string; passport_checkin_tier: "standard" | "premium"; passport_annual_price_cents: number | null }
-type Checkin = { id: string; club_id: string; checkin_tier: string; credits_spent: number; payout_amount_cents: number; payout_status: string; checked_in_at: string }
+type ClubRow = { id: string; name: string; passport_default_credit_value: number }
+type Checkin = { id: string; club_id: string; credits_spent: number; payout_amount_cents: number; payout_status: string; checked_in_at: string }
 
 function daysUntil(iso: string) {
   return Math.ceil((new Date(iso).getTime() - Date.now()) / 86400000)
@@ -22,7 +21,6 @@ export default function PassportCreditsTestPage() {
   const [userId, setUserId] = useState<string | null>(null)
 
   const [tiers, setTiers] = useState<Tier[]>([])
-  const [costs, setCosts] = useState<CheckinCost[]>([])
   const [subscription, setSubscription] = useState<Subscription | null>(null)
   const [batches, setBatches] = useState<Batch[]>([])
   const [clubs, setClubs] = useState<ClubRow[]>([])
@@ -35,7 +33,6 @@ export default function PassportCreditsTestPage() {
   const [cronResult, setCronResult] = useState<number | null>(null)
 
   const clubById: Record<string, ClubRow> = Object.fromEntries(clubs.map((c) => [c.id, c]))
-  const costByTier: Record<string, CheckinCost> = Object.fromEntries(costs.map((c) => [c.checkin_tier, c]))
   const creditBalance = batches
     .filter((b) => b.status === "active" && new Date(b.expires_at) > new Date())
     .reduce((sum, b) => sum + b.credits_remaining, 0)
@@ -44,7 +41,7 @@ export default function PassportCreditsTestPage() {
     const [{ data: subData }, { data: batchData }, { data: checkinData }] = await Promise.all([
       supabase.from("passport_subscriptions").select("id, tier, status, billing_interval, next_credit_issue_at, current_period_end").eq("user_id", uid).eq("status", "active").maybeSingle(),
       supabase.from("passport_credit_batches").select("id, credits_issued, credits_remaining, status, issued_at, expires_at").eq("user_id", uid).order("issued_at", { ascending: true }),
-      supabase.from("passport_checkins").select("id, club_id, checkin_tier, credits_spent, payout_amount_cents, payout_status, checked_in_at").eq("user_id", uid).order("checked_in_at", { ascending: false }).limit(20),
+      supabase.from("passport_checkins").select("id, club_id, credits_spent, payout_amount_cents, payout_status, checked_in_at").eq("user_id", uid).order("checked_in_at", { ascending: false }).limit(20),
     ])
     setSubscription(subData ?? null)
     setBatches(batchData ?? [])
@@ -61,13 +58,11 @@ export default function PassportCreditsTestPage() {
 
       setUserId(user.id)
 
-      const [{ data: tiersData }, { data: costsData }, { data: clubsData }] = await Promise.all([
+      const [{ data: tiersData }, { data: clubsData }] = await Promise.all([
         supabase.from("passport_tiers").select("tier, name, monthly_price_cents, yearly_price_cents, credits_per_month").order("tier"),
-        supabase.from("passport_checkin_costs").select("checkin_tier, credit_cost, club_payout_cents"),
-        supabase.from("clubs").select("id, name, passport_checkin_tier, passport_annual_price_cents").order("name").limit(50),
+        supabase.from("clubs").select("id, name, passport_default_credit_value").eq("passport_program_enrolled", true).order("name").limit(50),
       ])
       setTiers(tiersData ?? [])
-      setCosts(costsData ?? [])
       setClubs(clubsData ?? [])
 
       await refetchUserData(user.id)
@@ -326,15 +321,14 @@ export default function PassportCreditsTestPage() {
               <p className="px-4 py-3.5 text-sm text-white/40">No klubs found.</p>
             ) : (
               clubs.map((club) => {
-                const cost = costByTier[club.passport_checkin_tier]
-                const isPremium = club.passport_checkin_tier === "premium"
+                const payoutCents = 300 + club.passport_default_credit_value * 50
                 return (
                   <div key={club.id} className="flex items-center gap-3 px-4 py-3">
-                    {isPremium ? <Zap className="w-4 h-4 text-[#c5f135] shrink-0" /> : <Trophy className="w-4 h-4 text-white/30 shrink-0" />}
+                    <Trophy className="w-4 h-4 text-[#c5f135] shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold text-white truncate">{club.name}</p>
-                      <p className="text-xs text-white/40 capitalize">
-                        {club.passport_checkin_tier} · {cost?.credit_cost ?? "—"} credits · klub earns ${((cost?.club_payout_cents ?? 0) / 100).toFixed(2)}
+                      <p className="text-xs text-white/40">
+                        {club.passport_default_credit_value} credits · klub earns ${(payoutCents / 100).toFixed(2)}
                       </p>
                     </div>
                     <button

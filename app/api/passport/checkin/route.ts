@@ -33,14 +33,14 @@ function getSupabaseAsUser(token: string) {
 // 'failed' until someone retries it; there's no retry job yet.
 export async function POST(req: NextRequest) {
   try {
-    const { club_id } = await req.json()
+    const { club_id, run_id } = await req.json()
     if (!club_id) return NextResponse.json({ error: "club_id is required" }, { status: 400 })
 
     const token = req.headers.get("authorization")?.replace("Bearer ", "")
     if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
     const userClient = getSupabaseAsUser(token)
-    const { data: checkinId, error: rpcError } = await userClient.rpc("passport_redeem_checkin", { p_club_id: club_id })
+    const { data: checkinId, error: rpcError } = await userClient.rpc("passport_redeem_checkin", { p_club_id: club_id, p_run_id: run_id ?? null })
 
     if (rpcError) {
       const status = rpcError.code === "28000" ? 401 : rpcError.code === "P0001" || rpcError.code === "P0002" ? 400 : 500
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
     const admin = getSupabaseAdmin()
     const { data: checkin } = await admin
       .from("passport_checkins")
-      .select("id, club_id, credits_spent, payout_amount_cents, checkin_tier")
+      .select("id, club_id, credits_spent, payout_amount_cents")
       .eq("id", checkinId)
       .single()
 
@@ -62,14 +62,14 @@ export async function POST(req: NextRequest) {
 
     const { data: club } = await admin
       .from("clubs")
-      .select("id, name, stripe_connect_account_id, stripe_connect_payouts_enabled")
+      .select("id, name, stripe_connect_account_id, stripe_connect_payouts_enabled, passport_program_enrolled")
       .eq("id", checkin.club_id)
       .single()
 
     let payoutStatus: "paid" | "failed" = "failed"
     let transferId: string | null = null
 
-    if (club?.stripe_connect_account_id && club.stripe_connect_payouts_enabled && checkin.payout_amount_cents > 0) {
+    if (club?.passport_program_enrolled && club.stripe_connect_account_id && club.stripe_connect_payouts_enabled && checkin.payout_amount_cents > 0) {
       try {
         const transfer = await getStripe().transfers.create(
           {
@@ -97,7 +97,6 @@ export async function POST(req: NextRequest) {
       checkinId: checkin.id,
       clubId: checkin.club_id,
       clubName: club?.name ?? "Klub",
-      checkinTier: checkin.checkin_tier,
       creditsSpent: checkin.credits_spent,
       payoutCents: checkin.payout_amount_cents,
       payoutStatus,
