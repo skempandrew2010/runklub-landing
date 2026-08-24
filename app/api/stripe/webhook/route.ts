@@ -96,6 +96,40 @@ export async function POST(req: NextRequest) {
           break
         }
 
+        // One-time extra credit purchase — issues a batch straight into the
+        // same FIFO ledger monthly grants use, so redemption never has to
+        // branch on where credits came from.
+        if (session.metadata?.passportCreditPurchase === "true") {
+          const { userId, credits } = session.metadata
+          if (!userId || !credits) break
+          const admin = getSupabaseAdmin()
+          const paymentIntentId = typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id ?? null
+
+          if (paymentIntentId) {
+            const { data: existing } = await admin
+              .from("passport_credit_batches")
+              .select("id")
+              .eq("stripe_payment_intent_id", paymentIntentId)
+              .maybeSingle()
+            if (existing) break
+          }
+
+          const creditsNum = Number(credits)
+          const issuedAt = new Date()
+          const expiresAt = new Date(issuedAt.getTime() + 45 * 24 * 60 * 60 * 1000)
+          await admin.from("passport_credit_batches").insert({
+            user_id: userId,
+            credits_issued: creditsNum,
+            credits_remaining: creditsNum,
+            status: "active",
+            source: "purchase",
+            issued_at: issuedAt.toISOString(),
+            expires_at: expiresAt.toISOString(),
+            stripe_payment_intent_id: paymentIntentId,
+          })
+          break
+        }
+
         const { clubId, tier } = session.metadata ?? {}
         if (!clubId || !tier) break
 

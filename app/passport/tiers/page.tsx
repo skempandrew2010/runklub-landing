@@ -14,6 +14,7 @@ import {
   type TierLeaderboardRow,
 } from "@/lib/checkins"
 import { TIER_ICONS } from "@/components/TierCard"
+import { PASSPORT_LAUNCHED } from "@/lib/passportConfig"
 
 const RANK_LIMIT = 20
 
@@ -99,10 +100,22 @@ export default function TierRankingsPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (!PASSPORT_LAUNCHED) router.replace("/passport")
+  }, [router])
+
+  useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
       setUserId(user?.id ?? null)
       if (!user) { setLoading(false); return }
+
+      const { data: sub } = await supabase
+        .from("passport_subscriptions")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("status", "active")
+        .maybeSingle()
+      if (!sub) { router.replace("/passport/credits"); return }
 
       const [progressData, tierDefs, rankingData] = await Promise.all([
         getUserTierProgress(),
@@ -135,7 +148,7 @@ export default function TierRankingsPage() {
         <h1 className="text-xl font-black text-white leading-tight mb-1">Tier Rankings</h1>
         <p className="text-xs text-white/40 mb-6">See where you stand and what's next.</p>
 
-        {loading ? (
+        {loading || !PASSPORT_LAUNCHED ? (
           <div className="flex items-center justify-center py-20">
             <div className="w-6 h-6 border-2 border-[#c5f135]/30 border-t-[#c5f135] rounded-full animate-spin" />
           </div>

@@ -21,7 +21,7 @@ function getSupabaseAdmin() {
 export async function POST(req: NextRequest) {
   try {
     const { tier, interval } = await req.json()
-    if (![1, 2, 3, 4].includes(tier)) {
+    if (![1, 2, 4].includes(tier)) {
       return NextResponse.json({ error: "Invalid tier" }, { status: 400 })
     }
     const billingInterval: PassportBillingInterval = interval === "yearly" ? "yearly" : "monthly"

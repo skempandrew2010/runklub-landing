@@ -27,8 +27,8 @@ export async function POST(req: NextRequest) {
     if (profile?.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
     const { user_id, tier, billing_interval } = await req.json()
-    if (!user_id || ![1, 2, 3, 4].includes(tier)) {
-      return NextResponse.json({ error: "user_id and tier (1-4) are required" }, { status: 400 })
+    if (!user_id || ![1, 2, 4].includes(tier)) {
+      return NextResponse.json({ error: "user_id and a valid tier are required" }, { status: 400 })
     }
     const interval = billing_interval === "yearly" ? "yearly" : "monthly"
     // Unlike the real webhook (which schedules ~30 days out, since Stripe

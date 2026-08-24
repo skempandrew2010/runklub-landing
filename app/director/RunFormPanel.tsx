@@ -103,6 +103,8 @@ export default function RunFormPanel({
   const [description, setDescription] = useState("")
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [membersOnly, setMembersOnly] = useState(false)
+  const [passportCheckinLimit, setPassportCheckinLimit] = useState("")
+  const [passportCreditValue, setPassportCreditValue] = useState("")
   const [repeatWeekly, setRepeatWeekly] = useState(quickMode)
   const [repeatWeeks, setRepeatWeeks] = useState(quickMode ? 12 : 4)
   const [selectedPaceGroupIds, setSelectedPaceGroupIds] = useState<string[]>([])
@@ -184,6 +186,8 @@ export default function RunFormPanel({
           setDescription(run.description ?? "")
           setSelectedTags(run.tags ?? [])
           setMembersOnly(run.members_only ?? false)
+          setPassportCheckinLimit(run.passport_checkin_limit != null ? String(run.passport_checkin_limit) : "")
+          setPassportCreditValue(run.passport_credit_value != null ? String(run.passport_credit_value) : "")
           setSelectedPaceGroupIds(run.pace_group_ids ?? [])
           setSelectedWorkoutTypeId(run.workout_type_id ?? "")
           setWorkoutManuallySet(true)
@@ -283,6 +287,8 @@ export default function RunFormPanel({
         pace_group_ids: selectedPaceGroupIds.length > 0 ? selectedPaceGroupIds : null,
         workout_type_id: selectedWorkoutTypeId || null,
         coach_id: selectedCoachId || null,
+        passport_checkin_limit: passportCheckinLimit.trim() === "" ? null : parseInt(passportCheckinLimit, 10),
+        passport_credit_value: passportCreditValue.trim() === "" ? null : parseInt(passportCreditValue, 10),
       }
 
       if (isEdit && runId) {
@@ -608,6 +614,41 @@ export default function RunFormPanel({
                   <div className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${!membersOnly ? "translate-x-[22px]" : "translate-x-0"}`} />
                 </div>
               </button>
+
+              <div>
+                <label className={lc}>Passport Credit Value <span className="text-white/25 font-normal">(optional — overrides your klub default)</span></label>
+                <div className="flex flex-wrap gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setPassportCreditValue("")}
+                    className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${!passportCreditValue ? "bg-[#c5f135] text-[#1a2110] border-[#c5f135]" : "bg-[#1a2110] text-white/50 border-[#2e3d1a] hover:border-[#c5f135]/40"}`}>
+                    Klub default
+                  </button>
+                  {[1, 2, 3, 4, 5, 6].map((v) => (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => setPassportCreditValue(String(v))}
+                      className={`w-9 py-1.5 rounded-full text-xs font-bold border transition-all ${passportCreditValue === String(v) ? "bg-[#c5f135] text-[#1a2110] border-[#c5f135]" : "bg-[#1a2110] text-white/50 border-[#2e3d1a] hover:border-[#c5f135]/40"}`}>
+                      {v}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[11px] text-white/25 mt-1">How many credits a Passport subscriber spends to check into this specific run — higher values earn a bigger payout.</p>
+              </div>
+
+              <div>
+                <label className={lc}>Passport Check-in Limit <span className="text-white/25 font-normal">(optional)</span></label>
+                <input
+                  type="number"
+                  min="1"
+                  value={passportCheckinLimit}
+                  onChange={(e) => setPassportCheckinLimit(e.target.value)}
+                  placeholder="Unlimited"
+                  className={ic}
+                />
+                <p className="text-[11px] text-white/25 mt-1">Cap how many Passport subscribers can check into this specific run. Once it&apos;s reached, the run shows as full to outside runners. Leave blank to use your klub&apos;s default limit.</p>
+              </div>
 
               <div className="space-y-2">
                 <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Pace Group</p>
