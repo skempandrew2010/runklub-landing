@@ -306,11 +306,24 @@ export default function RootPage() {
             <div className="flex-1">
               <p className="text-xs font-bold text-[#c5f135]/60 uppercase tracking-widest mb-2">Already running a klub?</p>
               <h3 className="text-xl font-black text-white mb-2">Earn extra revenue from Passport check-ins.</h3>
-              <p className="text-white/50 text-sm leading-relaxed">Enroll your klub in the Passport payout program and get paid every time a Passport subscriber checks into one of your runs, on any plan, Free included. It&apos;s a separate, optional program from your klub&apos;s own membership tools, and enrolling in one never requires the other.</p>
+              <p className="text-white/50 text-sm leading-relaxed mb-2">
+                RunKlub Passport is a monthly credit subscription runners buy directly from RunKlub. It&apos;s built specifically for paid training klubs: once you&apos;re enrolled, any Passport subscriber can check into your klub&apos;s runs, even if they&apos;ve never joined as a paying member, and you get paid automatically for every check-in.
+              </p>
+              <p className="text-white/50 text-sm leading-relaxed">
+                It&apos;s completely separate from your klub&apos;s own membership tools and dues, so enrolling here changes nothing about how you run your klub day to day, and you can leave anytime. No contract, no effect on your existing members.
+              </p>
             </div>
-            <Link href="/login" className="shrink-0 px-6 py-3 bg-[#c5f135] text-[#1a2110] font-black rounded-full text-sm hover:bg-[#d4fb4d] transition">
-              Enroll your klub
-            </Link>
+            <div className="shrink-0 flex flex-col items-start sm:items-end gap-2">
+              <a
+                href="https://calendly.com/runklubinfo/30min"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-6 py-3 bg-[#c5f135] text-[#1a2110] font-black rounded-full text-sm hover:bg-[#d4fb4d] transition whitespace-nowrap"
+              >
+                Book a Discovery Call
+              </a>
+              <p className="text-white/30 text-xs max-w-[180px] sm:text-right">We vet every klub on a quick call before enrolling them.</p>
+            </div>
           </div>
         </FadeIn>
       </section>
