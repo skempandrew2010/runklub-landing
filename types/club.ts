@@ -22,4 +22,5 @@ export type Club = {
   membership_price_cents?: number | null
   stripe_connect_account_id?: string | null
   stripe_connect_charges_enabled?: boolean | null
+  passport_program_enrolled?: boolean | null
 }

@@ -254,7 +254,7 @@ export default function DirectorHomeContent({ userId }: { userId: string }) {
           <section>
             <SectionHeader title="Analytics" sub="This month" />
             <Link
-              href="/director/analytics"
+              href="/director?tab=analytics"
               className="flex items-center gap-3 rounded-2xl overflow-hidden border border-[#2e3d1a] bg-[#1e2d12] hover:border-[#c5f135]/30 transition px-4 py-4"
             >
               {!analytics ? (

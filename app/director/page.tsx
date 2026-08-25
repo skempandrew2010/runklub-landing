@@ -27,6 +27,7 @@ import RunChatPanel from "@/components/RunChatPanel"
 import RunCheckInRoster from "@/components/RunCheckInRoster"
 import CoachDashboard, { type CoachTabKey } from "@/components/CoachDashboard"
 import KlubContextPicker from "@/components/KlubContextPicker"
+import AnalyticsTab from "./AnalyticsTab"
 import { PLANS } from "@/lib/plans"
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -129,6 +130,7 @@ const ALL_TABS = [
   { key: "members",     label: "Members",     free: false, starter: true,  growth: true },
   { key: "runs",        label: "Runs",        free: true,  starter: true,  growth: true },
   { key: "communicate", label: "Communicate", free: true,  starter: true,  growth: true },
+  { key: "analytics",   label: "Analytics",   free: true,  starter: true,  growth: true },
   { key: "settings",   label: "Settings",    free: true,  starter: true,  growth: true },
 ] as const
 
@@ -1012,9 +1014,14 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
         {nativeApp ? (
           <p className="text-xs text-white/80">Upgrade at <span className="text-[#c5f135] font-semibold">runklub.fit</span> on the web.</p>
         ) : (
-          <Button onClick={() => startCheckout(targetTier)} disabled={upgrading} className="w-full text-center">
-            {upgrading ? "Redirecting…" : `Upgrade to ${info.name}`}
-          </Button>
+          <>
+            <Button onClick={() => startCheckout(targetTier)} disabled={upgrading} className="w-full text-center">
+              {upgrading ? "Redirecting…" : `Upgrade to ${info.name}`}
+            </Button>
+            <Link href="/director/plans" className="block text-center text-xs text-white/40 hover:text-[#c5f135] transition mt-2">
+              See everything included in every plan
+            </Link>
+          </>
         )}
       </div>
     )
@@ -2082,6 +2089,11 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                 {makeUpgradeCard("enterprise", false)}
               </div>
             )
+          )}
+
+          {/* ── ANALYTICS ── */}
+          {tab === "analytics" && runPanel === null && (
+            <AnalyticsTab clubId={selectedClubId ?? ""} />
           )}
 
           {/* ── SETTINGS ── */}

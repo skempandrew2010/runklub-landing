@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Clock, MapPin, MessageSquare, CheckCircle2, ExternalLink, PartyPopper } from "lucide-react"
+import { ArrowLeft, Clock, MapPin, MessageSquare, CheckCircle2, ExternalLink, PartyPopper, Crown, Lock } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { localDateStr, mondayOf } from "@/utils/dates"
 import { getTagStyle } from "@/utils/tagStyle"
@@ -43,18 +43,23 @@ export type Run = {
   timezone: string | null
   run_lat: number | null
   run_lng: number | null
+  passport_credit_value: number | null
+  passport_checkin_limit: number | null
   workout: { title: string; description: string | null; structure: WorkoutSegment[] } | null
 }
 
 export type Club = {
   id: string
   name: string
+  user_id: string
   image_url: string | null
   latitude: number | null
   longitude: number | null
   city: string | null
   tier: string | null
   waiver_url: string | null
+  passport_program_enrolled: boolean
+  passport_default_credit_value: number
 }
 
 export default function RunPageClient({ runId }: { runId: string }) {
@@ -77,6 +82,20 @@ export default function RunPageClient({ runId }: { runId: string }) {
   const [rsvpSaving, setRsvpSaving] = useState(false)
   const [showWaiverModal, setShowWaiverModal] = useState(false)
 
+  // Passport: whether the viewer belongs to this klub at all (director,
+  // subscription, or active member) -- the gate below only ever applies to
+  // non-members, since Passport is specifically for checking into klubs you
+  // don't belong to.
+  const [membershipChecked, setMembershipChecked] = useState(false)
+  const [isKlubMember, setIsKlubMember] = useState(false)
+  const [passportSubscribed, setPassportSubscribed] = useState(false)
+  const [passportCreditBalance, setPassportCreditBalance] = useState(0)
+  const [passportRedeemed, setPassportRedeemed] = useState(false)
+  const [redeemingPassport, setRedeemingPassport] = useState(false)
+  const [passportError, setPassportError] = useState<string | null>(null)
+  const [passportShortfall, setPassportShortfall] = useState<number | null>(null)
+  const [buyingShortfall, setBuyingShortfall] = useState(false)
+
   // Fetched client-side (not server-side with the anon key) so RLS evaluates
   // as the actual signed-in visitor — otherwise an approved member clicking
   // a shared link to their own private run would incorrectly see "not found."
@@ -85,7 +104,7 @@ export default function RunPageClient({ runId }: { runId: string }) {
       const { data, error } = await supabase
         .from("runs")
         .select(
-          "id, club_id, title, date, time, distance, meeting_point, city, external_url, description, tags, is_in_person, members_only, timezone, run_lat, run_lng, clubs(id, name, image_url, latitude, longitude, city, tier, waiver_url), workout:workout_type_id(title, description, structure)"
+          "id, club_id, title, date, time, distance, meeting_point, city, external_url, description, tags, is_in_person, members_only, timezone, run_lat, run_lng, passport_credit_value, passport_checkin_limit, clubs(id, name, user_id, image_url, latitude, longitude, city, tier, waiver_url, passport_program_enrolled, passport_default_credit_value), workout:workout_type_id(title, description, structure)"
         )
         .eq("id", runId)
         .maybeSingle()
@@ -110,6 +129,8 @@ export default function RunPageClient({ runId }: { runId: string }) {
         timezone: data.timezone,
         run_lat: data.run_lat,
         run_lng: data.run_lng,
+        passport_credit_value: data.passport_credit_value,
+        passport_checkin_limit: data.passport_checkin_limit,
         workout: data.workout
           ? {
               title: (data.workout as any).title,
@@ -174,6 +195,93 @@ export default function RunPageClient({ runId }: { runId: string }) {
         .then(({ data }) => setMyRsvp(!!data?.going))
     }
   }, [userId, run])
+
+  // Only relevant for runs at a Passport-enrolled klub -- figure out if the
+  // viewer already belongs (gate never applies to members), and if not,
+  // whether they're a Passport subscriber with enough credits to redeem.
+  useEffect(() => {
+    if (!run || !club || !club.passport_program_enrolled) { setMembershipChecked(true); return }
+    if (!userId) { setIsKlubMember(false); setMembershipChecked(true); return }
+    let cancelled = false
+    const load = async () => {
+      const isDirector = club.user_id === userId
+      const [{ data: sub }, { data: member }, { data: passportSub }, { data: alreadyRedeemed }] = await Promise.all([
+        supabase.from("subscriptions").select("id").eq("club_id", run.club_id).eq("user_id", userId).maybeSingle(),
+        supabase.from("members").select("id").eq("club_id", run.club_id).eq("user_id", userId).eq("status", "active").maybeSingle(),
+        supabase.from("passport_subscriptions").select("id").eq("user_id", userId).eq("status", "active").maybeSingle(),
+        supabase.from("passport_checkins").select("id").eq("run_id", run.id).eq("user_id", userId).maybeSingle(),
+      ])
+      if (cancelled) return
+      setIsKlubMember(isDirector || !!sub || !!member)
+      setPassportSubscribed(!!passportSub)
+      setPassportRedeemed(!!alreadyRedeemed)
+      if (passportSub) {
+        const { data: batches } = await supabase
+          .from("passport_credit_batches")
+          .select("credits_remaining, expires_at")
+          .eq("user_id", userId)
+          .eq("status", "active")
+          .gt("credits_remaining", 0)
+        if (cancelled) return
+        const now = new Date()
+        const balance = (batches ?? []).filter((b) => new Date(b.expires_at) > now).reduce((sum, b) => sum + b.credits_remaining, 0)
+        setPassportCreditBalance(balance)
+      }
+      setMembershipChecked(true)
+    }
+    load()
+    return () => { cancelled = true }
+  }, [userId, run, club])
+
+  const passportCreditValue = run && club ? (run.passport_credit_value ?? club.passport_default_credit_value) : null
+  const passportGateActive = !!(
+    membershipChecked && club?.passport_program_enrolled && !isKlubMember && run && !run.members_only && !run.external_url && !passportRedeemed
+  )
+
+  const redeemPassportCredits = async () => {
+    if (!run || !club) return
+    if (!userId || !sessionToken) { router.push("/login"); return }
+    setRedeemingPassport(true)
+    setPassportError(null)
+    setPassportShortfall(null)
+    try {
+      const res = await fetch("/api/passport/checkin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
+        body: JSON.stringify({ club_id: club.id, run_id: run.id }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        const match = /insufficient_credits: have (\d+), need (\d+)/.exec(json.error ?? "")
+        if (match) setPassportShortfall(Number(match[2]) - Number(match[1]))
+        else setPassportError(json.error ?? "Could not redeem credits")
+        return
+      }
+      setPassportRedeemed(true)
+    } catch {
+      setPassportError("Could not redeem credits. Try again.")
+    } finally {
+      setRedeemingPassport(false)
+    }
+  }
+
+  const buyShortfallCredits = async () => {
+    if (passportShortfall == null || !sessionToken) return
+    setBuyingShortfall(true)
+    try {
+      const res = await fetch("/api/passport/buy-credits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
+        body: JSON.stringify({ credits: passportShortfall, returnPath: `/runs/${runId}` }),
+      })
+      const json = await res.json()
+      if (json.url) window.location.href = json.url
+      else { setPassportError(json.error ?? "Could not start checkout"); setBuyingShortfall(false) }
+    } catch {
+      setPassportError("Could not start checkout. Try again.")
+      setBuyingShortfall(false)
+    }
+  }
 
   const toggleRsvp = async () => {
     if (!run) return
@@ -258,7 +366,7 @@ export default function RunPageClient({ runId }: { runId: string }) {
 
   const todayStr = localDateStr()
   const isToday = run.date === todayStr
-  const canCheckIn = isToday && run.is_in_person
+  const canCheckIn = isToday && run.is_in_person && !passportGateActive
 
   const openCheckIn = async () => {
     if (!userId || !sessionToken) { router.push("/login"); return }
@@ -313,7 +421,8 @@ export default function RunPageClient({ runId }: { runId: string }) {
           <div className="flex flex-wrap items-center gap-3 text-sm text-white/60 mb-3">
             <span className="flex items-center gap-1.5">
               <Clock className="w-3.5 h-3.5 text-[#c5f135]" />
-              {new Date(run.date + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} at {formatTime(run)}
+              {new Date(run.date + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+              {passportGateActive ? null : <> at {formatTime(run)}</>}
             </span>
             {run.distance && <span>{run.distance}</span>}
             {run.members_only && (
@@ -321,9 +430,18 @@ export default function RunPageClient({ runId }: { runId: string }) {
                 MEMBERS
               </span>
             )}
+            {club.passport_program_enrolled && (
+              <span className="flex items-center gap-1 text-[9px] font-black px-1.5 py-0.5 rounded-full bg-[#c5f135]/10 text-[#c5f135] border border-[#c5f135]/30">
+                <Crown className="w-2.5 h-2.5" /> PASSPORT
+              </span>
+            )}
           </div>
 
-          {run.meeting_point ? (
+          {passportGateActive ? (
+            <p className="flex items-center gap-1.5 text-sm text-white/40 mb-3">
+              <Lock className="w-3.5 h-3.5 shrink-0" /> Time and location unlock after you redeem credits
+            </p>
+          ) : run.meeting_point ? (
             <p className="flex items-center gap-1.5 text-sm text-white/50 mb-3">
               <MapPin className="w-3.5 h-3.5 text-[#c5f135] shrink-0" /> {run.meeting_point}
             </p>
@@ -333,7 +451,52 @@ export default function RunPageClient({ runId }: { runId: string }) {
             </p>
           )}
 
-          {!run.external_url && (
+          {passportGateActive && (
+            <div className="rounded-2xl border border-[#c5f135]/30 bg-gradient-to-br from-[#c5f135]/10 to-[#1e2d12] p-4 mb-4">
+              <p className="text-sm text-white/70 leading-relaxed mb-3">
+                {club.name} is on the Passport network. Redeem credits to unlock this event&apos;s time and location, and to message the director.
+              </p>
+              {passportError && <p className="text-xs text-red-300 mb-3">{passportError}</p>}
+              {!userId ? (
+                <button
+                  onClick={() => router.push("/login")}
+                  className="w-full py-3 rounded-2xl text-sm font-black bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45] transition"
+                >
+                  Sign in to use Passport
+                </button>
+              ) : !passportSubscribed ? (
+                <Link
+                  href="/passport/credits"
+                  className="block w-full text-center py-3 rounded-2xl text-sm font-black bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45] transition"
+                >
+                  Get Passport to attend
+                </Link>
+              ) : passportShortfall != null ? (
+                <button
+                  onClick={buyShortfallCredits}
+                  disabled={buyingShortfall}
+                  className="w-full py-3 rounded-2xl text-sm font-black bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45] transition disabled:opacity-50"
+                >
+                  {buyingShortfall ? "…" : `Buy ${passportShortfall} credit${passportShortfall === 1 ? "" : "s"} ($${(passportShortfall * 6).toFixed(2)}) to attend`}
+                </button>
+              ) : (
+                <button
+                  onClick={redeemPassportCredits}
+                  disabled={redeemingPassport || passportCreditValue == null}
+                  className="w-full py-3 rounded-2xl text-sm font-black bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45] transition disabled:opacity-50"
+                >
+                  {redeemingPassport
+                    ? "…"
+                    : `Use ${passportCreditValue} credit${passportCreditValue === 1 ? "" : "s"} to attend`}
+                </button>
+              )}
+              {passportSubscribed && passportShortfall == null && (
+                <p className="text-xs text-white/40 text-center mt-2">{passportCreditBalance} credit{passportCreditBalance === 1 ? "" : "s"} available</p>
+              )}
+            </div>
+          )}
+
+          {!run.external_url && !passportGateActive && (
             <div className="flex items-center justify-between gap-3 mb-4">
               <span className="flex items-center gap-1.5 text-sm text-white/50">
                 <PartyPopper className="w-3.5 h-3.5 text-[#c5f135]" />
@@ -353,7 +516,7 @@ export default function RunPageClient({ runId }: { runId: string }) {
             </div>
           )}
 
-          {run.is_in_person && (
+          {run.is_in_person && !passportGateActive && (
             <div className="mb-4">
               <CheckInProximityMap
                 target={resolveCheckinTarget(run, club, cityFallback)}

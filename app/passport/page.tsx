@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Stamp, Flame, MapPin, Users2, CalendarCheck, ChevronLeft, ChevronRight, Home, Plane, Trophy, Lock, Share2, X } from "lucide-react"
+import { Stamp, Flame, MapPin, Users2, CalendarCheck, ChevronLeft, ChevronRight, Home, Plane, Trophy, Lock, Share2, X, Crown } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import {
   getPassportData,
@@ -22,6 +22,8 @@ import {
 import Leaderboard from "@/components/Leaderboard"
 import TierCard from "@/components/TierCard"
 import LoginModal from "@/components/LoginModal"
+import PassportWaitlist from "@/components/PassportWaitlist"
+import { PASSPORT_LAUNCHED } from "@/lib/passportConfig"
 
 type PreviewCity = { id: string; name: string; state: string | null; flag_asset_url: string | null }
 
@@ -439,6 +441,8 @@ function PassportBookPage({
 }
 
 export default function PassportPage() {
+  if (!PASSPORT_LAUNCHED) return <PassportWaitlist />
+
   const router = useRouter()
   const [userId, setUserId] = useState<string | null>(null)
   const [progress, setProgress] = useState<CityProgress[]>([])
@@ -468,6 +472,14 @@ export default function PassportPage() {
       const { data: { user } } = await supabase.auth.getUser()
       setUserId(user?.id ?? null)
       if (user) {
+        const { data: sub } = await supabase
+          .from("passport_subscriptions")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("status", "active")
+          .maybeSingle()
+        if (!sub) { router.replace("/passport/credits"); return }
+
         const [passportData, progressData, bookData, tierData, statesData] = await Promise.all([
           getPassportData(),
           getUserPassportProgress(),
@@ -602,6 +614,22 @@ export default function PassportPage() {
             <Flame className="w-3.5 h-3.5" /> Missions
           </Link>
         </div>
+
+        {userId && (
+          <Link
+            href="/passport/credits"
+            className="flex items-center gap-3 rounded-2xl border border-[#c5f135]/30 bg-gradient-to-br from-[#c5f135]/15 to-[#1e2d12] hover:border-[#c5f135]/60 transition px-4 py-3.5 mb-6"
+          >
+            <div className="w-9 h-9 rounded-xl bg-[#c5f135]/15 border border-[#c5f135]/30 flex items-center justify-center shrink-0">
+              <Crown className="w-4 h-4 text-[#c5f135]" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-black text-white">Got Passport credits?</p>
+              <p className="text-xs text-white/50 mt-0.5">Find klubs near you that take Passport check-ins</p>
+            </div>
+            <ChevronRight className="w-4 h-4 text-white/30 shrink-0" />
+          </Link>
+        )}
 
         {loading ? (
           <div className="flex items-center justify-center py-20">

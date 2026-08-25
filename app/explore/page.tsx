@@ -13,7 +13,7 @@ import { Club } from "@/types/club"
 import { getDistanceMiles } from "@/utils/distance"
 import { localDateStr } from "@/utils/dates"
 import { formatRunTime } from "@/lib/timezone"
-import { SlidersHorizontal, CalendarCheck, Clock, MapPin, ChevronDown, Lock } from "lucide-react"
+import { SlidersHorizontal, CalendarCheck, Clock, MapPin, ChevronDown, Lock, Crown } from "lucide-react"
 import Image from "next/image"
 import { getTagStyle } from "@/utils/tagStyle"
 
@@ -89,6 +89,7 @@ function ExplorePageInner() {
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [pendingAction, setPendingAction] = useState<null | (() => void)>(null)
   const [filters, setFilters] = useState<FilterOptions>(DEFAULT_FILTERS)
+  const [passportOnly, setPassportOnly] = useState(() => searchParams.get("passport") === "1")
   const [sortBy, setSortBy] = useState<SortOption>("closest")
   const [activeTab, setActiveTab] = useState<ExploreTab>("runs")
   const [runSortBy, setRunSortBy] = useState<RunSortOption>("time")
@@ -207,7 +208,7 @@ function ExplorePageInner() {
       weekAhead.setDate(weekAhead.getDate() + 14)
       const weekStr = localDateStr(weekAhead)
 
-      const clubsQuery = supabase.from("clubs").select("id, name, city, latitude, longitude, location, image_url, tier, membership_type, created_at, user_id, subscriptions(count)")
+      const clubsQuery = supabase.from("clubs").select("id, name, city, latitude, longitude, location, image_url, tier, membership_type, created_at, user_id, passport_program_enrolled, subscriptions(count)")
 
       const [{ data: clubData }, { data: runsData }, { data: citiesData }] = await Promise.all([
         isLocalDev ? clubsQuery.or(`is_public.eq.true,id.eq.${TEST_CLUB_ID}`) : clubsQuery.eq("is_public", true),
@@ -327,6 +328,7 @@ function ExplorePageInner() {
 
   const filteredClubs = useMemo(() => baseClubs
     .filter((club) => {
+      if (passportOnly && !club.passport_program_enrolled) return false
       if (club.distance != null) {
         const [dMin, dMax] = filters.distanceRange
         if (club.distance < dMin || (dMax < 25 && club.distance > dMax)) return false
@@ -352,7 +354,7 @@ function ExplorePageInner() {
       if (a.distance != null) return -1
       if (b.distance != null) return 1
       return 0
-    }), [baseClubs, filters, sortBy])
+    }), [baseClubs, filters, sortBy, passportOnly])
 
   const activeFilterCount = [
     filters.distanceRange[0] > 0 || filters.distanceRange[1] < 25,
@@ -363,6 +365,7 @@ function ExplorePageInner() {
   const mapClubs = useMemo(
     () =>
       clubs
+        .filter((c) => !passportOnly || c.passport_program_enrolled)
         .map((c) => {
           if (c.latitude != null && c.longitude != null) {
             return { id: c.id, name: c.name, lat: c.latitude, lng: c.longitude, image_url: c.image_url ?? null, tier: c.tier ?? null }
@@ -374,7 +377,7 @@ function ExplorePageInner() {
           return { id: c.id, name: c.name, lat: centroid.lat, lng: centroid.lng, image_url: c.image_url ?? null, tier: c.tier ?? null }
         })
         .filter((c) => c !== null),
-    [clubs, cityCentroids]
+    [clubs, cityCentroids, passportOnly]
   )
 
   const ownedClubIds = useMemo(
@@ -443,6 +446,18 @@ function ExplorePageInner() {
             onSelectClub={(clubId) => router.push(`/clubs/${clubId}`)}
           />
         </div>
+        <button
+          onClick={() => setPassportOnly((v) => !v)}
+          title="Show only klubs enrolled in the Passport payout program"
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-full border text-sm font-semibold transition shrink-0
+            ${passportOnly
+              ? "bg-[#c5f135] text-[#1a2110] border-[#c5f135]"
+              : "text-white border-[#2e3d1a] hover:border-white/40"
+            }`}
+        >
+          <Crown className="w-4 h-4" />
+          <span className="hidden sm:inline">Passport</span>
+        </button>
         <button
           onClick={() => setShowFilters(!showFilters)}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-full border text-sm font-semibold transition shrink-0

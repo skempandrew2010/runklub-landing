@@ -1,50 +1,15 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import HubContent from "@/components/HubContent"
 import DirectorHomeContent from "@/components/DirectorHomeContent"
 import CoachHomeSummary from "@/components/CoachHomeSummary"
+import FadeIn from "@/components/FadeIn"
 import { useNavIdentity } from "@/hooks/useNavIdentity"
 import { useViewMode } from "@/hooks/useViewMode"
-
-function FadeIn({ children, delay = 0, className = "" }: { children: React.ReactNode; delay?: number; className?: string }) {
-  const ref = useRef<HTMLDivElement>(null)
-  const [state, setState] = useState<"below" | "visible" | "above">("below")
-
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    const obs = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setState("visible")
-        } else {
-          setState(entry.boundingClientRect.top < 0 ? "above" : "below")
-        }
-      },
-      { threshold: 0.12, rootMargin: "0px 0px -40px 0px" }
-    )
-    obs.observe(el)
-    return () => obs.disconnect()
-  }, [])
-
-  return (
-    <div
-      ref={ref}
-      style={delay ? { transitionDelay: `${delay}ms` } : undefined}
-      className={`transition-all duration-700 ease-out ${
-        state === "visible" ? "opacity-100 translate-y-0" :
-        state === "above"   ? "opacity-0 -translate-y-5" :
-                              "opacity-0 translate-y-8"
-      } ${className}`}
-    >
-      {children}
-    </div>
-  )
-}
 
 export default function RootPage() {
   const router = useRouter()
@@ -137,6 +102,59 @@ export default function RootPage() {
         </div>
       </section>
 
+      {/* Passport — for runners */}
+      <section className="max-w-4xl mx-auto px-6 py-16 border-t border-[#2e3d1a]">
+        <FadeIn>
+          <p className="text-xs font-bold text-[#c5f135]/60 uppercase tracking-widest mb-3">For Runners</p>
+          <h2 className="text-2xl font-black text-white mb-3">One pass, every klub.</h2>
+          <div className="text-white/50 text-base mb-10 max-w-xl space-y-4">
+            <p>
+              Every klub you love has its own schedule, its own crew, its own home turf. Passport is your way into all of them. Subscribe once and spend your monthly credits checking into coached and private runs at any participating klub, not just the one you&apos;re a member of.
+            </p>
+            <p>
+              Traveling for a race and want a local crew for your shakeout run? Curious what training looks like at the klub across town? Just want to mix up your week without committing to a second membership? Passport covers it, with credits landing in your account automatically every month.
+            </p>
+            <p>
+              Every klub on Passport is vetted for real structure and training plans, not just a group chat and a meeting time. It&apos;s built for runners who want to know that wherever they end up, home or on the road, there&apos;s a real group waiting to run with them.
+            </p>
+          </div>
+        </FadeIn>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {[
+            { name: "Tier 1", price: "15", credits: 2, badge: null },
+            { name: "Tier 2", price: "25", credits: 5, badge: "POPULAR" },
+            { name: "Tier 3", price: "40", credits: 9, badge: "BEST FOR TRAVEL" },
+          ].map((t, i) => (
+            <FadeIn key={t.name} delay={i * 80}>
+              <div className={`rounded-2xl p-5 flex flex-col h-full ${t.badge ? "bg-[#1a2d0a] border border-[#c5f135]/35" : "bg-[#1e2d12] border border-[#2e3d1a]"}`}>
+                {t.badge && (
+                  <div className="inline-block self-start text-[9px] font-black px-2 py-0.5 rounded-full bg-[#c5f135] text-[#1a2110] mb-2">{t.badge}</div>
+                )}
+                <p className={`text-[10px] font-bold uppercase tracking-widest mb-1 ${t.badge ? "text-[#c5f135]/70" : "text-white/30"}`}>{t.name}</p>
+                <p className="text-3xl font-black text-white mb-0.5">${t.price}</p>
+                <p className="text-xs text-white/30 mb-5">per month</p>
+                <p className="text-sm text-white/55 flex-1">{t.credits} credits every month</p>
+                <Link
+                  href="/passport/credits"
+                  className={`mt-6 block text-center px-4 py-2.5 rounded-xl text-sm font-bold transition ${
+                    t.badge
+                      ? "bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45]"
+                      : "border border-[#3d5220] text-white/60 hover:border-[#c5f135]/30 hover:text-white/80"
+                  }`}
+                >
+                  Get Passport
+                </Link>
+              </div>
+            </FadeIn>
+          ))}
+        </div>
+
+        <FadeIn delay={100}>
+          <p className="text-xs text-white/25 text-center mt-6">Credits refresh monthly and expire 45 days after they&apos;re issued. Need more for a specific run? Buy extra credits anytime. Cancel anytime.</p>
+        </FadeIn>
+      </section>
+
       {/* Founder story */}
       <section className="max-w-3xl mx-auto px-6 py-16 border-t border-[#2e3d1a]">
         <FadeIn>
@@ -186,6 +204,35 @@ export default function RootPage() {
                 <p className="font-black text-white text-sm">Sean Hartney</p>
                 <p className="text-white/40 text-xs">Co-founder, RunKlub</p>
               </div>
+            </div>
+          </div>
+        </FadeIn>
+      </section>
+
+      {/* Passport payouts — for directors, shown before club management pricing/CTAs */}
+      <section className="max-w-3xl mx-auto px-6 py-16 border-t border-[#2e3d1a]">
+        <FadeIn>
+          <div className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-8 flex flex-col sm:flex-row items-start sm:items-center gap-6">
+            <div className="flex-1">
+              <p className="text-xs font-bold text-[#c5f135]/60 uppercase tracking-widest mb-2">Already running a klub?</p>
+              <h3 className="text-xl font-black text-white mb-2">Earn extra revenue from Passport check-ins.</h3>
+              <p className="text-white/50 text-sm leading-relaxed mb-2">
+                RunKlub Passport is a monthly credit subscription runners buy directly from RunKlub. It&apos;s built specifically for paid training klubs: once you&apos;re enrolled, any Passport subscriber can check into your klub&apos;s runs, even if they&apos;ve never joined as a paying member, and you get paid automatically for every check-in.
+              </p>
+              <p className="text-white/50 text-sm leading-relaxed">
+                It&apos;s completely separate from your klub&apos;s own membership tools and dues, so enrolling here changes nothing about how you run your klub day to day, and you can leave anytime. No contract, no effect on your existing members.
+              </p>
+            </div>
+            <div className="shrink-0 flex flex-col items-start sm:items-end gap-2">
+              <a
+                href="https://calendly.com/runklubinfo/30min"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-6 py-3 bg-[#c5f135] text-[#1a2110] font-black rounded-full text-sm hover:bg-[#d4fb4d] transition whitespace-nowrap"
+              >
+                Book a Discovery Call
+              </a>
+              <p className="text-white/30 text-xs max-w-[180px] sm:text-right">We vet every klub on a quick call before enrolling them.</p>
             </div>
           </div>
         </FadeIn>

@@ -16,10 +16,6 @@ export const PASSPORT_TIER_PRICE_ENV: Record<number, Record<PassportBillingInter
     monthly: process.env.STRIPE_PASSPORT_TIER2_MONTHLY_PRICE_ID,
     yearly: process.env.STRIPE_PASSPORT_TIER2_YEARLY_PRICE_ID,
   },
-  3: {
-    monthly: process.env.STRIPE_PASSPORT_TIER3_MONTHLY_PRICE_ID,
-    yearly: process.env.STRIPE_PASSPORT_TIER3_YEARLY_PRICE_ID,
-  },
   4: {
     monthly: process.env.STRIPE_PASSPORT_TIER4_MONTHLY_PRICE_ID,
     yearly: process.env.STRIPE_PASSPORT_TIER4_YEARLY_PRICE_ID,
