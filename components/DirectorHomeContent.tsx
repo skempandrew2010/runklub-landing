@@ -5,7 +5,7 @@ import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { mondayOf, localDateStr } from "@/utils/dates"
 import { formatRunTime } from "@/lib/timezone"
-import { CalendarCheck, ChevronRight, MessageSquare } from "lucide-react"
+import { CalendarCheck, ChevronRight, MessageSquare, UserPlus } from "lucide-react"
 import PendingCoachInviteBanner from "@/components/PendingCoachInviteBanner"
 import YourKlubsSection from "@/components/YourKlubsSection"
 
@@ -24,6 +24,24 @@ type AnalyticsSummary = {
   audience: { followerCount: number; paidMemberCount: number }
   rsvpVsCheckin: { rate: number | null }
   retention: { active: number; atRisk: number; churned: number }
+}
+type ActivityItem = {
+  id: string
+  memberType: string | null
+  createdAt: string
+  displayName: string | null
+}
+
+function timeAgo(iso: string) {
+  const ms = Date.now() - new Date(iso).getTime()
+  const min = Math.floor(ms / 60000)
+  if (min < 1) return "just now"
+  if (min < 60) return `${min}m ago`
+  const hr = Math.floor(min / 60)
+  if (hr < 24) return `${hr}h ago`
+  const day = Math.floor(hr / 24)
+  if (day < 7) return `${day}d ago`
+  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" })
 }
 
 const DAY_ABBR = ["S", "M", "T", "W", "T", "F", "S"]
@@ -76,6 +94,7 @@ export default function DirectorHomeContent({ userId }: { userId: string }) {
   const [analytics, setAnalytics] = useState<AnalyticsSummary | null>(null)
   const [upcomingRun, setUpcomingRun] = useState<UpcomingRun | null>(null)
   const [unreadCount, setUnreadCount] = useState(0)
+  const [activity, setActivity] = useState<ActivityItem[]>([])
 
   const firstName = displayName?.split(" ")[0] ?? null
 
@@ -120,6 +139,28 @@ export default function DirectorHomeContent({ userId }: { userId: string }) {
       }
       setScheduleByPg(byPg)
       setUpcomingRun((runRes.data?.[0] as UpcomingRun) ?? null)
+
+      // Recent Activity — new followers/members, most recent first.
+      const { data: subs } = await supabase
+        .from("subscriptions")
+        .select("id, user_id, member_type, created_at")
+        .eq("club_id", club.id)
+        .order("created_at", { ascending: false })
+        .limit(5)
+      const subRows = subs ?? []
+      if (subRows.length > 0) {
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("id, display_name")
+          .in("id", subRows.map((s) => s.user_id))
+        const nameById = new Map((profs ?? []).map((p) => [p.id, p.display_name]))
+        setActivity(subRows.map((s) => ({
+          id: s.id,
+          memberType: s.member_type,
+          createdAt: s.created_at,
+          displayName: nameById.get(s.user_id) ?? null,
+        })))
+      }
 
       const session = sessionRes.data.session
       if (session) {
@@ -311,6 +352,33 @@ export default function DirectorHomeContent({ userId }: { userId: string }) {
                 <p className="text-white/50 text-sm font-medium">No upcoming runs.</p>
                 <p className="text-white/25 text-xs mt-1">Tap to schedule one.</p>
               </Link>
+            )}
+          </section>
+
+          {/* ── RECENT ACTIVITY ── */}
+          <section>
+            <SectionHeader title="Recent Activity" />
+            {activity.length === 0 ? (
+              <div className="rounded-2xl border border-[#2e3d1a] bg-[#1e2d12] px-4 py-6 text-center">
+                <p className="text-white/40 text-sm">No followers or members yet.</p>
+              </div>
+            ) : (
+              <div className="rounded-2xl overflow-hidden border border-[#2e3d1a] bg-[#1e2d12] divide-y divide-[#2e3d1a]">
+                {activity.map((item) => (
+                  <div key={item.id} className="flex items-center gap-3 px-4 py-3.5">
+                    <div className="w-9 h-9 rounded-full bg-[#2e3d1a] flex items-center justify-center shrink-0">
+                      <UserPlus className="w-4 h-4 text-[#c5f135]" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-white truncate">{item.displayName ?? "Someone"}</p>
+                      <p className="text-xs text-white/40 mt-0.5">
+                        {item.memberType === "paid" ? "joined as a paid member" : "started following"}
+                      </p>
+                    </div>
+                    <span className="shrink-0 text-[10px] font-bold text-white/30">{timeAgo(item.createdAt)}</span>
+                  </div>
+                ))}
+              </div>
             )}
           </section>
 

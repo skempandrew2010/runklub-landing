@@ -8,7 +8,7 @@ import { useViewMode } from "@/hooks/useViewMode"
 
 export default function Navbar() {
   const pathname = usePathname()
-  const { user, role, avatarUrl, loaded, hasUnread, hasClub, isCoach, clubCount, primaryClubName } = useNavIdentity()
+  const { user, role, avatarUrl, loaded, hasUnread, hasClub, isCoach, clubCount, primaryClubName, directorAlertCount } = useNavIdentity()
   const isManager = role === "manager"
   const { viewMode } = useViewMode(isManager || isCoach)
   const showDirectorTabs = (isManager || isCoach) && viewMode === "director"
@@ -42,7 +42,7 @@ export default function Navbar() {
     ...(showDirectorTabs
       ? [needsClub
           ? { key: "director", href: "/submit-club", label: "Create a Klub", Icon: PlusCircle, badge: false }
-          : { key: "director", href: "/director", label: hasClub ? "Director" : "Coaches", Icon: Trophy, badge: hasUnread, sublabel: directorSublabel }]
+          : { key: "director", href: "/director", label: hasClub ? "Director" : "Coaches", Icon: Trophy, badge: directorAlertCount > 0, count: directorAlertCount, sublabel: directorSublabel }]
       : [{ key: "passport", href: "/passport", label: "Passport", Icon: Stamp, badge: false }]),
   ]
 
@@ -74,6 +74,7 @@ export default function Navbar() {
           {tabs.map((tab) => {
             const { key, href, label, Icon, badge } = tab
             const sublabel = "sublabel" in tab ? tab.sublabel : undefined
+            const count = "count" in tab ? tab.count : undefined
             const active = isActive(href)
             return (
               <Link
@@ -86,9 +87,13 @@ export default function Navbar() {
                     className={`w-5 h-5 transition-colors ${active ? "text-[#c5f135]" : "text-white/35"}`}
                     strokeWidth={active ? 2.5 : 1.75}
                   />
-                  {badge && (
+                  {count ? (
+                    <span className="absolute -top-2 -right-2 min-w-4 h-4 px-1 rounded-full bg-[#c5f135] text-[#1a2110] text-[9px] font-black flex items-center justify-center ring-2 ring-[#1a2110]">
+                      {count > 9 ? "9+" : count}
+                    </span>
+                  ) : badge ? (
                     <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-[#c5f135] ring-2 ring-[#1a2110]" />
-                  )}
+                  ) : null}
                 </div>
                 <span className={`hidden sm:block text-[10px] font-semibold tracking-wide leading-tight transition-colors ${active ? "text-[#c5f135]" : "text-white/30"}`}>
                   {label}

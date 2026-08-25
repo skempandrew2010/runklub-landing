@@ -14,12 +14,14 @@ export function useNavIdentity() {
   const [isCoach, setIsCoach] = useState(false)
   const [clubCount, setClubCount] = useState(0)
   const [primaryClubName, setPrimaryClubName] = useState<string | null>(null)
+  const [directorAlertCount, setDirectorAlertCount] = useState(0)
 
   // Clear unread badge when user visits the director tab (managers) or Home (members — it's the Hub when signed in, where chats now live)
   useEffect(() => {
     if (pathname.startsWith("/director") || pathname === "/" || pathname.startsWith("/today")) {
       localStorage.setItem("director_last_seen", new Date().toISOString())
       setHasUnread(false)
+      setDirectorAlertCount(0)
     }
   }, [pathname])
 
@@ -73,16 +75,40 @@ export function useNavIdentity() {
             setHasUnread((count ?? 0) > 0)
           }
         }
+
+        // Director-tab badge: new followers/members plus new run chat
+        // messages on klubs this user owns, since they last opened Director
+        // or Home. Scoped to owned klubs only (unlike hasUnread above, which
+        // also covers klubs they've merely subscribed to as a runner).
+        if (ownedClubs.length > 0) {
+          const ownedClubIds = ownedClubs.map((c) => c.id)
+          const [newSubsRes, ownedRunsRes] = await Promise.all([
+            supabase.from("subscriptions").select("id", { count: "exact", head: true }).in("club_id", ownedClubIds).gt("created_at", lastSeen),
+            supabase.from("runs").select("id").in("club_id", ownedClubIds),
+          ])
+          const ownedRunIds = (ownedRunsRes.data ?? []).map((r: any) => r.id)
+          let newChatCount = 0
+          if (ownedRunIds.length > 0) {
+            const { count } = await supabase
+              .from("run_chats")
+              .select("id", { count: "exact", head: true })
+              .in("run_id", ownedRunIds)
+              .gt("created_at", lastSeen)
+              .neq("user_id", user.id)
+            newChatCount = count ?? 0
+          }
+          setDirectorAlertCount((newSubsRes.count ?? 0) + newChatCount)
+        }
       }
       setLoaded(true)
     }
     load()
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
-      if (!session?.user) { setRole("member"); setHasUnread(false); setHasClub(false); setIsCoach(false); setClubCount(0); setPrimaryClubName(null); setAvatarUrl(null) }
+      if (!session?.user) { setRole("member"); setHasUnread(false); setHasClub(false); setIsCoach(false); setClubCount(0); setPrimaryClubName(null); setAvatarUrl(null); setDirectorAlertCount(0) }
     })
     return () => listener.subscription.unsubscribe()
   }, [])
 
-  return { user, role, avatarUrl, loaded, hasUnread, hasClub, isCoach, clubCount, primaryClubName }
+  return { user, role, avatarUrl, loaded, hasUnread, hasClub, isCoach, clubCount, primaryClubName, directorAlertCount }
 }
