@@ -31,5 +31,5 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules", "Run-Klub-main"]
+  "exclude": ["node_modules", "Run-Klub-main", "supabase/functions"]
 }
