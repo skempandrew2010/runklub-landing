@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { supabase } from "@/lib/supabase"
-import { Search, Check, RotateCcw, Mail, Phone } from "lucide-react"
+import { Search, Check, RotateCcw, Mail, Phone, Pencil, Plus, X } from "lucide-react"
 
 type Status = "cold" | "contacted" | "replied" | "booked" | "closed"
 
@@ -40,6 +40,28 @@ function isOverdue(c: Contact) {
   return c.next_followup_date <= todayString()
 }
 
+type ContactForm = {
+  club_name: string
+  contact_name: string
+  email: string
+  phone: string
+  source: string
+  notes: string
+}
+
+const EMPTY_FORM: ContactForm = { club_name: "", contact_name: "", email: "", phone: "", source: "", notes: "" }
+
+function contactToForm(c: Contact): ContactForm {
+  return {
+    club_name: c.club_name,
+    contact_name: c.contact_name ?? "",
+    email: c.email ?? "",
+    phone: c.phone ?? "",
+    source: c.source ?? "",
+    notes: c.notes ?? "",
+  }
+}
+
 export default function CrmDashboardPage() {
   const [contacts, setContacts] = useState<Contact[]>([])
   const [loading, setLoading] = useState(true)
@@ -47,6 +69,10 @@ export default function CrmDashboardPage() {
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<"all" | Status>("all")
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [modal, setModal] = useState<{ mode: "add" | "edit"; contactId?: string } | null>(null)
+  const [form, setForm] = useState<ContactForm>(EMPTY_FORM)
+  const [saving, setSaving] = useState(false)
+  const [formError, setFormError] = useState("")
 
   const authedFetch = async (url: string, body: object) => {
     const { data: { session } } = await supabase.auth.getSession()
@@ -107,6 +133,50 @@ export default function CrmDashboardPage() {
     setBusyId(null)
   }
 
+  const openAdd = () => {
+    setForm(EMPTY_FORM)
+    setFormError("")
+    setModal({ mode: "add" })
+  }
+
+  const openEdit = (c: Contact) => {
+    setForm(contactToForm(c))
+    setFormError("")
+    setModal({ mode: "edit", contactId: c.id })
+  }
+
+  const closeModal = () => {
+    if (saving) return
+    setModal(null)
+  }
+
+  const handleSaveContact = async () => {
+    if (!form.club_name.trim()) {
+      setFormError("Klub name is required")
+      return
+    }
+    setSaving(true)
+    setFormError("")
+
+    const url = modal?.mode === "edit" ? "/api/admin/crm/update-contact" : "/api/admin/crm/create-contact"
+    const body = modal?.mode === "edit" ? { id: modal.contactId, ...form } : form
+    const res = await authedFetch(url, body)
+
+    if (res.ok) {
+      const { contact } = await res.json()
+      setContacts((prev) =>
+        modal?.mode === "edit"
+          ? prev.map((c) => (c.id === contact.id ? contact : c))
+          : [...prev, contact]
+      )
+      setModal(null)
+    } else {
+      const json = await res.json().catch(() => ({}))
+      setFormError(json.error ?? "Failed to save contact")
+    }
+    setSaving(false)
+  }
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     return contacts.filter((c) => {
@@ -121,7 +191,15 @@ export default function CrmDashboardPage() {
       <div className="max-w-6xl mx-auto px-6 pt-10">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-black text-white">Outreach CRM</h1>
-          <span className="text-sm text-white/40">{filtered.length} of {contacts.length} contacts</span>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-white/40">{filtered.length} of {contacts.length} contacts</span>
+            <button
+              onClick={openAdd}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold transition bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45]"
+            >
+              <Plus className="w-4 h-4" /> Add Contact
+            </button>
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-3 mb-6">
@@ -185,9 +263,18 @@ export default function CrmDashboardPage() {
                     overdue ? "bg-red-400/[0.06] border-red-400/30" : "bg-[#1e2d12] border-[#2e3d1a]"
                   }`}
                 >
-                  <div>
-                    <div className="text-white font-bold text-sm">{c.club_name}</div>
-                    {c.source && <div className="text-white/30 text-xs mt-0.5">{c.source}</div>}
+                  <div className="flex items-start gap-1.5">
+                    <div>
+                      <div className="text-white font-bold text-sm">{c.club_name}</div>
+                      {c.source && <div className="text-white/30 text-xs mt-0.5">{c.source}</div>}
+                    </div>
+                    <button
+                      onClick={() => openEdit(c)}
+                      title="Edit contact info"
+                      className="text-white/20 hover:text-[#c5f135] transition shrink-0 mt-0.5"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
                   </div>
 
                   <div className="text-sm space-y-0.5">
@@ -246,6 +333,102 @@ export default function CrmDashboardPage() {
           </div>
         )}
       </div>
+
+      {modal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50" onClick={closeModal}>
+          <div
+            className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-6 w-full max-w-md space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-black text-white">
+                {modal.mode === "edit" ? "Edit Contact" : "Add Contact"}
+              </h2>
+              <button onClick={closeModal} className="text-white/40 hover:text-white transition">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {formError && (
+              <div className="bg-red-400/10 border border-red-400/30 rounded-xl p-3 text-red-300 text-xs">
+                {formError}
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wide text-white/30">Klub name *</label>
+                <input
+                  value={form.club_name}
+                  onChange={(e) => setForm((f) => ({ ...f, club_name: e.target.value }))}
+                  className="w-full mt-1 bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#c5f135]/50 transition"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wide text-white/30">Contact name</label>
+                <input
+                  value={form.contact_name}
+                  onChange={(e) => setForm((f) => ({ ...f, contact_name: e.target.value }))}
+                  className="w-full mt-1 bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#c5f135]/50 transition"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wide text-white/30">Email</label>
+                  <input
+                    value={form.email}
+                    onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                    className="w-full mt-1 bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#c5f135]/50 transition"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wide text-white/30">Phone</label>
+                  <input
+                    value={form.phone}
+                    onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                    className="w-full mt-1 bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#c5f135]/50 transition"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wide text-white/30">Source</label>
+                <input
+                  value={form.source}
+                  onChange={(e) => setForm((f) => ({ ...f, source: e.target.value }))}
+                  placeholder="e.g. referral, website, conference"
+                  className="w-full mt-1 bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#c5f135]/50 transition"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wide text-white/30">Notes</label>
+                <textarea
+                  value={form.notes}
+                  onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+                  rows={3}
+                  className="w-full mt-1 bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#c5f135]/50 transition resize-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                onClick={handleSaveContact}
+                disabled={saving}
+                className="flex-1 py-2.5 rounded-xl text-sm font-black transition disabled:opacity-40 bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45]"
+              >
+                {saving ? "Saving..." : modal.mode === "edit" ? "Save Changes" : "Add Contact"}
+              </button>
+              <button
+                onClick={closeModal}
+                disabled={saving}
+                className="px-4 py-2.5 rounded-xl text-sm font-black transition disabled:opacity-40 bg-[#1a2110] border border-[#2e3d1a] text-white/60 hover:text-white"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
