@@ -5,6 +5,7 @@ import ShellWrapper from "@/components/ShellWrapper"
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister"
 import IOSInstallPrompt from "@/components/IOSInstallPrompt"
 import RunCheckInWatcher from "@/components/RunCheckInWatcher"
+import PushNotificationRegister from "@/components/PushNotificationRegister"
 import { GlobalErrorHandler, ErrorBoundary } from "@/components/GlobalErrorHandler"
 import { Analytics } from "@vercel/analytics/next"
 
@@ -76,6 +77,7 @@ export default function RootLayout({
         <ServiceWorkerRegister />
         <IOSInstallPrompt />
         <RunCheckInWatcher />
+        <PushNotificationRegister />
         <Analytics />
       </body>
     </html>

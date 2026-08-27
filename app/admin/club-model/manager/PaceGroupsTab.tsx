@@ -25,9 +25,9 @@ export default function PaceGroupsTab({ clubId }: { clubId: string }) {
   useEffect(() => { load() }, [clubId])
 
   const addGroup = async () => {
-    const min = Number(draft.pace_min)
-    const max = Number(draft.pace_max)
-    if (!draft.name.trim() || !Number.isFinite(min) || !Number.isFinite(max)) return
+    const min = parsePace(draft.pace_min)
+    const max = parsePace(draft.pace_max)
+    if (!draft.name.trim() || min === null || max === null) return
     await insertRow("pace_groups", { club_id: clubId, name: draft.name.trim(), pace_min: min, pace_max: max }, clubId)
     setDraft({ name: "", pace_min: "", pace_max: "" })
     load()
@@ -62,10 +62,10 @@ export default function PaceGroupsTab({ clubId }: { clubId: string }) {
             <Input placeholder="Name, e.g. Sub 9/10" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
           </div>
           <div className="w-28">
-            <Input placeholder="Min (min/mi)" value={draft.pace_min} onChange={(e) => setDraft({ ...draft, pace_min: e.target.value })} />
+            <Input placeholder="Min, e.g. 0:00" value={draft.pace_min} onChange={(e) => setDraft({ ...draft, pace_min: e.target.value })} />
           </div>
           <div className="w-28">
-            <Input placeholder="Max (min/mi)" value={draft.pace_max} onChange={(e) => setDraft({ ...draft, pace_max: e.target.value })} />
+            <Input placeholder="Max, e.g. 8:30" value={draft.pace_max} onChange={(e) => setDraft({ ...draft, pace_max: e.target.value })} />
           </div>
           <Button onClick={addGroup}>Add group</Button>
         </Row>

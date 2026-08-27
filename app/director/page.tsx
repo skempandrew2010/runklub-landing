@@ -94,6 +94,7 @@ type ClubWithCount = {
   stripe_connect_charges_enabled: boolean
   stripe_connect_payouts_enabled: boolean
   stripe_connect_details_submitted: boolean
+  passport_program_enrolled: boolean
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -339,7 +340,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
     const load = async () => {
       const { data: clubs } = await supabase
         .from("clubs")
-        .select("id, name, city, location, meeting_day, meeting_time, image_url, tier, is_public, instagram_handle, membership_type, website, waiver_url, default_timezone, stripe_connect_account_id, stripe_connect_charges_enabled, stripe_connect_payouts_enabled, stripe_connect_details_submitted")
+        .select("id, name, city, location, meeting_day, meeting_time, image_url, tier, is_public, instagram_handle, membership_type, website, waiver_url, default_timezone, stripe_connect_account_id, stripe_connect_charges_enabled, stripe_connect_payouts_enabled, stripe_connect_details_submitted, passport_program_enrolled")
         .eq("user_id", userId)
       const rawClubs = clubs || []
       const clubIds = rawClubs.map((c: any) => c.id)
@@ -840,6 +841,12 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
     const next: MembershipType = club.membership_type === "free" ? "paid_required" : "free"
     if (next === "free" && membershipPlans.some((p) => p.is_active)) {
       alert("Archive your membership plans before turning off the paid membership tier.")
+      return
+    }
+    const effectiveTier = tierOverride ?? club.tier
+    const isPaidTier = effectiveTier === "starter" || effectiveTier === "growth" || effectiveTier === "enterprise"
+    if (next !== "free" && !isPaidTier && !club.passport_program_enrolled) {
+      alert("Free klubs can turn on private, members-only runs by enrolling in the Passport program — or by upgrading to a paid plan.")
       return
     }
     const { error } = await supabase.from("clubs").update({ membership_type: next }).eq("id", selectedClubId)
@@ -2116,17 +2123,29 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
 
               <Card>
                 <SectionTitle>Membership</SectionTitle>
-                <button onClick={toggleClubPrivacy}
-                  className="w-full flex items-center gap-3 p-3 rounded-xl bg-[#1a2110] border border-[#2e3d1a] hover:border-[#c5f135]/20 transition text-left">
-                  {selectedClub.membership_type === "free" ? <Globe className="w-4 h-4 text-[#c5f135] shrink-0" /> : <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-white">Paid Membership Tier</p>
-                    <p className="text-xs text-white/80 mt-0.5">{selectedClub.membership_type === "free" ? "Followers only — no private runs or paid members" : "Anyone can still follow for free; paid/approved members also get private runs"}</p>
-                  </div>
-                  <span className={`text-xs font-black px-2.5 py-1 rounded-full shrink-0 ${selectedClub.membership_type === "free" ? "bg-white/5 text-white/80 border border-white/15" : "bg-amber-400/10 text-amber-400 border border-amber-400/30"}`}>
-                    {selectedClub.membership_type === "free" ? "Off" : "On"}
-                  </span>
-                </button>
+                {(() => {
+                  const canGoPrivate = isPaid || selectedClub.passport_program_enrolled || selectedClub.membership_type !== "free"
+                  return (
+                    <>
+                      <button onClick={toggleClubPrivacy} disabled={!canGoPrivate}
+                        className={`w-full flex items-center gap-3 p-3 rounded-xl bg-[#1a2110] border border-[#2e3d1a] transition text-left ${canGoPrivate ? "hover:border-[#c5f135]/20" : "opacity-50 cursor-not-allowed"}`}>
+                        {selectedClub.membership_type === "free" ? <Globe className="w-4 h-4 text-[#c5f135] shrink-0" /> : <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-white">Paid Membership Tier</p>
+                          <p className="text-xs text-white/80 mt-0.5">{selectedClub.membership_type === "free" ? "Followers only — no private runs or paid members" : "Anyone can still follow for free; paid/approved members also get private runs"}</p>
+                        </div>
+                        <span className={`text-xs font-black px-2.5 py-1 rounded-full shrink-0 ${selectedClub.membership_type === "free" ? "bg-white/5 text-white/80 border border-white/15" : "bg-amber-400/10 text-amber-400 border border-amber-400/30"}`}>
+                          {selectedClub.membership_type === "free" ? "Off" : "On"}
+                        </span>
+                      </button>
+                      {!canGoPrivate && (
+                        <p className="text-xs text-white/50 mt-2.5">
+                          Free klubs can turn this on by <Link href="/director/passport" className="text-[#c5f135] hover:underline">enrolling in Passport</Link>, or by <Link href="/director/plans" className="text-[#c5f135] hover:underline">upgrading to a paid plan</Link>.
+                        </p>
+                      )}
+                    </>
+                  )
+                })()}
               </Card>
 
               <Card>
