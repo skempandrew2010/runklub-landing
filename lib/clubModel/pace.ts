@@ -8,6 +8,7 @@ export function parsePace(input: string): number | null {
   if (mmss) {
     const minutes = Number(mmss[1])
     const seconds = Number(mmss[2])
+    if (seconds >= 60) return null
     return minutes + seconds / 60
   }
 
