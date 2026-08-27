@@ -3,6 +3,7 @@
     {
       "path": "/api/cron/gmail-sync",
       "schedule": "0 10 * * *"
-    }
+    },
+    { "path": "/api/cron/run-reminders", "schedule": "*/15 * * * *" }
   ]
 }

@@ -11,6 +11,9 @@ const config: CapacitorConfig = {
   ios: {
     contentInset: 'automatic',
     backgroundColor: '#1a2110',
+    // Required by OneSignal so its SDK receives the APNs delegate callbacks
+    // instead of Capacitor's own (unused) push runtime intercepting them.
+    handleApplicationNotifications: false,
   },
 };
 
