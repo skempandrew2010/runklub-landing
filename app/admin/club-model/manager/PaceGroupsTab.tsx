@@ -1,19 +1,22 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { fetchClubModelData, insertRow, deleteRow } from "@/lib/clubModel/api"
+import { fetchClubModelData, insertRow, updateRow, deleteRow } from "@/lib/clubModel/api"
 import type { PaceGroup, PaceOption } from "@/lib/clubModel/types"
 import { formatPace, formatPaceRange, parsePace } from "@/lib/clubModel/pace"
 import { Card, SectionTitle, Input, Button, Row } from "./ui"
+
+type GroupDraft = { name: string; pace_min: string; pace_max: string }
 
 export default function PaceGroupsTab({ clubId }: { clubId: string }) {
   const [groups, setGroups] = useState<PaceGroup[]>([])
   const [options, setOptions] = useState<PaceOption[]>([])
   const [loading, setLoading] = useState(true)
-  const [draft, setDraft] = useState<{ name: string; pace_min: string; pace_max: string }>({
-    name: "", pace_min: "", pace_max: "",
-  })
+  const [draft, setDraft] = useState<GroupDraft>({ name: "", pace_min: "", pace_max: "" })
   const [optionDraft, setOptionDraft] = useState("")
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editDraft, setEditDraft] = useState<GroupDraft>({ name: "", pace_min: "", pace_max: "" })
+  const [savingEdit, setSavingEdit] = useState(false)
 
   const load = async () => {
     const data = await fetchClubModelData(clubId)
@@ -36,6 +39,30 @@ export default function PaceGroupsTab({ clubId }: { clubId: string }) {
   const deleteGroup = async (id: string) => {
     await deleteRow("pace_groups", { id }, clubId)
     load()
+  }
+
+  const startEdit = (g: PaceGroup) => {
+    setEditingId(g.id)
+    setEditDraft({ name: g.name, pace_min: formatPace(g.pace_min), pace_max: formatPace(g.pace_max) })
+  }
+
+  const cancelEdit = () => {
+    setEditingId(null)
+    setEditDraft({ name: "", pace_min: "", pace_max: "" })
+  }
+
+  const saveEdit = async (id: string) => {
+    const min = parsePace(editDraft.pace_min)
+    const max = parsePace(editDraft.pace_max)
+    if (!editDraft.name.trim() || min === null || max === null) return
+    setSavingEdit(true)
+    try {
+      await updateRow("pace_groups", { id }, { name: editDraft.name.trim(), pace_min: min, pace_max: max }, clubId)
+      cancelEdit()
+      await load()
+    } finally {
+      setSavingEdit(false)
+    }
   }
 
   const addOption = async () => {
@@ -76,13 +103,34 @@ export default function PaceGroupsTab({ clubId }: { clubId: string }) {
         <div className="space-y-2">
           {groups.length === 0 && <p className="text-sm text-white/50">No pace groups yet.</p>}
           {groups.map((g) => (
+            editingId === g.id ? (
+              <div key={g.id} className="bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2">
+                <Row>
+                  <div className="flex-1 min-w-[160px]">
+                    <Input placeholder="Name" value={editDraft.name} onChange={(e) => setEditDraft({ ...editDraft, name: e.target.value })} />
+                  </div>
+                  <div className="w-28">
+                    <Input placeholder="Min, e.g. 0:00" value={editDraft.pace_min} onChange={(e) => setEditDraft({ ...editDraft, pace_min: e.target.value })} />
+                  </div>
+                  <div className="w-28">
+                    <Input placeholder="Max, e.g. 8:30" value={editDraft.pace_max} onChange={(e) => setEditDraft({ ...editDraft, pace_max: e.target.value })} />
+                  </div>
+                  <Button onClick={() => saveEdit(g.id)} disabled={savingEdit}>{savingEdit ? "…" : "Save"}</Button>
+                  <Button variant="ghost" onClick={cancelEdit} disabled={savingEdit}>Cancel</Button>
+                </Row>
+              </div>
+            ) : (
             <div key={g.id} className="flex items-center justify-between bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2">
               <div>
                 <p className="text-sm font-bold text-white">{g.name}</p>
                 <p className="text-xs text-white/60">{formatPaceRange(g.pace_min, g.pace_max)}</p>
               </div>
-              <Button variant="danger" onClick={() => deleteGroup(g.id)}>Delete</Button>
+              <Row>
+                <Button variant="ghost" onClick={() => startEdit(g)}>Edit</Button>
+                <Button variant="danger" onClick={() => deleteGroup(g.id)}>Delete</Button>
+              </Row>
             </div>
+            )
           ))}
         </div>
       </Card>
