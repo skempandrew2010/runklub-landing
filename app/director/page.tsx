@@ -1475,7 +1475,20 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
 
         {/* Sidebar */}
         <aside className="w-44 shrink-0 sticky top-4">
-          <nav className="space-y-0.5">
+          <nav className="relative space-y-0.5">
+            {/* Sliding highlight - same mechanic as the coach view's tab
+                strip (a pill that glides to the active tab instead of the
+                background just popping in/out), adapted to a vertical list. */}
+            {runPanel === null && (() => {
+              const activeIndex = ALL_TABS.findIndex((t) => t.key === tab)
+              if (activeIndex < 0) return null
+              return (
+                <div
+                  className="absolute left-0 right-0 h-9 rounded-xl bg-[#c5f135]/10 transition-transform duration-300 ease-out pointer-events-none"
+                  style={{ transform: `translateY(${activeIndex * 38}px)` }}
+                />
+              )
+            })()}
             {ALL_TABS.map((t) => {
               const enabled = tabEnabled(t)
               const active = tab === t.key && runPanel === null
@@ -1483,8 +1496,8 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                 <button
                   key={t.key}
                   onClick={() => { changeTab(t.key); setRunPanel(null) }}
-                  className={`w-full text-left flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-sm font-bold transition
-                    ${active ? "bg-[#c5f135]/10 text-[#c5f135]" : ""}
+                  className={`relative z-10 w-full h-9 text-left flex items-center justify-between gap-2 px-3 rounded-xl text-sm font-bold transition-colors duration-300
+                    ${active ? "text-[#c5f135]" : ""}
                     ${enabled && !active ? "text-white hover:text-white hover:bg-[#2e3d1a]/50" : ""}
                     ${!enabled ? "text-white/35" : ""}`}
                 >
@@ -1558,7 +1571,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
             expanded rows, etc.) lives in ManagerView's own state above, not
             in this subtree, so remounting it here only resets transient view
             state like scroll position - never in-progress work. */}
-        <div key={`${selectedClubId}-${tab}`} className="flex-1 min-w-0 animate-page-enter">
+        <div key={`${selectedClubId}-${tab}`} className="flex-1 min-w-0 animate-[fadeUp_0.45s_ease-out_forwards]">
 
           {/* ── RUN FORM PANEL ── */}
           {runPanel !== null && (

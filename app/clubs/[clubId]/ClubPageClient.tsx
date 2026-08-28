@@ -39,6 +39,7 @@ export type Club = {
   longitude?: number | null
   stripe_connect_charges_enabled?: boolean | null
   waiver_url?: string | null
+  user_id?: string | null
 }
 
 export type Run = {
@@ -96,6 +97,9 @@ export default function ClubPageClient({
   const [requestingJoin, setRequestingJoin] = useState(false)
   const [joinBanner, setJoinBanner] = useState(false)
   const [showClubChat, setShowClubChat] = useState(false)
+  const [dmTarget, setDmTarget] = useState<{ userId: string; name: string; avatarUrl: string | null } | null>(null)
+  const [myCoach, setMyCoach] = useState<{ userId: string; name: string } | null>(null)
+  const [director, setDirector] = useState<{ userId: string; name: string; avatarUrl: string | null } | null>(null)
   const [isPaidMember, setIsPaidMember] = useState(false)
   // Starts true so the Follow/Join/Member button row waits for the real
   // membership check instead of briefly rendering as "not a member" (the
@@ -157,6 +161,37 @@ export default function ClubPageClient({
       .eq("club_id", club.id)
       .then(({ data }) => setPaceGroups((data as PaceGroup[]) ?? []))
   }, [club.id])
+
+  // Director info for the "Ask my director" DM entry point below.
+  useEffect(() => {
+    if (!club.user_id) return
+    supabase
+      .from("profiles")
+      .select("display_name, avatar_url")
+      .eq("id", club.user_id)
+      .single()
+      .then(({ data }) => {
+        if (data) setDirector({ userId: club.user_id!, name: data.display_name || club.name, avatarUrl: data.avatar_url ?? null })
+      })
+  }, [club.user_id, club.name])
+
+  // "My coach" is whichever active coach is scoped to my pace group (or
+  // scoped to none, i.e. covers the whole klub) - same matching logic as
+  // the director's own coach-scoping UI. Needs a signed-in user since
+  // coaches_select_members RLS requires a subscriptions row for the club.
+  useEffect(() => {
+    if (!userId) { setMyCoach(null); return }
+    supabase
+      .from("coaches")
+      .select("user_id, name, pace_group_ids, status")
+      .eq("club_id", club.id)
+      .eq("status", "active")
+      .then(({ data }) => {
+        const coaches = (data ?? []) as { user_id: string; name: string; pace_group_ids: string[] | null }[]
+        const match = coaches.find((c) => !c.pace_group_ids?.length || (myPaceGroupId && c.pace_group_ids.includes(myPaceGroupId))) ?? coaches[0] ?? null
+        setMyCoach(match ? { userId: match.user_id, name: match.name } : null)
+      })
+  }, [club.id, userId, myPaceGroupId])
 
   useEffect(() => {
     supabase
@@ -765,7 +800,11 @@ export default function ClubPageClient({
               Based on the race time or pace you signed up with - update it any time.
             </p>
             <h3 className="text-xs font-bold text-white/40 uppercase tracking-widest mb-3">My Training Schedule</h3>
-            <WeeklyScheduleTab clubId={club.id} paceGroupIds={[myPaceGroup.id]} readOnly />
+            {isPaidMember ? (
+              <WeeklyScheduleTab clubId={club.id} paceGroupIds={[myPaceGroup.id]} readOnly />
+            ) : (
+              <p className="text-xs text-white/40">Training schedules are available to paid members.</p>
+            )}
           </div>
         ) : isSubscribed && paceGroups.length > 0 && (
           <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-4">
@@ -830,6 +869,30 @@ export default function ClubPageClient({
             </div>
           </button>
         ) : null}
+
+        {/* ── ASK MY COACH / ASK MY DIRECTOR (private DMs) ── */}
+        {userId && isSubscribed && ((myCoach && myCoach.userId !== userId) || (director && director.userId !== userId)) && (
+          <div className="flex gap-2 flex-wrap">
+            {myCoach && myCoach.userId !== userId && (
+              <button
+                onClick={() => setDmTarget({ userId: myCoach.userId, name: myCoach.name, avatarUrl: null })}
+                className="flex-1 min-w-[150px] flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#1e2d12] border border-[#2e3d1a] hover:border-[#c5f135]/30 transition text-left"
+              >
+                <MessageSquare className="w-3.5 h-3.5 text-[#c5f135] shrink-0" />
+                <span className="text-xs font-bold text-white truncate">Ask my coach</span>
+              </button>
+            )}
+            {director && director.userId !== userId && (
+              <button
+                onClick={() => setDmTarget({ userId: director.userId, name: director.name, avatarUrl: director.avatarUrl })}
+                className="flex-1 min-w-[150px] flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#1e2d12] border border-[#2e3d1a] hover:border-[#c5f135]/30 transition text-left"
+              >
+                <MessageSquare className="w-3.5 h-3.5 text-[#c5f135] shrink-0" />
+                <span className="text-xs font-bold text-white truncate">Ask my director</span>
+              </button>
+            )}
+          </div>
+        )}
 
         {/* ── LEADERBOARD (members only) ── */}
         <div ref={leaderboardRef}>
@@ -945,8 +1008,10 @@ export default function ClubPageClient({
         )}
       </div>
 
-      {/* ── CLUB CHAT PANEL ── */}
-      {showClubChat && userId && (
+      {/* ── CLUB CHAT PANEL (group chat, or a private DM - either the
+          general "Messages" entry point or "Ask my coach"/"Ask my
+          director") ── */}
+      {(showClubChat || dmTarget) && userId && (
         <RunChatPanel
           target={{
             type: "club",
@@ -955,7 +1020,8 @@ export default function ClubPageClient({
             clubImageUrl: club.image_url,
           }}
           userId={userId}
-          onClose={() => setShowClubChat(false)}
+          initialDm={dmTarget ?? undefined}
+          onClose={() => { setShowClubChat(false); setDmTarget(null) }}
         />
       )}
 
