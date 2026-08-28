@@ -4,7 +4,7 @@ import { useState } from "react"
 import { X, FileText } from "lucide-react"
 import { interceptExternalClick } from "@/utils/openExternal"
 
-/** Shown once, before a member's first self-service check-in with a klub that has a waiver_url set — a lightweight acknowledgment, not a collected/stored signature. */
+/** Shown once, before a member's first self-service check-in with a klub that has a waiver_url set - a lightweight acknowledgment, not a collected/stored signature. */
 export default function WaiverAckModal({
   clubName,
   waiverUrl,
@@ -20,7 +20,7 @@ export default function WaiverAckModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="w-full sm:max-w-sm bg-[#1e2d12] border border-[#2e3d1a] rounded-t-3xl sm:rounded-3xl p-5 pb-8 sm:pb-5 animate-[fadeUp_0.25s_ease-out_forwards]">
+      <div className="w-full sm:max-w-sm max-h-[85vh] overflow-y-auto bg-[#1e2d12] border border-[#2e3d1a] rounded-t-3xl sm:rounded-3xl p-5 pb-8 sm:pb-5 animate-[fadeUp_0.25s_ease-out_forwards]">
         <div className="flex items-center justify-between mb-1">
           <div>
             <p className="text-lg font-black text-white">Waiver Required</p>

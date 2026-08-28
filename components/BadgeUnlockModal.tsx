@@ -12,7 +12,7 @@ async function fireHaptic() {
   try {
     const { Haptics, ImpactStyle } = await import("@capacitor/haptics")
     await Haptics.impact({ style: ImpactStyle.Medium })
-  } catch { /* haptics unavailable — visual/animation still lands fine without it */ }
+  } catch { /* haptics unavailable - visual/animation still lands fine without it */ }
 }
 
 export type UnlockedBadge = { slug: string; name: string; is_tier: boolean }
@@ -39,7 +39,7 @@ export default function BadgeUnlockModal({ badges, onDone }: { badges: UnlockedB
       onClick={() => setDismissing(true)}
       className={`fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#111a0a]/95 backdrop-blur-sm transition-opacity duration-200 ${dismissing ? "opacity-0" : "opacity-100"}`}
     >
-      <div className="flex flex-col items-center gap-8 px-8 text-center max-w-sm">
+      <div className="flex flex-col items-center gap-8 px-8 text-center max-w-sm max-h-[85vh] overflow-y-auto">
         {badges.map((b) => {
           const Icon = (b.is_tier && TIER_ICONS[b.slug]) || Award
           return (

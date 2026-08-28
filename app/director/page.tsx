@@ -22,7 +22,6 @@ import { Card, SectionTitle, Button, Input } from "@/app/admin/club-model/manage
 import { isNativeApp } from "@/utils/platform"
 import RunFormPanel from "./RunFormPanel"
 import WeeklyScheduleTab from "./WeeklyScheduleTab"
-import CustomPacesTab from "./CustomPacesTab"
 import RunChatPanel from "@/components/RunChatPanel"
 import RunCheckInRoster from "@/components/RunCheckInRoster"
 import CoachDashboard, { type CoachTabKey } from "@/components/CoachDashboard"
@@ -99,7 +98,7 @@ type ClubWithCount = {
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-// Used for clubs.meeting_time — a bare recurring-schedule string with no
+// Used for clubs.meeting_time - a bare recurring-schedule string with no
 // specific date, so there's no run to resolve a real timezone-aware instant for.
 function formatTime(t: string) {
   const [h, m] = t.split(":").map(Number)
@@ -141,6 +140,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
   const router = useRouter()
   const [tab, setTab] = useState<TabKey>(initialTab)
   const [runPanel, setRunPanel] = useState<null | "create" | "create-weekly" | string>(null)
+  const [workoutLibraryVersion, setWorkoutLibraryVersion] = useState(0)
   const [myClubs, setMyClubs] = useState<ClubWithCount[]>([])
   const [selectedClubId, setSelectedClubId] = useState<string | null>(null)
   const [allRuns, setAllRuns] = useState<RunChatPreview[]>([])
@@ -156,6 +156,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
   const [newsletterOpen, setNewsletterOpen] = useState(false)
   const [newsletterSubject, setNewsletterSubject] = useState("")
   const [newsletterBody, setNewsletterBody] = useState("")
+  const [newsletterPublic, setNewsletterPublic] = useState(true)
   const [newsletterSending, setNewsletterSending] = useState(false)
   const [newsletterResult, setNewsletterResult] = useState<{ sent: number; total: number } | null>(null)
   const [newsletterError, setNewsletterError] = useState("")
@@ -167,7 +168,8 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
   const [nativeApp, setNativeApp] = useState(false)
   const [tierOverride, setTierOverride] = useState<"free" | "starter" | "growth" | "enterprise" | null>(null)
   const [isAdminMode, setIsAdminMode] = useState(false)
-  const [members, setMembers] = useState<{ id: string; user_id: string; created_at: string; member_type: string; billing_interval: string | null; price_cents: number | null; plan_name: string | null; expires_at: string | null; profiles: { display_name: string | null; avatar_url: string | null } | null; email: string | null }[]>([])
+  const [members, setMembers] = useState<{ id: string; user_id: string; created_at: string; member_type: string; billing_interval: string | null; price_cents: number | null; plan_name: string | null; expires_at: string | null; pace_group_id: string | null; profiles: { display_name: string | null; avatar_url: string | null } | null; email: string | null }[]>([])
+  const [updatingPaceGroupId, setUpdatingPaceGroupId] = useState<string | null>(null)
   const [membersLoading, setMembersLoading] = useState(false)
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null)
   const [clubCoaches, setClubCoaches] = useState<{ id: string; name: string; user_id: string | null; pace_group_ids: string[] | null; region_ids: string[] | null; status: string }[]>([])
@@ -222,12 +224,12 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
 
   // Tracked separately from the general nav unread badge (which clears on any
   // Home visit) so the Director Home "Messages" tile stays accurate until they
-  // actually open this tab — see the matching read in DirectorHomeContent.
+  // actually open this tab - see the matching read in DirectorHomeContent.
   useEffect(() => {
     if (tab === "communicate") localStorage.setItem("director_messages_last_seen", new Date().toISOString())
   }, [tab])
 
-  // Returning from Stripe's hosted Connect onboarding — the webhook alone
+  // Returning from Stripe's hosted Connect onboarding - the webhook alone
   // isn't guaranteed to have arrived yet, so re-check status directly. An
   // abandoned/expired Account Link (?connect_refresh=1) auto-retries.
   useEffect(() => {
@@ -296,7 +298,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
 
   const loadMembers = async (clubId: string) => {
     const [{ data: subs }, { data: emailRows }] = await Promise.all([
-      supabase.from("subscriptions").select("id, user_id, created_at, member_type, billing_interval, price_cents, plan_name, expires_at").eq("club_id", clubId).order("created_at", { ascending: false }),
+      supabase.from("subscriptions").select("id, user_id, created_at, member_type, billing_interval, price_cents, plan_name, expires_at, pace_group_id").eq("club_id", clubId).order("created_at", { ascending: false }),
       supabase.rpc("get_club_member_emails", { p_club_id: clubId }),
     ])
     const rows = (subs as any[]) || []
@@ -316,7 +318,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
     Promise.all([
       loadMembers(selectedClubId),
       // membership_requests has no FK relationship configured to profiles in
-      // the DB, so an embedded profiles(...) select errors out silently —
+      // the DB, so an embedded profiles(...) select errors out silently -
       // fetch profiles separately and merge instead (see fetchProfilesMap).
       supabase.from("membership_requests").select("id, created_at, user_id").eq("club_id", selectedClubId).eq("status", "pending").order("created_at", { ascending: true }),
       supabase.from("member_invites").select("id, email, name, created_at").eq("club_id", selectedClubId).eq("status", "pending").order("created_at", { ascending: false }),
@@ -434,7 +436,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
       const effectiveTier = tierOverride ?? clubRow?.tier
       const runTimezone = clubRow?.default_timezone ?? getBrowserTimezone()
       if (effectiveTier !== "growth" && effectiveTier !== "enterprise") {
-        setGenerateStatus(`Tier is "${effectiveTier}" — upgrade to Growth or Enterprise to generate runs`)
+        setGenerateStatus(`Tier is "${effectiveTier}" - upgrade to Growth or Enterprise to generate runs`)
         return
       }
 
@@ -451,7 +453,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
         .from("region_days").select("id, region_id, day_of_week")
         .in("region_id", regions.map((r) => r.id)).eq("meets", true)
       if (rdErr) throw rdErr
-      if (!regionDays?.length) { setGenerateStatus("No days selected in Setup — toggle the days your klub meets"); return }
+      if (!regionDays?.length) { setGenerateStatus("No days selected in Setup - toggle the days your klub meets"); return }
 
       // Fetch configured meeting times for each active day
       const rdIds = regionDays.map((rd) => rd.id)
@@ -486,7 +488,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
         .eq("club_id", clubId).eq("members_only", true).in("date", dates)
       const existingKeys = new Set(existingRuns?.map((r) => `${r.date}|${r.title}|${(r.time ?? "").slice(0, 5)}`) ?? [])
 
-      // One shared run per region/day/time — everyone meets at the same place, so
+      // One shared run per region/day/time - everyone meets at the same place, so
       // pace groups aren't split into separate runs. All the club's pace groups are
       // attached to it, which is what ties it to each group's own training schedule.
       const paceGroupIds = paceGroups.map((pg) => pg.id)
@@ -543,7 +545,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
       const res = await fetch("/api/director/send-newsletter", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ club_id: selectedClubId, subject: newsletterSubject, message: newsletterBody }),
+        body: JSON.stringify({ club_id: selectedClubId, subject: newsletterSubject, message: newsletterBody, is_public: newsletterPublic }),
       })
       const json = await res.json()
       if (!res.ok) {
@@ -660,7 +662,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
   }
 
   const removeMember = async (subscriptionId: string, displayName: string) => {
-    if (!confirm(`Remove ${displayName} from your klub? This cannot be undone — if they're a paid member their subscription will be canceled.`)) return
+    if (!confirm(`Remove ${displayName} from your klub? This cannot be undone - if they're a paid member their subscription will be canceled.`)) return
     setRemovingMemberId(subscriptionId)
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) { setRemovingMemberId(null); return }
@@ -674,6 +676,20 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
     if (!res.ok) { alert(json.error ?? "Couldn't remove that member. Try again."); return }
     if (json.warning) alert(json.warning)
     setMembers((prev) => prev.filter((m) => m.id !== subscriptionId))
+  }
+
+  const updatePaceGroup = async (subscriptionId: string, paceGroupId: string) => {
+    setUpdatingPaceGroupId(subscriptionId)
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) { setUpdatingPaceGroupId(null); return }
+    const res = await fetch("/api/director/update-pace-group", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ subscription_id: subscriptionId, pace_group_id: paceGroupId }),
+    })
+    setUpdatingPaceGroupId(null)
+    if (!res.ok) { alert("Couldn't update their pace group. Try again."); return }
+    setMembers((prev) => prev.map((m) => m.id === subscriptionId ? { ...m, pace_group_id: paceGroupId || null } : m))
   }
 
   const toggleCoachScopePaceGroup = async (coachId: string, pgId: string) => {
@@ -806,7 +822,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
         const geo = await res.json()
         const [lng, lat] = geo?.features?.[0]?.center ?? []
         if (lat != null && lng != null) { updates.latitude = lat; updates.longitude = lng }
-      } catch { /* non-fatal — save location text without coords */ }
+      } catch { /* non-fatal - save location text without coords */ }
     }
 
     await supabase.from("clubs").update(updates).eq("id", selectedClubId)
@@ -846,7 +862,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
     const effectiveTier = tierOverride ?? club.tier
     const isPaidTier = effectiveTier === "starter" || effectiveTier === "growth" || effectiveTier === "enterprise"
     if (next !== "free" && !isPaidTier && !club.passport_program_enrolled) {
-      alert("Free klubs can turn on private, members-only runs by enrolling in the Passport program — or by upgrading to a paid plan.")
+      alert("Free klubs can turn on private, members-only runs by enrolling in the Passport program - or by upgrading to a paid plan.")
       return
     }
     const { error } = await supabase.from("clubs").update({ membership_type: next }).eq("id", selectedClubId)
@@ -1009,7 +1025,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
     const info = UPSELL_INFO[targetTier]
     return (
       <div key={targetTier} className={`border rounded-2xl p-5 ${highlighted ? "bg-[#1a2110] border-[#c5f135]/20" : "bg-[#141f0d] border-[#2e3d1a]"}`}>
-        <p className="text-[10px] font-bold text-[#c5f135]/60 uppercase tracking-widest mb-1">{info.name} — {info.price}</p>
+        <p className="text-[10px] font-bold text-[#c5f135]/60 uppercase tracking-widest mb-1">{info.name} - {info.price}</p>
         <p className="text-sm font-black text-white mb-3">{info.headline}</p>
         <ul className="space-y-1.5 mb-4">
           {info.features.map((f) => (
@@ -1295,7 +1311,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
             })}
           </nav>
 
-          {/* Tier preview — admin mode only (append ?admin=1 to URL) */}
+          {/* Tier preview - admin mode only (append ?admin=1 to URL) */}
           {isAdminMode && (() => {
             const TIER_PLANS: Record<"free" | "starter" | "growth" | "enterprise", { price: string; features: string[] }> = {
               free:       { price: "Free",        features: ["Public klub listing", "Unlimited run posts", "Run chat for members", "Basic analytics"] },
@@ -1412,7 +1428,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                 {!isPaid ? (
                   <p className="text-sm text-white">Upgrade to Starter to create members-only runs.</p>
                 ) : membersOnlyRuns.length === 0 ? (
-                  <p className="text-sm text-white/50">No members-only runs yet — click Generate This Week above.</p>
+                  <p className="text-sm text-white/50">No members-only runs yet - click Generate This Week above.</p>
                 ) : (
                   <div className="space-y-2">
                     {membersOnlyRuns.map((run) => <RunCard key={run.id} run={run} />)}
@@ -1426,9 +1442,9 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                   <h2 className="text-xs font-bold text-[#c5f135]/70 uppercase tracking-widest">Weekly Training Schedule</h2>
                   {!(isGrowth || isEnterprise) && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-[#c5f135] text-[#1a2110]">GROWTH+</span>}
                 </div>
-                <p className="text-xs text-white/35 mb-4">Place a workout from your library on each day of the week — coaches and members see it as your klub's standing training plan</p>
+                <p className="text-xs text-white/35 mb-4">Place a workout from your library on each day of the week - coaches and members see it as your klub's standing training plan</p>
                 {(isGrowth || isEnterprise)
-                  ? <WeeklyScheduleTab clubId={selectedClubId ?? ""} />
+                  ? <WeeklyScheduleTab clubId={selectedClubId ?? ""} refreshKey={workoutLibraryVersion} />
                   : <p className="text-sm text-white/80">Upgrade to Growth to build a weekly training schedule.</p>
                 }
               </div>
@@ -1441,7 +1457,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                 </div>
                 <p className="text-xs text-white/35 mb-4">Reusable workout types you can attach to any run</p>
                 {(isGrowth || isEnterprise)
-                  ? <WorkoutsTab clubId={selectedClubId ?? ""} />
+                  ? <WorkoutsTab clubId={selectedClubId ?? ""} onWorkoutsChanged={() => setWorkoutLibraryVersion((v) => v + 1)} />
                   : <p className="text-sm text-white/80">Upgrade to Growth to build a workout library.</p>
                 }
               </div>
@@ -1451,7 +1467,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
           {/* ── MEMBERS ── */}
           {tab === "members" && runPanel === null && (() => {
             // Approving/rejecting membership requests is core to the Public/Private
-            // klub feature, not a paid member-management add-on — unlike the rest
+            // klub feature, not a paid member-management add-on - unlike the rest
             // of this tab (Add/Invite, branches, coach assignment), it's available
             // regardless of SaaS plan.
             const pendingApprovalCard = pendingRequests.length > 0 && (
@@ -1488,10 +1504,10 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
             const paidMembers = members.filter((m) => m.member_type === "paid")
             const communityMembers = members.filter((m) => m.member_type !== "paid")
             const showSplit = selectedClub.membership_type !== "free" && selectedClub.is_public
-            // Monthly-equivalent total across a mix of monthly/yearly members —
+            // Monthly-equivalent total across a mix of monthly/yearly members -
             // yearly contributions are divided by 12 so this is a real MRR
             // figure. Seasonal (one-time, non-renewing) payments are
-            // deliberately excluded — they're not recurring revenue.
+            // deliberately excluded - they're not recurring revenue.
             const monthlyEquivalentRevenueCents = paidMembers.reduce((sum, m) => {
               if (!m.price_cents || m.billing_interval === "seasonal") return sum
               return sum + (m.billing_interval === "yearly" ? m.price_cents / 12 : m.price_cents)
@@ -1523,6 +1539,17 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                           : "Paid"
                         : "Free"}
                     </span>
+                  )}
+                  {clubPaceGroups.length > 0 && (
+                    <select
+                      value={m.pace_group_id ?? ""}
+                      onChange={(e) => updatePaceGroup(m.id, e.target.value)}
+                      disabled={updatingPaceGroupId === m.id}
+                      className="shrink-0 text-[10px] font-bold bg-white/5 text-white/50 border border-white/10 rounded-full pl-2 pr-1 py-0.5 focus:outline-none focus:border-[#c5f135]/40 disabled:opacity-50"
+                    >
+                      <option value="">No pace group</option>
+                      {clubPaceGroups.map((pg) => <option key={pg.id} value={pg.id}>{pg.name}</option>)}
+                    </select>
                   )}
                   <button
                     onClick={() => removeMember(m.id, m.profiles?.display_name || "this runner")}
@@ -1678,11 +1705,11 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                     <span className="text-xs font-semibold text-white/30">{clubCoaches.length}</span>
                   </div>
                   <p className="text-xs text-white/80 mb-3">
-                    A separate invite from member invites — coaches log in and accept by email, then can check runners in, see attendance/roster, and message members, scoped to the pace group(s) and branch(es) you assign. They never see membership payments.
+                    A separate invite from member invites - coaches log in and accept by email, then can check runners in, see attendance/roster, and message members, scoped to the pace group(s) and branch(es) you assign. They never see membership payments.
                   </p>
 
                   {clubCoaches.length === 0 && coachInvites.length === 0 ? (
-                    <p className="text-sm text-white/80 mb-4">No coaches yet — send an invite below.</p>
+                    <p className="text-sm text-white/80 mb-4">No coaches yet - send an invite below.</p>
                   ) : (
                     <div className="space-y-2 mb-4">
                       {clubCoaches.map((coach) => {
@@ -1734,7 +1761,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                                 </div>
                                 {clubRegions.length > 0 && (
                                   <>
-                                    <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest pt-1">Branches <span className="font-normal normal-case text-white/25">(optional — leave blank for all)</span></p>
+                                    <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest pt-1">Branches <span className="font-normal normal-case text-white/25">(optional - leave blank for all)</span></p>
                                     <div className="flex flex-wrap gap-1.5">
                                       {clubRegions.map((r) => {
                                         const active = coach.region_ids?.includes(r.id) ?? false
@@ -1761,7 +1788,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-bold text-white/70 truncate">{invite.name || invite.email}</p>
                             <p className="text-[10px] text-white/40 truncate">
-                              Invite pending · {clubPaceGroups.filter((pg) => invite.pace_group_ids?.includes(pg.id)).map((pg) => pg.name).join(", ") || "—"}
+                              Invite pending · {clubPaceGroups.filter((pg) => invite.pace_group_ids?.includes(pg.id)).map((pg) => pg.name).join(", ") || "-"}
                             </p>
                           </div>
                           <button
@@ -1951,12 +1978,41 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                             <textarea value={newsletterBody} onChange={(e) => setNewsletterBody(e.target.value)} placeholder="Write your message to klub followers…" rows={5}
                               className="w-full bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2.5 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#c5f135]/50 transition resize-none" />
                           </div>
+                          <div>
+                            <label className="block text-[10px] font-bold text-white/80 uppercase tracking-widest mb-1.5">Archive visibility</label>
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setNewsletterPublic(true)}
+                                className={`flex-1 px-3 py-2 rounded-xl text-xs font-bold border transition ${
+                                  newsletterPublic ? "bg-[#c5f135] text-[#1a2110] border-[#c5f135]" : "bg-[#1a2110] text-white/50 border-[#2e3d1a] hover:border-[#c5f135]/40"
+                                }`}
+                              >
+                                Public
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setNewsletterPublic(false)}
+                                className={`flex-1 px-3 py-2 rounded-xl text-xs font-bold border transition ${
+                                  !newsletterPublic ? "bg-[#c5f135] text-[#1a2110] border-[#c5f135]" : "bg-[#1a2110] text-white/50 border-[#2e3d1a] hover:border-[#c5f135]/40"
+                                }`}
+                              >
+                                Members only
+                              </button>
+                            </div>
+                            <p className="text-[10px] text-white/40 mt-1.5">
+                              {newsletterPublic
+                                ? "Anyone visiting your klub page can read this in the archive."
+                                : "Only followers/members of your klub can read this in the archive."}
+                              {" "}This always goes out by email to every current follower either way.
+                            </p>
+                          </div>
                           {newsletterError && <p className="text-red-400/80 text-xs">{newsletterError}</p>}
                           <div className="flex items-center gap-2">
                             <Button onClick={sendNewsletter} disabled={newsletterSending || !newsletterSubject.trim() || !newsletterBody.trim()}>
                               {newsletterSending ? "Sending…" : "Send to all followers"}
                             </Button>
-                            <Button variant="ghost" onClick={() => { setNewsletterOpen(false); setNewsletterSubject(""); setNewsletterBody(""); setNewsletterError("") }}>Cancel</Button>
+                            <Button variant="ghost" onClick={() => { setNewsletterOpen(false); setNewsletterSubject(""); setNewsletterBody(""); setNewsletterPublic(true); setNewsletterError("") }}>Cancel</Button>
                           </div>
                         </>
                       )}
@@ -1991,12 +2047,12 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                       </div>
                       <div>
                         <p className="text-sm font-bold text-white">Training schedules sent!</p>
-                        <p className="text-xs text-white/80 mt-0.5">Delivered to {scheduleResult.sent} of {scheduleResult.total} members in a pace group{scheduleResult.skipped > 0 ? ` (${scheduleResult.skipped} skipped — no email on file)` : ""}</p>
+                        <p className="text-xs text-white/80 mt-0.5">Delivered to {scheduleResult.sent} of {scheduleResult.total} members in a pace group{scheduleResult.skipped > 0 ? ` (${scheduleResult.skipped} skipped - no email on file)` : ""}</p>
                       </div>
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      <p className="text-sm text-white/80">Emails each active member their pace group's Weekly Training Schedule for this week — the workout for each day, plus any group runs that week. Members need a pace group assigned to receive it.</p>
+                      <p className="text-sm text-white/80">Emails each active member their pace group's Weekly Training Schedule for this week - the workout for each day, plus any group runs that week. Members need a pace group assigned to receive it.</p>
                       {scheduleError && <p className="text-red-400/80 text-xs">{scheduleError}</p>}
                       <Button onClick={sendTrainingSchedule} disabled={scheduleSending}>
                         {scheduleSending ? "Sending…" : "Send this week's schedule"}
@@ -2021,7 +2077,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                         <div className={communityChats.length > 0 ? "mt-4" : ""}>
                           {hasMultiBranch && !selectedChatBranch ? (
                             <>
-                              <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-2">Members Only — Branches</p>
+                              <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-2">Members Only - Branches</p>
                               <div className="space-y-1.5">
                                 {Object.entries(groupByBranch()).sort(([a], [b]) => a.localeCompare(b)).map(([branch, branchRuns]) => {
                                   const activeCount = branchRuns.filter((r) => r.message_count > 0).length
@@ -2051,7 +2107,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                                   </button>
                                 )}
                                 <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">
-                                  {hasMultiBranch && selectedChatBranch ? `Members Only — ${selectedChatBranch}` : "Members Only"}
+                                  {hasMultiBranch && selectedChatBranch ? `Members Only - ${selectedChatBranch}` : "Members Only"}
                                 </p>
                               </div>
                               <div className="space-y-3">
@@ -2083,10 +2139,6 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                   <h2 className="text-xs font-bold text-white/30 uppercase tracking-widest mb-4">Pace Groups</h2>
                   <PaceGroupsTab clubId={selectedClubId ?? ""} />
                 </div>
-                <div className="border-t border-[#2e3d1a] pt-8">
-                  <h2 className="text-xs font-bold text-white/30 uppercase tracking-widest mb-4">Custom Paces</h2>
-                  <CustomPacesTab clubId={selectedClubId ?? ""} />
-                </div>
               </div>
             ) : (
               <div className="space-y-4">
@@ -2113,7 +2165,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                   {selectedClub.is_public ? <Globe className="w-4 h-4 text-[#c5f135] shrink-0" /> : <Lock className="w-4 h-4 text-white/80 shrink-0" />}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-white">Discover Map Listing</p>
-                    <p className="text-xs text-white/80 mt-0.5">{selectedClub.is_public ? "Listed on the discover map" : "Unlisted — only reachable by direct link"}</p>
+                    <p className="text-xs text-white/80 mt-0.5">{selectedClub.is_public ? "Listed on the discover map" : "Unlisted - only reachable by direct link"}</p>
                   </div>
                   <span className={`text-xs font-black px-2.5 py-1 rounded-full shrink-0 ${selectedClub.is_public ? "bg-[#c5f135]/10 text-[#c5f135] border border-[#c5f135]/30" : "bg-white/5 text-white/80 border border-white/15"}`}>
                     {selectedClub.is_public ? "Listed" : "Unlisted"}
@@ -2132,7 +2184,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                         {selectedClub.membership_type === "free" ? <Globe className="w-4 h-4 text-[#c5f135] shrink-0" /> : <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />}
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-white">Paid Membership Tier</p>
-                          <p className="text-xs text-white/80 mt-0.5">{selectedClub.membership_type === "free" ? "Followers only — no private runs or paid members" : "Anyone can still follow for free; paid/approved members also get private runs"}</p>
+                          <p className="text-xs text-white/80 mt-0.5">{selectedClub.membership_type === "free" ? "Followers only - no private runs or paid members" : "Anyone can still follow for free; paid/approved members also get private runs"}</p>
                         </div>
                         <span className={`text-xs font-black px-2.5 py-1 rounded-full shrink-0 ${selectedClub.membership_type === "free" ? "bg-white/5 text-white/80 border border-white/15" : "bg-amber-400/10 text-amber-400 border border-amber-400/30"}`}>
                           {selectedClub.membership_type === "free" ? "Off" : "On"}
@@ -2152,14 +2204,14 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                 <SectionTitle>Membership Payments</SectionTitle>
                 {!selectedClub.stripe_connect_account_id ? (
                   <>
-                    <p className="text-xs text-white/80 mb-3">Connect a Stripe account so runners can pay for membership — the money goes straight to your klub, RunKlub only keeps a small cut.</p>
+                    <p className="text-xs text-white/80 mb-3">Connect a Stripe account so runners can pay for membership - the money goes straight to your klub, RunKlub only keeps a small cut.</p>
                     <Button onClick={() => startStripeConnect(selectedClub.id)} disabled={connecting}>
                       {connecting ? "…" : "Connect with Stripe"}
                     </Button>
                   </>
                 ) : !selectedClub.stripe_connect_charges_enabled ? (
                   <>
-                    <p className="text-xs text-white/80 mb-3">Stripe onboarding isn&apos;t finished yet — you can&apos;t accept payments until it is.</p>
+                    <p className="text-xs text-white/80 mb-3">Stripe onboarding isn&apos;t finished yet - you can&apos;t accept payments until it is.</p>
                     <Button onClick={() => startStripeConnect(selectedClub.id)} disabled={connecting}>
                       {connecting ? "…" : "Continue Stripe setup"}
                     </Button>
@@ -2171,7 +2223,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-white">Stripe Connected</p>
                         <p className="text-xs text-white/80 mt-0.5">
-                          Create as many named plans as you want — members pick whichever one you offer.
+                          Create as many named plans as you want - members pick whichever one you offer.
                         </p>
                       </div>
                     </div>
@@ -2203,12 +2255,12 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                         ))}
                       </div>
                     ) : (
-                      <p className="text-sm text-white/80 mb-4">No membership plans yet — add one below.</p>
+                      <p className="text-sm text-white/80 mb-4">No membership plans yet - add one below.</p>
                     )}
 
                     <label className="block text-xs font-semibold text-white/80 mb-1.5">Add a plan</label>
                     <div className="space-y-2">
-                      <Input placeholder="Plan name — e.g. Monthly, Student Rate, Summer Season" value={newPlanName} onChange={(e) => setNewPlanName(e.target.value)} />
+                      <Input placeholder="Plan name - e.g. Monthly, Student Rate, Summer Season" value={newPlanName} onChange={(e) => setNewPlanName(e.target.value)} />
                       <div className="flex gap-2">
                         <div className="flex-1">
                           <Input
@@ -2248,7 +2300,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                     {planError && <p className="text-red-400 text-xs mt-2">{planError}</p>}
                     <p className="text-xs text-white/40 mt-2">
                       {newPlanInterval === "seasonal"
-                        ? "Seasonal is a one-time payment that expires on its own at the end of the selected month — no auto-renewal."
+                        ? "Seasonal is a one-time payment that expires on its own at the end of the selected month - no auto-renewal."
                         : "$3–$1,000/mo or up to $10,000/yr per plan."} Adding a plan replaces free approval requests with paid signups.
                     </p>
                   </>
@@ -2257,7 +2309,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
 
               <Card>
                 <SectionTitle>Default Run Timezone</SectionTitle>
-                <p className="text-xs text-white/80 mb-3">Pre-fills the timezone whenever you or a coach schedules a new run — change per-run anytime.</p>
+                <p className="text-xs text-white/80 mb-3">Pre-fills the timezone whenever you or a coach schedules a new run - change per-run anytime.</p>
                 <select
                   value={selectedClub.default_timezone ?? getBrowserTimezone()}
                   onChange={(e) => updateDefaultTimezone(e.target.value)}
@@ -2328,7 +2380,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-white/80 mb-1">Waiver Link <span className="font-normal text-white/25">(optional)</span></label>
-                      <p className="text-[11px] text-white/40 mb-1">Add a link to your klub&apos;s liability waiver — we&apos;ll show it to runners before they join or check in.</p>
+                      <p className="text-[11px] text-white/40 mb-1">Add a link to your klub&apos;s liability waiver - we&apos;ll show it to runners before they join or check in.</p>
                       <Input value={editForm.waiver} onChange={(e) => setEditForm({ ...editForm, waiver: e.target.value })} placeholder="https://forms.google.com/..." />
                     </div>
                     <div className="flex gap-2 pt-1">
@@ -2441,7 +2493,7 @@ function DirectorPageInner() {
       const coachEligible = coachClubs.length > 0
 
       if (!managerEligible && !coachEligible) {
-        // Director dashboard is otherwise owner/coach-only — members' chats live in the Hub
+        // Director dashboard is otherwise owner/coach-only - members' chats live in the Hub
         router.replace("/")
         return
       }
@@ -2450,7 +2502,7 @@ function DirectorPageInner() {
       setIsManager(managerEligible)
       setIsCoach(coachEligible)
       // Same "first owned, else most-recently-accepted coach klub" convention
-      // used by useNavIdentity — keeps the picker's names consistent with
+      // used by useNavIdentity - keeps the picker's names consistent with
       // whichever klub each option actually lands on.
       setHasDirectorClub((ownedClubs?.length ?? 0) > 0)
       setDirectorClubName(ownedClubs?.[0]?.name ?? null)
@@ -2510,7 +2562,7 @@ function DirectorPageInner() {
   }
 
   const requestedTab = searchParams.get("tab")
-  const initialTab: TabKey = ALL_TABS.some((t) => t.key === requestedTab) ? (requestedTab as TabKey) : "runs"
+  const initialTab: TabKey = ALL_TABS.some((t) => t.key === requestedTab) ? (requestedTab as TabKey) : "setup"
 
   return (
     <>

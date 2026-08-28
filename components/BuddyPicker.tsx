@@ -8,7 +8,7 @@ function initialsOf(name: string) {
   return name.split(" ").filter(Boolean).map((w) => w[0]).join("").slice(0, 2).toUpperCase()
 }
 
-/** Low-friction, fully skippable "who'd you run with?" step — powers Bring a Friend / Klub Crew. */
+/** Low-friction, fully skippable "who'd you run with?" step - powers Bring a Friend / Klub Crew. */
 export default function BuddyPicker({
   runId,
   checkInId,
@@ -49,19 +49,19 @@ export default function BuddyPicker({
     onDone(Array.from(selected))
   }
 
-  // Nobody else has checked in yet — nothing to tag, skip the step entirely.
+  // Nobody else has checked in yet - nothing to tag, skip the step entirely.
   if (!loading && attendees.length === 0) return null
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="w-full sm:max-w-sm bg-[#1e2d12] border border-[#2e3d1a] rounded-t-3xl sm:rounded-3xl p-5 pb-8 sm:pb-5 animate-[fadeUp_0.25s_ease-out_forwards]">
+      <div className="w-full sm:max-w-sm max-h-[85vh] overflow-y-auto bg-[#1e2d12] border border-[#2e3d1a] rounded-t-3xl sm:rounded-3xl p-5 pb-8 sm:pb-5 animate-[fadeUp_0.25s_ease-out_forwards]">
         <div className="flex items-center justify-between mb-1">
           <p className="text-lg font-black text-white">Who&apos;d you run with?</p>
           <button onClick={() => onDone([])} className="text-white/30 hover:text-white/60 transition p-1">
             <X className="w-5 h-5" />
           </button>
         </div>
-        <p className="text-xs text-white/40 mb-4">Tag friends who checked in with you — totally optional.</p>
+        <p className="text-xs text-white/40 mb-4">Tag friends who checked in with you - totally optional.</p>
 
         {loading ? (
           <div className="flex justify-center py-8">

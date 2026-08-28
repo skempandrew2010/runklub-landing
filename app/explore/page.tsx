@@ -22,7 +22,7 @@ type RunSortOption = "time" | "closest"
 type ExploreTab = "runs" | "klubs"
 type ClubWithExtras = Club & { distance?: number; nearestRunDist?: number; memberCount?: number }
 
-// Non-public test club — visible in local dev so it can be used for testing, hidden in production
+// Non-public test club - visible in local dev so it can be used for testing, hidden in production
 const TEST_CLUB_ID = "58293726-a7d4-4395-9ad3-e72ee5b76d01"
 const isLocalDev = process.env.NODE_ENV === "development"
 
@@ -370,7 +370,7 @@ function ExplorePageInner() {
           if (c.latitude != null && c.longitude != null) {
             return { id: c.id, name: c.name, lat: c.latitude, lng: c.longitude, image_url: c.image_url ?? null, tier: c.tier ?? null }
           }
-          // No precise pin — fall back to the club's city centroid so it still shows up on the map
+          // No precise pin - fall back to the club's city centroid so it still shows up on the map
           const cityName = c.city?.split(",")[0]?.trim()
           const centroid = cityName ? cityCentroids[cityName] : undefined
           if (!centroid) return null
@@ -407,7 +407,7 @@ function ExplorePageInner() {
       })
     : allWeekRuns, [center, allWeekRuns, nearbyClubIds])
 
-  // weekRuns already arrives sorted by date, time (query order) — distance needs computing per-run
+  // weekRuns already arrives sorted by date, time (query order) - distance needs computing per-run
   const sortedWeekRuns = useMemo(() => {
     if (runSortBy !== "closest" || !center) return weekRuns
     return [...weekRuns].sort((a, b) => {
@@ -606,7 +606,7 @@ function ExplorePageInner() {
       {notInterestedIds.size > 0 && (
         <div className="px-5 pb-4 text-center">
           <button onClick={clearNotInterested} className="text-xs text-white/25 hover:text-white/50 transition">
-            {notInterestedIds.size} klub{notInterestedIds.size !== 1 ? "s" : ""} hidden — show again
+            {notInterestedIds.size} klub{notInterestedIds.size !== 1 ? "s" : ""} hidden - show again
           </button>
         </div>
       )}
@@ -783,7 +783,7 @@ function ExplorePageInner() {
               onClick={() => setShowAuthModal(true)}
               className="mt-4 w-full px-6 py-2.5 bg-[#c5f135] text-[#1a2110] text-sm font-black rounded-full hover:bg-[#d4ff45] transition"
             >
-              Sign Up — It&apos;s Free
+              Sign Up - It&apos;s Free
             </button>
           </div>
         </div>
@@ -802,7 +802,7 @@ function ExplorePageInner() {
       {deleteTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-5">
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={closeDelete} />
-          <div className="relative bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-6 w-full max-w-sm space-y-4">
+          <div className="relative bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-6 w-full max-w-sm max-h-[85vh] overflow-y-auto space-y-4">
             <div>
               <p className="text-xs font-bold text-red-400/70 uppercase tracking-widest mb-1">Delete Klub</p>
               <p className="text-lg font-black text-white">{deleteTarget.name}</p>

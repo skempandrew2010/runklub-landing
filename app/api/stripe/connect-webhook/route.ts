@@ -15,7 +15,7 @@ function getSupabaseAdmin() {
 }
 
 // Fires once per brand-new paid signup (checkout.session.completed only
-// happens at the start of a subscription, never on renewals — those go
+// happens at the start of a subscription, never on renewals - those go
 // through customer.subscription.updated instead), so there's no risk of
 // emailing the director every billing cycle.
 async function notifyDirectorOfNewMember(clubId: string, memberUserId: string, priceCents: number | null, billingInterval: "monthly" | "yearly" | "seasonal", planName: string | null) {
@@ -70,7 +70,24 @@ async function notifyDirectorOfNewMember(clubId: string, memberUserId: string, p
   }
 }
 
-// Reverts a member to a plain (free) follower — used for both a subscription
+// Metadata values are always strings (or absent) on a Stripe object - parses
+// the pace-match fields defensively so a malformed/missing value becomes
+// null instead of throwing (an unguarded Number(...) producing NaN into a
+// numeric column would throw, and a thrown error here returns 5xx, which
+// makes Stripe retry the event indefinitely).
+function parsePaceMetadata(metadata: Record<string, string | undefined>) {
+  const paceGroupId = metadata.paceGroupId || null
+  const selfReportedPace = metadata.selfReportedPace && Number.isFinite(Number(metadata.selfReportedPace))
+    ? Number(metadata.selfReportedPace)
+    : null
+  const raceDistance = metadata.raceDistance || null
+  const raceTimeSeconds = metadata.raceTimeSeconds && Number.isFinite(Number(metadata.raceTimeSeconds))
+    ? Number(metadata.raceTimeSeconds)
+    : null
+  return { pace_group_id: paceGroupId, self_reported_pace: selfReportedPace, race_distance: raceDistance, race_time_seconds: raceTimeSeconds }
+}
+
+// Reverts a member to a plain (free) follower - used for both a subscription
 // being canceled outright and one reaching a terminal unpaid state. Keeps
 // the subscriptions row (so they stay a follower) rather than deleting it.
 async function revertToFollower(subscriptionId: string) {
@@ -118,7 +135,7 @@ export async function POST(req: NextRequest) {
         break
       }
 
-      // ── Member's checkout completed — fast-path grant. Authoritative
+      // ── Member's checkout completed - fast-path grant. Authoritative
       //    ongoing status for recurring plans still comes from
       //    customer.subscription.updated; seasonal (one-time) plans are
       //    only ever granted here, since there's no subscription object. ──
@@ -130,10 +147,11 @@ export async function POST(req: NextRequest) {
         const interval: "monthly" | "yearly" | "seasonal" =
           billingInterval === "yearly" ? "yearly" : billingInterval === "seasonal" ? "seasonal" : "monthly"
         const snapshotPrice = priceCents ? Number(priceCents) : null
+        const pace = parsePaceMetadata(session.metadata ?? {})
 
         if (interval === "seasonal") {
           if (!session.payment_intent) break
-          // seasonEndDate is a plain "YYYY-MM-DD" from the plan — everyone
+          // seasonEndDate is a plain "YYYY-MM-DD" from the plan - everyone
           // who joins this season shares the same fixed end date, rather
           // than each getting a personal window starting at signup.
           const expiresAt = seasonEndDate ? `${seasonEndDate}T23:59:59.000Z` : null
@@ -149,6 +167,7 @@ export async function POST(req: NextRequest) {
             plan_id: planId ?? null,
             plan_name: planName ?? null,
             expires_at: expiresAt,
+            ...pace,
           }, { onConflict: "user_id,club_id" })
 
           await notifyDirectorOfNewMember(clubId, userId, snapshotPrice, interval, planName ?? null)
@@ -168,6 +187,7 @@ export async function POST(req: NextRequest) {
           plan_id: planId ?? null,
           plan_name: planName ?? null,
           expires_at: null,
+          ...pace,
         }, { onConflict: "user_id,club_id" })
 
         await notifyDirectorOfNewMember(clubId, userId, snapshotPrice, interval, planName ?? null)
@@ -191,9 +211,10 @@ export async function POST(req: NextRequest) {
             price_cents: priceCents ? Number(priceCents) : null,
             plan_id: planId ?? null,
             plan_name: planName ?? null,
+            ...parsePaceMetadata(sub.metadata ?? {}),
           }, { onConflict: "user_id,club_id" })
         } else if (["canceled", "unpaid"].includes(sub.status)) {
-          // past_due is deliberately not treated as terminal — Stripe is
+          // past_due is deliberately not treated as terminal - Stripe is
           // still retrying the card; reverting on the first missed payment
           // would be overly punitive.
           await revertToFollower(sub.id)

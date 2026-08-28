@@ -36,7 +36,7 @@ function WorkoutFields({
     <div className="space-y-3">
       <Input placeholder={titlePlaceholder} value={draft.title} onChange={(e) => onChange((d) => ({ ...d, title: e.target.value }))} />
       <TextArea
-        placeholder="Free-flowing description (optional) — context, coaching notes, anything not captured by the structure below"
+        placeholder="Free-flowing description (optional) - context, coaching notes, anything not captured by the structure below"
         value={draft.description}
         onChange={(e) => onChange((d) => ({ ...d, description: e.target.value }))}
         rows={2}
@@ -44,7 +44,7 @@ function WorkoutFields({
 
       <div>
         <p className="text-xs font-semibold text-white/50 mb-2">
-          Structured segments <span className="text-white/25 font-normal">(optional — reps × distance/time @ pace, rest)</span>
+          Structured segments <span className="text-white/25 font-normal">(optional - reps × distance/time @ pace, rest)</span>
         </p>
         {draft.segments.length > 0 && (
           <div className="space-y-2.5 mb-2">
@@ -108,7 +108,7 @@ function WorkoutFields({
   )
 }
 
-export default function WorkoutsTab({ clubId }: { clubId: string }) {
+export default function WorkoutsTab({ clubId, onWorkoutsChanged }: { clubId: string; onWorkoutsChanged?: () => void }) {
   const [workouts, setWorkouts] = useState<WorkoutEntry[]>([])
   const [customPaces, setCustomPaces] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
@@ -147,13 +147,15 @@ export default function WorkoutsTab({ clubId }: { clubId: string }) {
       kind: "workout",
     })
     setDraft(EMPTY_DRAFT)
-    load()
+    await load()
+    onWorkoutsChanged?.()
   }
 
   const deleteWorkout = async (id: string) => {
     await supabase.from("runs").delete().eq("id", id)
     if (editingId === id) { setEditingId(null); setEditDraft(null) }
-    load()
+    await load()
+    onWorkoutsChanged?.()
   }
 
   const openEdit = (w: WorkoutEntry) => {
@@ -174,7 +176,8 @@ export default function WorkoutsTab({ clubId }: { clubId: string }) {
     }).eq("id", editingId)
     setSavingEdit(false)
     closeEdit()
-    load()
+    await load()
+    onWorkoutsChanged?.()
   }
 
   if (loading) return <p className="text-white/60 text-sm">Loading…</p>

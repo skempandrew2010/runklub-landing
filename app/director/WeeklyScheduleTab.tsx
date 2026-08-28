@@ -26,7 +26,7 @@ type ScheduleRow = { day_of_week: number; workout_type_id: string | null; notes:
 type RunMarker = { hasRun: boolean; inPerson: boolean }
 type PaceGroup = { id: string; name: string }
 
-export default function WeeklyScheduleTab({ clubId, paceGroupIds, readOnly }: { clubId: string; paceGroupIds?: string[]; readOnly?: boolean }) {
+export default function WeeklyScheduleTab({ clubId, paceGroupIds, readOnly, refreshKey }: { clubId: string; paceGroupIds?: string[]; readOnly?: boolean; refreshKey?: number }) {
   const thisMonday = mondayOf()
   const weekOptions = Array.from({ length: WEEKS_AHEAD }, (_, i) => addDays(thisMonday, i * 7))
 
@@ -60,7 +60,7 @@ export default function WeeklyScheduleTab({ clubId, paceGroupIds, readOnly }: { 
         setWorkouts(((data ?? []) as any[]).map((r) => ({ id: r.id, name: r.title, description: r.description, structure: parseWorkoutStructure(r.structure) })))
         setWorkoutsLoading(false)
       })
-  }, [clubId, paceGroupIds?.join(",")]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [clubId, paceGroupIds?.join(","), refreshKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!selectedPaceGroupId) return
@@ -143,9 +143,12 @@ export default function WeeklyScheduleTab({ clubId, paceGroupIds, readOnly }: { 
     <div>
       {readOnly && (
         <div className="flex items-center gap-1.5 mb-3 text-[10px] font-bold text-white/30 uppercase tracking-widest">
-          <Lock className="w-2.5 h-2.5" /> Read-only — your director edits this
+          <Lock className="w-2.5 h-2.5" /> Read-only - your director edits this
         </div>
       )}
+      {/* Picking among one option is pointless -- only show this row when there's
+          actually a choice to make (multiple pace groups, e.g. a coach's dashboard). */}
+      {paceGroups.length > 1 && (
       <div className="flex flex-wrap gap-1.5 mb-3">
         {paceGroups.map((pg) => (
           <button
@@ -162,6 +165,7 @@ export default function WeeklyScheduleTab({ clubId, paceGroupIds, readOnly }: { 
           </button>
         ))}
       </div>
+      )}
 
       <div className="flex items-center justify-between gap-2 mb-3">
         <button
@@ -260,7 +264,7 @@ export default function WeeklyScheduleTab({ clubId, paceGroupIds, readOnly }: { 
                   </div>
                 ) : (
                   <div className="border border-dashed border-[#2e3d1a] rounded-lg px-2 py-3 text-center">
-                    <p className="text-[11px] text-white/25">{readOnly ? "Rest day" : "Rest day — click or drag a workout here"}</p>
+                    <p className="text-[11px] text-white/25">{readOnly ? "Rest day" : "Rest day - click or drag a workout here"}</p>
                   </div>
                 )}
 
@@ -294,7 +298,7 @@ export default function WeeklyScheduleTab({ clubId, paceGroupIds, readOnly }: { 
             className="w-full sm:max-w-sm max-h-[75vh] flex flex-col bg-[#1e2d12] border border-[#2e3d1a] rounded-t-3xl sm:rounded-3xl p-5 pb-8 sm:pb-5 animate-[fadeUp_0.25s_ease-out_forwards]"
           >
             <div className="flex items-center justify-between mb-4 shrink-0">
-              <p className="text-sm font-black text-white">{DAY_LABELS[pickerDay]} — pick a workout</p>
+              <p className="text-sm font-black text-white">{DAY_LABELS[pickerDay]} - pick a workout</p>
               <button onClick={() => setPickerDay(null)} className="text-white/30 hover:text-white/60 transition p-1" aria-label="Close">
                 <X className="w-5 h-5" />
               </button>
@@ -370,7 +374,7 @@ export default function WeeklyScheduleTab({ clubId, paceGroupIds, readOnly }: { 
                             <div key={day} className="min-w-0">
                               <p className="text-[8px] font-bold text-white/25 uppercase text-center">{DAY_LABELS[day]}</p>
                               <p className={`text-[10px] font-semibold text-center truncate ${w ? "text-[#c5f135]" : "text-white/20"}`}>
-                                {w ? w.name : "—"}
+                                {w ? w.name : "-"}
                               </p>
                             </div>
                           )

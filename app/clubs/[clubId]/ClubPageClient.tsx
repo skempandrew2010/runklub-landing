@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
-import { Heart, MapPin, Clock, Users, ArrowLeft, ExternalLink, MessageSquare, ChevronRight, Globe, FileText } from "lucide-react"
+import { Heart, MapPin, Clock, Users, ArrowLeft, ExternalLink, MessageSquare, ChevronRight, Globe, FileText, Mail } from "lucide-react"
 import { getTagStyle } from "@/utils/tagStyle"
 import { localDateStr } from "@/utils/dates"
 import { formatRunTime } from "@/lib/timezone"
@@ -15,6 +15,11 @@ import { getClubLeaderboard } from "@/lib/checkins"
 import RunChatPanel from "@/components/RunChatPanel"
 import Leaderboard from "@/components/Leaderboard"
 import KlubShowdownLeaderboard from "@/components/KlubShowdownLeaderboard"
+import PaceGroupJoinModal, { type PaceGroupJoinResult } from "@/components/PaceGroupJoinModal"
+import WeeklyScheduleTab from "@/app/director/WeeklyScheduleTab"
+import type { PaceGroup } from "@/lib/clubModel/types"
+import { formatPaceRange } from "@/lib/clubModel/pace"
+import { marathonTimeRangeLabel } from "@/lib/clubModel/raceEquivalency"
 import { track } from "@vercel/analytics"
 
 export type Club = {
@@ -91,8 +96,18 @@ export default function ClubPageClient({
   const [joinBanner, setJoinBanner] = useState(false)
   const [showClubChat, setShowClubChat] = useState(false)
   const [isPaidMember, setIsPaidMember] = useState(false)
+  // Starts true so the Follow/Join/Member button row waits for the real
+  // membership check instead of briefly rendering as "not a member" (the
+  // useState defaults above) and then flipping once the async check lands.
+  const [membershipLoading, setMembershipLoading] = useState(true)
   const [memberOnlyRuns, setMemberOnlyRuns] = useState<Run[]>([])
   const [membershipPlans, setMembershipPlans] = useState<{ id: string; name: string; price_cents: number; billing_interval: string; season_start_date: string | null; season_end_date: string | null }[]>([])
+  const [paceGroups, setPaceGroups] = useState<PaceGroup[]>([])
+  const [myPaceGroupId, setMyPaceGroupId] = useState<string | null>(null)
+  const [pendingJoin, setPendingJoin] = useState<{ type: "request" } | { type: "subscribe"; planId: string } | null>(null)
+  const [editingPaceGroup, setEditingPaceGroup] = useState(false)
+  const [latestNewsletter, setLatestNewsletter] = useState<{ subject: string; sent_at: string } | null>(null)
+  const [newsletterCount, setNewsletterCount] = useState(0)
 
   // Refs for section-visibility tracking
   const runsRef = useRef<HTMLDivElement>(null)
@@ -112,11 +127,35 @@ export default function ClubPageClient({
       .eq("club_id", club.id)
       .eq("is_active", true)
       // A seasonal plan whose season has already ended shouldn't be offered
-      // to new signups — everyone else (monthly/yearly, or a season still
+      // to new signups - everyone else (monthly/yearly, or a season still
       // upcoming/current) stays visible.
       .or(`billing_interval.neq.seasonal,season_end_date.gte.${today}`)
       .order("created_at")
       .then(({ data }) => setMembershipPlans(data ?? []))
+  }, [club.id])
+
+  // Only clubs that have configured pace groups (Setup tab, Growth+) show
+  // the pace/race-time step before joining -- everyone else keeps today's
+  // instant Follow/Request/Subscribe behavior unchanged.
+  useEffect(() => {
+    supabase
+      .from("pace_groups")
+      .select("id, club_id, name, pace_min, pace_max, created_at")
+      .eq("club_id", club.id)
+      .then(({ data }) => setPaceGroups((data as PaceGroup[]) ?? []))
+  }, [club.id])
+
+  useEffect(() => {
+    supabase
+      .from("club_newsletters")
+      .select("subject, sent_at", { count: "exact" })
+      .eq("club_id", club.id)
+      .order("sent_at", { ascending: false })
+      .limit(1)
+      .then(({ data, count }) => {
+        setLatestNewsletter(data?.[0] ?? null)
+        setNewsletterCount(count ?? 0)
+      })
   }, [club.id])
 
   // Track section visibility via IntersectionObserver
@@ -143,16 +182,21 @@ export default function ClubPageClient({
 
   useEffect(() => {
     const load = async () => {
-      const { data: authData } = await supabase.auth.getUser()
-      const user = authData.user
+      // getSession() reads the already-hydrated local session instead of
+      // getUser()'s round-trip to re-verify the token with the server --
+      // faster, and sufficient here since nothing in this check is sensitive
+      // enough to need server-side freshness.
+      const { data: { session } } = await supabase.auth.getSession()
+      const user = session?.user
       setUserId(user?.id ?? null)
       if (user) {
         const [{ data: sub }, { data: existingClaim }, { data: joinReq }] = await Promise.all([
-          supabase.from("subscriptions").select("id, member_type").eq("user_id", user.id).eq("club_id", club.id).maybeSingle(),
+          supabase.from("subscriptions").select("id, member_type, pace_group_id").eq("user_id", user.id).eq("club_id", club.id).maybeSingle(),
           supabase.from("club_claims").select("id, status").eq("user_id", user.id).eq("club_id", club.id).maybeSingle(),
           supabase.from("membership_requests").select("status").eq("user_id", user.id).eq("club_id", club.id).maybeSingle(),
         ])
         setIsSubscribed(!!sub)
+        setMyPaceGroupId((sub as any)?.pace_group_id ?? null)
         if (existingClaim) setClaimStatus("pending")
         if (joinReq) setJoinRequestStatus(joinReq.status as any)
 
@@ -184,9 +228,19 @@ export default function ClubPageClient({
           setTimeout(() => setJoinBanner(false), 4000)
         }
       }
+      setMembershipLoading(false)
     }
     load()
   }, [club.id, searchParams])
+
+  // Returns to wherever the user actually came from (Home, Explore, a
+  // search result, etc.) instead of always landing on Explore -- falls back
+  // there only when this page was opened with no prior history (a shared
+  // link, a new tab).
+  const goBack = () => {
+    if (typeof window !== "undefined" && window.history.length > 1) router.back()
+    else router.push("/explore")
+  }
 
   const handleFollow = async () => {
     if (!userId) { router.push("/login"); return }
@@ -205,17 +259,25 @@ export default function ClubPageClient({
     setSubscribing(false)
   }
 
-  const handleRequestJoin = async () => {
+  const handleRequestJoin = async (pace?: PaceGroupJoinResult) => {
     if (!userId) { router.push("/login"); return }
     setRequestingJoin(true)
     const { error } = await supabase
       .from("membership_requests")
-      .upsert({ user_id: userId, club_id: club.id, status: "pending" }, { onConflict: "club_id,user_id" })
+      .upsert({
+        user_id: userId,
+        club_id: club.id,
+        status: "pending",
+        pace_group_id: pace?.paceGroupId ?? null,
+        self_reported_pace: pace?.selfReportedPace ?? null,
+        race_distance: pace?.raceDistance ?? null,
+        race_time_seconds: pace?.raceTimeSeconds ?? null,
+      }, { onConflict: "club_id,user_id" })
     setRequestingJoin(false)
     if (!error) setJoinRequestStatus("pending")
   }
 
-  const handleSubscribe = async (planId: string) => {
+  const handleSubscribe = async (planId: string, pace?: PaceGroupJoinResult) => {
     if (!userId) { router.push("/login"); return }
     setSubscribing(true)
     const { data: { session } } = await supabase.auth.getSession()
@@ -223,7 +285,13 @@ export default function ClubPageClient({
     const res = await fetch(`/api/clubs/${club.id}/subscribe`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ planId }),
+      body: JSON.stringify({
+        planId,
+        paceGroupId: pace?.paceGroupId,
+        selfReportedPace: pace?.selfReportedPace,
+        raceDistance: pace?.raceDistance,
+        raceTimeSeconds: pace?.raceTimeSeconds,
+      }),
     })
     const json = await res.json()
     if (res.ok && json.url) {
@@ -232,6 +300,45 @@ export default function ClubPageClient({
       alert(json.error ?? "Couldn't start checkout. Try again.")
       setSubscribing(false)
     }
+  }
+
+  // Gate: only when this klub has pace groups configured does either join
+  // action open the pace-match modal first; otherwise both behave exactly
+  // as before (instant request/checkout, no pace step).
+  const startRequestJoin = () => {
+    if (paceGroups.length > 0) { setPendingJoin({ type: "request" }); return }
+    handleRequestJoin()
+  }
+
+  const startSubscribe = (planId: string) => {
+    if (paceGroups.length > 0) { setPendingJoin({ type: "subscribe", planId }); return }
+    handleSubscribe(planId)
+  }
+
+  const confirmPendingJoin = async (result: PaceGroupJoinResult) => {
+    if (!pendingJoin) return
+    if (pendingJoin.type === "request") await handleRequestJoin(result)
+    else await handleSubscribe(pendingJoin.planId, result)
+    setPendingJoin(null)
+  }
+
+  // Lets an existing member re-run the same race-time/pace match (or pick
+  // manually) any time, not just at signup -- a straight update to their own
+  // subscriptions row, which subscriptions_update_own already allows.
+  const confirmPaceGroupEdit = async (result: PaceGroupJoinResult) => {
+    if (!userId) return
+    await supabase
+      .from("subscriptions")
+      .update({
+        pace_group_id: result.paceGroupId,
+        self_reported_pace: result.selfReportedPace,
+        race_distance: result.raceDistance,
+        race_time_seconds: result.raceTimeSeconds,
+      })
+      .eq("user_id", userId)
+      .eq("club_id", club.id)
+    setMyPaceGroupId(result.paceGroupId)
+    setEditingPaceGroup(false)
   }
 
   const handleManageMembership = async () => {
@@ -265,6 +372,7 @@ export default function ClubPageClient({
 
   const initials = club.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
   const gradient = getGradient(club.name)
+  const myPaceGroup = myPaceGroupId ? paceGroups.find((pg) => pg.id === myPaceGroupId) ?? null : null
   const todayStr = localDateStr()
   const publicUpcoming = runs.filter(r => r.date >= todayStr)
   const upcomingRuns = [...memberOnlyRuns, ...publicUpcoming].sort((a, b) =>
@@ -295,7 +403,7 @@ export default function ClubPageClient({
 
         <div className="relative max-w-2xl mx-auto px-5 pt-5 pb-8">
           <button
-            onClick={() => router.push("/explore")}
+            onClick={goBack}
             className="flex items-center gap-1.5 text-white/50 hover:text-white transition text-sm font-medium mb-6"
           >
             <ArrowLeft className="w-4 h-4" /> Back
@@ -326,7 +434,7 @@ export default function ClubPageClient({
                 )}
                 {(() => {
                   // Every klub is followable and its public runs are visible to
-                  // everyone — "membership_type !== free" only means there's an
+                  // everyone - "membership_type !== free" only means there's an
                   // optional paid tier for private runs on top of that, not that
                   // the klub itself is hidden. Don't badge it "Private"/Lock.
                   const hasMembership = club.membership_type !== "free"
@@ -347,9 +455,11 @@ export default function ClubPageClient({
 
         {/* ── FOLLOW + INSTAGRAM ── */}
         <div className="flex items-center gap-3 flex-wrap">
-          {club.membership_type !== "free" ? (
+          {membershipLoading ? (
+            <div className="w-32 h-[42px] rounded-full bg-[#1e2d12] border border-[#2e3d1a] animate-pulse" />
+          ) : club.membership_type !== "free" ? (
             <>
-              {/* Follow is only shown to non-members — a member is inherently
+              {/* Follow is only shown to non-members - a member is inherently
                   "following" too (same subscriptions row), the page should
                   just say Member, not Member + Following redundantly. */}
               {!isPaidMember && (
@@ -373,7 +483,7 @@ export default function ClubPageClient({
                       {membershipPlans.map((plan) => (
                         <button
                           key={plan.id}
-                          onClick={() => handleSubscribe(plan.id)}
+                          onClick={() => startSubscribe(plan.id)}
                           disabled={subscribing}
                           className={`px-4 py-2.5 rounded-full text-sm font-black transition disabled:opacity-60 ${
                             plan === membershipPlans[0]
@@ -383,7 +493,7 @@ export default function ClubPageClient({
                         >
                           {subscribing
                             ? "…"
-                            : `Join ${plan.name} — $${(plan.price_cents / 100).toFixed(2)}${
+                            : `Join ${plan.name} - $${(plan.price_cents / 100).toFixed(2)}${
                                 plan.billing_interval === "yearly"
                                   ? "/yr"
                                   : plan.billing_interval === "seasonal" && plan.season_start_date && plan.season_end_date
@@ -400,7 +510,7 @@ export default function ClubPageClient({
                   )
                 ) : (
                   <button
-                    onClick={joinRequestStatus === "none" ? handleRequestJoin : undefined}
+                    onClick={joinRequestStatus === "none" ? startRequestJoin : undefined}
                     disabled={requestingJoin || joinRequestStatus !== "none"}
                     className={`px-5 py-2.5 rounded-full text-sm font-black transition disabled:opacity-60 ${
                       joinRequestStatus === "pending"
@@ -514,7 +624,7 @@ export default function ClubPageClient({
             <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-amber-400/5 border border-amber-400/15 mb-3">
               <span className="text-amber-400/70 text-xs leading-relaxed mt-px">ℹ</span>
               <p className="text-xs text-white/40 leading-relaxed">
-                This klub hasn&apos;t been claimed yet — verify run details on their{" "}
+                This klub hasn&apos;t been claimed yet - verify run details on their{" "}
                 {club.instagram_handle && (
                   <a
                     href={`https://www.instagram.com/${club.instagram_handle}/`}
@@ -606,6 +716,67 @@ export default function ClubPageClient({
             </div>
           )}
         </div>
+
+        {/* ── MY PACE GROUP ── */}
+        {myPaceGroup ? (
+          <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-4">
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <h2 className="text-xs font-bold text-white/40 uppercase tracking-widest">My Pace Group</h2>
+              <button
+                onClick={() => setEditingPaceGroup(true)}
+                className="text-[10px] font-bold text-white/40 hover:text-[#c5f135] transition underline underline-offset-2"
+              >
+                Change
+              </button>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap mb-1">
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-[#c5f135]/10 text-[#c5f135] border-[#c5f135]/25">
+                {myPaceGroup.name}
+              </span>
+              <span className="text-[10px] text-white/40">
+                {formatPaceRange(myPaceGroup.pace_min, myPaceGroup.pace_max)} · {marathonTimeRangeLabel(myPaceGroup.pace_min, myPaceGroup.pace_max)}
+              </span>
+            </div>
+            <p className="text-[10px] text-white/25 mb-4">
+              Based on the race time or pace you signed up with - update it any time.
+            </p>
+            <h3 className="text-xs font-bold text-white/40 uppercase tracking-widest mb-3">My Training Schedule</h3>
+            <WeeklyScheduleTab clubId={club.id} paceGroupIds={[myPaceGroup.id]} readOnly />
+          </div>
+        ) : isSubscribed && paceGroups.length > 0 && (
+          <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-4">
+            <h2 className="text-xs font-bold text-white/40 uppercase tracking-widest mb-2">My Pace Group</h2>
+            <p className="text-xs text-white/40 mb-3">Set your pace group to see a training schedule matched to you.</p>
+            <button
+              onClick={() => setEditingPaceGroup(true)}
+              className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-[#1a2110] text-white/50 border-white/15 hover:border-[#c5f135]/40 hover:text-[#c5f135] transition"
+            >
+              Set your pace group →
+            </button>
+          </div>
+        )}
+
+        {/* ── NEWSLETTER ── */}
+        <Link
+          href={`/clubs/${club.id}/newsletters`}
+          className="flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-[#1e2d12] border border-[#2e3d1a] hover:border-[#c5f135]/30 transition"
+        >
+          <div className="w-9 h-9 rounded-full bg-[#2e3d1a] flex items-center justify-center shrink-0">
+            <Mail className="w-4 h-4 text-[#c5f135]" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-white">Newsletter</p>
+            <p className="text-xs text-white/40 mt-0.5 truncate">
+              {latestNewsletter
+                ? `Latest: ${latestNewsletter.subject}`
+                : "No newsletters published yet"}
+            </p>
+          </div>
+          {newsletterCount > 0 && (
+            <span className="text-[10px] font-bold text-white/30 shrink-0">{newsletterCount} archived</span>
+          )}
+          <ChevronRight className="w-4 h-4 text-white/20 shrink-0" />
+        </Link>
 
         {/* ── MESSAGES ── */}
         {userId && isSubscribed ? (
@@ -744,7 +915,7 @@ export default function ClubPageClient({
               onClick={() => router.push("/login")}
               className="px-6 py-2.5 bg-[#c5f135] text-[#1a2110] text-sm font-black rounded-full hover:bg-[#d4ff45] transition"
             >
-              Get Started — It&apos;s Free
+              Get Started - It&apos;s Free
             </button>
           </div>
         )}
@@ -761,6 +932,27 @@ export default function ClubPageClient({
           }}
           userId={userId}
           onClose={() => setShowClubChat(false)}
+        />
+      )}
+
+      {/* ── PACE GROUP MATCH MODAL ── */}
+      {pendingJoin && (
+        <PaceGroupJoinModal
+          clubName={club.name}
+          paceGroups={paceGroups}
+          actionLabel={pendingJoin.type === "request" ? "Request to Join" : "Continue to payment"}
+          onConfirm={confirmPendingJoin}
+          onClose={() => setPendingJoin(null)}
+        />
+      )}
+
+      {editingPaceGroup && (
+        <PaceGroupJoinModal
+          clubName={club.name}
+          paceGroups={paceGroups}
+          actionLabel="Update pace group"
+          onConfirm={confirmPaceGroupEdit}
+          onClose={() => setEditingPaceGroup(false)}
         />
       )}
     </div>

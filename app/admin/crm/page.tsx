@@ -289,7 +289,7 @@ export default function CrmDashboardPage() {
                         <Phone className="w-3 h-3" /> {c.phone}
                       </div>
                     )}
-                    {!c.contact_name && !c.email && !c.phone && <span className="text-white/20 text-xs">—</span>}
+                    {!c.contact_name && !c.email && !c.phone && <span className="text-white/20 text-xs">-</span>}
                   </div>
 
                   <select
@@ -305,7 +305,7 @@ export default function CrmDashboardPage() {
                   </select>
 
                   <div className={`text-sm ${overdue ? "text-red-300 font-bold" : "text-white/50"}`}>
-                    {c.next_followup_date ?? "—"}
+                    {c.next_followup_date ?? "-"}
                     {overdue && <div className="text-xs font-normal text-red-300/70">overdue</div>}
                   </div>
 
@@ -337,7 +337,7 @@ export default function CrmDashboardPage() {
       {modal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50" onClick={closeModal}>
           <div
-            className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-6 w-full max-w-md space-y-4"
+            className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-6 w-full max-w-md max-h-[85vh] overflow-y-auto space-y-4"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between">

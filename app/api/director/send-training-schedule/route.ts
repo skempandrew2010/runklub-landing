@@ -105,7 +105,7 @@ function buildScheduleEmail(
   }).join("")
 
   const runsText = days.map(({ label, dateLabel, workout, notes, runs }) => {
-    const parts = [`${label}, ${dateLabel} — ${workout ? workout.title : "Rest day"}`]
+    const parts = [`${label}, ${dateLabel} - ${workout ? workout.title : "Rest day"}`]
     if (workout?.structure.length) parts.push(workout.structure.map(formatWorkoutSegment).join(", "))
     if (workout?.description) parts.push(workout.description)
     if (notes) parts.push(notes)
@@ -182,7 +182,7 @@ function buildScheduleEmail(
 </body>
 </html>`
 
-  const text = `Your Training Schedule — Week of ${weekLabel}\n\nHi ${firstName},\n\nHere's ${clubName}'s schedule for this week:\n\n${runsText}\n\n---\nView ${clubName}: ${clubUrl}`
+  const text = `Your Training Schedule - Week of ${weekLabel}\n\nHi ${firstName},\n\nHere's ${clubName}'s schedule for this week:\n\n${runsText}\n\n---\nView ${clubName}: ${clubUrl}`
 
   return { html, text }
 }
@@ -210,6 +210,27 @@ export async function POST(req: NextRequest) {
         { error: "Training schedule emails are a Growth feature.", code: "growth_required" },
         { status: 403 }
       )
+    }
+
+    // At most one training-schedule send per klub every 7 days -- email_sends
+    // already logs one row per recipient for this email_type, so the most
+    // recent row is enough to check.
+    const { data: lastSchedule } = await adminSupabase
+      .from("email_sends")
+      .select("sent_at")
+      .eq("club_id", club_id)
+      .eq("email_type", "training_schedule")
+      .order("sent_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (lastSchedule) {
+      const nextEligible = new Date(new Date(lastSchedule.sent_at).getTime() + 7 * 24 * 60 * 60 * 1000)
+      if (nextEligible > new Date()) {
+        return NextResponse.json({
+          error: `You can only send the training schedule once every 7 days. Next one can go out ${nextEligible.toLocaleDateString("en-US", { month: "long", day: "numeric" })}.`,
+          code: "rate_limited",
+        }, { status: 429 })
+      }
     }
 
     // Prefer the client-supplied Monday (computed in the director's local timezone)
@@ -294,7 +315,7 @@ export async function POST(req: NextRequest) {
     }
 
     const resend = new Resend(process.env.RESEND_API_KEY)
-    const emailSubject = `${club.name}: Your Training Schedule — Week of ${weekLabel}`
+    const emailSubject = `${club.name}: Your Training Schedule - Week of ${weekLabel}`
 
     let sent = 0
     let skipped = 0

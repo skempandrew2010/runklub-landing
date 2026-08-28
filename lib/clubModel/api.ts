@@ -19,7 +19,7 @@ export async function fetchClubModelData(clubId?: string): Promise<ClubModelData
 
 export type JoinFlowData = Omit<ClubModelData, "members" | "club_model_invites" | "run_rsvps">
 
-// Public — used by an invitee who isn't logged into any account. Gated by
+// Public - used by an invitee who isn't logged into any account. Gated by
 // the invite token itself, not a Bearer session.
 export async function fetchJoinData(inviteToken: string): Promise<JoinFlowData> {
   const res = await fetch(`/api/admin/club-model/join-data?token=${encodeURIComponent(inviteToken)}`)
@@ -85,7 +85,7 @@ export type MyMembership = {
   weekSchedule: ClubWeekScheduleEntry[]
 }
 
-// Real-identity endpoints — any logged-in user, not just admins/test accounts.
+// Real-identity endpoints - any logged-in user, not just admins/test accounts.
 export async function fetchMyMemberships(): Promise<MyMembership[]> {
   const res = await fetch("/api/club-model/my-memberships", { headers: await authHeaders() })
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "Failed to load memberships")
@@ -109,6 +109,19 @@ export async function sendClubModelMessage(memberId: string, body: string): Prom
 }
 
 export async function insertRow<T extends Record<string, unknown>>(table: string, values: T, clubId?: string) {
+  const res = await fetch("/api/admin/club-model/mutate", {
+    method: "POST",
+    headers: await authHeaders(),
+    body: JSON.stringify({ table, action: "insert", values, clubId }),
+  })
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "Insert failed")
+  return (await res.json()).data
+}
+
+// Same as insertRow but for seeding several rows in one call (e.g. default
+// pace groups) -- the mutate route forwards `values` straight into
+// supabase-js's .insert(), which accepts an array natively.
+export async function bulkInsertRows<T extends Record<string, unknown>>(table: string, values: T[], clubId?: string) {
   const res = await fetch("/api/admin/club-model/mutate", {
     method: "POST",
     headers: await authHeaders(),

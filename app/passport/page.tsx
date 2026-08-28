@@ -323,7 +323,7 @@ function StampActionSheet({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full sm:max-w-sm h-[calc(100vh_-_var(--navbar-h)_-_1cm)] sm:h-auto flex flex-col bg-[#1e2d12] border border-[#2e3d1a] rounded-t-3xl sm:rounded-3xl p-5 pb-8 sm:pb-5 animate-[fadeUp_0.25s_ease-out_forwards]"
+        className="w-full sm:max-w-sm h-[calc(100vh_-_var(--navbar-h)_-_1cm)] sm:h-auto sm:max-h-[85vh] overflow-y-auto flex flex-col bg-[#1e2d12] border border-[#2e3d1a] rounded-t-3xl sm:rounded-3xl p-5 pb-8 sm:pb-5 animate-[fadeUp_0.25s_ease-out_forwards]"
       >
         <div className="flex items-center gap-3 mb-5">
           <div className={`w-12 h-12 rounded-full overflow-hidden flex items-center justify-center border-2 border-[#3d5220] bg-gradient-to-br ${gradient} shrink-0`}>
@@ -433,7 +433,7 @@ function PassportBookPage({
           userId={userId}
           fetchRows={(scope) => getCityLeaderboard(page.city_id, scope)}
           guestCopy="Sign in to see who's leading in this city."
-          emptyCopy={(scope) => scope === "month" ? "No check-ins yet this month — be the first!" : "No check-ins yet in this city."}
+          emptyCopy={(scope) => scope === "month" ? "No check-ins yet this month - be the first!" : "No check-ins yet in this city."}
         />
       </div>
     </div>
@@ -501,13 +501,13 @@ export default function PassportPage() {
             setJustUnlocked(JSON.parse(raw))
             sessionStorage.removeItem("runklub_just_unlocked")
           }
-        } catch { /* sessionStorage unavailable — unlock animation is a nice-to-have */ }
+        } catch { /* sessionStorage unavailable - unlock animation is a nice-to-have */ }
       }
       setLoading(false)
     }
     load()
 
-    // Public preview data, fetched regardless of auth — powers the blurred
+    // Public preview data, fetched regardless of auth - powers the blurred
     // teaser for signed-out visitors.
     async function loadPreview() {
       const [{ data: cities, count: cityCount }, { count: clubCount }] = await Promise.all([
@@ -564,7 +564,7 @@ export default function PassportPage() {
       } else {
         window.open(url, "_blank")
       }
-    } catch { /* sharing failed — non-critical, user can retry */ }
+    } catch { /* sharing failed - non-critical, user can retry */ }
     setSharing(false)
   }
 
@@ -588,7 +588,7 @@ export default function PassportPage() {
       } else {
         window.open(url, "_blank")
       }
-    } catch { /* sharing failed — non-critical, user can retry */ }
+    } catch { /* sharing failed - non-critical, user can retry */ }
     setSharingStamp(false)
   }
 
@@ -665,7 +665,7 @@ export default function PassportPage() {
                   onClick={() => setShowAuthModal(true)}
                   className="mt-4 w-full px-6 py-2.5 bg-[#c5f135] text-[#1a2110] text-sm font-black rounded-full hover:bg-[#d4ff45] transition"
                 >
-                  Sign Up — It&apos;s Free
+                  Sign Up - It&apos;s Free
                 </button>
               </div>
             </div>
