@@ -1,8 +1,10 @@
 "use client"
 
 import { useEffect, useRef, useState, Children, isValidElement, type ReactElement, type ReactNode } from "react"
+import { createPortal } from "react-dom"
 import { ChevronDown, Check } from "lucide-react"
 import { splitFieldClasses } from "./splitFieldClasses"
+import { usePopoverPosition } from "./usePopoverPosition"
 
 // Drop-in replacement for a native <select> that renders <option>/<optgroup>
 // children exactly like the real thing (same value/onChange shape as
@@ -11,6 +13,9 @@ import { splitFieldClasses } from "./splitFieldClasses"
 // popup - specifically the highlighted "currently selected" row - can't be
 // recolored via CSS (color-scheme: dark only gets you so far; that one row
 // is drawn by the OS's own widget chrome). This gives full control instead.
+// The panel is portaled to document.body and fixed-positioned so it never
+// gets clipped by an ancestor's overflow-hidden/overflow-y-auto (e.g. a
+// rounded card, a scrollable modal).
 
 type OptionItem = { value: string; label: ReactNode; disabled?: boolean }
 type GroupItem = { label: string; options: OptionItem[] }
@@ -61,13 +66,16 @@ export function Select({
   placeholder?: string
 }) {
   const [open, setOpen] = useState(false)
-  const [openUp, setOpenUp] = useState(false)
-  const wrapRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const { triggerRef, rect, openUp } = usePopoverPosition(open)
 
   useEffect(() => {
     if (!open) return
     const onDown = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false)
+      const target = e.target as Node
+      if (triggerRef.current?.contains(target)) return
+      if (panelRef.current?.contains(target)) return
+      setOpen(false)
     }
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false)
@@ -78,7 +86,7 @@ export function Select({
       document.removeEventListener("mousedown", onDown)
       document.removeEventListener("keydown", onKey)
     }
-  }, [open])
+  }, [open, triggerRef])
 
   const items = parseChildren(children)
   const flat = flatten(items)
@@ -87,10 +95,6 @@ export function Select({
 
   const toggleOpen = () => {
     if (disabled) return
-    if (!open && wrapRef.current) {
-      const rect = wrapRef.current.getBoundingClientRect()
-      setOpenUp(window.innerHeight - rect.bottom < 260 && rect.top > 260)
-    }
     setOpen((o) => !o)
   }
 
@@ -100,7 +104,7 @@ export function Select({
   }
 
   return (
-    <div ref={wrapRef} className={`relative inline-block ${sizing}`}>
+    <div ref={triggerRef} className={`relative inline-block ${sizing}`}>
       <button
         type="button"
         disabled={disabled}
@@ -110,11 +114,16 @@ export function Select({
         <span className={`truncate ${!selected ? "opacity-60" : ""}`}>{selected ? selected.label : placeholder}</span>
         <ChevronDown className={`w-3.5 h-3.5 shrink-0 opacity-45 transition-transform duration-150 ${open ? "rotate-180" : ""}`} />
       </button>
-      {open && (
+      {open && rect && createPortal(
         <div
-          className={`absolute z-50 left-0 right-0 min-w-max max-h-64 overflow-y-auto bg-[#1e2d12] border border-[#2e3d1a] rounded-xl shadow-2xl py-1 ${
-            openUp ? "bottom-full mb-1.5" : "top-full mt-1.5"
-          }`}
+          ref={panelRef}
+          style={{
+            position: "fixed",
+            left: rect.left,
+            width: rect.width,
+            ...(openUp ? { bottom: window.innerHeight - rect.top + 6 } : { top: rect.bottom + 6 }),
+          }}
+          className="z-50 min-w-max max-h-64 overflow-y-auto bg-[#1e2d12] border border-[#2e3d1a] rounded-xl shadow-2xl py-1"
         >
           {items.map((it, i) =>
             isGroup(it) ? (
@@ -128,7 +137,8 @@ export function Select({
               <OptionRow key={it.value} opt={it} active={it.value === value} onSelect={selectValue} />
             )
           )}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )

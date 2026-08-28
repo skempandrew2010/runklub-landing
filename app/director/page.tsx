@@ -127,6 +127,309 @@ function clubAbbr(name: string) {
   return name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
 }
 
+function chatTitle(run: RunChatPreview) {
+  if (run.members_only) return run.title
+  const d = new Date(run.date + "T00:00:00")
+  const dateStr = d.toLocaleDateString("en-US", { month: "numeric", day: "numeric" })
+  return run.title || `Community Run on ${dateStr}`
+}
+
+// Hoisted for the same reason as RunCard/MemberRow.
+function ChatRow({ run, onSelect }: { run: RunChatPreview; onSelect: () => void }) {
+  return (
+    <button onClick={onSelect}
+      className="w-full flex items-center gap-4 px-3 py-3 rounded-xl bg-[#1a2110] border border-[#2e3d1a] hover:border-[#c5f135]/20 transition text-left">
+      <div className="flex-1 min-w-0">
+        <p className={`text-sm font-semibold text-white truncate mb-0.5 ${run.message_count === 0 ? "opacity-70" : ""}`}>{chatTitle(run)}</p>
+        <p className="text-xs text-white/60">{formatDay(run.date)} at {formatRunTimeDisplay(run)}</p>
+        {run.last_message && (
+          <p className="text-xs text-white/60 truncate mt-1">
+            <span className="text-white/80 font-medium">{run.last_message.profiles?.display_name || "Runner"}:</span>{" "}{run.last_message.message}
+          </p>
+        )}
+      </div>
+      {run.message_count > 0
+        ? <div className="shrink-0 w-6 h-6 rounded-full bg-[#c5f135] flex items-center justify-center"><span className="text-[9px] font-black text-[#1a2110]">{run.message_count > 9 ? "9+" : run.message_count}</span></div>
+        : <MessageSquare className="w-4 h-4 text-white/25 shrink-0" />
+      }
+    </button>
+  )
+}
+
+type Member = {
+  id: string
+  user_id: string
+  created_at: string
+  member_type: string
+  billing_interval: string | null
+  price_cents: number | null
+  plan_name: string | null
+  expires_at: string | null
+  pace_group_id: string | null
+  profiles: { display_name: string | null; avatar_url: string | null } | null
+  email: string | null
+}
+
+// Hoisted for the same reason as RunCard - defining this inline inside
+// ManagerView's render body would redefine it (and remount every row) on
+// every state update, breaking the pace-group Select's open state and the
+// Remove button whenever anything else in the tab re-renders.
+function MemberRow({
+  m,
+  showSplit,
+  paceGroups,
+  updatingPaceGroupId,
+  removingMemberId,
+  onPaceGroupChange,
+  onRemove,
+}: {
+  m: Member
+  showSplit: boolean
+  paceGroups: { id: string; name: string }[]
+  updatingPaceGroupId: string | null
+  removingMemberId: string | null
+  onPaceGroupChange: (paceGroupId: string) => void
+  onRemove: () => void
+}) {
+  return (
+    <div className="flex items-center gap-3 bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2">
+      <div className="w-8 h-8 rounded-full shrink-0 bg-[#2e3d1a] overflow-hidden flex items-center justify-center">
+        {m.profiles?.avatar_url
+          ? <img src={m.profiles.avatar_url} alt="" className="w-full h-full object-cover" />
+          : <span className="text-sm font-black text-[#c5f135]">{(m.profiles?.display_name || "?")[0].toUpperCase()}</span>
+        }
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-bold text-white truncate">{m.profiles?.display_name || "Runner"}</p>
+        {m.email && <p className="text-xs text-white/60 truncate">{m.email}</p>}
+        <p className="text-xs text-white/80">
+          Joined {new Date(m.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+          {m.plan_name && ` · ${m.plan_name}`}
+          {m.expires_at && ` · expires ${new Date(m.expires_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`}
+        </p>
+      </div>
+      {showSplit && (
+        <span className={`text-[10px] font-black px-2 py-0.5 rounded-full shrink-0 ${m.member_type === "paid" ? "bg-[#c5f135]/15 text-[#c5f135] border border-[#c5f135]/30" : "bg-white/5 text-white/30 border border-white/10"}`}>
+          {m.member_type === "paid"
+            ? m.price_cents
+              ? `$${(m.price_cents / 100).toFixed(2)}${m.billing_interval === "yearly" ? "/yr" : m.billing_interval === "seasonal" ? " one-time" : "/mo"}`
+              : "Paid"
+            : "Free"}
+        </span>
+      )}
+      {paceGroups.length > 0 && (
+        <Select
+          value={m.pace_group_id ?? ""}
+          onChange={(e) => onPaceGroupChange(e.target.value)}
+          disabled={updatingPaceGroupId === m.id}
+          className="shrink-0 text-[10px] font-bold bg-white/5 text-white/50 border border-white/10 rounded-full pl-2 pr-1.5 py-0.5 focus:outline-none focus:border-[#c5f135]/40 disabled:opacity-50"
+        >
+          <option value="">No pace group</option>
+          {paceGroups.map((pg) => <option key={pg.id} value={pg.id}>{pg.name}</option>)}
+        </Select>
+      )}
+      <button
+        onClick={onRemove}
+        disabled={removingMemberId === m.id}
+        className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/5 text-white/30 border border-white/10 hover:bg-red-400/10 hover:text-red-400 hover:border-red-400/30 transition disabled:opacity-50"
+      >
+        {removingMemberId === m.id ? "…" : "Remove"}
+      </button>
+    </div>
+  )
+}
+
+type RunDraft = {
+  title: string
+  date: string
+  time: string
+  timezone: string
+  distance: string
+  meeting_point: string
+  route_url: string
+  workout_type_id: string
+  description: string
+  is_in_person: boolean
+}
+
+function initRunDraft(run: RunChatPreview): RunDraft {
+  return {
+    title: run.title,
+    date: run.date,
+    time: run.time ?? "06:00",
+    timezone: run.timezone ?? getBrowserTimezone(),
+    distance: run.distance ?? "",
+    meeting_point: run.meeting_point ?? "",
+    route_url: run.route_url ?? "",
+    workout_type_id: run.workout_type_id ?? "",
+    description: run.description ?? "",
+    is_in_person: run.is_in_person ?? true,
+  }
+}
+
+// Hoisted to module scope (not defined inside ManagerView's render body) so
+// its identity stays stable across renders - an inline `const RunCard = ...`
+// gets redefined on every keystroke (since typing updates state, which
+// re-renders ManagerView), and React treats a changed function reference as
+// a brand new component type, unmounting and remounting the whole card -
+// including its inputs - after every single character.
+function RunCard({
+  run,
+  isExpanded,
+  draft,
+  attendanceCount,
+  saving,
+  workoutTypes,
+  onToggleExpand,
+  onDraftChange,
+  onSave,
+  onCancel,
+  onDelete,
+}: {
+  run: RunChatPreview
+  isExpanded: boolean
+  draft: RunDraft
+  attendanceCount: number
+  saving: boolean
+  workoutTypes: { id: string; title: string }[]
+  onToggleExpand: () => void
+  onDraftChange: (patch: Partial<RunDraft>) => void
+  onSave: () => void
+  onCancel: () => void
+  onDelete: () => void
+}) {
+  const todayStr = localDateStr()
+  const isToday = run.date === todayStr
+  const d = new Date(run.date + "T00:00:00")
+  const dayLabel = isToday ? "Today" : d.toLocaleDateString("en-US", { weekday: "short" })
+  const dayNum = d.getDate()
+  return (
+    <div className={`bg-[#111a0a] border border-[#2e3d1a] rounded-xl overflow-hidden ${isExpanded ? "border-[#c5f135]/20" : ""}`}>
+      <div className="flex items-center gap-3 px-3 py-3">
+        <div className={`w-9 shrink-0 flex flex-col items-center ${isToday ? "text-[#c5f135]" : "text-white"}`}>
+          <span className="text-[9px] font-black uppercase tracking-wide leading-snug">{dayLabel}</span>
+          <span className="text-lg font-black leading-tight">{dayNum}</span>
+        </div>
+        <div className="w-px h-8 bg-[#2e3d1a] shrink-0" />
+        <button onClick={onToggleExpand} className="flex-1 min-w-0 text-left">
+          <p className="text-sm font-bold text-white truncate">{run.title}</p>
+          <p className="text-xs text-white/60 mt-0.5 truncate">
+            {formatRunTimeDisplay(run)}
+            {run.distance ? ` · ${run.distance}` : ""}
+            {run.meeting_point ? ` · ${run.meeting_point}` : ""}
+          </p>
+        </button>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {attendanceCount > 0 && (
+            <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-[#c5f135]/10 border border-[#c5f135]/25">
+              <Users className="w-2.5 h-2.5 text-[#c5f135]" />
+              <span className="text-[10px] font-black text-[#c5f135]">{attendanceCount}</span>
+            </div>
+          )}
+          <button onClick={onToggleExpand} className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-[#2e3d1a] transition">
+            {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <Pencil className="w-3.5 h-3.5" />}
+          </button>
+          <button onClick={onDelete} className="p-1.5 rounded-lg text-white/60 hover:text-red-400 hover:bg-red-400/10 transition">
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+      {isExpanded && (
+        <div className="border-t border-[#2e3d1a] px-4 py-3 space-y-2.5">
+          <input
+            placeholder="Title"
+            value={draft.title}
+            onChange={(e) => onDraftChange({ title: e.target.value })}
+            className="w-full bg-[#0e150a] border border-[#2e3d1a] rounded-lg px-3 py-1.5 text-xs text-white/70 placeholder:text-white/25 focus:outline-none focus:border-[#c5f135]/50"
+          />
+          <div className="flex items-center gap-2 flex-wrap">
+            <DateInput
+              value={draft.date}
+              onChange={(e) => onDraftChange({ date: e.target.value })}
+              className="shrink-0 min-w-[135px] bg-[#0e150a] border border-[#2e3d1a] rounded-lg px-2 py-1.5 text-xs text-white/70 focus:outline-none focus:border-[#c5f135]/50"
+            />
+            <TimeInput
+              value={draft.time}
+              onChange={(e) => onDraftChange({ time: e.target.value })}
+              className="shrink-0 min-w-[105px] bg-[#0e150a] border border-[#2e3d1a] rounded-lg px-2 py-1.5 text-xs text-white/70 focus:outline-none focus:border-[#c5f135]/50"
+            />
+            <Select
+              value={draft.timezone}
+              onChange={(e) => onDraftChange({ timezone: e.target.value })}
+              className="min-w-[130px] bg-[#0e150a] border border-[#2e3d1a] rounded-lg px-2 py-1.5 text-xs text-white/70 focus:outline-none focus:border-[#c5f135]/50"
+            >
+              {COMMON_TIMEZONES.map((tz) => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
+            </Select>
+            <input
+              placeholder="Distance, e.g. 5K"
+              value={draft.distance}
+              onChange={(e) => onDraftChange({ distance: e.target.value })}
+              className="flex-1 min-w-[90px] bg-[#0e150a] border border-[#2e3d1a] rounded-lg px-2 py-1.5 text-xs text-white/70 placeholder:text-white/25 focus:outline-none focus:border-[#c5f135]/50"
+            />
+            <Select
+              value={draft.workout_type_id}
+              onChange={(e) => onDraftChange({ workout_type_id: e.target.value })}
+              className="flex-1 min-w-[120px] bg-[#0e150a] border border-[#2e3d1a] rounded-lg px-2 py-1.5 text-xs text-white/70 focus:outline-none focus:border-[#c5f135]/50"
+            >
+              <option value="">No workout type</option>
+              {workoutTypes.map((wt) => <option key={wt.id} value={wt.id}>{wt.title}</option>)}
+            </Select>
+          </div>
+          <input
+            placeholder="Meeting point"
+            value={draft.meeting_point}
+            onChange={(e) => onDraftChange({ meeting_point: e.target.value })}
+            className="w-full bg-[#0e150a] border border-[#2e3d1a] rounded-lg px-3 py-1.5 text-xs text-white/70 placeholder:text-white/25 focus:outline-none focus:border-[#c5f135]/50"
+          />
+          <textarea
+            placeholder="Details, e.g. 6 × 800m @ 5k pace"
+            rows={2}
+            value={draft.description}
+            onChange={(e) => onDraftChange({ description: e.target.value })}
+            className="w-full bg-[#0e150a] border border-[#2e3d1a] rounded-lg px-3 py-2 text-xs text-white/70 placeholder:text-white/25 focus:outline-none focus:border-[#c5f135]/50 resize-none"
+          />
+          <input
+            placeholder="Route URL"
+            value={draft.route_url}
+            onChange={(e) => onDraftChange({ route_url: e.target.value })}
+            className="w-full bg-[#0e150a] border border-[#2e3d1a] rounded-lg px-3 py-1.5 text-xs text-white/70 placeholder:text-white/25 focus:outline-none focus:border-[#c5f135]/50"
+          />
+          <label className="flex items-center gap-1.5 text-xs font-bold text-white/50 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={draft.is_in_person}
+              onChange={(e) => onDraftChange({ is_in_person: e.target.checked })}
+              className="accent-[#c5f135]"
+            />
+            In person
+          </label>
+
+          <div className="pt-2 border-t border-[#2e3d1a]">
+            <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-2">Check-ins</p>
+            <RunCheckInRoster runId={run.id} clubId={run.club_id} />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onSave}
+              disabled={saving}
+              className="px-3 py-1.5 rounded-full text-xs font-black bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45] disabled:opacity-40 transition"
+            >
+              {saving ? "Saving…" : "Save"}
+            </button>
+            <button
+              onClick={onCancel}
+              className="px-3 py-1.5 rounded-full text-xs font-bold border border-[#2e3d1a] text-white/50 hover:text-white transition"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Manager View ───────────────────────────────────────────────────────────────
 
 const ALL_TABS = [
@@ -1075,149 +1378,29 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
   const runsNoMessages = allRuns.filter((r) => r.message_count === 0)
   const hasUnread = runsWithMessages.length > 0
 
-  const RunCard = ({ run }: { run: RunChatPreview }) => {
-    const todayStr = localDateStr()
-    const isToday = run.date === todayStr
-    const d = new Date(run.date + "T00:00:00")
-    const dayLabel = isToday ? "Today" : d.toLocaleDateString("en-US", { weekday: "short" })
-    const dayNum = d.getDate()
-    const isExpanded = expandedRunId === run.id
-    const initDraft = () => ({ title: run.title, date: run.date, time: run.time ?? "06:00", timezone: run.timezone ?? getBrowserTimezone(), distance: run.distance ?? "", meeting_point: run.meeting_point ?? "", route_url: run.route_url ?? "", workout_type_id: run.workout_type_id ?? "", description: run.description ?? "", is_in_person: run.is_in_person ?? true })
-    const draft = runDrafts[run.id] ?? initDraft()
-    const toggleExpand = () => {
-      if (isExpanded) {
-        setExpandedRunId(null)
-      } else {
-        setExpandedRunId(run.id)
-        if (!runDrafts[run.id]) setRunDrafts((prev) => ({ ...prev, [run.id]: initDraft() }))
-      }
-    }
-    return (
-      <div className={`bg-[#111a0a] border border-[#2e3d1a] rounded-xl overflow-hidden ${isExpanded ? "border-[#c5f135]/20" : ""}`}>
-        <div className="flex items-center gap-3 px-3 py-3">
-          <div className={`w-9 shrink-0 flex flex-col items-center ${isToday ? "text-[#c5f135]" : "text-white"}`}>
-            <span className="text-[9px] font-black uppercase tracking-wide leading-snug">{dayLabel}</span>
-            <span className="text-lg font-black leading-tight">{dayNum}</span>
-          </div>
-          <div className="w-px h-8 bg-[#2e3d1a] shrink-0" />
-          <button onClick={toggleExpand} className="flex-1 min-w-0 text-left">
-            <p className="text-sm font-bold text-white truncate">{run.title}</p>
-            <p className="text-xs text-white/60 mt-0.5 truncate">
-              {formatRunTimeDisplay(run)}
-              {run.distance ? ` · ${run.distance}` : ""}
-              {run.meeting_point ? ` · ${run.meeting_point}` : ""}
-            </p>
-          </button>
-          <div className="flex items-center gap-1.5 shrink-0">
-            {(attendanceCounts[run.id] ?? 0) > 0 && (
-              <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-[#c5f135]/10 border border-[#c5f135]/25">
-                <Users className="w-2.5 h-2.5 text-[#c5f135]" />
-                <span className="text-[10px] font-black text-[#c5f135]">{attendanceCounts[run.id]}</span>
-              </div>
-            )}
-            <button onClick={toggleExpand} className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-[#2e3d1a] transition">
-              {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <Pencil className="w-3.5 h-3.5" />}
-            </button>
-            <button onClick={() => deleteRun(run.id)} className="p-1.5 rounded-lg text-white/60 hover:text-red-400 hover:bg-red-400/10 transition">
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-        {isExpanded && (
-          <div className="border-t border-[#2e3d1a] px-4 py-3 space-y-2.5">
-            <input
-              placeholder="Title"
-              value={draft.title}
-              onChange={(e) => setRunDrafts((prev) => ({ ...prev, [run.id]: { ...draft, title: e.target.value } }))}
-              className="w-full bg-[#0e150a] border border-[#2e3d1a] rounded-lg px-3 py-1.5 text-xs text-white/70 placeholder:text-white/25 focus:outline-none focus:border-[#c5f135]/50"
-            />
-            <div className="flex items-center gap-2 flex-wrap">
-              <DateInput
-                value={draft.date}
-                onChange={(e) => setRunDrafts((prev) => ({ ...prev, [run.id]: { ...draft, date: e.target.value } }))}
-                className="shrink-0 min-w-[135px] bg-[#0e150a] border border-[#2e3d1a] rounded-lg px-2 py-1.5 text-xs text-white/70 focus:outline-none focus:border-[#c5f135]/50"
-              />
-              <TimeInput
-                value={draft.time}
-                onChange={(e) => setRunDrafts((prev) => ({ ...prev, [run.id]: { ...draft, time: e.target.value } }))}
-                className="shrink-0 min-w-[105px] bg-[#0e150a] border border-[#2e3d1a] rounded-lg px-2 py-1.5 text-xs text-white/70 focus:outline-none focus:border-[#c5f135]/50"
-              />
-              <Select
-                value={draft.timezone}
-                onChange={(e) => setRunDrafts((prev) => ({ ...prev, [run.id]: { ...draft, timezone: e.target.value } }))}
-                className="min-w-[130px] bg-[#0e150a] border border-[#2e3d1a] rounded-lg px-2 py-1.5 text-xs text-white/70 focus:outline-none focus:border-[#c5f135]/50"
-              >
-                {COMMON_TIMEZONES.map((tz) => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
-              </Select>
-              <input
-                placeholder="Distance, e.g. 5K"
-                value={draft.distance}
-                onChange={(e) => setRunDrafts((prev) => ({ ...prev, [run.id]: { ...draft, distance: e.target.value } }))}
-                className="flex-1 min-w-[90px] bg-[#0e150a] border border-[#2e3d1a] rounded-lg px-2 py-1.5 text-xs text-white/70 placeholder:text-white/25 focus:outline-none focus:border-[#c5f135]/50"
-              />
-              <Select
-                value={draft.workout_type_id}
-                onChange={(e) => setRunDrafts((prev) => ({ ...prev, [run.id]: { ...draft, workout_type_id: e.target.value } }))}
-                className="flex-1 min-w-[120px] bg-[#0e150a] border border-[#2e3d1a] rounded-lg px-2 py-1.5 text-xs text-white/70 focus:outline-none focus:border-[#c5f135]/50"
-              >
-                <option value="">No workout type</option>
-                {memberRunWorkoutTypes.map((wt) => <option key={wt.id} value={wt.id}>{wt.title}</option>)}
-              </Select>
-            </div>
-            <input
-              placeholder="Meeting point"
-              value={draft.meeting_point}
-              onChange={(e) => setRunDrafts((prev) => ({ ...prev, [run.id]: { ...draft, meeting_point: e.target.value } }))}
-              className="w-full bg-[#0e150a] border border-[#2e3d1a] rounded-lg px-3 py-1.5 text-xs text-white/70 placeholder:text-white/25 focus:outline-none focus:border-[#c5f135]/50"
-            />
-            <textarea
-              placeholder="Details, e.g. 6 × 800m @ 5k pace"
-              rows={2}
-              value={draft.description}
-              onChange={(e) => setRunDrafts((prev) => ({ ...prev, [run.id]: { ...draft, description: e.target.value } }))}
-              className="w-full bg-[#0e150a] border border-[#2e3d1a] rounded-lg px-3 py-2 text-xs text-white/70 placeholder:text-white/25 focus:outline-none focus:border-[#c5f135]/50 resize-none"
-            />
-            <input
-              placeholder="Route URL"
-              value={draft.route_url}
-              onChange={(e) => setRunDrafts((prev) => ({ ...prev, [run.id]: { ...draft, route_url: e.target.value } }))}
-              className="w-full bg-[#0e150a] border border-[#2e3d1a] rounded-lg px-3 py-1.5 text-xs text-white/70 placeholder:text-white/25 focus:outline-none focus:border-[#c5f135]/50"
-            />
-            <label className="flex items-center gap-1.5 text-xs font-bold text-white/50 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={draft.is_in_person}
-                onChange={(e) => setRunDrafts((prev) => ({ ...prev, [run.id]: { ...draft, is_in_person: e.target.checked } }))}
-                className="accent-[#c5f135]"
-              />
-              In person
-            </label>
-
-            <div className="pt-2 border-t border-[#2e3d1a]">
-              <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-2">Check-ins</p>
-              <RunCheckInRoster runId={run.id} clubId={run.club_id} />
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => saveRun(run.id)}
-                disabled={runSaving.has(run.id)}
-                className="px-3 py-1.5 rounded-full text-xs font-black bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45] disabled:opacity-40 transition"
-              >
-                {runSaving.has(run.id) ? "Saving…" : "Save"}
-              </button>
-              <button
-                onClick={() => setExpandedRunId(null)}
-                className="px-3 py-1.5 rounded-full text-xs font-bold border border-[#2e3d1a] text-white/50 hover:text-white transition"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-    )
-  }
+  const renderRunCard = (run: RunChatPreview) => (
+    <RunCard
+      key={run.id}
+      run={run}
+      isExpanded={expandedRunId === run.id}
+      draft={runDrafts[run.id] ?? initRunDraft(run)}
+      attendanceCount={attendanceCounts[run.id] ?? 0}
+      saving={runSaving.has(run.id)}
+      workoutTypes={memberRunWorkoutTypes}
+      onToggleExpand={() => {
+        if (expandedRunId === run.id) {
+          setExpandedRunId(null)
+        } else {
+          setExpandedRunId(run.id)
+          if (!runDrafts[run.id]) setRunDrafts((prev) => ({ ...prev, [run.id]: initRunDraft(run) }))
+        }
+      }}
+      onDraftChange={(patch) => setRunDrafts((prev) => ({ ...prev, [run.id]: { ...(prev[run.id] ?? initRunDraft(run)), ...patch } }))}
+      onSave={() => saveRun(run.id)}
+      onCancel={() => setExpandedRunId(null)}
+      onDelete={() => deleteRun(run.id)}
+    />
+  )
 
   return (
     <div className="min-h-screen bg-[#1a2110] pb-24">
@@ -1423,7 +1606,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                   <p className="text-sm text-white/80">No upcoming community runs.</p>
                 ) : (
                   <div className="space-y-2">
-                    {communityRuns.map((run) => <RunCard key={run.id} run={run} />)}
+                    {communityRuns.map(renderRunCard)}
                   </div>
                 )}
               </div>
@@ -1443,7 +1626,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                   <p className="text-sm text-white/50">No members-only runs yet - click Generate This Week above.</p>
                 ) : (
                   <div className="space-y-2">
-                    {membersOnlyRuns.map((run) => <RunCard key={run.id} run={run} />)}
+                    {membersOnlyRuns.map(renderRunCard)}
                   </div>
                 )}
               </div>
@@ -1525,54 +1708,18 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
               return sum + (m.billing_interval === "yearly" ? m.price_cents / 12 : m.price_cents)
             }, 0)
 
-            const MemberRow = ({ m }: { m: typeof members[number] }) => {
-              return (
-                <div className="flex items-center gap-3 bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2">
-                  <div className="w-8 h-8 rounded-full shrink-0 bg-[#2e3d1a] overflow-hidden flex items-center justify-center">
-                    {m.profiles?.avatar_url
-                      ? <img src={m.profiles.avatar_url} alt="" className="w-full h-full object-cover" />
-                      : <span className="text-sm font-black text-[#c5f135]">{(m.profiles?.display_name || "?")[0].toUpperCase()}</span>
-                    }
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-white truncate">{m.profiles?.display_name || "Runner"}</p>
-                    {m.email && <p className="text-xs text-white/60 truncate">{m.email}</p>}
-                    <p className="text-xs text-white/80">
-                      Joined {new Date(m.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                      {m.plan_name && ` · ${m.plan_name}`}
-                      {m.expires_at && ` · expires ${new Date(m.expires_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`}
-                    </p>
-                  </div>
-                  {showSplit && (
-                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full shrink-0 ${m.member_type === "paid" ? "bg-[#c5f135]/15 text-[#c5f135] border border-[#c5f135]/30" : "bg-white/5 text-white/30 border border-white/10"}`}>
-                      {m.member_type === "paid"
-                        ? m.price_cents
-                          ? `$${(m.price_cents / 100).toFixed(2)}${m.billing_interval === "yearly" ? "/yr" : m.billing_interval === "seasonal" ? " one-time" : "/mo"}`
-                          : "Paid"
-                        : "Free"}
-                    </span>
-                  )}
-                  {clubPaceGroups.length > 0 && (
-                    <Select
-                      value={m.pace_group_id ?? ""}
-                      onChange={(e) => updatePaceGroup(m.id, e.target.value)}
-                      disabled={updatingPaceGroupId === m.id}
-                      className="shrink-0 text-[10px] font-bold bg-white/5 text-white/50 border border-white/10 rounded-full pl-2 pr-1.5 py-0.5 focus:outline-none focus:border-[#c5f135]/40 disabled:opacity-50"
-                    >
-                      <option value="">No pace group</option>
-                      {clubPaceGroups.map((pg) => <option key={pg.id} value={pg.id}>{pg.name}</option>)}
-                    </Select>
-                  )}
-                  <button
-                    onClick={() => removeMember(m.id, m.profiles?.display_name || "this runner")}
-                    disabled={removingMemberId === m.id}
-                    className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/5 text-white/30 border border-white/10 hover:bg-red-400/10 hover:text-red-400 hover:border-red-400/30 transition disabled:opacity-50"
-                  >
-                    {removingMemberId === m.id ? "…" : "Remove"}
-                  </button>
-                </div>
-              )
-            }
+            const renderMemberRow = (m: Member) => (
+              <MemberRow
+                key={m.id}
+                m={m}
+                showSplit={showSplit}
+                paceGroups={clubPaceGroups}
+                updatingPaceGroupId={updatingPaceGroupId}
+                removingMemberId={removingMemberId}
+                onPaceGroupChange={(paceGroupId) => updatePaceGroup(m.id, paceGroupId)}
+                onRemove={() => removeMember(m.id, m.profiles?.display_name || "this runner")}
+              />
+            )
 
             const memberLimit = memberLimitForTier(tier as any)
             const memberCapBanner = memberLimit !== null && (
@@ -1695,7 +1842,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                       <SectionTitle>Members</SectionTitle>
                       <span className="text-xs font-semibold text-white/30">{members.length}</span>
                     </div>
-                    <div className="space-y-2">{members.map((m) => <MemberRow key={m.id} m={m} />)}</div>
+                    <div className="space-y-2">{members.map(renderMemberRow)}</div>
                   </Card>
                 ) : (
                   <div className="space-y-4">
@@ -1712,7 +1859,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                       </div>
                       {paidMembers.length === 0
                         ? <p className="text-sm text-white/80">No paying members yet.</p>
-                        : <div className="space-y-2">{paidMembers.map((m) => <MemberRow key={m.id} m={m} />)}</div>
+                        : <div className="space-y-2">{paidMembers.map(renderMemberRow)}</div>
                       }
                     </Card>
                     <Card>
@@ -1722,7 +1869,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                       </div>
                       {communityMembers.length === 0
                         ? <p className="text-sm text-white/80">No free followers yet.</p>
-                        : <div className="space-y-2">{communityMembers.map((m) => <MemberRow key={m.id} m={m} />)}</div>
+                        : <div className="space-y-2">{communityMembers.map(renderMemberRow)}</div>
                       }
                     </Card>
                   </div>
@@ -1931,30 +2078,6 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                 ))}
               </div>
             ))
-            const chatTitle = (run: RunChatPreview) => {
-              if (run.members_only) return run.title
-              const d = new Date(run.date + "T00:00:00")
-              const dateStr = d.toLocaleDateString("en-US", { month: "numeric", day: "numeric" })
-              return run.title || `Community Run on ${dateStr}`
-            }
-            const ChatRow = ({ run }: { run: RunChatPreview }) => (
-              <button onClick={() => setSelectedRun(run)}
-                className="w-full flex items-center gap-4 px-3 py-3 rounded-xl bg-[#1a2110] border border-[#2e3d1a] hover:border-[#c5f135]/20 transition text-left">
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-semibold text-white truncate mb-0.5 ${run.message_count === 0 ? "opacity-70" : ""}`}>{chatTitle(run)}</p>
-                  <p className="text-xs text-white/60">{formatDay(run.date)} at {formatRunTimeDisplay(run)}</p>
-                  {run.last_message && (
-                    <p className="text-xs text-white/60 truncate mt-1">
-                      <span className="text-white/80 font-medium">{run.last_message.profiles?.display_name || "Runner"}:</span>{" "}{run.last_message.message}
-                    </p>
-                  )}
-                </div>
-                {run.message_count > 0
-                  ? <div className="shrink-0 w-6 h-6 rounded-full bg-[#c5f135] flex items-center justify-center"><span className="text-[9px] font-black text-[#1a2110]">{run.message_count > 9 ? "9+" : run.message_count}</span></div>
-                  : <MessageSquare className="w-4 h-4 text-white/25 shrink-0" />
-                }
-              </button>
-            )
             return (
               <div className="space-y-6">
                 <Card>
@@ -2099,7 +2222,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                       {communityChats.length > 0 && (
                         <>
                           <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-1">Community Runs</p>
-                          {communityChats.map((run) => <ChatRow key={run.id} run={run} />)}
+                          {communityChats.map((run) => <ChatRow key={run.id} run={run} onSelect={() => setSelectedRun(run)} />)}
                         </>
                       )}
                       {membersChats.length > 0 && (
