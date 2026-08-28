@@ -20,6 +20,7 @@ import WeeklyScheduleTab from "@/app/director/WeeklyScheduleTab"
 import type { PaceGroup } from "@/lib/clubModel/types"
 import { formatPaceRange } from "@/lib/clubModel/pace"
 import { marathonTimeRangeLabel } from "@/lib/clubModel/raceEquivalency"
+import { memberLimitForTier } from "@/lib/memberCap"
 import { track } from "@vercel/analytics"
 
 export type Club = {
@@ -232,6 +233,11 @@ export default function ClubPageClient({
     }
     load()
   }, [club.id, searchParams])
+
+  // Blocks new joins once the klub hits its tier's member cap - existing
+  // members (isSubscribed) are never affected, only people trying to join.
+  const memberCapLimit = memberLimitForTier(club.tier as any)
+  const atMemberCap = memberCapLimit !== null && memberCount >= memberCapLimit && !isSubscribed
 
   // Returns to wherever the user actually came from (Home, Explore, a
   // search result, etc.) instead of always landing on Explore -- falls back
@@ -457,6 +463,10 @@ export default function ClubPageClient({
         <div className="flex items-center gap-3 flex-wrap">
           {membershipLoading ? (
             <div className="w-32 h-[42px] rounded-full bg-[#1e2d12] border border-[#2e3d1a] animate-pulse" />
+          ) : atMemberCap ? (
+            <div className="px-5 py-2.5 rounded-full text-sm font-bold bg-[#1e2d12] border border-white/10 text-white/40">
+              This klub is full{memberCapLimit === 500 ? " - contact them about custom capacity" : ""}
+            </div>
           ) : club.membership_type !== "free" ? (
             <>
               {/* Follow is only shown to non-members - a member is inherently

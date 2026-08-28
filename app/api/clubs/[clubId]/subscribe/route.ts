@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import Stripe from "stripe"
 import { createClient } from "@supabase/supabase-js"
 import { PLANS, type PlanId } from "@/lib/plans"
+import { isClubAtMemberCap, memberCapMessage } from "@/lib/memberCap"
 
 function getStripe() { return new Stripe(process.env.STRIPE_SECRET_KEY!) }
 
@@ -80,6 +81,11 @@ export async function POST(
     )
     if (alreadyPaid) {
       return NextResponse.json({ error: "You're already a paying member of this klub" }, { status: 400 })
+    }
+
+    if (!existingSub) {
+      const cap = await isClubAtMemberCap(admin, clubId, club.tier as PlanId | null)
+      if (cap.atCap) return NextResponse.json({ error: memberCapMessage(cap.limit!) }, { status: 400 })
     }
 
     const stripe = getStripe()

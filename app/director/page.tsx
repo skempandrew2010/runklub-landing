@@ -28,6 +28,7 @@ import CoachDashboard, { type CoachTabKey } from "@/components/CoachDashboard"
 import KlubContextPicker from "@/components/KlubContextPicker"
 import AnalyticsTab from "./AnalyticsTab"
 import { PLANS } from "@/lib/plans"
+import { memberLimitForTier } from "@/lib/memberCap"
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -654,6 +655,9 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
     if (res.ok) {
       setPendingRequests((prev) => prev.filter((r) => r.id !== requestId))
       if (action === "approve" && selectedClubId) await loadMembers(selectedClubId)
+    } else {
+      const json = await res.json().catch(() => ({}))
+      alert(json.error ?? "Couldn't process that request. Try again.")
     }
   }
 
@@ -1017,9 +1021,9 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
   const isPaid = !isFree
 
   const UPSELL_INFO: Record<"starter" | "growth" | "enterprise", { name: string; price: string; headline: string; features: string[] }> = {
-    starter:    { name: "Starter",    price: "$24.99/mo", headline: "More tools for your klub",  features: ["Private member-only runs", "Weekly email reminders", "Charge members to join", "Verified badge"] },
-    growth:     { name: "Growth",     price: "$49.99/mo", headline: "Scale up your klub",        features: ["Everything in Starter", "Workout library", "One branch + unlimited locations", "Up to 10 coaches", "Priority placement"] },
-    enterprise: { name: "Enterprise", price: "$99.99/mo", headline: "Take your klub to the top", features: ["Everything in Growth", "Unlimited branches", "First in city search", "Event payments at 1%"] },
+    starter:    { name: "Starter",    price: "$24.99/mo", headline: "More tools for your klub",  features: ["Private member-only runs", "Weekly email reminders", "Charge members to join", "Up to 100 members", "Verified badge"] },
+    growth:     { name: "Growth",     price: "$49.99/mo", headline: "Scale up your klub",        features: ["Everything in Starter", "Workout library", "One branch + unlimited locations", "Up to 250 members", "Up to 10 coaches", "Priority placement"] },
+    enterprise: { name: "Enterprise", price: "$99.99/mo", headline: "Take your klub to the top", features: ["Everything in Growth", "Unlimited branches", "Up to 500 members", "First in city search", "Event payments at 1%"] },
   }
 
   const makeUpgradeCard = (targetTier: "starter" | "growth" | "enterprise", highlighted: boolean) => {
@@ -1322,9 +1326,9 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
           {isAdminMode && (() => {
             const TIER_PLANS: Record<"free" | "starter" | "growth" | "enterprise", { price: string; features: string[] }> = {
               free:       { price: "Free",        features: ["Public klub listing", "Unlimited run posts", "Run chat for members", "Basic analytics"] },
-              starter:    { price: "$24.99/mo",   features: ["1-month free trial", "Private member-only runs", "Weekly email reminders", "Charge members to join", "Verified badge + invite by email"] },
-              growth:     { price: "$49.99/mo",   features: ["Everything in Starter", "Workout library", "One branch + unlimited locations", "Pace groups", "Up to 10 coaches", "Priority placement in search"] },
-              enterprise: { price: "$99.99/mo",   features: ["Everything in Growth", "Unlimited branches", "First in city search", "Training schedules", "Event payments at 1% fee"] },
+              starter:    { price: "$24.99/mo",   features: ["1-month free trial", "Private member-only runs", "Weekly email reminders", "Charge members to join", "Up to 100 members", "Verified badge + invite by email"] },
+              growth:     { price: "$49.99/mo",   features: ["Everything in Starter", "Workout library", "One branch + unlimited locations", "Pace groups", "Up to 250 members", "Up to 10 coaches", "Priority placement in search"] },
+              enterprise: { price: "$99.99/mo",   features: ["Everything in Growth", "Unlimited branches", "Up to 500 members", "First in city search", "Training schedules", "Event payments at 1% fee"] },
             }
             const activeTier = (tier === "starter" || tier === "growth" || tier === "enterprise") ? tier : "free"
             const plan = TIER_PLANS[activeTier]
@@ -1569,9 +1573,26 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
               )
             }
 
+            const memberLimit = memberLimitForTier(tier as any)
+            const memberCapBanner = memberLimit !== null && (
+              <div className={`flex items-center justify-between px-4 py-2.5 rounded-xl border text-xs font-bold ${
+                members.length >= memberLimit
+                  ? "bg-red-400/10 border-red-400/30 text-red-400"
+                  : members.length >= memberLimit * 0.9
+                  ? "bg-yellow-400/10 border-yellow-400/30 text-yellow-400"
+                  : "bg-[#1a2110] border-[#2e3d1a] text-white/50"
+              }`}>
+                <span>{members.length} / {memberLimit} members</span>
+                {members.length >= memberLimit && (
+                  <span>{memberLimit >= 500 ? "Contact us for custom pricing" : "Upgrade to add more"}</span>
+                )}
+              </div>
+            )
+
             return (
               <div className="space-y-6">
                 {pendingApprovalCard}
+                {memberCapBanner}
 
                 <Card>
                   <SectionTitle>Add member</SectionTitle>

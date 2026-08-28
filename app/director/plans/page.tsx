@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Check } from "lucide-react"
 import { supabase } from "@/lib/supabase"
-import { PLANS, PLAN_ORDER, type PlanId, type BillingInterval } from "@/lib/plans"
+import { PLANS, PLAN_ORDER, CUSTOM_PRICING_MESSAGE, type PlanId, type BillingInterval } from "@/lib/plans"
 import FadeIn from "@/components/FadeIn"
 
 type ClubOption = { id: string; name: string; tier: PlanId | null }
@@ -87,7 +87,7 @@ export default function DirectorPlansPage() {
           </div>
         )}
 
-        {/* Hero pitch — same scale/animation as /director/passport */}
+        {/* Hero pitch - same scale/animation as /director/passport */}
         <FadeIn className="text-center mb-12">
           <p className="text-xs font-bold text-[#c5f135]/60 uppercase tracking-widest mb-3">Klub Plans</p>
           <h1 className="text-3xl sm:text-4xl font-black leading-tight text-white mb-5">
@@ -168,6 +168,7 @@ export default function DirectorPlansPage() {
             )
           })}
         </div>
+        <p className="text-center text-xs text-white/35 mt-8">{CUSTOM_PRICING_MESSAGE}</p>
       </div>
     </div>
   )

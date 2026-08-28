@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js"
 import { NextRequest, NextResponse } from "next/server"
+import { isClubAtMemberCap, memberCapMessage } from "@/lib/memberCap"
 
 function getAdminSupabase() {
   return createClient(
@@ -39,7 +40,7 @@ export async function POST(req: NextRequest) {
 
     const { data: club } = await adminSupabase
       .from("clubs")
-      .select("id")
+      .select("id, tier")
       .eq("id", request.club_id)
       .eq("user_id", user.id)
       .single()
@@ -47,6 +48,9 @@ export async function POST(req: NextRequest) {
     if (!club) return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
 
     if (action === "approve") {
+      const cap = await isClubAtMemberCap(adminSupabase, request.club_id, club.tier)
+      if (cap.atCap) return NextResponse.json({ error: memberCapMessage(cap.limit!) }, { status: 400 })
+
       // Add to subscriptions as a paying member, carrying over whatever
       // pace-match data was captured on the request (from the join modal)
       await adminSupabase

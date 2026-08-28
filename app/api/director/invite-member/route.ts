@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js"
 import { Resend } from "resend"
 import { NextRequest, NextResponse } from "next/server"
+import { isClubAtMemberCap, memberCapMessage } from "@/lib/memberCap"
 
 function getAdminSupabase() {
   return createClient(
@@ -37,7 +38,7 @@ function buildInviteEmail(clubName: string, inviterName: string, inviteUrl: stri
               You've been invited to join ${safeClub}
             </h1>
             <p style="margin:0 0 20px;font-size:15px;line-height:1.8;color:rgba(255,255,255,0.75);">
-              ${safeInviter} has invited ${safeRecipient ? safeRecipient : "you"} to join <strong style="color:#ffffff;">${safeClub}</strong> on RunKlub — a running community app to connect with local run klubs and discover group runs near you.
+              ${safeInviter} has invited ${safeRecipient ? safeRecipient : "you"} to join <strong style="color:#ffffff;">${safeClub}</strong> on RunKlub - a running community app to connect with local run klubs and discover group runs near you.
             </p>
           </td>
         </tr>
@@ -74,7 +75,7 @@ function buildInviteEmail(clubName: string, inviterName: string, inviteUrl: stri
   return { html, text }
 }
 
-// POST /api/director/invite-member — send invite
+// POST /api/director/invite-member - send invite
 export async function POST(req: NextRequest) {
   try {
     const authHeader = req.headers.get("Authorization")
@@ -97,12 +98,15 @@ export async function POST(req: NextRequest) {
     // Verify director owns this club
     const { data: club } = await adminSupabase
       .from("clubs")
-      .select("id, name")
+      .select("id, name, tier")
       .eq("id", club_id)
       .eq("user_id", user.id)
       .single()
 
     if (!club) return NextResponse.json({ error: "Klub not found or unauthorized" }, { status: 403 })
+
+    const cap = await isClubAtMemberCap(adminSupabase, club_id, club.tier)
+    if (cap.atCap) return NextResponse.json({ error: memberCapMessage(cap.limit!) }, { status: 400 })
 
     // Check if already a member
     const { data: existingMember } = await adminSupabase.auth.admin.listUsers({ perPage: 1000 })
@@ -170,7 +174,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// DELETE /api/director/invite-member — revoke invite
+// DELETE /api/director/invite-member - revoke invite
 export async function DELETE(req: NextRequest) {
   try {
     const authHeader = req.headers.get("Authorization")
