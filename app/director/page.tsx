@@ -2364,7 +2364,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                     <div>
                       <label className="block text-xs font-semibold text-white/80 mb-1">Meeting Time</label>
                       <input type="time" value={editForm.time} onChange={(e) => setEditForm({ ...editForm, time: e.target.value })}
-                        className="w-full bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-[#c5f135]/50 transition" />
+                        className="w-full bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-[#c5f135]/50 transition [color-scheme:dark]" />
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-white/80 mb-1">Instagram <span className="font-normal text-white/25">(optional)</span></label>

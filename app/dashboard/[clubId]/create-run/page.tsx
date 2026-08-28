@@ -130,7 +130,7 @@ function CreateRunContent() {
     })
   }, [clubId])
 
-  // Public clubs have no members concept — a Members Only run would be unreachable.
+  // Public clubs have no members concept - a Members Only run would be unreachable.
   useEffect(() => {
     if (!clubIsPrivate) setIsPublic(true)
   }, [clubIsPrivate])
@@ -348,7 +348,7 @@ function CreateRunContent() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className={labelClass}>Date *</label>
-                  <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required className={inputClass} />
+                  <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required className={`${inputClass} [color-scheme:dark]`} />
                 </div>
                 <div>
                   <label className={labelClass}>Distance</label>
@@ -360,7 +360,7 @@ function CreateRunContent() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelClass}>Time *</label>
-                <input type="time" value={time} onChange={(e) => setTime(e.target.value)} required className={inputClass} />
+                <input type="time" value={time} onChange={(e) => setTime(e.target.value)} required className={`${inputClass} [color-scheme:dark]`} />
               </div>
               <div>
                 <label className={labelClass}>Timezone</label>
@@ -470,7 +470,7 @@ function CreateRunContent() {
                 <div className="space-y-2">
                   <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Pace Group</p>
                   {paceGroups.length === 0 ? (
-                    <p className="text-xs text-white/30 italic">No pace groups set up yet — add them in the klub manager.</p>
+                    <p className="text-xs text-white/30 italic">No pace groups set up yet - add them in the klub manager.</p>
                   ) : (
                     <div className="flex flex-wrap gap-2">
                       {paceGroups.map((pg) => {
@@ -493,7 +493,7 @@ function CreateRunContent() {
                 <div className="space-y-2">
                   <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Coach</p>
                   {coaches.length === 0 ? (
-                    <p className="text-xs text-white/30 italic">No coaches set up yet — add them in the klub manager.</p>
+                    <p className="text-xs text-white/30 italic">No coaches set up yet - add them in the klub manager.</p>
                   ) : (
                     <div className="flex flex-wrap gap-2">
                       <button type="button" onClick={() => setSelectedCoachId("")}
@@ -590,7 +590,7 @@ function CreateRunContent() {
                             {new Date(d + "T00:00:00").toLocaleDateString("en-US", {
                               weekday: "short", month: "short", day: "numeric",
                             })}
-                            {i === 0 && <span className="text-[#c5f135]/50 font-normal"> — first run</span>}
+                            {i === 0 && <span className="text-[#c5f135]/50 font-normal"> - first run</span>}
                           </span>
                         </div>
                       ))}

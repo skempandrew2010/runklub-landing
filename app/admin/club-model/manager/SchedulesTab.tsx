@@ -264,7 +264,7 @@ export default function SchedulesTab({ clubId }: { clubId: string }) {
                               })
                               const label = resolved
                                 ? resolved.sameAsGroup
-                                  ? `Same as ${resolved.sameAsGroup.name} — ${resolved.workoutType.name}`
+                                  ? `Same as ${resolved.sameAsGroup.name} - ${resolved.workoutType.name}`
                                   : resolved.workoutType.name
                                 : w.same_as_pace_group_id
                                   ? "Linked group has no workout set yet"
@@ -351,6 +351,7 @@ export default function SchedulesTab({ clubId }: { clubId: string }) {
                               type="date"
                               value={workoutDraft.week_of || thisWeek}
                               onChange={(e) => setNewWorkout((p) => ({ ...p, [schedule.id]: { ...workoutDraft, week_of: e.target.value } }))}
+                              className="[color-scheme:dark]"
                             />
                             <p className="text-[9px] text-white/50 mt-0.5">{formatWeekRange(workoutDraft.week_of || thisWeek)}</p>
                           </div>

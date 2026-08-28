@@ -183,7 +183,7 @@ export default function EditRunPage() {
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
                   required
-                  className={inputClass}
+                  className={`${inputClass} [color-scheme:dark]`}
                 />
               </div>
               <div>
@@ -193,7 +193,7 @@ export default function EditRunPage() {
                   value={time}
                   onChange={(e) => setTime(e.target.value)}
                   required
-                  className={inputClass}
+                  className={`${inputClass} [color-scheme:dark]`}
                 />
               </div>
             </div>
