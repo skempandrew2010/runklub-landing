@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase"
 import { ArrowLeft, Check, Globe, Lock } from "lucide-react"
 import mapboxSdk from "@mapbox/mapbox-sdk/services/geocoding"
 import { COMMON_TIMEZONES, getBrowserTimezone } from "@/lib/timezone"
+import { openNativePicker } from "@/utils/openPicker"
 
 const geocodingClient = mapboxSdk({ accessToken: process.env.NEXT_PUBLIC_MAPBOX_TOKEN! })
 
@@ -182,6 +183,7 @@ export default function EditRunPage() {
                   type="date"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
+                  onFocus={openNativePicker}
                   required
                   className={`${inputClass} [color-scheme:dark]`}
                 />
@@ -192,6 +194,7 @@ export default function EditRunPage() {
                   type="time"
                   value={time}
                   onChange={(e) => setTime(e.target.value)}
+                  onFocus={openNativePicker}
                   required
                   className={`${inputClass} [color-scheme:dark]`}
                 />

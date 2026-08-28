@@ -8,6 +8,7 @@ import { DAYS_OF_WEEK } from "@/lib/clubModel/types"
 import { currentWeekMonday, formatWeekRange } from "@/lib/clubModel/week"
 import { resolveScheduledWorkout } from "@/lib/clubModel/resolveWorkout"
 import { Card, Select, Input, TextArea, Button, Row } from "./ui"
+import { openNativePicker } from "@/utils/openPicker"
 
 function RegionCheckboxes({
   regions,
@@ -351,6 +352,7 @@ export default function SchedulesTab({ clubId }: { clubId: string }) {
                               type="date"
                               value={workoutDraft.week_of || thisWeek}
                               onChange={(e) => setNewWorkout((p) => ({ ...p, [schedule.id]: { ...workoutDraft, week_of: e.target.value } }))}
+                              onFocus={openNativePicker}
                               className="[color-scheme:dark]"
                             />
                             <p className="text-[9px] text-white/50 mt-0.5">{formatWeekRange(workoutDraft.week_of || thisWeek)}</p>
