@@ -5,6 +5,7 @@ import { GripVertical, X } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { Card, SectionTitle, Input, TextArea, Button } from "./ui"
 import { type WorkoutSegment, formatWorkoutSegment, parseWorkoutStructure, maskMMSS, PACE_OPTIONS, DISTANCE_UNIT_OPTIONS, TIME_UNIT, WORKOUT_DRAG_MIME } from "@/lib/workouts"
+import { Select } from "@/components/Select"
 
 type WorkoutEntry = { id: string; title: string; description: string | null; structure: WorkoutSegment[] }
 type WorkoutDraft = { title: string; description: string; segments: WorkoutSegment[] }
@@ -50,7 +51,6 @@ function WorkoutFields({
           <div className="space-y-2.5 mb-2">
             {draft.segments.map((seg, i) => {
               const segField = "bg-[#1a2110] border border-[#2e3d1a] rounded-lg text-white text-xs placeholder-white/30 focus:outline-none focus:border-[#c5f135]/50 transition px-1 py-1.5 min-w-0 flex-1 basis-0"
-              const segSelectField = `${segField} pr-4`
               return (
                 <div key={i} className="space-y-1">
                   <div className="flex items-center gap-1">
@@ -60,17 +60,17 @@ function WorkoutFields({
                     <input placeholder={seg.unit === TIME_UNIT ? "3:00" : "800"} value={seg.distance_time}
                       onChange={(e) => updateSegment(i, "distance_time", seg.unit === TIME_UNIT ? maskMMSS(e.target.value) : e.target.value)}
                       className={`${segField} text-center`} />
-                    <select value={seg.unit} onChange={(e) => updateSegment(i, "unit", e.target.value)}
-                      className={segSelectField}>
+                    <Select value={seg.unit} onChange={(e) => updateSegment(i, "unit", e.target.value)}
+                      className={segField}>
                       <option value="">unit</option>
                       <optgroup label="Distance">
                         {DISTANCE_UNIT_OPTIONS.map((u) => <option key={u} value={u}>{u}</option>)}
                       </optgroup>
                       <option value={TIME_UNIT}>time (mm:ss)</option>
-                    </select>
+                    </Select>
                     <span className="text-white/40 text-xs font-black shrink-0">@</span>
-                    <select value={seg.pace} onChange={(e) => updateSegment(i, "pace", e.target.value)}
-                      className={segSelectField}>
+                    <Select value={seg.pace} onChange={(e) => updateSegment(i, "pace", e.target.value)}
+                      className={segField}>
                       <option value="">pace</option>
                       {PACE_OPTIONS.map((p) => <option key={p} value={p}>{p}</option>)}
                       {customPaces.length > 0 && (
@@ -78,7 +78,7 @@ function WorkoutFields({
                           {customPaces.map((p) => <option key={p} value={p}>{p}</option>)}
                         </optgroup>
                       )}
-                    </select>
+                    </Select>
                     <button type="button" onClick={() => removeSegment(i)}
                       className="text-[10px] font-bold text-white/30 hover:text-red-400 transition px-1.5 py-1.5 shrink-0">
                       Delete
@@ -89,14 +89,14 @@ function WorkoutFields({
                     <input placeholder={seg.rest_unit === TIME_UNIT ? "1:30" : "400"} value={seg.rest}
                       onChange={(e) => updateSegment(i, "rest", seg.rest_unit === TIME_UNIT ? maskMMSS(e.target.value) : e.target.value)}
                       className={`${segField} text-center`} />
-                    <select value={seg.rest_unit} onChange={(e) => updateSegment(i, "rest_unit", e.target.value)}
-                      className={segSelectField}>
+                    <Select value={seg.rest_unit} onChange={(e) => updateSegment(i, "rest_unit", e.target.value)}
+                      className={segField}>
                       <option value="">unit</option>
                       <optgroup label="Distance">
                         {DISTANCE_UNIT_OPTIONS.map((u) => <option key={u} value={u}>{u}</option>)}
                       </optgroup>
                       <option value={TIME_UNIT}>time (mm:ss)</option>
-                    </select>
+                    </Select>
                   </div>
                 </div>
               )

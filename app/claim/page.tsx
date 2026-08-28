@@ -3,6 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { ArrowRight, Check } from "lucide-react"
+import { Select } from "@/components/Select"
 
 const REFERRAL_OPTIONS = [
   "BolderBOULDER",
@@ -110,7 +111,7 @@ export default function ClaimPage() {
                   Claim your run klub
                 </h1>
                 <p className="text-sm text-white/40 leading-relaxed">
-                  Get your klub on the map, post runs, and connect with members — all in one place.
+                  Get your klub on the map, post runs, and connect with members - all in one place.
                 </p>
               </div>
 
@@ -219,18 +220,18 @@ export default function ClaimPage() {
                     How did you hear about RunKlub?{" "}
                     <span className="text-white/25 font-normal">(optional)</span>
                   </label>
-                  <select
+                  <Select
                     value={referralSource}
                     onChange={(e) => setReferralSource(e.target.value)}
-                    className={inputClass + " appearance-none cursor-pointer"}
+                    className={inputClass}
                   >
-                    <option value="" className="bg-[#1a2110]">Select one…</option>
+                    <option value="">Select one…</option>
                     {REFERRAL_OPTIONS.map((opt) => (
-                      <option key={opt} value={opt} className="bg-[#1a2110]">
+                      <option key={opt} value={opt}>
                         {opt}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
 
                 {error && (

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { Search, Check, RotateCcw, Mail, Phone, Pencil, Plus, X } from "lucide-react"
+import { Select } from "@/components/Select"
 
 type Status = "cold" | "contacted" | "replied" | "booked" | "closed"
 
@@ -292,17 +293,17 @@ export default function CrmDashboardPage() {
                     {!c.contact_name && !c.email && !c.phone && <span className="text-white/20 text-xs">-</span>}
                   </div>
 
-                  <select
+                  <Select
                     value={c.status}
                     onChange={(e) => handleStatusChange(c.id, e.target.value as Status)}
                     className={`text-xs font-bold capitalize rounded-lg border px-2.5 py-2 bg-transparent focus:outline-none ${STATUS_STYLES[c.status]}`}
                   >
                     {STATUSES.map((s) => (
-                      <option key={s} value={s} className="bg-[#1a2110] text-white">
+                      <option key={s} value={s}>
                         {s}
                       </option>
                     ))}
-                  </select>
+                  </Select>
 
                   <div className={`text-sm ${overdue ? "text-red-300 font-bold" : "text-white/50"}`}>
                     {c.next_followup_date ?? "-"}

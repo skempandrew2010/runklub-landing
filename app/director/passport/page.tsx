@@ -6,6 +6,7 @@ import { Crown, CreditCard, DollarSign } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { Card, SectionTitle, Button, Input } from "@/app/admin/club-model/manager/ui"
 import FadeIn from "@/components/FadeIn"
+import { Select } from "@/components/Select"
 
 type ClubOption = {
   id: string
@@ -187,17 +188,17 @@ export default function DirectorPassportPage() {
 
         {clubs.length > 1 && (
           <div className="flex justify-end mb-4">
-            <select
+            <Select
               value={selectedClubId ?? ""}
               onChange={(e) => setSelectedClubId(e.target.value)}
               className="bg-[#1e2d12] border border-[#2e3d1a] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-[#c5f135]/50"
             >
               {clubs.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
+            </Select>
           </div>
         )}
 
-        {/* Hero pitch — same scale/animation as the home page's Passport sections */}
+        {/* Hero pitch - same scale/animation as the home page's Passport sections */}
         <FadeIn className="text-center">
           <p className="text-xs font-bold text-[#c5f135]/60 uppercase tracking-widest mb-3">Passport Payout Program</p>
           <h1 className="text-3xl sm:text-4xl font-black leading-tight text-white mb-5">
@@ -340,7 +341,7 @@ export default function DirectorPassportPage() {
                 </div>
 
                 <p className="text-xs text-white/80 mb-3">
-                  Default cap on how many Passport runners are allowed into any single run, unless you set a different limit on that specific run when you create or edit it. Once a cap is hit, that run just shows as full to Passport runners — no waitlist. Leave it blank for unlimited.
+                  Default cap on how many Passport runners are allowed into any single run, unless you set a different limit on that specific run when you create or edit it. Once a cap is hit, that run just shows as full to Passport runners - no waitlist. Leave it blank for unlimited.
                 </p>
                 <div className="flex items-center gap-2 flex-wrap">
                   <Input

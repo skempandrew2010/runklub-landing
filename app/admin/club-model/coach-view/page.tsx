@@ -8,6 +8,7 @@ import type { ClubModelData, Member } from "@/lib/clubModel/types"
 import { formatPaceRange } from "@/lib/clubModel/pace"
 import { resolveScheduledWorkout } from "@/lib/clubModel/resolveWorkout"
 import { currentWeekMonday } from "@/lib/clubModel/week"
+import { Select } from "@/components/Select"
 
 export default function CoachViewPage() {
   const ready = useClubModelAccess("tester")
@@ -70,7 +71,7 @@ export default function CoachViewPage() {
         <p className="text-sm font-bold text-white">{m.name}</p>
         <p className="text-xs text-white/60">{m.email}</p>
         <p className="text-xs text-white/50 mt-0.5">
-          {region?.name ?? "—"} · {group ? `${group.name} (${formatPaceRange(group.pace_min, group.pace_max)})` : "—"}
+          {region?.name ?? "-"} · {group ? `${group.name} (${formatPaceRange(group.pace_min, group.pace_max)})` : "-"}
         </p>
       </div>
     )
@@ -82,14 +83,14 @@ export default function CoachViewPage() {
         <p className="text-xs font-bold text-[#c5f135]/60 uppercase tracking-widest mb-1">Coach view</p>
         <h1 className="text-2xl font-black text-white mb-4">Your dashboard</h1>
 
-        <select
+        <Select
           className="w-full bg-[#1e2d12] border border-[#2e3d1a] rounded-xl px-3 py-2.5 text-sm text-white mb-6 focus:outline-none focus:border-[#c5f135]/50"
           value={coachId}
           onChange={(e) => setCoachId(e.target.value)}
         >
           {coaches.length === 0 && <option value="">No coaches yet</option>}
           {coaches.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
+        </Select>
 
         {coach && (
           <div className="space-y-4">
@@ -112,7 +113,7 @@ export default function CoachViewPage() {
                   <div key={i} className="bg-[#1a2110] border border-[#2e3d1a] rounded-lg px-3 py-2">
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-xs font-bold text-white">
-                        {s.day} {s.time ?? ""} — {s.region.name} — {s.group?.name ?? "Unknown group"}
+                        {s.day} {s.time ?? ""} - {s.region.name} - {s.group?.name ?? "Unknown group"}
                       </p>
                       {s.resolved && (
                         <span className={`text-[9px] font-black uppercase tracking-wide shrink-0 ${s.resolved.isInPerson ? "text-[#c5f135]/70" : "text-white/50"}`}>
@@ -123,7 +124,7 @@ export default function CoachViewPage() {
                     {s.resolved ? (
                       <p className="text-xs text-white/60">
                         {s.resolved.workoutType.name}
-                        {s.resolved.details ? ` — ${s.resolved.details}` : ""}
+                        {s.resolved.details ? ` - ${s.resolved.details}` : ""}
                       </p>
                     ) : (
                       <p className="text-xs text-white/50">No workout set for this week yet</p>

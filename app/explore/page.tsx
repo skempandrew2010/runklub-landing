@@ -13,9 +13,10 @@ import { Club } from "@/types/club"
 import { getDistanceMiles } from "@/utils/distance"
 import { localDateStr } from "@/utils/dates"
 import { formatRunTime } from "@/lib/timezone"
-import { SlidersHorizontal, CalendarCheck, Clock, MapPin, ChevronDown, Lock, Crown } from "lucide-react"
+import { SlidersHorizontal, CalendarCheck, Clock, MapPin, Lock, Crown } from "lucide-react"
 import Image from "next/image"
 import { getTagStyle } from "@/utils/tagStyle"
+import { Select } from "@/components/Select"
 
 type SortOption = "closest" | "popular" | "newest"
 type RunSortOption = "time" | "closest"
@@ -520,17 +521,14 @@ function ExplorePageInner() {
           <p className="text-xs text-white/25 mt-0.5">Search a city or share your location to see runs near you</p>
         )}
       </div>
-      <div className="relative shrink-0">
-        <select
-          value={runSortBy}
-          onChange={(e) => setRunSortBy(e.target.value as RunSortOption)}
-          className="appearance-none bg-[#1e2d12] border border-[#2e3d1a] text-white/80 text-sm font-semibold rounded-full pl-4 pr-8 py-2 focus:outline-none focus:border-[#c5f135]/50 cursor-pointer"
-        >
-          <option value="time">Day &amp; Time</option>
-          <option value="closest" disabled={!center}>Closest</option>
-        </select>
-        <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/40 pointer-events-none" />
-      </div>
+      <Select
+        value={runSortBy}
+        onChange={(e) => setRunSortBy(e.target.value as RunSortOption)}
+        className="shrink-0 bg-[#1e2d12] border border-[#2e3d1a] text-white/80 text-sm font-semibold rounded-full pl-4 pr-3 py-2 focus:outline-none focus:border-[#c5f135]/50"
+      >
+        <option value="time">Day &amp; Time</option>
+        <option value="closest" disabled={!center}>Closest</option>
+      </Select>
     </div>
   )
 
@@ -546,18 +544,15 @@ function ExplorePageInner() {
           <p className="text-xs text-white/25 mt-0.5">Search a city or share your location to see klubs near you</p>
         )}
       </div>
-      <div className="relative shrink-0">
-        <select
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value as SortOption)}
-          className="appearance-none bg-[#1e2d12] border border-[#2e3d1a] text-white/80 text-sm font-semibold rounded-full pl-4 pr-8 py-2 focus:outline-none focus:border-[#c5f135]/50 cursor-pointer"
-        >
-          <option value="closest">Closest</option>
-          <option value="popular">Most Popular</option>
-          <option value="newest">Newest</option>
-        </select>
-        <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/40 pointer-events-none" />
-      </div>
+      <Select
+        value={sortBy}
+        onChange={(e) => setSortBy(e.target.value as SortOption)}
+        className="shrink-0 bg-[#1e2d12] border border-[#2e3d1a] text-white/80 text-sm font-semibold rounded-full pl-4 pr-3 py-2 focus:outline-none focus:border-[#c5f135]/50"
+      >
+        <option value="closest">Closest</option>
+        <option value="popular">Most Popular</option>
+        <option value="newest">Newest</option>
+      </Select>
     </div>
   )
 

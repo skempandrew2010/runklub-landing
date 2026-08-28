@@ -6,6 +6,7 @@ import type { PaceGroup } from "@/lib/clubModel/types"
 import { formatPaceRange, parsePace } from "@/lib/clubModel/pace"
 import { matchPaceGroup } from "@/lib/clubModel/matching"
 import { RACE_DISTANCE_LABELS, type RaceDistance, parseRaceTime, raceTimeToMarathonPace, marathonTimeRangeLabel } from "@/lib/clubModel/raceEquivalency"
+import { Select } from "@/components/Select"
 
 export type PaceGroupJoinResult = {
   paceGroupId: string
@@ -107,13 +108,13 @@ export default function PaceGroupJoinModal({
             </p>
 
             <label className="block text-xs font-bold text-white/60 mt-4 mb-1">Distance</label>
-            <select
+            <Select
               value={distance}
               onChange={(e) => { setDistance(e.target.value as Distance); setError("") }}
               className="w-full bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-[#c5f135]/50"
             >
               {DISTANCE_OPTIONS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
-            </select>
+            </Select>
 
             <label className="block text-xs font-bold text-white/60 mt-3 mb-1">
               {distance === "pace" ? "Marathon pace" : "Time"}
