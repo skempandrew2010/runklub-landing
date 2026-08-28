@@ -31,6 +31,7 @@ import { PLANS } from "@/lib/plans"
 import { memberLimitForTier } from "@/lib/memberCap"
 import { Select } from "@/components/Select"
 import { DateInput } from "@/components/DateInput"
+import AddressAutocomplete from "@/components/AddressAutocomplete"
 import { TimeInput } from "@/components/TimeInput"
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -375,10 +376,11 @@ function RunCard({
               {workoutTypes.map((wt) => <option key={wt.id} value={wt.id}>{wt.title}</option>)}
             </Select>
           </div>
-          <input
+          <AddressAutocomplete
             placeholder="Meeting point"
             value={draft.meeting_point}
-            onChange={(e) => onDraftChange({ meeting_point: e.target.value })}
+            onChange={(v) => onDraftChange({ meeting_point: v })}
+            onSelect={(s) => onDraftChange({ meeting_point: s.placeName })}
             className="w-full bg-[#0e150a] border border-[#2e3d1a] rounded-lg px-3 py-1.5 text-xs text-white/70 placeholder:text-white/25 focus:outline-none focus:border-[#c5f135]/50"
           />
           <textarea

@@ -8,25 +8,80 @@ import { usePopoverPosition } from "./usePopoverPosition"
 
 // Same hybrid pattern as DateInput: a real <input type="time"> stays
 // underneath for typing and the mobile OS picker, but the clock icon opens a
-// custom-styled scrollable time list instead of the browser's own
-// unthemeable time popup. Portaled to document.body and fixed-positioned so
-// it never gets clipped by an ancestor's overflow-hidden/overflow-y-auto.
+// custom three-column roller (hour / minute / AM-PM, iOS-style scroll wheel)
+// instead of the browser's own unthemeable time popup. Portaled to
+// document.body and fixed-positioned so it never gets clipped by an
+// ancestor's overflow-hidden/overflow-y-auto.
 
-const PANEL_WIDTH = 128
+const ITEM_H = 32
+const VISIBLE_ROWS = 5
+const COL_PAD = (ITEM_H * (VISIBLE_ROWS - 1)) / 2
+const PANEL_WIDTH = 200
 
-function formatLabel(hhmm: string): string {
-  const [h, m] = hhmm.split(":").map(Number)
-  const period = h < 12 ? "AM" : "PM"
-  const h12 = h % 12 === 0 ? 12 : h % 12
-  return `${h12}:${String(m).padStart(2, "0")} ${period}`
+const HOURS = Array.from({ length: 12 }, (_, i) => String(i + 1))
+const MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, "0"))
+const PERIODS = ["AM", "PM"]
+
+function parseValue(value: string): { hourIdx: number; minuteIdx: number; periodIdx: number } {
+  const [hStr, mStr] = value.split(":")
+  const h24 = Number(hStr) || 0
+  const minute = Number(mStr) || 0
+  const periodIdx = h24 >= 12 ? 1 : 0
+  const h12 = h24 % 12 === 0 ? 12 : h24 % 12
+  return { hourIdx: h12 - 1, minuteIdx: minute, periodIdx }
 }
 
-const TIME_OPTIONS: { value: string; label: string }[] = Array.from({ length: 96 }, (_, i) => {
-  const h = Math.floor(i / 4)
-  const m = (i % 4) * 15
-  const value = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`
-  return { value, label: formatLabel(value) }
-})
+function buildValue(hourIdx: number, minuteIdx: number, periodIdx: number): string {
+  const h12 = hourIdx + 1
+  const isPM = periodIdx === 1
+  const h24 = isPM ? (h12 % 12) + 12 : h12 % 12
+  return `${String(h24).padStart(2, "0")}:${String(minuteIdx).padStart(2, "0")}`
+}
+
+function RollerColumn({ items, index, onChange }: { items: string[]; index: number; onChange: (i: number) => void }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const settleTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    if (ref.current) ref.current.scrollTop = index * ITEM_H
+  }, [index])
+
+  const handleScroll = () => {
+    if (settleTimeout.current) clearTimeout(settleTimeout.current)
+    settleTimeout.current = setTimeout(() => {
+      if (!ref.current) return
+      const i = Math.max(0, Math.min(items.length - 1, Math.round(ref.current.scrollTop / ITEM_H)))
+      ref.current.scrollTo({ top: i * ITEM_H, behavior: "smooth" })
+      if (i !== index) onChange(i)
+    }, 120)
+  }
+
+  const pick = (i: number) => {
+    ref.current?.scrollTo({ top: i * ITEM_H, behavior: "smooth" })
+    onChange(i)
+  }
+
+  return (
+    <div
+      ref={ref}
+      onScroll={handleScroll}
+      className="h-[160px] w-14 overflow-y-scroll snap-y snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      style={{ paddingTop: COL_PAD, paddingBottom: COL_PAD }}
+    >
+      {items.map((label, i) => (
+        <div
+          key={label}
+          onClick={() => pick(i)}
+          className={`h-8 flex items-center justify-center snap-center text-sm cursor-pointer transition-colors ${
+            i === index ? "text-[#c5f135] font-black" : "text-white/40 hover:text-white/60"
+          }`}
+        >
+          {label}
+        </div>
+      ))}
+    </div>
+  )
+}
 
 export function TimeInput({
   value,
@@ -44,6 +99,7 @@ export function TimeInput({
   const [open, setOpen] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
   const { triggerRef, rect, openUp } = usePopoverPosition(open)
+  const { hourIdx, minuteIdx, periodIdx } = parseValue(value || "12:00")
 
   useEffect(() => {
     if (!open) return
@@ -64,20 +120,18 @@ export function TimeInput({
     }
   }, [open, triggerRef])
 
-  useEffect(() => {
-    if (!open || !panelRef.current) return
-    const active = panelRef.current.querySelector('[data-active="true"]') as HTMLElement | null
-    active?.scrollIntoView({ block: "center" })
-  }, [open, rect])
-
   const toggleOpen = () => {
     if (disabled) return
     setOpen((o) => !o)
   }
 
-  const pick = (v: string) => {
-    onChange({ target: { value: v } })
-    setOpen(false)
+  const setPart = (part: "hour" | "minute" | "period", i: number) => {
+    const next = {
+      hour: () => buildValue(i, minuteIdx, periodIdx),
+      minute: () => buildValue(hourIdx, i, periodIdx),
+      period: () => buildValue(hourIdx, minuteIdx, i),
+    }[part]()
+    onChange({ target: { value: next } })
   }
 
   const { sizing, visual } = splitFieldClasses(className)
@@ -109,27 +163,27 @@ export function TimeInput({
             position: "fixed",
             right: window.innerWidth - rect.right,
             width: PANEL_WIDTH,
-            maxHeight: 224,
             ...(openUp ? { bottom: window.innerHeight - rect.top + 6 } : { top: rect.bottom + 6 }),
           }}
-          className="z-50 overflow-y-auto bg-[#1e2d12] border border-[#2e3d1a] rounded-xl shadow-2xl py-1"
+          className="z-50 bg-[#1e2d12] border border-[#2e3d1a] rounded-xl shadow-2xl p-2"
         >
-          {TIME_OPTIONS.map((t) => {
-            const active = t.value === value
-            return (
-              <button
-                key={t.value}
-                type="button"
-                data-active={active}
-                onClick={() => pick(t.value)}
-                className={`w-full text-left px-3 py-1.5 text-sm transition ${
-                  active ? "text-[#c5f135] bg-[#2e3d1a]/60 font-bold" : "text-white/80 hover:bg-[#2e3d1a]/50 hover:text-white"
-                }`}
-              >
-                {t.label}
-              </button>
-            )
-          })}
+          <div className="relative flex items-center justify-center">
+            <div
+              className="absolute left-0 right-0 rounded-lg bg-[#2e3d1a]/60 border-y border-[#c5f135]/20 pointer-events-none"
+              style={{ top: COL_PAD, height: ITEM_H }}
+            />
+            <RollerColumn items={HOURS} index={hourIdx} onChange={(i) => setPart("hour", i)} />
+            <span className="text-white/30 text-sm font-black -mx-0.5">:</span>
+            <RollerColumn items={MINUTES} index={minuteIdx} onChange={(i) => setPart("minute", i)} />
+            <RollerColumn items={PERIODS} index={periodIdx} onChange={(i) => setPart("period", i)} />
+          </div>
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            className="w-full mt-1 pt-2 border-t border-[#2e3d1a] text-[11px] font-bold text-white/40 hover:text-[#c5f135] transition"
+          >
+            Done
+          </button>
         </div>,
         document.body
       )}
