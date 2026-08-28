@@ -1289,27 +1289,6 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
     if (!error) setMyClubs((prev) => prev.map((c) => c.id === selectedClubId ? { ...c, default_timezone: tz } : c))
   }
 
-  if (selectedRun) {
-    return (
-      <RunChatPanel
-        target={{
-          type: "run",
-          id: selectedRun.id,
-          title: selectedRun.title,
-          date: selectedRun.date,
-          time: selectedRun.time,
-          timezone: selectedRun.timezone,
-          distance: selectedRun.distance,
-          meeting_point: selectedRun.meeting_point,
-          clubName: selectedRun.clubs?.name || "Klub",
-          clubImageUrl: selectedRun.clubs?.image_url,
-        }}
-        userId={userId}
-        onClose={() => setSelectedRun(null)}
-      />
-    )
-  }
-
   if (loading) {
     return (
       <div className="min-h-screen bg-[#1a2110] flex items-center justify-center">
@@ -1573,8 +1552,13 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
           })()}
         </aside>
 
-        {/* Content */}
-        <div className="flex-1 min-w-0">
+        {/* Content - keyed on club+tab so switching either (top club switcher
+            or the side tab nav) replays a smooth fade/slide-in instead of an
+            instant hard swap. Everything genuinely stateful (drafts,
+            expanded rows, etc.) lives in ManagerView's own state above, not
+            in this subtree, so remounting it here only resets transient view
+            state like scroll position - never in-progress work. */}
+        <div key={`${selectedClubId}-${tab}`} className="flex-1 min-w-0 animate-page-enter">
 
           {/* ── RUN FORM PANEL ── */}
           {runPanel !== null && (
@@ -2625,6 +2609,28 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
 
         </div>{/* end content */}
       </div>{/* end sidebar+content */}
+
+      {/* Run chat pops up over the Communicate tab instead of replacing the
+          whole dashboard - the tab underneath stays mounted so its scroll
+          position and state survive closing the chat. */}
+      {selectedRun && (
+        <RunChatPanel
+          target={{
+            type: "run",
+            id: selectedRun.id,
+            title: selectedRun.title,
+            date: selectedRun.date,
+            time: selectedRun.time,
+            timezone: selectedRun.timezone,
+            distance: selectedRun.distance,
+            meeting_point: selectedRun.meeting_point,
+            clubName: selectedRun.clubs?.name || "Klub",
+            clubImageUrl: selectedRun.clubs?.image_url,
+          }}
+          userId={userId}
+          onClose={() => setSelectedRun(null)}
+        />
+      )}
     </div>
   )
 }

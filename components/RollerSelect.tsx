@@ -5,6 +5,7 @@ import { createPortal } from "react-dom"
 import { ChevronDown } from "lucide-react"
 import { splitFieldClasses } from "./splitFieldClasses"
 import { usePopoverPosition } from "./usePopoverPosition"
+import { useRollerColumn } from "./useRollerColumn"
 
 // Single-column iOS-style scroll wheel version of Select - same trigger/
 // onChange shape, but the open panel is a snap-scrolling roller (like
@@ -15,6 +16,42 @@ import { usePopoverPosition } from "./usePopoverPosition"
 const ITEM_H = 32
 const VISIBLE_ROWS = 5
 const COL_PAD = (ITEM_H * (VISIBLE_ROWS - 1)) / 2
+
+// A dedicated child component (rather than calling useRollerColumn directly
+// in RollerSelect) so it only mounts once the portal actually appears -
+// useRollerColumn syncs scrollTop to `index` on mount, which needs the ref
+// freshly attached, not a stale one from before the panel existed.
+function Column({
+  options,
+  index,
+  onPick,
+}: {
+  options: { value: string; label: string }[]
+  index: number
+  onPick: (i: number) => void
+}) {
+  const { ref, pick, columnProps } = useRollerColumn(ITEM_H, options.length, index, onPick)
+  return (
+    <div
+      ref={ref}
+      {...columnProps}
+      className="h-[160px] overflow-y-scroll snap-y snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden cursor-grab active:cursor-grabbing select-none touch-pan-y"
+      style={{ paddingTop: COL_PAD, paddingBottom: COL_PAD }}
+    >
+      {options.map((o, i) => (
+        <div
+          key={o.value}
+          onClick={() => pick(i)}
+          className={`h-8 flex items-center justify-center snap-center text-xs text-center px-2 cursor-pointer truncate transition-colors ${
+            i === index ? "text-[#c5f135] font-black" : "text-white/40 hover:text-white/60"
+          }`}
+        >
+          {o.label}
+        </div>
+      ))}
+    </div>
+  )
+}
 
 export function RollerSelect({
   value,
@@ -35,8 +72,6 @@ export function RollerSelect({
 }) {
   const [open, setOpen] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
-  const colRef = useRef<HTMLDivElement>(null)
-  const settleTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   const { triggerRef, rect, openUp } = usePopoverPosition(open)
   const index = Math.max(0, options.findIndex((o) => o.value === value))
   const selected = options[index]
@@ -59,28 +94,6 @@ export function RollerSelect({
       document.removeEventListener("keydown", onKey)
     }
   }, [open, triggerRef])
-
-  useEffect(() => {
-    // rect is in the deps because the portaled column only exists in the DOM
-    // once usePopoverPosition resolves it (one render after `open` flips
-    // true) - syncing on `open` alone would run before colRef is attached.
-    if (open && colRef.current) colRef.current.scrollTop = index * ITEM_H
-  }, [open, index, rect])
-
-  const handleScroll = () => {
-    if (settleTimeout.current) clearTimeout(settleTimeout.current)
-    settleTimeout.current = setTimeout(() => {
-      if (!colRef.current) return
-      const i = Math.max(0, Math.min(options.length - 1, Math.round(colRef.current.scrollTop / ITEM_H)))
-      colRef.current.scrollTo({ top: i * ITEM_H, behavior: "smooth" })
-      if (options[i] && options[i].value !== value) onChange({ target: { value: options[i].value } })
-    }, 120)
-  }
-
-  const pick = (i: number) => {
-    colRef.current?.scrollTo({ top: i * ITEM_H, behavior: "smooth" })
-    onChange({ target: { value: options[i].value } })
-  }
 
   const toggleOpen = () => {
     if (disabled) return
@@ -116,24 +129,7 @@ export function RollerSelect({
               className="absolute left-0 right-0 rounded-lg bg-[#2e3d1a]/60 border-y border-[#c5f135]/20 pointer-events-none"
               style={{ top: COL_PAD, height: ITEM_H }}
             />
-            <div
-              ref={colRef}
-              onScroll={handleScroll}
-              className="h-[160px] overflow-y-scroll snap-y snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-              style={{ paddingTop: COL_PAD, paddingBottom: COL_PAD }}
-            >
-              {options.map((o, i) => (
-                <div
-                  key={o.value}
-                  onClick={() => pick(i)}
-                  className={`h-8 flex items-center justify-center snap-center text-xs text-center px-2 cursor-pointer truncate transition-colors ${
-                    i === index ? "text-[#c5f135] font-black" : "text-white/40 hover:text-white/60"
-                  }`}
-                >
-                  {o.label}
-                </div>
-              ))}
-            </div>
+            <Column options={options} index={index} onPick={(i) => onChange({ target: { value: options[i].value } })} />
           </div>
           <button
             type="button"
