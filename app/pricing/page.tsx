@@ -117,7 +117,7 @@ export default function PricingPage() {
           long as the subscription stays active.
         </p>
         <p className="text-center text-xs text-white/35 mt-2 max-w-lg mx-auto leading-relaxed">
-          {CUSTOM_PRICING_MESSAGE}
+          Followers are always unlimited on every plan. {CUSTOM_PRICING_MESSAGE}
         </p>
       </div>
     </div>
