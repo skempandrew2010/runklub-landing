@@ -1144,7 +1144,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
               <select
                 value={draft.timezone}
                 onChange={(e) => setRunDrafts((prev) => ({ ...prev, [run.id]: { ...draft, timezone: e.target.value } }))}
-                className="min-w-[130px] bg-[#0e150a] border border-[#2e3d1a] rounded-lg px-2 py-1.5 text-xs text-white/70 focus:outline-none focus:border-[#c5f135]/50"
+                className="min-w-[130px] bg-[#0e150a] border border-[#2e3d1a] rounded-lg pl-2 pr-6 py-1.5 text-xs text-white/70 focus:outline-none focus:border-[#c5f135]/50"
               >
                 {COMMON_TIMEZONES.map((tz) => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
               </select>
@@ -1157,7 +1157,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
               <select
                 value={draft.workout_type_id}
                 onChange={(e) => setRunDrafts((prev) => ({ ...prev, [run.id]: { ...draft, workout_type_id: e.target.value } }))}
-                className="flex-1 min-w-[120px] bg-[#0e150a] border border-[#2e3d1a] rounded-lg px-2 py-1.5 text-xs text-white/70 focus:outline-none focus:border-[#c5f135]/50"
+                className="flex-1 min-w-[120px] bg-[#0e150a] border border-[#2e3d1a] rounded-lg pl-2 pr-6 py-1.5 text-xs text-white/70 focus:outline-none focus:border-[#c5f135]/50"
               >
                 <option value="">No workout type</option>
                 {memberRunWorkoutTypes.map((wt) => <option key={wt.id} value={wt.id}>{wt.title}</option>)}
@@ -1556,7 +1556,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                       value={m.pace_group_id ?? ""}
                       onChange={(e) => updatePaceGroup(m.id, e.target.value)}
                       disabled={updatingPaceGroupId === m.id}
-                      className="shrink-0 text-[10px] font-bold bg-white/5 text-white/50 border border-white/10 rounded-full pl-2 pr-1 py-0.5 focus:outline-none focus:border-[#c5f135]/40 disabled:opacity-50"
+                      className="shrink-0 text-[10px] font-bold bg-white/5 text-white/50 border border-white/10 rounded-full pl-2 pr-4 py-0.5 focus:outline-none focus:border-[#c5f135]/40 disabled:opacity-50"
                     >
                       <option value="" className="text-black">No pace group</option>
                       {clubPaceGroups.map((pg) => <option key={pg.id} value={pg.id} className="text-black">{pg.name}</option>)}

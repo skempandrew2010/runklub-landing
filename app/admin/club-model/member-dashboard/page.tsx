@@ -95,7 +95,7 @@ function MemberDashboardContent() {
           onChange={(e) => setMemberId(e.target.value)}
         >
           {members.length === 0 && <option value="">No members yet</option>}
-          {members.map((m) => <option key={m.id} value={m.id}>{m.name} — {m.email}</option>)}
+          {members.map((m) => <option key={m.id} value={m.id}>{m.name} - {m.email}</option>)}
         </select>
 
         {member && ctx && (
@@ -123,7 +123,7 @@ function MemberDashboardContent() {
               <div className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-4">
                 <p className="text-xs font-bold text-white/60 uppercase mb-1">Your region</p>
                 <select
-                  className="w-full bg-[#1a2110] border border-[#2e3d1a] rounded-lg px-2 py-1.5 text-sm font-black text-white focus:outline-none focus:border-[#c5f135]/50 disabled:opacity-50"
+                  className="w-full bg-[#1a2110] border border-[#2e3d1a] rounded-lg pl-2 pr-6 py-1.5 text-sm font-black text-white focus:outline-none focus:border-[#c5f135]/50 disabled:opacity-50"
                   value={member.preferred_region_id ?? ""}
                   disabled={savingRegion}
                   onChange={(e) => changeRegion(e.target.value)}
@@ -166,7 +166,7 @@ function MemberDashboardContent() {
                     >
                       <div className="min-w-0">
                         <p className="text-sm font-bold text-white truncate">
-                          {s.dayOfWeek}{s.time ? ` · ${s.time}` : ""} — {s.paceGroup.name}
+                          {s.dayOfWeek}{s.time ? ` · ${s.time}` : ""} - {s.paceGroup.name}
                         </p>
                         {isOwn && <span className="text-[9px] font-black text-white/60 uppercase tracking-wide">Your group</span>}
                       </div>
