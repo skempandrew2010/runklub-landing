@@ -27,7 +27,7 @@ body {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-/* Run popup overrides — dark green theme */
+/* Run popup overrides - dark green theme */
 .run-popup .mapboxgl-popup-content {
   background: #1e2d12;
   border: 1px solid #2e3d1a;
@@ -51,7 +51,7 @@ body {
   background: rgba(197, 241, 53, 0.08);
 }
 
-/* Club card glow pulse — fires when a run is within the next 24 hours */
+/* Club card glow pulse - fires when a run is within the next 24 hours */
 @keyframes run-soon-pulse {
   0%, 100% { box-shadow: 0 0 0 1px rgba(197, 241, 53, 0); }
   50%       { box-shadow: 0 0 0 1px rgba(197, 241, 53, 0.22), 0 2px 18px rgba(197, 241, 53, 0.07); }
@@ -80,7 +80,7 @@ a:active {
   opacity: 0.85;
 }
 
-/* Bottom-sheet/modal entrance — used via animate-[fadeUp_...] across the app
+/* Bottom-sheet/modal entrance - used via animate-[fadeUp_...] across the app
    (WeeklyScheduleTab pickers, join banners, check-in/buddy modals, etc).
    A few pages also declare a near-identical scoped copy via <style jsx>;
    this global version is what makes it actually work everywhere else, since
@@ -108,7 +108,7 @@ a:active {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
 }
 
-/* Passport check-in moment — a physical stamp landing, not a checkmark.
+/* Passport check-in moment - a physical stamp landing, not a checkmark.
    Overshoots past its resting size/rotation before settling, so it reads
    as an impact rather than a fade-in. Final rotation is randomized per
    stamp via the --stamp-rot custom property for a hand-stamped imperfection. */
@@ -140,7 +140,7 @@ a:active {
 }
 
 /* ── Passport book ──────────────────────────────────────────────────────── */
-/* Horizontal scroll-snap paging — real touch/trackpad swipe, no JS drag
+/* Horizontal scroll-snap paging - real touch/trackpad swipe, no JS drag
    handling needed. Book framing (spine shadow, page-edge stack) is done
    with layered box-shadow rather than a true 3D page-turn animation. */
 .rk-book-scroller {
@@ -162,4 +162,31 @@ a:active {
 }
 .rk-book-spine {
   background: linear-gradient(90deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0) 100%);
+}
+
+/* ── Native <select> polish ──────────────────────────────────────────────── */
+/* Every dropdown on the site is a plain <select> with its own bg/border/radius
+   utility classes (those are left alone). This layer only replaces the OS's
+   own arrow glyph with one slim, consistent chevron and swaps the default
+   focus outline for a soft glow, so selects stop looking like raw browser
+   controls without needing a custom-built dropdown component. The chevron
+   sits inside the space browsers already reserve for their native arrow, so
+   it doesn't need extra padding even on the site's more compact pill/badge
+   selects. */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='6' viewBox='0 0 9 6' fill='none'%3E%3Cpath d='M1 1L4.5 4.5L8 1' stroke='white' stroke-opacity='0.45' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.65rem center;
+  background-size: 9px 6px;
+  cursor: pointer;
+  transition: border-color 150ms ease-out, box-shadow 150ms ease-out;
+}
+select:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(197, 241, 53, 0.15);
+}
+select:disabled {
+  cursor: not-allowed;
 }
