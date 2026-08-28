@@ -109,6 +109,7 @@ export default function ClubPageClient({
   const [editingPaceGroup, setEditingPaceGroup] = useState(false)
   const [latestNewsletter, setLatestNewsletter] = useState<{ subject: string; sent_at: string } | null>(null)
   const [newsletterCount, setNewsletterCount] = useState(0)
+  const [paidMemberCount, setPaidMemberCount] = useState<number | null>(null)
 
   // Refs for section-visibility tracking
   const runsRef = useRef<HTMLDivElement>(null)
@@ -133,6 +134,17 @@ export default function ClubPageClient({
       .or(`billing_interval.neq.seasonal,season_end_date.gte.${today}`)
       .order("created_at")
       .then(({ data }) => setMembershipPlans(data ?? []))
+  }, [club.id])
+
+  // Only fetched to check the member cap (paid members only - see
+  // lib/memberCap.ts) before showing paid join/request options.
+  useEffect(() => {
+    supabase
+      .from("subscriptions")
+      .select("id", { count: "exact", head: true })
+      .eq("club_id", club.id)
+      .eq("member_type", "paid")
+      .then(({ count }) => setPaidMemberCount(count ?? 0))
   }, [club.id])
 
   // Only clubs that have configured pace groups (Setup tab, Growth+) show
@@ -234,10 +246,12 @@ export default function ClubPageClient({
     load()
   }, [club.id, searchParams])
 
-  // Blocks new joins once the klub hits its tier's member cap - existing
-  // members (isSubscribed) are never affected, only people trying to join.
+  // Blocks new PAID joins once the klub hits its tier's member cap - free
+  // followers are always unlimited (see lib/memberCap.ts), so this only
+  // gates becoming a paid member, never the Follow button, and never
+  // affects someone who's already a paid member.
   const memberCapLimit = memberLimitForTier(club.tier as any)
-  const atMemberCap = memberCapLimit !== null && memberCount >= memberCapLimit && !isSubscribed
+  const atMemberCap = memberCapLimit !== null && paidMemberCount !== null && paidMemberCount >= memberCapLimit && !isPaidMember
 
   // Returns to wherever the user actually came from (Home, Explore, a
   // search result, etc.) instead of always landing on Explore -- falls back
@@ -463,10 +477,6 @@ export default function ClubPageClient({
         <div className="flex items-center gap-3 flex-wrap">
           {membershipLoading ? (
             <div className="w-32 h-[42px] rounded-full bg-[#1e2d12] border border-[#2e3d1a] animate-pulse" />
-          ) : atMemberCap ? (
-            <div className="px-5 py-2.5 rounded-full text-sm font-bold bg-[#1e2d12] border border-white/10 text-white/40">
-              This klub is full{memberCapLimit === 500 ? " - contact them about custom capacity" : ""}
-            </div>
           ) : club.membership_type !== "free" ? (
             <>
               {/* Follow is only shown to non-members - a member is inherently
@@ -487,7 +497,11 @@ export default function ClubPageClient({
               )}
 
               {!isPaidMember ? (
-                membershipPlans.length > 0 ? (
+                atMemberCap ? (
+                  <span className="px-5 py-2.5 rounded-full text-sm font-bold bg-[#1e2d12] border border-white/10 text-white/40">
+                    This klub is full{memberCapLimit === 500 ? " - contact them about custom capacity" : ""}
+                  </span>
+                ) : membershipPlans.length > 0 ? (
                   club.stripe_connect_charges_enabled ? (
                     <div className="flex items-center gap-2 flex-wrap">
                       {membershipPlans.map((plan) => (

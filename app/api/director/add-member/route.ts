@@ -50,16 +50,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "You can't add yourself as a member" }, { status: 400 })
     }
 
-    // Only enforce the cap for genuinely new members - re-adding an existing
-    // member (e.g. to change their region) shouldn't get blocked by it.
+    // The cap only counts paid members (see lib/memberCap.ts) - adding
+    // someone as a free follower never needs to check it. Only block when
+    // this add would actually create or upgrade a paid member, and skip it
+    // entirely if they're already paid (re-adding to change their region).
     const { data: existing } = await adminSupabase
       .from("subscriptions")
-      .select("id")
+      .select("id, member_type")
       .eq("user_id", targetUserId)
       .eq("club_id", club_id)
       .maybeSingle()
 
-    if (!existing) {
+    if (member_type === "paid" && existing?.member_type !== "paid") {
       const cap = await isClubAtMemberCap(adminSupabase, club_id, club.tier)
       if (cap.atCap) return NextResponse.json({ error: memberCapMessage(cap.limit!) }, { status: 400 })
     }

@@ -17,10 +17,10 @@ export type Plan = {
   tagline: string | null
   // null = free, no billing at all.
   price: { monthly: number; yearly: number } | null
-  // null = unlimited. Total member count for the klub (every subscriptions
-  // row, paid or free/community) - enforced in lib/memberCap.ts wherever a
-  // new member could be added. Free stays unlimited since those members
-  // never pay anything; klubs over the Enterprise ceiling need custom
+  // null = unlimited. Caps only PAID members (member_type = 'paid') -
+  // enforced in lib/memberCap.ts wherever a new paid member could be added.
+  // Free "followers" are always unlimited, regardless of tier, since they
+  // never pay anything. Klubs over the Enterprise ceiling need custom
   // pricing (sales-negotiated, not modeled as a plan here).
   memberLimit: number | null
   // Whether the club can charge its own members to join (clubs.membership_type
@@ -116,7 +116,7 @@ export const PLANS: Record<PlanId, Plan> = {
       "One weekly location (no regions yet)",
       "Event payments at Stripe fee + 3%",
       "Optionally charge members to join your klub",
-      "Up to 100 members",
+      "Unlimited followers, up to 100 paid members",
       "Up to 4 coaches",
       "Access to race benefits & sponsors",
       "Verified badge included while subscribed",
@@ -148,7 +148,7 @@ export const PLANS: Record<PlanId, Plan> = {
       "One branch, unlimited locations (upgrade to Enterprise for multiple branches)",
       "Klub update emails 3x a week",
       "Event payments at Stripe fee + 2%",
-      "Up to 250 members",
+      "Unlimited followers, up to 250 paid members",
       "Up to 10 coaches",
       "Priority verified placement",
       "Free sponsor banners",
@@ -178,7 +178,7 @@ export const PLANS: Record<PlanId, Plan> = {
     verificationIncludedWhileSubscribed: true,
     features: [
       "Everything in Growth",
-      "Up to 500 members",
+      "Unlimited followers, up to 500 paid members",
       "Daily email updates for members",
       "Event payments at Stripe fee + 1%",
       "First klub to show up in city search",
