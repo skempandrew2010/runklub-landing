@@ -353,6 +353,7 @@ export default function SchedulesTab({ clubId }: { clubId: string }) {
                               value={workoutDraft.week_of || thisWeek}
                               onChange={(e) => setNewWorkout((p) => ({ ...p, [schedule.id]: { ...workoutDraft, week_of: e.target.value } }))}
                               onFocus={openNativePicker}
+                              onClick={openNativePicker}
                               className="[color-scheme:dark]"
                             />
                             <p className="text-[9px] text-white/50 mt-0.5">{formatWeekRange(workoutDraft.week_of || thisWeek)}</p>

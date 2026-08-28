@@ -391,7 +391,7 @@ export default function RunFormPanel({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={lc}>Date *</label>
-                <input type="date" value={date} onChange={(e) => setDate(e.target.value)} onFocus={openNativePicker} required className={`${ic} [color-scheme:dark]`} />
+                <input type="date" value={date} onChange={(e) => setDate(e.target.value)} onFocus={openNativePicker} onClick={openNativePicker} required className={`${ic} [color-scheme:dark]`} />
               </div>
               <div>
                 <label className={lc}>Distance</label>
@@ -402,7 +402,7 @@ export default function RunFormPanel({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={lc}>Time *</label>
-              <input type="time" value={time} onChange={(e) => setTime(e.target.value)} onFocus={openNativePicker} required className={`${ic} [color-scheme:dark]`} />
+              <input type="time" value={time} onChange={(e) => setTime(e.target.value)} onFocus={openNativePicker} onClick={openNativePicker} required className={`${ic} [color-scheme:dark]`} />
             </div>
             <div>
               <label className={lc}>Timezone</label>

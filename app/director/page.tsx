@@ -1130,6 +1130,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                 value={draft.time}
                 onChange={(e) => setRunDrafts((prev) => ({ ...prev, [run.id]: { ...draft, time: e.target.value } }))}
                 onFocus={openNativePicker}
+                onClick={openNativePicker}
                 className="bg-[#0e150a] border border-[#2e3d1a] rounded-lg px-2 py-1.5 text-xs text-white/70 focus:outline-none focus:border-[#c5f135]/50 [color-scheme:dark]"
               />
               <select
@@ -2367,6 +2368,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                       <label className="block text-xs font-semibold text-white/80 mb-1">Meeting Time</label>
                       <input type="time" value={editForm.time} onChange={(e) => setEditForm({ ...editForm, time: e.target.value })}
                         onFocus={openNativePicker}
+                        onClick={openNativePicker}
                         className="w-full bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-[#c5f135]/50 transition [color-scheme:dark]" />
                     </div>
                     <div>

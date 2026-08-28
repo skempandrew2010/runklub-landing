@@ -184,6 +184,7 @@ export default function EditRunPage() {
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
                   onFocus={openNativePicker}
+                  onClick={openNativePicker}
                   required
                   className={`${inputClass} [color-scheme:dark]`}
                 />
@@ -195,6 +196,7 @@ export default function EditRunPage() {
                   value={time}
                   onChange={(e) => setTime(e.target.value)}
                   onFocus={openNativePicker}
+                  onClick={openNativePicker}
                   required
                   className={`${inputClass} [color-scheme:dark]`}
                 />

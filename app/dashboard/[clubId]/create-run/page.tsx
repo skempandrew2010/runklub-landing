@@ -349,7 +349,7 @@ function CreateRunContent() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className={labelClass}>Date *</label>
-                  <input type="date" value={date} onChange={(e) => setDate(e.target.value)} onFocus={openNativePicker} required className={`${inputClass} [color-scheme:dark]`} />
+                  <input type="date" value={date} onChange={(e) => setDate(e.target.value)} onFocus={openNativePicker} onClick={openNativePicker} required className={`${inputClass} [color-scheme:dark]`} />
                 </div>
                 <div>
                   <label className={labelClass}>Distance</label>
@@ -361,7 +361,7 @@ function CreateRunContent() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelClass}>Time *</label>
-                <input type="time" value={time} onChange={(e) => setTime(e.target.value)} onFocus={openNativePicker} required className={`${inputClass} [color-scheme:dark]`} />
+                <input type="time" value={time} onChange={(e) => setTime(e.target.value)} onFocus={openNativePicker} onClick={openNativePicker} required className={`${inputClass} [color-scheme:dark]`} />
               </div>
               <div>
                 <label className={labelClass}>Timezone</label>
