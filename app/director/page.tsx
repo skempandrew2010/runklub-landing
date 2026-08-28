@@ -202,7 +202,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
   const [selectedChatBranch, setSelectedChatBranch] = useState<string | null>(null)
   const [expandedRunId, setExpandedRunId] = useState<string | null>(null)
   const [memberRunWorkoutTypes, setMemberRunWorkoutTypes] = useState<{ id: string; title: string }[]>([])
-  const [runDrafts, setRunDrafts] = useState<Record<string, { title: string; time: string; timezone: string; distance: string; meeting_point: string; route_url: string; workout_type_id: string; description: string; is_in_person: boolean }>>({})
+  const [runDrafts, setRunDrafts] = useState<Record<string, { title: string; date: string; time: string; timezone: string; distance: string; meeting_point: string; route_url: string; workout_type_id: string; description: string; is_in_person: boolean }>>({})
   const [runSaving, setRunSaving] = useState<Set<string>>(new Set())
   const [attendanceCounts, setAttendanceCounts] = useState<Record<string, number>>({})
   const [connecting, setConnecting] = useState(false)
@@ -405,6 +405,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
     setRunSaving((prev) => new Set(prev).add(runId))
     await supabase.from("runs").update({
       title: draft.title,
+      date: draft.date,
       time: draft.time,
       timezone: draft.timezone,
       distance: draft.distance || null,
@@ -1074,7 +1075,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
     const dayLabel = isToday ? "Today" : d.toLocaleDateString("en-US", { weekday: "short" })
     const dayNum = d.getDate()
     const isExpanded = expandedRunId === run.id
-    const initDraft = () => ({ title: run.title, time: run.time ?? "06:00", timezone: run.timezone ?? getBrowserTimezone(), distance: run.distance ?? "", meeting_point: run.meeting_point ?? "", route_url: run.route_url ?? "", workout_type_id: run.workout_type_id ?? "", description: run.description ?? "", is_in_person: run.is_in_person ?? true })
+    const initDraft = () => ({ title: run.title, date: run.date, time: run.time ?? "06:00", timezone: run.timezone ?? getBrowserTimezone(), distance: run.distance ?? "", meeting_point: run.meeting_point ?? "", route_url: run.route_url ?? "", workout_type_id: run.workout_type_id ?? "", description: run.description ?? "", is_in_person: run.is_in_person ?? true })
     const draft = runDrafts[run.id] ?? initDraft()
     const toggleExpand = () => {
       if (isExpanded) {
@@ -1124,6 +1125,12 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
               className="w-full bg-[#0e150a] border border-[#2e3d1a] rounded-lg px-3 py-1.5 text-xs text-white/70 placeholder:text-white/25 focus:outline-none focus:border-[#c5f135]/50"
             />
             <div className="flex items-center gap-2 flex-wrap">
+              <input
+                type="date"
+                value={draft.date}
+                onChange={(e) => setRunDrafts((prev) => ({ ...prev, [run.id]: { ...draft, date: e.target.value } }))}
+                className="bg-[#0e150a] border border-[#2e3d1a] rounded-lg px-2 py-1.5 text-xs text-white/70 focus:outline-none focus:border-[#c5f135]/50 [color-scheme:dark]"
+              />
               <input
                 type="time"
                 value={draft.time}
