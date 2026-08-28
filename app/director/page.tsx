@@ -1129,13 +1129,13 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                 type="date"
                 value={draft.date}
                 onChange={(e) => setRunDrafts((prev) => ({ ...prev, [run.id]: { ...draft, date: e.target.value } }))}
-                className="bg-[#0e150a] border border-[#2e3d1a] rounded-lg px-2 py-1.5 text-xs text-white/70 focus:outline-none focus:border-[#c5f135]/50 [color-scheme:dark]"
+                className="shrink-0 min-w-[135px] bg-[#0e150a] border border-[#2e3d1a] rounded-lg px-2 py-1.5 text-xs text-white/70 focus:outline-none focus:border-[#c5f135]/50 [color-scheme:dark]"
               />
               <input
                 type="time"
                 value={draft.time}
                 onChange={(e) => setRunDrafts((prev) => ({ ...prev, [run.id]: { ...draft, time: e.target.value } }))}
-                className="bg-[#0e150a] border border-[#2e3d1a] rounded-lg px-2 py-1.5 text-xs text-white/70 focus:outline-none focus:border-[#c5f135]/50 [color-scheme:dark]"
+                className="shrink-0 min-w-[105px] bg-[#0e150a] border border-[#2e3d1a] rounded-lg px-2 py-1.5 text-xs text-white/70 focus:outline-none focus:border-[#c5f135]/50 [color-scheme:dark]"
               />
               <select
                 value={draft.timezone}
