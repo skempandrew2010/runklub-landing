@@ -5,6 +5,7 @@ import { createPortal } from "react-dom"
 import { Clock } from "lucide-react"
 import { splitFieldClasses } from "./splitFieldClasses"
 import { usePopoverPosition } from "./usePopoverPosition"
+import { useRollerColumn } from "./useRollerColumn"
 
 // Same hybrid pattern as DateInput: a real <input type="time"> stays
 // underneath for typing and the mobile OS picker, but the clock icon opens a
@@ -39,33 +40,13 @@ function buildValue(hourIdx: number, minuteIdx: number, periodIdx: number): stri
 }
 
 function RollerColumn({ items, index, onChange }: { items: string[]; index: number; onChange: (i: number) => void }) {
-  const ref = useRef<HTMLDivElement>(null)
-  const settleTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  useEffect(() => {
-    if (ref.current) ref.current.scrollTop = index * ITEM_H
-  }, [index])
-
-  const handleScroll = () => {
-    if (settleTimeout.current) clearTimeout(settleTimeout.current)
-    settleTimeout.current = setTimeout(() => {
-      if (!ref.current) return
-      const i = Math.max(0, Math.min(items.length - 1, Math.round(ref.current.scrollTop / ITEM_H)))
-      ref.current.scrollTo({ top: i * ITEM_H, behavior: "smooth" })
-      if (i !== index) onChange(i)
-    }, 120)
-  }
-
-  const pick = (i: number) => {
-    ref.current?.scrollTo({ top: i * ITEM_H, behavior: "smooth" })
-    onChange(i)
-  }
+  const { ref, pick, columnProps } = useRollerColumn(ITEM_H, items.length, index, onChange)
 
   return (
     <div
       ref={ref}
-      onScroll={handleScroll}
-      className="h-[160px] w-14 overflow-y-scroll snap-y snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      {...columnProps}
+      className="h-[160px] w-14 overflow-y-scroll snap-y snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden cursor-grab active:cursor-grabbing select-none touch-pan-y"
       style={{ paddingTop: COL_PAD, paddingBottom: COL_PAD }}
     >
       {items.map((label, i) => (

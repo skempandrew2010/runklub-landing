@@ -127,7 +127,7 @@ export default function RunChatPanel({
   const clubInitials = initialsOf(target.clubName)
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-[#111a0a]" style={{ paddingTop: "env(safe-area-inset-top)" }}>
+    <div className="fixed inset-0 z-50 flex flex-col bg-[#111a0a] animate-[fadeUp_0.25s_ease-out_forwards]" style={{ paddingTop: "env(safe-area-inset-top)" }}>
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-[#2e3d1a] bg-[#1a2110] shrink-0">
         <button onClick={dm ? () => setDm(null) : onClose} className="text-white/50 hover:text-white transition p-1">
@@ -173,7 +173,7 @@ export default function RunChatPanel({
         )}
       </div>
 
-      {/* Run details strip — group view only */}
+      {/* Run details strip - group view only */}
       {!dm && target.type === "run" && (target.distance || target.meeting_point) && (
         <div className="shrink-0 px-4 py-2.5 border-b border-[#2e3d1a] bg-[#141f0d] flex flex-wrap gap-2">
           {target.distance && (
