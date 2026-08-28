@@ -1,3 +1,5 @@
+import { Select as SharedSelect } from "@/components/Select"
+
 export function Card({ children }: { children: React.ReactNode }) {
   return <div className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-5">{children}</div>
 }
@@ -15,12 +17,28 @@ export function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   )
 }
 
-export function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
+export function Select({
+  className = "",
+  value,
+  onChange,
+  children,
+  disabled,
+}: {
+  className?: string
+  value: string
+  onChange: (e: { target: { value: string } }) => void
+  children: React.ReactNode
+  disabled?: boolean
+}) {
   return (
-    <select
-      {...props}
-      className={`w-full bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-[#c5f135]/50 transition ${props.className ?? ""}`}
-    />
+    <SharedSelect
+      value={value}
+      onChange={onChange}
+      disabled={disabled}
+      className={`w-full bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-[#c5f135]/50 transition ${className}`}
+    >
+      {children}
+    </SharedSelect>
   )
 }
 

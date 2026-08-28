@@ -13,6 +13,7 @@ import { resolveMemberContext } from "@/lib/clubModel/resolveMemberContext"
 import { resolveClubWeekSchedule } from "@/lib/clubModel/resolveWeekSchedule"
 import { matchLocationForPaceGroup } from "@/lib/clubModel/matching"
 import { currentWeekMonday, formatWeekRange } from "@/lib/clubModel/week"
+import { Select } from "@/components/Select"
 
 export default function MemberDashboardPage() {
   return (
@@ -89,14 +90,14 @@ function MemberDashboardContent() {
         <p className="text-xs font-bold text-[#c5f135]/60 uppercase tracking-widest mb-1">Member view</p>
         <h1 className="text-2xl font-black text-white mb-4">Your dashboard</h1>
 
-        <select
+        <Select
           className="w-full bg-[#1e2d12] border border-[#2e3d1a] rounded-xl px-3 py-2.5 text-sm text-white mb-6 focus:outline-none focus:border-[#c5f135]/50"
           value={memberId}
           onChange={(e) => setMemberId(e.target.value)}
         >
           {members.length === 0 && <option value="">No members yet</option>}
           {members.map((m) => <option key={m.id} value={m.id}>{m.name} - {m.email}</option>)}
-        </select>
+        </Select>
 
         {member && ctx && (
           <div className="space-y-4">
@@ -122,15 +123,15 @@ function MemberDashboardContent() {
               </div>
               <div className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-4">
                 <p className="text-xs font-bold text-white/60 uppercase mb-1">Your region</p>
-                <select
-                  className="w-full bg-[#1a2110] border border-[#2e3d1a] rounded-lg pl-2 pr-6 py-1.5 text-sm font-black text-white focus:outline-none focus:border-[#c5f135]/50 disabled:opacity-50"
+                <Select
+                  className="w-full bg-[#1a2110] border border-[#2e3d1a] rounded-lg px-2 py-1.5 text-sm font-black text-white focus:outline-none focus:border-[#c5f135]/50 disabled:opacity-50"
                   value={member.preferred_region_id ?? ""}
                   disabled={savingRegion}
                   onChange={(e) => changeRegion(e.target.value)}
                 >
                   {!member.preferred_region_id && <option value="">No region chosen</option>}
                   {data.regions.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-                </select>
+                </Select>
               </div>
               <div className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-4 sm:col-span-2">
                 <p className="text-xs font-bold text-white/60 uppercase mb-0.5">Coach</p>

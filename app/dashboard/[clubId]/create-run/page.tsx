@@ -7,6 +7,7 @@ import { ArrowLeft, CalendarPlus, Repeat2, Globe, Lock, Bell } from "lucide-reac
 import mapboxSdk from "@mapbox/mapbox-sdk/services/geocoding"
 import { localDateStr } from "@/utils/dates"
 import { COMMON_TIMEZONES, getBrowserTimezone } from "@/lib/timezone"
+import { Select } from "@/components/Select"
 
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
@@ -364,9 +365,9 @@ function CreateRunContent() {
               </div>
               <div>
                 <label className={labelClass}>Timezone</label>
-                <select value={timezone} onChange={(e) => setTimezone(e.target.value)} className={inputClass}>
+                <Select value={timezone} onChange={(e) => setTimezone(e.target.value)} className={inputClass}>
                   {COMMON_TIMEZONES.map((tz) => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
-                </select>
+                </Select>
               </div>
               {(!quickMode || showAdvanced) && (
                 <div>

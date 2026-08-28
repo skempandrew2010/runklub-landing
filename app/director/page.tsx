@@ -29,6 +29,7 @@ import KlubContextPicker from "@/components/KlubContextPicker"
 import AnalyticsTab from "./AnalyticsTab"
 import { PLANS } from "@/lib/plans"
 import { memberLimitForTier } from "@/lib/memberCap"
+import { Select } from "@/components/Select"
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -1141,27 +1142,27 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                 onChange={(e) => setRunDrafts((prev) => ({ ...prev, [run.id]: { ...draft, time: e.target.value } }))}
                 className="shrink-0 min-w-[105px] bg-[#0e150a] border border-[#2e3d1a] rounded-lg px-2 py-1.5 text-xs text-white/70 focus:outline-none focus:border-[#c5f135]/50 [color-scheme:dark]"
               />
-              <select
+              <Select
                 value={draft.timezone}
                 onChange={(e) => setRunDrafts((prev) => ({ ...prev, [run.id]: { ...draft, timezone: e.target.value } }))}
-                className="min-w-[130px] bg-[#0e150a] border border-[#2e3d1a] rounded-lg pl-2 pr-6 py-1.5 text-xs text-white/70 focus:outline-none focus:border-[#c5f135]/50"
+                className="min-w-[130px] bg-[#0e150a] border border-[#2e3d1a] rounded-lg px-2 py-1.5 text-xs text-white/70 focus:outline-none focus:border-[#c5f135]/50"
               >
                 {COMMON_TIMEZONES.map((tz) => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
-              </select>
+              </Select>
               <input
                 placeholder="Distance, e.g. 5K"
                 value={draft.distance}
                 onChange={(e) => setRunDrafts((prev) => ({ ...prev, [run.id]: { ...draft, distance: e.target.value } }))}
                 className="flex-1 min-w-[90px] bg-[#0e150a] border border-[#2e3d1a] rounded-lg px-2 py-1.5 text-xs text-white/70 placeholder:text-white/25 focus:outline-none focus:border-[#c5f135]/50"
               />
-              <select
+              <Select
                 value={draft.workout_type_id}
                 onChange={(e) => setRunDrafts((prev) => ({ ...prev, [run.id]: { ...draft, workout_type_id: e.target.value } }))}
-                className="flex-1 min-w-[120px] bg-[#0e150a] border border-[#2e3d1a] rounded-lg pl-2 pr-6 py-1.5 text-xs text-white/70 focus:outline-none focus:border-[#c5f135]/50"
+                className="flex-1 min-w-[120px] bg-[#0e150a] border border-[#2e3d1a] rounded-lg px-2 py-1.5 text-xs text-white/70 focus:outline-none focus:border-[#c5f135]/50"
               >
                 <option value="">No workout type</option>
                 {memberRunWorkoutTypes.map((wt) => <option key={wt.id} value={wt.id}>{wt.title}</option>)}
-              </select>
+              </Select>
             </div>
             <input
               placeholder="Meeting point"
@@ -1552,15 +1553,15 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                     </span>
                   )}
                   {clubPaceGroups.length > 0 && (
-                    <select
+                    <Select
                       value={m.pace_group_id ?? ""}
                       onChange={(e) => updatePaceGroup(m.id, e.target.value)}
                       disabled={updatingPaceGroupId === m.id}
-                      className="shrink-0 text-[10px] font-bold bg-white/5 text-white/50 border border-white/10 rounded-full pl-2 pr-4 py-0.5 focus:outline-none focus:border-[#c5f135]/40 disabled:opacity-50"
+                      className="shrink-0 text-[10px] font-bold bg-white/5 text-white/50 border border-white/10 rounded-full pl-2 pr-1.5 py-0.5 focus:outline-none focus:border-[#c5f135]/40 disabled:opacity-50"
                     >
                       <option value="">No pace group</option>
                       {clubPaceGroups.map((pg) => <option key={pg.id} value={pg.id}>{pg.name}</option>)}
-                    </select>
+                    </Select>
                   )}
                   <button
                     onClick={() => removeMember(m.id, m.profiles?.display_name || "this runner")}
@@ -1600,14 +1601,14 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                   {clubRegions.length > 0 && (
                     <div className="mb-3">
                       <label className="text-xs font-bold text-white/60 block mb-1">Branch</label>
-                      <select
+                      <Select
                         value={addRegionId}
                         onChange={(e) => setAddRegionId(e.target.value)}
                         className="w-full bg-[#111a0a] border border-[#2e3d1a] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-[#c5f135]/50"
                       >
                         <option value="">Select a branch…</option>
                         {clubRegions.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-                      </select>
+                      </Select>
                     </div>
                   )}
                   <div className="flex gap-2">
@@ -1631,14 +1632,14 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                   {clubRegions.length > 0 && (
                     <div className="mb-3">
                       <label className="text-xs font-bold text-white/60 block mb-1">Branch</label>
-                      <select
+                      <Select
                         value={inviteRegionId}
                         onChange={(e) => setInviteRegionId(e.target.value)}
                         className="w-full bg-[#111a0a] border border-[#2e3d1a] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-[#c5f135]/50"
                       >
                         <option value="">Select a branch…</option>
                         {clubRegions.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-                      </select>
+                      </Select>
                     </div>
                   )}
                   {clubRegions.length > 0 && !inviteRegionId && (
@@ -2301,15 +2302,15 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                             onChange={(e) => setNewPlanPrice(e.target.value)}
                           />
                         </div>
-                        <select
+                        <Select
                           value={newPlanInterval}
                           onChange={(e) => setNewPlanInterval(e.target.value as "monthly" | "yearly" | "seasonal")}
-                          className="bg-[#111a0a] border border-[#2e3d1a] rounded-xl px-3 text-sm text-white focus:outline-none focus:border-[#c5f135]/50"
+                          className="bg-[#111a0a] border border-[#2e3d1a] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-[#c5f135]/50"
                         >
                           <option value="monthly">/month</option>
                           <option value="yearly">/year</option>
                           <option value="seasonal">one-time (seasonal)</option>
-                        </select>
+                        </Select>
                         <Button onClick={createMembershipPlan} disabled={creatingPlan}>{creatingPlan ? "…" : "Add"}</Button>
                       </div>
                       {newPlanInterval === "seasonal" && (
@@ -2338,13 +2339,13 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
               <Card>
                 <SectionTitle>Default Run Timezone</SectionTitle>
                 <p className="text-xs text-white/80 mb-3">Pre-fills the timezone whenever you or a coach schedules a new run - change per-run anytime.</p>
-                <select
+                <Select
                   value={selectedClub.default_timezone ?? getBrowserTimezone()}
                   onChange={(e) => updateDefaultTimezone(e.target.value)}
                   className="w-full bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#c5f135]/50 transition"
                 >
                   {COMMON_TIMEZONES.map((tz) => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
-                </select>
+                </Select>
               </Card>
 
               <Card>

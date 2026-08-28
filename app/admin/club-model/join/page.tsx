@@ -10,6 +10,7 @@ import type { Region, Location, Coach, PaceGroup, WorkoutType } from "@/lib/club
 import { formatPaceRange } from "@/lib/clubModel/pace"
 import { matchLocationForPaceGroup } from "@/lib/clubModel/matching"
 import { currentWeekMonday } from "@/lib/clubModel/week"
+import { Select } from "@/components/Select"
 import { resolveScheduledWorkout } from "@/lib/clubModel/resolveWorkout"
 import { googleMapsUrl } from "@/lib/clubModel/maps"
 import { CLUB_ID } from "@/lib/clubModel/constants"
@@ -39,7 +40,7 @@ function JoinContent() {
   const searchParams = useSearchParams()
   const inviteToken = searchParams.get("invite")
 
-  // Only used when there's no invite token — an invitee isn't logged in at
+  // Only used when there's no invite token - an invitee isn't logged in at
   // all, so the normal admin/manager/tester gate doesn't apply to them.
   const testerReady = useClubModelAccess("tester", !!inviteToken)
   const [inviteState, setInviteState] = useState<"checking" | "valid" | "invalid">(inviteToken ? "checking" : "valid")
@@ -102,7 +103,7 @@ function JoinContent() {
       const data = inviteToken ? await fetchJoinData(inviteToken) : await fetchClubModelData()
 
       const matchedGroup = data.pace_groups.find((g) => g.id === paceGroupId)
-      if (!matchedGroup) throw new Error("No pace groups configured yet — add one in the manager dashboard.")
+      if (!matchedGroup) throw new Error("No pace groups configured yet - add one in the manager dashboard.")
       const paceValue = (matchedGroup.pace_min + matchedGroup.pace_max) / 2
 
       // A pace group can train on multiple days; only the day(s) whose
@@ -239,13 +240,13 @@ function JoinContent() {
             </div>
             <div>
               <label className="text-xs font-bold text-white/60 block mb-1">Preferred region</label>
-              <select
+              <Select
                 className="w-full bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-[#c5f135]/50"
                 value={regionId} onChange={(e) => setRegionId(e.target.value)}
               >
                 {regions.length === 0 && <option value="">No regions configured</option>}
                 {regions.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-              </select>
+              </Select>
             </div>
 
             {error && <p className="text-sm text-red-400">{error}</p>}
@@ -267,7 +268,7 @@ function JoinContent() {
         ) : (
           <div className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-6 space-y-4">
             <div>
-              <p className="text-xs font-bold text-[#c5f135] uppercase tracking-widest mb-1">Matched — pending approval</p>
+              <p className="text-xs font-bold text-[#c5f135] uppercase tracking-widest mb-1">Matched - pending approval</p>
               <h2 className="text-lg font-black text-white">Welcome, {name.trim()}</h2>
               <p className="text-xs text-white/60 mt-1">
                 A manager needs to approve you before you can see this klub&rsquo;s runs.
@@ -319,7 +320,7 @@ function JoinContent() {
             </div>
 
             {inviteToken ? (
-              <p className="text-center text-xs text-white/50">You&rsquo;re all set — see you out there.</p>
+              <p className="text-center text-xs text-white/50">You&rsquo;re all set - see you out there.</p>
             ) : (
               <>
                 <div className="flex gap-2 pt-2">

@@ -8,6 +8,7 @@ import { localDateStr, mondayOf } from "@/utils/dates"
 import { COMMON_TIMEZONES, getBrowserTimezone } from "@/lib/timezone"
 import { type WorkoutSegment, formatWorkoutSegment, parseWorkoutStructure } from "@/lib/workouts"
 import AddressAutocomplete from "@/components/AddressAutocomplete"
+import { Select } from "@/components/Select"
 
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
@@ -405,9 +406,9 @@ export default function RunFormPanel({
             </div>
             <div>
               <label className={lc}>Timezone</label>
-              <select value={timezone} onChange={(e) => setTimezone(e.target.value)} className={ic}>
+              <Select value={timezone} onChange={(e) => setTimezone(e.target.value)} className={ic}>
                 {COMMON_TIMEZONES.map((tz) => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
-              </select>
+              </Select>
             </div>
             {(!quickMode || showAdvanced) && (
               <div>
