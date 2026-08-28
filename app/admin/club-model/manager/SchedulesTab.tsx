@@ -8,6 +8,7 @@ import { DAYS_OF_WEEK } from "@/lib/clubModel/types"
 import { currentWeekMonday, formatWeekRange } from "@/lib/clubModel/week"
 import { resolveScheduledWorkout } from "@/lib/clubModel/resolveWorkout"
 import { Card, Select, Input, TextArea, Button, Row } from "./ui"
+import { DateInput } from "@/components/DateInput"
 
 function RegionCheckboxes({
   regions,
@@ -347,11 +348,10 @@ export default function SchedulesTab({ clubId }: { clubId: string }) {
                             </div>
                           )}
                           <div className="w-40">
-                            <Input
-                              type="date"
+                            <DateInput
                               value={workoutDraft.week_of || thisWeek}
                               onChange={(e) => setNewWorkout((p) => ({ ...p, [schedule.id]: { ...workoutDraft, week_of: e.target.value } }))}
-                              className="[color-scheme:dark]"
+                              className="w-full bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-[#c5f135]/50 transition"
                             />
                             <p className="text-[9px] text-white/50 mt-0.5">{formatWeekRange(workoutDraft.week_of || thisWeek)}</p>
                           </div>

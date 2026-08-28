@@ -7,6 +7,8 @@ import { ArrowLeft, Check, Globe, Lock } from "lucide-react"
 import mapboxSdk from "@mapbox/mapbox-sdk/services/geocoding"
 import { COMMON_TIMEZONES, getBrowserTimezone } from "@/lib/timezone"
 import { Select } from "@/components/Select"
+import { DateInput } from "@/components/DateInput"
+import { TimeInput } from "@/components/TimeInput"
 
 const geocodingClient = mapboxSdk({ accessToken: process.env.NEXT_PUBLIC_MAPBOX_TOKEN! })
 
@@ -179,22 +181,20 @@ export default function EditRunPage() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelClass}>Date *</label>
-                <input
-                  type="date"
+                <DateInput
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
                   required
-                  className={`${inputClass} [color-scheme:dark]`}
+                  className={inputClass}
                 />
               </div>
               <div>
                 <label className={labelClass}>Time *</label>
-                <input
-                  type="time"
+                <TimeInput
                   value={time}
                   onChange={(e) => setTime(e.target.value)}
                   required
-                  className={`${inputClass} [color-scheme:dark]`}
+                  className={inputClass}
                 />
               </div>
             </div>
