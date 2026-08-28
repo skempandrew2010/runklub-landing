@@ -8,6 +8,8 @@ import mapboxSdk from "@mapbox/mapbox-sdk/services/geocoding"
 import { localDateStr } from "@/utils/dates"
 import { COMMON_TIMEZONES, getBrowserTimezone } from "@/lib/timezone"
 import { Select } from "@/components/Select"
+import { DateInput } from "@/components/DateInput"
+import { TimeInput } from "@/components/TimeInput"
 
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
@@ -349,7 +351,7 @@ function CreateRunContent() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className={labelClass}>Date *</label>
-                  <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required className={`${inputClass} [color-scheme:dark]`} />
+                  <DateInput value={date} onChange={(e) => setDate(e.target.value)} required className={inputClass} />
                 </div>
                 <div>
                   <label className={labelClass}>Distance</label>
@@ -361,7 +363,7 @@ function CreateRunContent() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelClass}>Time *</label>
-                <input type="time" value={time} onChange={(e) => setTime(e.target.value)} required className={`${inputClass} [color-scheme:dark]`} />
+                <TimeInput value={time} onChange={(e) => setTime(e.target.value)} required className={inputClass} />
               </div>
               <div>
                 <label className={labelClass}>Timezone</label>

@@ -9,6 +9,8 @@ import { COMMON_TIMEZONES, getBrowserTimezone } from "@/lib/timezone"
 import { type WorkoutSegment, formatWorkoutSegment, parseWorkoutStructure } from "@/lib/workouts"
 import AddressAutocomplete from "@/components/AddressAutocomplete"
 import { Select } from "@/components/Select"
+import { DateInput } from "@/components/DateInput"
+import { TimeInput } from "@/components/TimeInput"
 
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
@@ -391,7 +393,7 @@ export default function RunFormPanel({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={lc}>Date *</label>
-                <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required className={`${ic} [color-scheme:dark]`} />
+                <DateInput value={date} onChange={(e) => setDate(e.target.value)} required className={ic} />
               </div>
               <div>
                 <label className={lc}>Distance</label>
@@ -402,7 +404,7 @@ export default function RunFormPanel({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={lc}>Time *</label>
-              <input type="time" value={time} onChange={(e) => setTime(e.target.value)} required className={`${ic} [color-scheme:dark]`} />
+              <TimeInput value={time} onChange={(e) => setTime(e.target.value)} required className={ic} />
             </div>
             <div>
               <label className={lc}>Timezone</label>

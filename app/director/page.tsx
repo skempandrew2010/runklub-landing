@@ -30,6 +30,8 @@ import AnalyticsTab from "./AnalyticsTab"
 import { PLANS } from "@/lib/plans"
 import { memberLimitForTier } from "@/lib/memberCap"
 import { Select } from "@/components/Select"
+import { DateInput } from "@/components/DateInput"
+import { TimeInput } from "@/components/TimeInput"
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -1130,17 +1132,15 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
               className="w-full bg-[#0e150a] border border-[#2e3d1a] rounded-lg px-3 py-1.5 text-xs text-white/70 placeholder:text-white/25 focus:outline-none focus:border-[#c5f135]/50"
             />
             <div className="flex items-center gap-2 flex-wrap">
-              <input
-                type="date"
+              <DateInput
                 value={draft.date}
                 onChange={(e) => setRunDrafts((prev) => ({ ...prev, [run.id]: { ...draft, date: e.target.value } }))}
-                className="shrink-0 min-w-[135px] bg-[#0e150a] border border-[#2e3d1a] rounded-lg px-2 py-1.5 text-xs text-white/70 focus:outline-none focus:border-[#c5f135]/50 [color-scheme:dark]"
+                className="shrink-0 min-w-[135px] bg-[#0e150a] border border-[#2e3d1a] rounded-lg px-2 py-1.5 text-xs text-white/70 focus:outline-none focus:border-[#c5f135]/50"
               />
-              <input
-                type="time"
+              <TimeInput
                 value={draft.time}
                 onChange={(e) => setRunDrafts((prev) => ({ ...prev, [run.id]: { ...draft, time: e.target.value } }))}
-                className="shrink-0 min-w-[105px] bg-[#0e150a] border border-[#2e3d1a] rounded-lg px-2 py-1.5 text-xs text-white/70 focus:outline-none focus:border-[#c5f135]/50 [color-scheme:dark]"
+                className="shrink-0 min-w-[105px] bg-[#0e150a] border border-[#2e3d1a] rounded-lg px-2 py-1.5 text-xs text-white/70 focus:outline-none focus:border-[#c5f135]/50"
               />
               <Select
                 value={draft.timezone}
@@ -2392,8 +2392,8 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                     ))}
                     <div>
                       <label className="block text-xs font-semibold text-white/80 mb-1">Meeting Time</label>
-                      <input type="time" value={editForm.time} onChange={(e) => setEditForm({ ...editForm, time: e.target.value })}
-                        className="w-full bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-[#c5f135]/50 transition [color-scheme:dark]" />
+                      <TimeInput value={editForm.time} onChange={(e) => setEditForm({ ...editForm, time: e.target.value })}
+                        className="w-full bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-[#c5f135]/50 transition" />
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-white/80 mb-1">Instagram <span className="font-normal text-white/25">(optional)</span></label>

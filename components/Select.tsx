@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, Children, isValidElement, type ReactElement, type ReactNode } from "react"
 import { ChevronDown, Check } from "lucide-react"
+import { splitFieldClasses } from "./splitFieldClasses"
 
 // Drop-in replacement for a native <select> that renders <option>/<optgroup>
 // children exactly like the real thing (same value/onChange shape as
@@ -44,20 +45,6 @@ function flatten(items: Item[]): OptionItem[] {
   return items.flatMap((it) => (isGroup(it) ? it.options : [it]))
 }
 
-// Sizing/flex classes need to live on the wrapper so this behaves correctly
-// as a flex/grid child (e.g. flex-1, min-w-[130px]); everything else (bg,
-// border, radius, padding, text, focus/disabled variants) belongs on the
-// trigger button itself, which is the actual visible box.
-function splitClasses(className: string) {
-  const sizing: string[] = []
-  const visual: string[] = []
-  for (const c of className.split(/\s+/).filter(Boolean)) {
-    if (/^(w-|min-w-|max-w-|flex-|basis-|shrink|grow)/.test(c)) sizing.push(c)
-    else visual.push(c)
-  }
-  return { sizing: sizing.join(" "), visual: visual.join(" ") }
-}
-
 export function Select({
   value,
   onChange,
@@ -96,7 +83,7 @@ export function Select({
   const items = parseChildren(children)
   const flat = flatten(items)
   const selected = flat.find((o) => o.value === value)
-  const { sizing, visual } = splitClasses(className)
+  const { sizing, visual } = splitFieldClasses(className)
 
   const toggleOpen = () => {
     if (disabled) return
