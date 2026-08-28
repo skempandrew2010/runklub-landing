@@ -10,6 +10,7 @@ import { COMMON_TIMEZONES, getBrowserTimezone } from "@/lib/timezone"
 import { Select } from "@/components/Select"
 import { DateInput } from "@/components/DateInput"
 import { TimeInput } from "@/components/TimeInput"
+import { RollerSelect } from "@/components/RollerSelect"
 
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
@@ -367,9 +368,7 @@ function CreateRunContent() {
               </div>
               <div>
                 <label className={labelClass}>Timezone</label>
-                <Select value={timezone} onChange={(e) => setTimezone(e.target.value)} className={inputClass}>
-                  {COMMON_TIMEZONES.map((tz) => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
-                </Select>
+                <RollerSelect value={timezone} onChange={(e) => setTimezone(e.target.value)} options={COMMON_TIMEZONES} className={inputClass} panelWidth={260} />
               </div>
               {(!quickMode || showAdvanced) && (
                 <div>

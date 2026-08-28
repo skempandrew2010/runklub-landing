@@ -9,6 +9,7 @@ import { COMMON_TIMEZONES, getBrowserTimezone } from "@/lib/timezone"
 import { type WorkoutSegment, formatWorkoutSegment, parseWorkoutStructure } from "@/lib/workouts"
 import AddressAutocomplete from "@/components/AddressAutocomplete"
 import { Select } from "@/components/Select"
+import { RollerSelect } from "@/components/RollerSelect"
 import { DateInput } from "@/components/DateInput"
 import { TimeInput } from "@/components/TimeInput"
 
@@ -408,9 +409,7 @@ export default function RunFormPanel({
             </div>
             <div>
               <label className={lc}>Timezone</label>
-              <Select value={timezone} onChange={(e) => setTimezone(e.target.value)} className={ic}>
-                {COMMON_TIMEZONES.map((tz) => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
-              </Select>
+              <RollerSelect value={timezone} onChange={(e) => setTimezone(e.target.value)} options={COMMON_TIMEZONES} className={ic} panelWidth={260} />
             </div>
             {(!quickMode || showAdvanced) && (
               <div>

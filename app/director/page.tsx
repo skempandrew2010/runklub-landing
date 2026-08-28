@@ -30,6 +30,7 @@ import AnalyticsTab from "./AnalyticsTab"
 import { PLANS } from "@/lib/plans"
 import { memberLimitForTier } from "@/lib/memberCap"
 import { Select } from "@/components/Select"
+import { RollerSelect } from "@/components/RollerSelect"
 import { DateInput } from "@/components/DateInput"
 import AddressAutocomplete from "@/components/AddressAutocomplete"
 import { TimeInput } from "@/components/TimeInput"
@@ -354,13 +355,13 @@ function RunCard({
               onChange={(e) => onDraftChange({ time: e.target.value })}
               className="shrink-0 min-w-[105px] bg-[#0e150a] border border-[#2e3d1a] rounded-lg px-2 py-1.5 text-xs text-white/70 focus:outline-none focus:border-[#c5f135]/50"
             />
-            <Select
+            <RollerSelect
               value={draft.timezone}
               onChange={(e) => onDraftChange({ timezone: e.target.value })}
+              options={COMMON_TIMEZONES}
+              panelWidth={260}
               className="min-w-[130px] bg-[#0e150a] border border-[#2e3d1a] rounded-lg px-2 py-1.5 text-xs text-white/70 focus:outline-none focus:border-[#c5f135]/50"
-            >
-              {COMMON_TIMEZONES.map((tz) => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
-            </Select>
+            />
             <input
               placeholder="Distance, e.g. 5K"
               value={draft.distance}
@@ -447,7 +448,19 @@ type TabKey = (typeof ALL_TABS)[number]["key"]
 
 function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKey }) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [tab, setTab] = useState<TabKey>(initialTab)
+  // Syncs the URL's ?tab= param so a refresh lands back on the same tab -
+  // a fresh navigation to plain /director (no query param) still falls back
+  // to "setup" via initialTab above, so only an in-session tab switch or a
+  // reload of an already-tabbed URL ever restores a non-default tab. Keeps
+  // any other existing params (e.g. ?as= for a dual director/coach account).
+  const changeTab = (key: TabKey) => {
+    setTab(key)
+    const params = new URLSearchParams(searchParams.toString())
+    params.set("tab", key)
+    router.replace(`/director?${params.toString()}`, { scroll: false })
+  }
   const [runPanel, setRunPanel] = useState<null | "create" | "create-weekly" | string>(null)
   const [workoutLibraryVersion, setWorkoutLibraryVersion] = useState(0)
   const [myClubs, setMyClubs] = useState<ClubWithCount[]>([])
@@ -1490,7 +1503,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
               return (
                 <button
                   key={t.key}
-                  onClick={() => { setTab(t.key); setRunPanel(null) }}
+                  onClick={() => { changeTab(t.key); setRunPanel(null) }}
                   className={`w-full text-left flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-sm font-bold transition
                     ${active ? "bg-[#c5f135]/10 text-[#c5f135]" : ""}
                     ${enabled && !active ? "text-white hover:text-white hover:bg-[#2e3d1a]/50" : ""}
@@ -1573,7 +1586,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
               quickMode={runPanel === "create-weekly"}
               onClose={() => setRunPanel(null)}
               onSaved={handleRunSaved}
-              onGoToSetup={() => { setRunPanel(null); setTab("setup") }}
+              onGoToSetup={() => { setRunPanel(null); changeTab("setup") }}
               onToggleQuickMode={() => setRunPanel(runPanel === "create-weekly" ? "create" : "create-weekly")}
             />
           )}
@@ -2464,13 +2477,13 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
               <Card>
                 <SectionTitle>Default Run Timezone</SectionTitle>
                 <p className="text-xs text-white/80 mb-3">Pre-fills the timezone whenever you or a coach schedules a new run - change per-run anytime.</p>
-                <Select
+                <RollerSelect
                   value={selectedClub.default_timezone ?? getBrowserTimezone()}
                   onChange={(e) => updateDefaultTimezone(e.target.value)}
+                  options={COMMON_TIMEZONES}
+                  panelWidth={280}
                   className="w-full bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#c5f135]/50 transition"
-                >
-                  {COMMON_TIMEZONES.map((tz) => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
-                </Select>
+                />
               </Card>
 
               <Card>
