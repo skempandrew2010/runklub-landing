@@ -1,9 +1,11 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react"
 import { localDateStr } from "@/utils/dates"
 import { splitFieldClasses } from "./splitFieldClasses"
+import { usePopoverPosition } from "./usePopoverPosition"
 
 // Hybrid date field: keeps a real <input type="date"> underneath for typing,
 // backspace, and (on touch devices) the OS's own native picker sheet - all
@@ -11,9 +13,12 @@ import { splitFieldClasses } from "./splitFieldClasses"
 // is replaced: instead of calling showPicker() to open the browser's own
 // calendar popup (which can't be recolored to match the theme - the
 // selected-day highlight is drawn by the OS, same limitation as native
-// <select>), clicking it opens a custom-styled calendar grid instead.
+// <select>), clicking it opens a custom-styled calendar grid instead. The
+// grid is portaled to document.body and fixed-positioned so it never gets
+// clipped by an ancestor's overflow-hidden/overflow-y-auto.
 
 const WEEKDAY_LABELS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"]
+const PANEL_WIDTH = 256
 
 function daysInMonth(year: number, month: number) {
   return new Date(year, month + 1, 0).getDate()
@@ -43,8 +48,8 @@ export function DateInput({
   disabled?: boolean
 }) {
   const [open, setOpen] = useState(false)
-  const [openUp, setOpenUp] = useState(false)
-  const wrapRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const { triggerRef, rect, openUp } = usePopoverPosition(open)
   const parsed = value ? new Date(value + "T00:00:00") : null
   const [viewYear, setViewYear] = useState(parsed?.getFullYear() ?? new Date().getFullYear())
   const [viewMonth, setViewMonth] = useState(parsed?.getMonth() ?? new Date().getMonth())
@@ -59,7 +64,10 @@ export function DateInput({
   useEffect(() => {
     if (!open) return
     const onDown = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false)
+      const target = e.target as Node
+      if (triggerRef.current?.contains(target)) return
+      if (panelRef.current?.contains(target)) return
+      setOpen(false)
     }
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false)
@@ -70,14 +78,10 @@ export function DateInput({
       document.removeEventListener("mousedown", onDown)
       document.removeEventListener("keydown", onKey)
     }
-  }, [open])
+  }, [open, triggerRef])
 
   const toggleOpen = () => {
     if (disabled) return
-    if (!open && wrapRef.current) {
-      const rect = wrapRef.current.getBoundingClientRect()
-      setOpenUp(window.innerHeight - rect.bottom < 320 && rect.top > 320)
-    }
     setOpen((o) => !o)
   }
 
@@ -91,7 +95,7 @@ export function DateInput({
   const { sizing, visual } = splitFieldClasses(className)
 
   return (
-    <div ref={wrapRef} className={`relative inline-block ${sizing}`}>
+    <div ref={triggerRef} className={`relative inline-block ${sizing}`}>
       <input
         type="date"
         value={value}
@@ -110,11 +114,16 @@ export function DateInput({
       >
         <CalendarDays className="w-4 h-4" />
       </button>
-      {open && (
+      {open && rect && createPortal(
         <div
-          className={`absolute z-50 right-0 w-64 bg-[#1e2d12] border border-[#2e3d1a] rounded-xl shadow-2xl p-3 ${
-            openUp ? "bottom-full mb-1.5" : "top-full mt-1.5"
-          }`}
+          ref={panelRef}
+          style={{
+            position: "fixed",
+            right: window.innerWidth - rect.right,
+            width: PANEL_WIDTH,
+            ...(openUp ? { bottom: window.innerHeight - rect.top + 6 } : { top: rect.bottom + 6 }),
+          }}
+          className="z-50 bg-[#1e2d12] border border-[#2e3d1a] rounded-xl shadow-2xl p-3"
         >
           <div className="flex items-center justify-between mb-2">
             <button
@@ -171,7 +180,8 @@ export function DateInput({
           >
             Today
           </button>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )
