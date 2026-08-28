@@ -1558,8 +1558,8 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                       disabled={updatingPaceGroupId === m.id}
                       className="shrink-0 text-[10px] font-bold bg-white/5 text-white/50 border border-white/10 rounded-full pl-2 pr-1 py-0.5 focus:outline-none focus:border-[#c5f135]/40 disabled:opacity-50"
                     >
-                      <option value="">No pace group</option>
-                      {clubPaceGroups.map((pg) => <option key={pg.id} value={pg.id}>{pg.name}</option>)}
+                      <option value="" className="text-black">No pace group</option>
+                      {clubPaceGroups.map((pg) => <option key={pg.id} value={pg.id} className="text-black">{pg.name}</option>)}
                     </select>
                   )}
                   <button
