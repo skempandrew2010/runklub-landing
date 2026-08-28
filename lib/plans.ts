@@ -81,7 +81,7 @@ export const PLANS: Record<PlanId, Plan> = {
     searchPlacement: "standard",
     verificationIncludedWhileSubscribed: false,
     features: [
-      "Unlimited community members",
+      "Unlimited followers",
       "Chat with your klub members",
       "Post free or paid community events, open to everyone",
       "Push notifications remind members of upcoming runs",
@@ -197,4 +197,4 @@ export const PLAN_ORDER: PlanId[] = ["free", "starter", "growth", "enterprise"]
 // Enterprise (500) is the highest number we sell as a fixed plan. Klubs that
 // outgrow it need a sales-negotiated custom plan rather than a self-serve tier.
 export const CUSTOM_PRICING_MESSAGE =
-  "Need more than 500 members? Contact us for custom pricing."
+  "Need more than 500 paid members? Contact us for custom pricing."

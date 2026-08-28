@@ -168,7 +168,7 @@ export default function DirectorPlansPage() {
             )
           })}
         </div>
-        <p className="text-center text-xs text-white/35 mt-8">{CUSTOM_PRICING_MESSAGE}</p>
+        <p className="text-center text-xs text-white/35 mt-8">Followers are always unlimited on every plan. {CUSTOM_PRICING_MESSAGE}</p>
       </div>
     </div>
   )
