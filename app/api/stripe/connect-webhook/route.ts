@@ -24,17 +24,27 @@ async function notifyDirectorOfNewMember(clubId: string, memberUserId: string, p
   if (!club) return
 
   const [{ data: memberProfile }, { data: directorUser }] = await Promise.all([
-    admin.from("profiles").select("display_name").eq("id", memberUserId).single(),
+    admin.from("profiles").select("display_name, avatar_url").eq("id", memberUserId).single(),
     admin.auth.admin.getUserById(club.user_id),
   ])
-
-  const directorEmail = directorUser?.user?.email
-  if (!directorEmail) return
 
   const memberName = memberProfile?.display_name || "A runner"
   const planLabel = planName ? ` (${planName})` : ""
   const rate = billingInterval === "yearly" ? "/yr" : billingInterval === "seasonal" ? " one-time" : "/mo"
   const priceLine = priceCents ? `They're paying $${(priceCents / 100).toFixed(2)}${rate}${planLabel}.` : ""
+
+  await admin.from("notifications").insert({
+    user_id: club.user_id,
+    type: "member_subscribed",
+    title: `${memberName} just became a paying member of ${club.name}`,
+    body: priceCents ? `$${(priceCents / 100).toFixed(2)}${rate}${planLabel}` : null,
+    link: "/director?tab=members",
+    club_id: club.id,
+    avatar_url: memberProfile?.avatar_url ?? null,
+  })
+
+  const directorEmail = directorUser?.user?.email
+  if (!directorEmail) return
 
   try {
     const resend = new Resend(process.env.RESEND_API_KEY)

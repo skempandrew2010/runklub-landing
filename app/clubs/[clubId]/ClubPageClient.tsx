@@ -302,7 +302,20 @@ export default function ClubPageClient({
         race_time_seconds: pace?.raceTimeSeconds ?? null,
       }, { onConflict: "club_id,user_id" })
     setRequestingJoin(false)
-    if (!error) setJoinRequestStatus("pending")
+    if (!error) {
+      setJoinRequestStatus("pending")
+      if (club.user_id) {
+        const { data: requester } = await supabase.from("profiles").select("display_name, avatar_url").eq("id", userId).single()
+        await supabase.from("notifications").insert({
+          user_id: club.user_id,
+          type: "join_request",
+          title: `${requester?.display_name || "Someone"} wants to join ${club.name}`,
+          link: `/director?tab=members`,
+          club_id: club.id,
+          avatar_url: requester?.avatar_url ?? null,
+        })
+      }
+    }
   }
 
   const handleSubscribe = async (planId: string, pace?: PaceGroupJoinResult) => {
