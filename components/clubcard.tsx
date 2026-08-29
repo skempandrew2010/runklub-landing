@@ -147,7 +147,7 @@ export default function ClubCard({
         ${isRunSoon ? "animate-run-soon" : ""}`}
     >
       {/* Club image */}
-      <div className={`relative w-16 h-16 rounded-2xl overflow-hidden shrink-0 bg-gradient-to-br ${gradient} flex items-center justify-center`}>
+      <div className={`relative w-16 h-16 rounded-full overflow-hidden shrink-0 bg-gradient-to-br ${gradient} flex items-center justify-center`}>
         {club.image_url ? (
           <Image src={club.image_url} alt={club.name} fill sizes="64px" className="object-cover transition-transform duration-300 group-hover:scale-110" />
         ) : (
@@ -217,7 +217,7 @@ export default function ClubCard({
           </p>
         )}
 
-        {/* Membership type — following is always free; this just flags a paid tier for private runs */}
+        {/* Membership type - following is always free; this just flags a paid tier for private runs */}
         {(() => {
           const hasMembership = club.membership_type === "optional_paid" || club.membership_type === "paid_required"
           const label = hasMembership ? "Free + Paid Options" : "Free to Join"

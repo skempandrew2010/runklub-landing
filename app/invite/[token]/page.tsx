@@ -25,7 +25,7 @@ export default function InvitePage() {
 
   useEffect(() => {
     const load = async () => {
-      // Look up the invite (public read via service role — no RLS needed for token lookup)
+      // Look up the invite (public read via service role - no RLS needed for token lookup)
       const res = await fetch(`/api/invite-lookup/${token}`)
       if (!res.ok) { setState("invalid"); return }
       const data = await res.json()
@@ -148,7 +148,7 @@ export default function InvitePage() {
       <div className="w-full max-w-sm space-y-6">
         {/* Club card */}
         <div className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-6 text-center">
-          <div className="w-16 h-16 rounded-2xl overflow-hidden mx-auto mb-4 bg-[#2e3d1a] flex items-center justify-center">
+          <div className="w-16 h-16 rounded-full overflow-hidden mx-auto mb-4 bg-[#2e3d1a] flex items-center justify-center">
             {club?.image_url
               ? <img src={club.image_url} alt="" className="w-full h-full object-cover" />
               : <span className="text-xl font-black text-white/30">{initials}</span>

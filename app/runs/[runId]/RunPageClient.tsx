@@ -431,7 +431,7 @@ export default function RunPageClient({ runId }: { runId: string }) {
 
         <div className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-5 mb-5">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-11 h-11 rounded-xl overflow-hidden shrink-0 flex items-center justify-center bg-[#2e3d1a]">
+            <div className="w-11 h-11 rounded-full overflow-hidden shrink-0 flex items-center justify-center bg-[#2e3d1a]">
               {club.image_url ? (
                 <img src={club.image_url} alt="" className="w-full h-full object-cover" />
               ) : (

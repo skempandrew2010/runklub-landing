@@ -13,7 +13,7 @@ function initialsOf(name: string) {
 
 /**
  * Named, clickable list of every klub the signed-in user directs and/or
- * coaches — shown on Home so someone who's a director for one klub and a
+ * coaches - shown on Home so someone who's a director for one klub and a
  * coach for several others can tell them apart and jump straight into the
  * right one, instead of guessing which "Director"/"Coach" landing they'll get.
  */
@@ -58,7 +58,7 @@ export default function YourKlubsSection({ userId }: { userId: string }) {
               href={href}
               className="flex items-center gap-3 px-4 py-3.5 hover:bg-[#243018] transition"
             >
-              <div className="w-9 h-9 rounded-xl shrink-0 bg-[#2e3d1a] overflow-hidden flex items-center justify-center">
+              <div className="w-9 h-9 rounded-full shrink-0 bg-[#2e3d1a] overflow-hidden flex items-center justify-center">
                 {club.imageUrl
                   ? <img src={club.imageUrl} alt="" className="w-full h-full object-cover" />
                   : <span className="text-xs font-black text-white/30">{initialsOf(club.name)}</span>

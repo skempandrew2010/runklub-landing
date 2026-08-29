@@ -144,7 +144,7 @@ export default function CoachInvitePage() {
     <div className="min-h-screen bg-[#1a2110] flex items-center justify-center px-5">
       <div className="w-full max-w-sm space-y-6">
         <div className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-6 text-center">
-          <div className="w-16 h-16 rounded-2xl overflow-hidden mx-auto mb-4 bg-[#2e3d1a] flex items-center justify-center">
+          <div className="w-16 h-16 rounded-full overflow-hidden mx-auto mb-4 bg-[#2e3d1a] flex items-center justify-center">
             {club?.image_url
               ? <img src={club.image_url} alt="" className="w-full h-full object-cover" />
               : <span className="text-xl font-black text-white/30">{initials}</span>
