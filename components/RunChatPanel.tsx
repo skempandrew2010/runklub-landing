@@ -77,6 +77,12 @@ export default function RunChatPanel({
   const [loading, setLoading] = useState(true)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  // Only true once the viewer has actually drilled into a DM from the group
+  // view in this session - that's the only case where "back" landing on the
+  // group view makes sense. A DM opened directly (initialDm, e.g. "Message
+  // the director") never showed a group view here, so back should close the
+  // whole popup and return to whatever page it was opened from instead.
+  const dmFromGroupRef = useRef(false)
 
   const targetColumn = target.type === "run" ? "run_id" : "club_id"
 
@@ -122,6 +128,7 @@ export default function RunChatPanel({
 
   const startDm = (msg: ChatMessage) => {
     if (dm || msg.user_id === userId) return
+    dmFromGroupRef.current = true
     setDm({ userId: msg.user_id, name: msg.profiles?.display_name || "Runner", avatarUrl: msg.profiles?.avatar_url ?? null })
   }
 
@@ -139,7 +146,7 @@ export default function RunChatPanel({
       >
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-[#2e3d1a] bg-[#1a2110] shrink-0">
-        <button onClick={dm ? () => setDm(null) : onClose} className="text-white/50 hover:text-white transition p-1">
+        <button onClick={dm && dmFromGroupRef.current ? () => setDm(null) : onClose} className="text-white/50 hover:text-white transition p-1">
           <ArrowLeft className="w-5 h-5" />
         </button>
         {dm ? (
