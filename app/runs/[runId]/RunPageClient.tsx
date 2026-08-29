@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeft, Clock, MapPin, CheckCircle2, ExternalLink, PartyPopper, Crown, Lock } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { mondayOf } from "@/utils/dates"
@@ -66,6 +66,7 @@ export type Club = {
 
 export default function RunPageClient({ runId }: { runId: string }) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [run, setRun] = useState<Run | null>(null)
   const [club, setClub] = useState<Club | null>(null)
   const [cityFallback, setCityFallback] = useState<{ lat: number; lng: number } | null>(null)
@@ -76,6 +77,10 @@ export default function RunPageClient({ runId }: { runId: string }) {
   const [celebrationData, setCelebrationData] = useState<CheckInResult | null>(null)
   const [showChat, setShowChat] = useState(false)
   const [dmTarget, setDmTarget] = useState<DmTarget | null>(null)
+  // Separate from dmTarget - a notification-driven DM preserves whatever
+  // scope the conversation actually happened in (this run), whereas dmTarget
+  // (director/coach, opened from the sidebar) is always club-scoped.
+  const [runDmTarget, setRunDmTarget] = useState<DmTarget | null>(null)
   const [myPaceGroupId, setMyPaceGroupId] = useState<string | null>(null)
   const [showMissionModal, setShowMissionModal] = useState(false)
   const [position, setPosition] = useState<{ lat: number; lng: number } | null>(null)
@@ -177,6 +182,17 @@ export default function RunPageClient({ runId }: { runId: string }) {
       setSessionToken(session?.access_token ?? null)
     })
   }, [])
+
+  // Arriving from a "New message from X" notification (?dm=<their user id>)
+  // opens straight into that DM instead of just landing on the run page.
+  useEffect(() => {
+    const dmUserId = searchParams.get("dm")
+    if (!dmUserId || !userId || dmUserId === userId) return
+    supabase.from("profiles").select("display_name, avatar_url").eq("id", dmUserId).single()
+      .then(({ data }) => {
+        setRunDmTarget({ userId: dmUserId, name: data?.display_name || "Runner", avatarUrl: data?.avatar_url ?? null })
+      })
+  }, [searchParams, userId])
 
   useEffect(() => {
     if (!userId || !run) { setMyPaceGroupId(null); return }
@@ -637,7 +653,7 @@ export default function RunPageClient({ runId }: { runId: string }) {
         />
       </div>
 
-      {showChat && userId && (
+      {(showChat || runDmTarget) && userId && (
         <RunChatPanel
           target={{
             type: "run",
@@ -652,7 +668,8 @@ export default function RunPageClient({ runId }: { runId: string }) {
             clubImageUrl: club.image_url,
           }}
           userId={userId}
-          onClose={() => setShowChat(false)}
+          initialDm={runDmTarget ?? undefined}
+          onClose={() => { setShowChat(false); setRunDmTarget(null) }}
         />
       )}
 

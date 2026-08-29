@@ -129,7 +129,7 @@ export default function RunChatPanel({
         type: "dm",
         title: `New message from ${sender?.display_name || "a runner"}`,
         body: text.slice(0, 140),
-        link: target.type === "run" ? `/runs/${target.id}` : `/clubs/${target.id}`,
+        link: target.type === "run" ? `/runs/${target.id}?dm=${userId}` : `/clubs/${target.id}?dm=${userId}`,
         club_id: target.type === "club" ? target.id : null,
         avatar_url: sender?.avatar_url ?? null,
       })

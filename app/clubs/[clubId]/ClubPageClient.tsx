@@ -253,6 +253,17 @@ export default function ClubPageClient({
     load()
   }, [club.id, searchParams])
 
+  // Arriving from a "New message from X" notification (?dm=<their user id>)
+  // opens straight into that DM instead of just landing on the club page.
+  useEffect(() => {
+    const dmUserId = searchParams.get("dm")
+    if (!dmUserId || !userId || dmUserId === userId) return
+    supabase.from("profiles").select("display_name, avatar_url").eq("id", dmUserId).single()
+      .then(({ data }) => {
+        setDmTarget({ userId: dmUserId, name: data?.display_name || "Runner", avatarUrl: data?.avatar_url ?? null })
+      })
+  }, [searchParams, userId])
+
   // Blocks new PAID joins once the klub hits its tier's member cap - free
   // followers are always unlimited (see lib/memberCap.ts), so this only
   // gates becoming a paid member, never the Follow button, and never
