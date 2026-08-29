@@ -5,9 +5,9 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, Clock, MapPin, MessageSquare, CheckCircle2, ExternalLink, PartyPopper, Crown, Lock } from "lucide-react"
 import { supabase } from "@/lib/supabase"
-import { localDateStr, mondayOf } from "@/utils/dates"
+import { mondayOf } from "@/utils/dates"
 import { getTagStyle } from "@/utils/tagStyle"
-import { formatRunTime, type TimedRun } from "@/lib/timezone"
+import { formatRunTime, runStartInstant, type TimedRun } from "@/lib/timezone"
 import RunChatPanel from "@/components/RunChatPanel"
 import MissionCheckInModal from "@/components/MissionCheckInModal"
 import CheckInCelebration from "@/components/CheckInCelebration"
@@ -81,6 +81,14 @@ export default function RunPageClient({ runId }: { runId: string }) {
   const [myRsvp, setMyRsvp] = useState(false)
   const [rsvpSaving, setRsvpSaving] = useState(false)
   const [showWaiverModal, setShowWaiverModal] = useState(false)
+  // Ticks once a minute so the "check in up to 10 minutes before" gate
+  // actually opens on its own while the page is sitting open, instead of
+  // needing a refresh to notice the window arrived.
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000)
+    return () => clearInterval(id)
+  }, [])
 
   // Passport: whether the viewer belongs to this klub at all (director,
   // subscription, or active member) -- the gate below only ever applies to
@@ -97,7 +105,7 @@ export default function RunPageClient({ runId }: { runId: string }) {
   const [buyingShortfall, setBuyingShortfall] = useState(false)
 
   // Fetched client-side (not server-side with the anon key) so RLS evaluates
-  // as the actual signed-in visitor — otherwise an approved member clicking
+  // as the actual signed-in visitor - otherwise an approved member clicking
   // a shared link to their own private run would incorrectly see "not found."
   useEffect(() => {
     const load = async () => {
@@ -335,7 +343,7 @@ export default function RunPageClient({ runId }: { runId: string }) {
     return () => { cancelled = true }
   }, [userId, run])
 
-  // Best-effort — just for the "how far away am I" readout, so a denial
+  // Best-effort - just for the "how far away am I" readout, so a denial
   // here shouldn't block anything else on the page.
   useEffect(() => {
     if (!run || !club || !run.is_in_person) return
@@ -364,9 +372,10 @@ export default function RunPageClient({ runId }: { runId: string }) {
     )
   }
 
-  const todayStr = localDateStr()
-  const isToday = run.date === todayStr
-  const canCheckIn = isToday && run.is_in_person && !passportGateActive
+  const minutesUntilStart = (runStartInstant(run).getTime() - now) / 60_000
+  const checkInEligible = run.is_in_person && !passportGateActive
+  const canCheckIn = checkInEligible && minutesUntilStart <= 10
+  const checkInTooEarly = checkInEligible && !canCheckIn
 
   const openCheckIn = async () => {
     if (!userId || !sessionToken) { router.push("/login"); return }
@@ -388,7 +397,7 @@ export default function RunPageClient({ runId }: { runId: string }) {
   const handleCheckedIn = (data: CheckInResult) => {
     setShowMissionModal(false)
     setCheckedIn(true)
-    // A run only ever gets one check-in per user — if this was a repeat call
+    // A run only ever gets one check-in per user - if this was a repeat call
     // (e.g. the button and the watcher racing), there's nothing new to celebrate.
     if (!data.alreadyCheckedIn) setCelebrationData(data)
   }
@@ -570,6 +579,12 @@ export default function RunPageClient({ runId }: { runId: string }) {
             >
               <ExternalLink className="w-4 h-4" /> RSVP / Manage this run
             </a>
+          )}
+
+          {checkInTooEarly && (
+            <div className="w-full py-3 rounded-2xl text-sm font-bold text-center bg-[#1a2110] border border-[#2e3d1a] text-white/50">
+              This run starts {formatTime(run)} on {new Date(run.date + "T00:00:00").toLocaleDateString("en-US", { month: "numeric", day: "numeric" })} - check in up to 10 minutes before it starts
+            </div>
           )}
 
           {canCheckIn && (
