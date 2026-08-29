@@ -879,13 +879,6 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* LEGAL */}
-        <div className="flex flex-wrap gap-x-5 gap-y-1.5 px-1">
-          <Link href="/terms" className="text-xs text-white/25 hover:text-white/50 transition">Terms of Service</Link>
-          <Link href="/privacy" className="text-xs text-white/25 hover:text-white/50 transition">Privacy Policy</Link>
-          <Link href="/community" className="text-xs text-white/25 hover:text-white/50 transition">Community Guidelines</Link>
-        </div>
-
         {/* SIGN OUT */}
         <div className="bg-[#1e2d12] rounded-2xl overflow-hidden">
           <button
