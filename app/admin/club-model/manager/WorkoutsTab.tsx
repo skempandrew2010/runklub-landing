@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase"
 import { Card, SectionTitle, Input, TextArea, Button } from "./ui"
 import { type WorkoutSegment, formatWorkoutSegment, parseWorkoutStructure, maskMMSS, PACE_OPTIONS, DISTANCE_UNIT_OPTIONS, TIME_UNIT, WORKOUT_DRAG_MIME } from "@/lib/workouts"
 import { Select } from "@/components/Select"
+import ModalPortal from "@/components/ModalPortal"
 
 type WorkoutEntry = { id: string; title: string; description: string | null; structure: WorkoutSegment[] }
 type WorkoutDraft = { title: string; description: string; segments: WorkoutSegment[] }
@@ -228,6 +229,7 @@ export default function WorkoutsTab({ clubId, onWorkoutsChanged }: { clubId: str
       </Card>
 
       {editingId && editDraft && (
+        <ModalPortal>
         <div
           onClick={closeEdit}
           className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm"
@@ -257,6 +259,7 @@ export default function WorkoutsTab({ clubId, onWorkoutsChanged }: { clubId: str
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
     </div>
   )

@@ -5,6 +5,7 @@ import { Calendar, ChevronLeft, ChevronRight, X, Lock } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { mondayOf } from "@/utils/dates"
 import { type WorkoutSegment, formatWorkoutSegment, parseWorkoutStructure, WORKOUT_DRAG_MIME } from "@/lib/workouts"
+import ModalPortal from "@/components/ModalPortal"
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 // day_of_week is stored 0=Sun..6=Sat, but the calendar reads Monday-first.
@@ -289,6 +290,7 @@ export default function WeeklyScheduleTab({ clubId, paceGroupIds, readOnly, refr
       )}
 
       {!readOnly && pickerDay !== null && (
+        <ModalPortal>
         <div
           onClick={() => setPickerDay(null)}
           className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm"
@@ -329,9 +331,11 @@ export default function WeeklyScheduleTab({ clubId, paceGroupIds, readOnly, refr
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
 
       {overviewOpen && (
+        <ModalPortal>
         <div
           onClick={() => setOverviewOpen(false)}
           className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm"
@@ -387,6 +391,7 @@ export default function WeeklyScheduleTab({ clubId, paceGroupIds, readOnly, refr
             )}
           </div>
         </div>
+        </ModalPortal>
       )}
     </div>
   )

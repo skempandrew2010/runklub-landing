@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { Award } from "lucide-react"
 import { CHALLENGE_ICONS } from "@/components/ChallengeCard"
+import ModalPortal from "@/components/ModalPortal"
 
 export type NewlyCompletedChallenge = {
   slug: string
@@ -27,7 +28,7 @@ export default function ChallengeCompleteMoment({
   const [dismissing, setDismissing] = useState(false)
   const current = challenges[index]
 
-  // Real stamps never land perfectly straight — pick the imperfection once per moment.
+  // Real stamps never land perfectly straight - pick the imperfection once per moment.
   const rotation = useMemo(() => Math.round(Math.random() * 12 - 6), [index])
 
   useEffect(() => {
@@ -49,6 +50,7 @@ export default function ChallengeCompleteMoment({
   const Icon = CHALLENGE_ICONS[current.slug] || Award
 
   return (
+    <ModalPortal>
     <div
       onClick={() => setDismissing(true)}
       className={`fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#111a0a]/95 backdrop-blur-sm transition-opacity duration-200 ${dismissing ? "opacity-0" : "opacity-100"}`}
@@ -70,10 +72,11 @@ export default function ChallengeCompleteMoment({
         {current.description && <p className="text-sm text-white/50 mt-2">{current.description}</p>}
         {!!current.target && !!current.metricLabel && (
           <p className="text-sm font-bold text-[#c5f135] mt-3">
-            {current.current} of {current.target} {current.metricLabel} — nailed it 🎉
+            {current.current} of {current.target} {current.metricLabel} - nailed it 🎉
           </p>
         )}
       </div>
     </div>
+    </ModalPortal>
   )
 }

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { X, Check } from "lucide-react"
 import { getRunAttendees, tagRunBuddies, type RunAttendee } from "@/lib/challenges"
+import ModalPortal from "@/components/ModalPortal"
 
 function initialsOf(name: string) {
   return name.split(" ").filter(Boolean).map((w) => w[0]).join("").slice(0, 2).toUpperCase()
@@ -53,6 +54,7 @@ export default function BuddyPicker({
   if (!loading && attendees.length === 0) return null
 
   return (
+    <ModalPortal>
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm">
       <div className="w-full sm:max-w-sm max-h-[85vh] overflow-y-auto bg-[#1e2d12] border border-[#2e3d1a] rounded-t-3xl sm:rounded-3xl p-5 pb-8 sm:pb-5 animate-[fadeUp_0.25s_ease-out_forwards]">
         <div className="flex items-center justify-between mb-1">
@@ -118,5 +120,6 @@ export default function BuddyPicker({
         </div>
       </div>
     </div>
+    </ModalPortal>
   )
 }

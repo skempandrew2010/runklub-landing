@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { ArrowLeft, MapPin, MessageSquare, Send } from "lucide-react"
 import { formatRunTime } from "@/lib/timezone"
+import ModalPortal from "@/components/ModalPortal"
 
 export type RunChatTarget = {
   type: "run"
@@ -127,7 +128,15 @@ export default function RunChatPanel({
   const clubInitials = initialsOf(target.clubName)
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-[#111a0a] animate-[fadeUp_0.25s_ease-out_forwards]" style={{ paddingTop: "env(safe-area-inset-top)" }}>
+    <ModalPortal>
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="w-full sm:max-w-sm sm:max-h-[70vh] bg-[#111a0a] border border-[#2e3d1a] rounded-t-3xl sm:rounded-3xl flex flex-col overflow-hidden animate-[fadeUp_0.25s_ease-out_forwards]"
+        onClick={(e) => e.stopPropagation()}
+      >
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-[#2e3d1a] bg-[#1a2110] shrink-0">
         <button onClick={dm ? () => setDm(null) : onClose} className="text-white/50 hover:text-white transition p-1">
@@ -190,8 +199,8 @@ export default function RunChatPanel({
         </div>
       )}
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+      {/* Messages - a fixed compact height so this reads as a popup, not a full page */}
+      <div className="h-72 overflow-y-auto px-4 py-4 space-y-3">
         {loading ? (
           <div className="flex items-center justify-center h-full">
             <div className="w-6 h-6 border-2 border-[#c5f135]/30 border-t-[#c5f135] rounded-full animate-spin" />
@@ -267,6 +276,8 @@ export default function RunChatPanel({
           <Send className="w-4 h-4 text-[#1a2110]" />
         </button>
       </div>
+      </div>
     </div>
+    </ModalPortal>
   )
 }

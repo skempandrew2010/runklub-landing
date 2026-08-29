@@ -4,6 +4,7 @@ import { useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { useRouter } from "next/navigation"
 import { Eye, EyeOff, X } from "lucide-react"
+import ModalPortal from "@/components/ModalPortal"
 
 type Props = {
   onClose: () => void
@@ -42,6 +43,7 @@ export default function LoginModal({ onClose, onSuccess }: Props) {
   const inputClass = "w-full bg-[#1e2d12] border border-[#2e3d1a] rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-[#c5f135]/60 transition text-sm"
 
   return (
+    <ModalPortal>
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div className="relative w-full sm:max-w-sm max-h-[85vh] overflow-y-auto bg-[#1a2110] sm:rounded-2xl rounded-t-3xl shadow-2xl p-6 space-y-4 z-10 border border-[#2e3d1a]">
@@ -78,5 +80,6 @@ export default function LoginModal({ onClose, onSuccess }: Props) {
         </p>
       </div>
     </div>
+    </ModalPortal>
   )
 }
