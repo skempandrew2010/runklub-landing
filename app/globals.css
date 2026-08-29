@@ -165,24 +165,15 @@ a:active {
 }
 
 /* ── Custom scrollbar ───────────────────────────────────────────────────── */
-/* Same instinct as the custom Select/dropdown panels - the OS-default
-   scrollbar can't be recolored to match the site, so this replaces it with a
-   thin themed one instead of leaving the browser's own bar. */
+/* Recoloring the OS-default bar (scrollbar-width/-color, ::-webkit-scrollbar
+   with a colored thumb) still rendered as the plain system scrollbar on
+   Windows Chrome/Edge - same root problem the custom Select/dropdown panels
+   were built to dodge in the first place. Drop the bar chrome entirely
+   instead, same proven technique as .rk-book-scroller: content still
+   scrolls by touch/wheel/trackpad, there's just no visible track/thumb. */
 .rk-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: #3d5220 transparent;
+  scrollbar-width: none;
 }
 .rk-scroll::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-.rk-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-.rk-scroll::-webkit-scrollbar-thumb {
-  background-color: #3d5220;
-  border-radius: 999px;
-}
-.rk-scroll::-webkit-scrollbar-thumb:hover {
-  background-color: #4a6428;
+  display: none;
 }
