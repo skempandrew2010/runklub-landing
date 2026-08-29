@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { useEffect, useRef, useState } from "react"
 import { Compass, Trophy, UserCircle, Home, Stamp, Flame, BarChart3, PlusCircle } from "lucide-react"
 import { useNavIdentity } from "@/hooks/useNavIdentity"
 import { useViewMode } from "@/hooks/useViewMode"
@@ -12,7 +13,7 @@ export default function Navbar() {
   const isManager = role === "manager"
   const { viewMode } = useViewMode(isManager || isCoach)
   const showDirectorTabs = (isManager || isCoach) && viewMode === "director"
-  // Only prompt "Create a Klub" when there's truly nowhere else to go —
+  // Only prompt "Create a Klub" when there's truly nowhere else to go -
   // someone who already coaches elsewhere gets Analytics/Coaches instead,
   // even if they also hold the manager role with no klub of their own yet.
   const needsClub = showDirectorTabs && isManager && !hasClub && !isCoach
@@ -30,7 +31,7 @@ export default function Navbar() {
     ...(showDirectorTabs
       ? [needsClub
           ? { key: "insights", href: "/submit-club", label: "Create a Klub", Icon: PlusCircle, badge: false }
-          // Klub owners manage Passport payout enrollment here — a
+          // Klub owners manage Passport payout enrollment here - a
           // separate, standalone page (own billing decision, not part of
           // club management). Coaches without a klub of their own keep
           // seeing Analytics instead, since they have no equivalent to
@@ -48,7 +49,7 @@ export default function Navbar() {
 
   const isActive = (href: string) => {
     if (href === "/") return pathname === "/"
-    // "/director" shares a prefix with its sibling standalone pages —
+    // "/director" shares a prefix with its sibling standalone pages -
     // don't let the shorter Director tab light up while actually viewing
     // one of those.
     if (href === "/director") return pathname === "/director" || (pathname.startsWith("/director/") && !pathname.startsWith("/director/analytics") && !pathname.startsWith("/director/passport"))
@@ -58,19 +59,46 @@ export default function Navbar() {
   const profileActive = pathname.startsWith("/profile")
   const initials = user?.email ? user.email[0].toUpperCase() : null
 
+  // Sliding highlight behind the active tab - same mechanic as the director
+  // dashboard's side tab nav (a pill that glides via CSS transform instead
+  // of the background just popping in/out on each tab independently).
+  // Measured via refs rather than fixed math since these tabs vary in width
+  // (icon + label, sometimes a sublabel) and the label hides below `sm`.
+  const tabsContainerRef = useRef<HTMLDivElement>(null)
+  const tabRefs = useRef<Map<string, HTMLAnchorElement>>(new Map())
+  const [highlight, setHighlight] = useState<{ left: number; width: number } | null>(null)
+  const activeKey = tabs.find((t) => isActive(t.href))?.key ?? null
+
+  useEffect(() => {
+    const measure = () => {
+      const el = activeKey ? tabRefs.current.get(activeKey) : null
+      setHighlight(el ? { left: el.offsetLeft, width: el.offsetWidth } : null)
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    if (tabsContainerRef.current) ro.observe(tabsContainerRef.current)
+    return () => ro.disconnect()
+  }, [activeKey])
+
   return (
     <nav className="sticky top-0 z-50 bg-[#1a2110] border-b border-[#2e3d1a]" style={{ paddingTop: 'calc(var(--safe-top) + var(--nav-extra))' }}>
       <div className="max-w-6xl mx-auto flex items-center justify-between sm:justify-start px-5 sm:px-6 h-[68px]">
 
-        {/* Logo — left */}
+        {/* Logo - left */}
         <div className="sm:flex-1">
           <Link href="/explore" className="text-2xl font-black tracking-tight">
             <span className="text-white">Run</span><span className="text-[#c5f135]">Klub</span>
           </Link>
         </div>
 
-        {/* Main nav tabs — centered */}
-        <div className="flex items-center gap-5 sm:gap-6">
+        {/* Main nav tabs - centered */}
+        <div ref={tabsContainerRef} className="relative flex items-center gap-5 sm:gap-6">
+          {highlight && (
+            <div
+              className="absolute top-0 bottom-0 rounded-xl bg-[#c5f135]/10 transition-[left,width] duration-300 ease-out pointer-events-none"
+              style={{ left: highlight.left, width: highlight.width }}
+            />
+          )}
           {tabs.map((tab) => {
             const { key, href, label, Icon, badge } = tab
             const sublabel = "sublabel" in tab ? tab.sublabel : undefined
@@ -79,7 +107,8 @@ export default function Navbar() {
               <Link
                 key={key}
                 href={href}
-                className={`flex flex-col items-center justify-center gap-1 px-2 sm:px-4 py-2 rounded-xl transition ${active ? "bg-[#c5f135]/10" : "hover:bg-[#2e3d1a]"}`}
+                ref={(el) => { if (el) tabRefs.current.set(key, el); else tabRefs.current.delete(key) }}
+                className={`relative z-10 flex flex-col items-center justify-center gap-1 px-2 sm:px-4 py-2 rounded-xl transition ${active ? "" : "hover:bg-[#2e3d1a]"}`}
               >
                 <div className="relative">
                   <Icon
@@ -103,7 +132,7 @@ export default function Navbar() {
           })}
         </div>
 
-        {/* Profile / Log In — right corner */}
+        {/* Profile / Log In - right corner */}
         <div className="flex justify-end sm:flex-1">
           {loaded && !user ? (
             <Link
