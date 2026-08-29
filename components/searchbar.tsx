@@ -158,7 +158,7 @@ export default function SearchBar({ city, setCity, onSearch, clubs, onSelectClub
                     onMouseDown={(e) => { e.preventDefault(); selectClub(club) }}
                     className="w-full text-left px-4 py-2.5 flex items-center gap-3 hover:bg-[#2e3d1a] transition"
                   >
-                    <div className={`w-7 h-7 rounded-lg overflow-hidden shrink-0 bg-gradient-to-br ${gradient} flex items-center justify-center`}>
+                    <div className={`w-7 h-7 rounded-full overflow-hidden shrink-0 bg-gradient-to-br ${gradient} flex items-center justify-center`}>
                       {club.image_url ? (
                         <Image src={club.image_url} alt={club.name} width={28} height={28} className="object-cover w-full h-full" />
                       ) : (

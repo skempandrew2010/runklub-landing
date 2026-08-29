@@ -439,7 +439,7 @@ export default function HubContent() {
                         className="flex items-center gap-3 px-4 py-3.5 hover:bg-[#243018] transition group"
                       >
                         <div
-                          className={`w-11 h-11 rounded-xl shrink-0 overflow-hidden flex items-center justify-center border border-[#3d5220] group-hover:border-[#c5f135]/60 bg-gradient-to-br ${getGradient(club.name)}`}
+                          className={`w-11 h-11 rounded-full shrink-0 overflow-hidden flex items-center justify-center border border-[#3d5220] group-hover:border-[#c5f135]/60 bg-gradient-to-br ${getGradient(club.name)}`}
                         >
                           {club.image_url ? (
                             <img
@@ -582,7 +582,7 @@ export default function HubContent() {
                         href={`/runs/${run.id}`}
                         className="flex items-center gap-3 px-4 py-3.5 hover:bg-[#243018] transition"
                       >
-                        <div className="w-9 h-9 rounded-xl bg-[#2e3d1a] shrink-0 overflow-hidden flex items-center justify-center">
+                        <div className="w-9 h-9 rounded-full bg-[#2e3d1a] shrink-0 overflow-hidden flex items-center justify-center">
                           {run.club_image ? (
                             <img
                               src={run.club_image}
@@ -637,7 +637,7 @@ export default function HubContent() {
                   {managedKlubs.map((club) => (
                     <div key={club.id} className="px-4 py-4 flex items-center gap-3">
                       <div
-                        className={`w-11 h-11 rounded-xl shrink-0 overflow-hidden flex items-center justify-center border border-[#3d5220] bg-gradient-to-br ${getGradient(club.name)}`}
+                        className={`w-11 h-11 rounded-full shrink-0 overflow-hidden flex items-center justify-center border border-[#3d5220] bg-gradient-to-br ${getGradient(club.name)}`}
                       >
                         {club.image_url ? (
                           <img

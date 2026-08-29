@@ -438,7 +438,7 @@ export default function ClubPageClient({
           </button>
 
           <div className="flex items-end gap-4">
-            <div className={`w-20 h-20 rounded-2xl overflow-hidden shrink-0 bg-gradient-to-br ${gradient} flex items-center justify-center border border-white/10`}>
+            <div className={`w-20 h-20 rounded-full overflow-hidden shrink-0 bg-gradient-to-br ${gradient} flex items-center justify-center border border-white/10`}>
               {club.image_url
                 ? <img src={club.image_url} alt={club.name} className="w-full h-full object-cover" />
                 : <span className="text-2xl font-black text-white/30">{initials}</span>

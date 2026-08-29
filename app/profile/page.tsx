@@ -477,7 +477,7 @@ export default function ProfilePage() {
           <div className="bg-[#1e2d12] rounded-2xl overflow-hidden divide-y divide-[#2e3d1a]">
             {allKlubs.length === 0 ? (
               <div className="px-4 py-5 text-sm text-white/40 text-center">
-                No klubs yet —{" "}
+                No klubs yet -{" "}
                 <Link href="/explore" className="text-[#c5f135] hover:underline">discover klubs</Link>
               </div>
             ) : (
@@ -487,11 +487,11 @@ export default function ProfilePage() {
                 return (
                   <div key={club.id} className="flex items-center gap-3 px-4 py-3.5">
                     <div
-                      className="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-black shrink-0"
+                      className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-black shrink-0 overflow-hidden"
                       style={{ background: `linear-gradient(135deg, ${bg}, #1a2110)` }}
                     >
                       {(club as any).image_url ? (
-                        <img src={(club as any).image_url} alt="" className="w-full h-full object-cover rounded-xl" />
+                        <img src={(club as any).image_url} alt="" className="w-full h-full object-cover" />
                       ) : (
                         <span className="text-white/80">{abbr}</span>
                       )}
@@ -533,7 +533,7 @@ export default function ProfilePage() {
           <div className="bg-[#1e2d12] rounded-2xl p-4">
             <p className="text-xs text-white/40 mb-3 leading-relaxed">
               {isManager || isCoach
-                ? "Switch your view between the Director tab and browsing as a member — this doesn't change your account."
+                ? "Switch your view between the Director tab and browsing as a member - this doesn't change your account."
                 : "Switch between running a klub or joining one. This changes your Director tab."}
             </p>
             <div className="grid grid-cols-2 gap-2">
@@ -572,7 +572,7 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* KLUB MEMBERSHIP — paid membership(s) as a runner, kept separate from the director plan below */}
+        {/* KLUB MEMBERSHIP - paid membership(s) as a runner, kept separate from the director plan below */}
         {paidMemberships.length > 0 && (
           <div>
             <h2 className="text-xs font-bold text-white/40 tracking-widest uppercase px-1 mb-2">Klub Membership</h2>
@@ -605,7 +605,7 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* MANAGE SUBSCRIPTIONS — shown for anyone who owns/manages a klub, even on Free */}
+        {/* MANAGE SUBSCRIPTIONS - shown for anyone who owns/manages a klub, even on Free */}
         {myClubs.length > 0 && (
           <div>
             <h2 className="text-xs font-bold text-white/40 tracking-widest uppercase px-1 mb-2">Subscriptions</h2>
@@ -684,7 +684,7 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* SUBSCRIPTION TIERS — director view only, so directors see what each klub plan unlocks */}
+        {/* SUBSCRIPTION TIERS - director view only, so directors see what each klub plan unlocks */}
         {isManager && viewMode === "director" && (
           <div>
             <h2 className="text-xs font-bold text-white/40 tracking-widest uppercase px-1 mb-2">Subscription Tiers</h2>
@@ -724,7 +724,7 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* PASSPORT CREDITS — member view only. Real Stripe checkout/portal now
+        {/* PASSPORT CREDITS - member view only. Real Stripe checkout/portal now
             that the credit program is functional, not just a preview. */}
         {viewMode === "member" && (
           <div>
@@ -744,7 +744,7 @@ export default function ProfilePage() {
                     <span className="text-sm font-black text-[#c5f135] shrink-0">{passportCreditBalance} credits</span>
                   </div>
                   <p className="text-xs text-white/40 mt-2 leading-relaxed">
-                    Spend credits checking in at partner klubs beyond your home klub — unspent credits expire 45 days after they're issued.
+                    Spend credits checking in at partner klubs beyond your home klub - unspent credits expire 45 days after they're issued.
                   </p>
                   {!nativeApp && (
                     <button
@@ -794,7 +794,7 @@ export default function ProfilePage() {
                       <div className="mt-3 flex items-start gap-2 bg-[#c5f135]/10 border border-[#c5f135]/30 rounded-xl px-3 py-2.5">
                         <Zap className="w-3.5 h-3.5 text-[#c5f135] shrink-0 mt-0.5" />
                         <p className="text-xs text-[#c5f135] leading-relaxed">
-                          <span className="font-black">Pay yearly, save 10%</span> vs. paying monthly — and credits still land every month, not all at once.
+                          <span className="font-black">Pay yearly, save 10%</span> vs. paying monthly - and credits still land every month, not all at once.
                         </p>
                       </div>
 

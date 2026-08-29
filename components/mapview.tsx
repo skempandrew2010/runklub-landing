@@ -153,7 +153,7 @@ export default function MapView({ city, runs, clubs, onCityCoords, onBoundsChang
   // column) faster than Mapbox repaints, leaving a stale/incomplete frame
   // baked into the canvas with nothing to trigger a redraw afterward.
   // resize() alone doesn't help since the canvas's actual size never changes
-  // (only its position does) — triggerRepaint() forces a fresh frame
+  // (only its position does) - triggerRepaint() forces a fresh frame
   // regardless of whether Mapbox thinks anything changed.
   useEffect(() => {
     if (!mapReady) return
@@ -229,7 +229,7 @@ export default function MapView({ city, runs, clubs, onCityCoords, onBoundsChang
           const lat = match.center[1]
           const lng = match.center[0]
           onCityCoords?.({ lat, lng })
-          // Build bbox — use geocoding result or fall back to a ~0.15° box around center
+          // Build bbox - use geocoding result or fall back to a ~0.15° box around center
           const bbox: [number, number, number, number] = match.bbox
             ? (match.bbox as [number, number, number, number])
             : [lng - 0.15, lat - 0.15, lng + 0.15, lat + 0.15]
@@ -246,7 +246,7 @@ export default function MapView({ city, runs, clubs, onCityCoords, onBoundsChang
     return () => clearTimeout(timer)
   }, [city])
 
-  // Group runs by their effective location — run coords → club coords → geocoded city
+  // Group runs by their effective location - run coords → club coords → geocoded city
   const locationGroups = useMemo(() => {
     const groups: LocationGroup[] = []
     const seen: Record<string, LocationGroup> = {}
@@ -391,7 +391,7 @@ export default function MapView({ city, runs, clubs, onCityCoords, onBoundsChang
         </Marker>
       )}
 
-      {/* Run pins — teardrop for individual locations, bubble for clusters */}
+      {/* Run pins - teardrop for individual locations, bubble for clusters */}
       {mapReady && displayClusters.map((item) => {
         if (item.isCluster) {
           const clusterOwned = !ownedClubIds || item.groups.some((g) => g.runs.some((r) => ownedClubIds.has(r.club_id)))
@@ -458,7 +458,7 @@ export default function MapView({ city, runs, clubs, onCityCoords, onBoundsChang
         )
       })}
 
-      {/* Club-only pins — shown when no upcoming runs exist for the club */}
+      {/* Club-only pins - shown when no upcoming runs exist for the club */}
       {mapReady && clubOnlyPins.map((club) => {
         const clubOwned = !ownedClubIds || ownedClubIds.has(club.id)
         return (
@@ -500,7 +500,7 @@ export default function MapView({ city, runs, clubs, onCityCoords, onBoundsChang
         >
           <div onClick={(e) => e.stopPropagation()} style={{ minWidth: 210 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px" }}>
-              <div style={{ width: 34, height: 34, borderRadius: 8, background: "#2e3d1a", overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ width: 34, height: 34, borderRadius: "50%", background: "#2e3d1a", overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 {selectedClubPin.image_url ? (
                   <img src={selectedClubPin.image_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                 ) : (
@@ -560,7 +560,7 @@ export default function MapView({ city, runs, clubs, onCityCoords, onBoundsChang
             <div onClick={(e) => e.stopPropagation()} style={{ minWidth: 220 }}>
               {/* Header */}
               <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderBottom: "1px solid #2e3d1a" }}>
-                <div style={{ width: 34, height: 34, borderRadius: 8, background: "#2e3d1a", overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <div style={{ width: 34, height: 34, borderRadius: "50%", background: "#2e3d1a", overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
                   {headerImage ? (
                     <img src={headerImage} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                   ) : (

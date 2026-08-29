@@ -164,7 +164,7 @@ export default function RunChatPanel({
           </>
         ) : (
           <>
-            <div className="w-9 h-9 rounded-xl overflow-hidden shrink-0 flex items-center justify-center bg-[#2e3d1a]">
+            <div className="w-9 h-9 rounded-full overflow-hidden shrink-0 flex items-center justify-center bg-[#2e3d1a]">
               {target.clubImageUrl
                 ? <img src={target.clubImageUrl} alt="" className="w-full h-full object-cover" />
                 : <span className="text-xs font-black text-[#c5f135]">{clubInitials}</span>
