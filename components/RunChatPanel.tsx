@@ -219,7 +219,7 @@ export default function RunChatPanel({
       )}
 
       {/* Messages - a fixed compact height so this reads as a popup, not a full page */}
-      <div className="h-72 overflow-y-auto px-4 py-4 space-y-3">
+      <div className="h-72 overflow-y-auto px-4 py-4 space-y-3 rk-scroll">
         {loading ? (
           <div className="flex items-center justify-center h-full">
             <div className="w-6 h-6 border-2 border-[#c5f135]/30 border-t-[#c5f135] rounded-full animate-spin" />
