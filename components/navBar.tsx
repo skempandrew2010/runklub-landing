@@ -1,15 +1,17 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useSearchParams } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import { Compass, Trophy, UserCircle, Home, Stamp, Flame, BarChart3, PlusCircle } from "lucide-react"
 import { useNavIdentity } from "@/hooks/useNavIdentity"
 import { useViewMode } from "@/hooks/useViewMode"
+import NavClubSwitcher from "@/components/NavClubSwitcher"
 
 export default function Navbar() {
   const pathname = usePathname()
-  const { user, role, avatarUrl, loaded, hasUnread, hasClub, isCoach, clubCount, primaryClubName } = useNavIdentity()
+  const searchParams = useSearchParams()
+  const { user, role, avatarUrl, loaded, hasUnread, hasClub, isCoach, clubCount, primaryClubName, coachClubs } = useNavIdentity()
   const isManager = role === "manager"
   const { viewMode } = useViewMode(isManager || isCoach)
   const showDirectorTabs = (isManager || isCoach) && viewMode === "director"
@@ -23,7 +25,14 @@ export default function Navbar() {
   // director and a coach shows the /director?as= picker instead of landing
   // anywhere specific, so naming one there would be a straight-up lie.
   const willShowPicker = isManager && isCoach
-  const directorSublabel = !willShowPicker && clubCount > 1 ? primaryClubName ?? undefined : undefined
+  // Coaching more than one klub with no director klub of your own: clicking
+  // the tab opens a switcher instead of navigating straight in, since there's
+  // no single obvious klub to land on.
+  const coachOnlyMultiClub = isCoach && !isManager && coachClubs.length > 1
+  const activeClubId = searchParams.get("club_id")
+  const directorSublabel = coachOnlyMultiClub
+    ? coachClubs.find((c) => c.id === activeClubId)?.name ?? primaryClubName ?? undefined
+    : !willShowPicker && clubCount > 1 ? primaryClubName ?? undefined : undefined
 
   const tabs = [
     { key: "home",     href: "/",           label: "Home",       Icon: Home,    badge: !showDirectorTabs && hasUnread },
@@ -65,7 +74,7 @@ export default function Navbar() {
   // Measured via refs rather than fixed math since these tabs vary in width
   // (icon + label, sometimes a sublabel) and the label hides below `sm`.
   const tabsContainerRef = useRef<HTMLDivElement>(null)
-  const tabRefs = useRef<Map<string, HTMLAnchorElement>>(new Map())
+  const tabRefs = useRef<Map<string, HTMLElement>>(new Map())
   const [highlight, setHighlight] = useState<{ left: number; width: number } | null>(null)
   const activeKey = tabs.find((t) => isActive(t.href))?.key ?? null
 
@@ -103,13 +112,9 @@ export default function Navbar() {
             const { key, href, label, Icon, badge } = tab
             const sublabel = "sublabel" in tab ? tab.sublabel : undefined
             const active = isActive(href)
-            return (
-              <Link
-                key={key}
-                href={href}
-                ref={(el) => { if (el) tabRefs.current.set(key, el); else tabRefs.current.delete(key) }}
-                className={`relative z-10 flex flex-col items-center justify-center gap-1 px-2 sm:px-4 py-2 rounded-xl transition ${active ? "" : "hover:bg-[#2e3d1a]"}`}
-              >
+            const triggerClassName = `relative z-10 flex flex-col items-center justify-center gap-1 px-2 sm:px-4 py-2 rounded-xl transition ${active ? "" : "hover:bg-[#2e3d1a]"}`
+            const content = (
+              <>
                 <div className="relative">
                   <Icon
                     className={`w-5 h-5 transition-colors ${active ? "text-[#c5f135]" : "text-white/35"}`}
@@ -127,6 +132,31 @@ export default function Navbar() {
                     {sublabel}
                   </span>
                 )}
+              </>
+            )
+
+            if (key === "director" && coachOnlyMultiClub) {
+              return (
+                <NavClubSwitcher
+                  key={key}
+                  clubs={coachClubs}
+                  activeClubId={activeClubId}
+                  triggerClassName={triggerClassName}
+                  registerRef={(el) => { if (el) tabRefs.current.set(key, el); else tabRefs.current.delete(key) }}
+                >
+                  {content}
+                </NavClubSwitcher>
+              )
+            }
+
+            return (
+              <Link
+                key={key}
+                href={href}
+                ref={(el) => { if (el) tabRefs.current.set(key, el); else tabRefs.current.delete(key) }}
+                className={triggerClassName}
+              >
+                {content}
               </Link>
             )
           })}

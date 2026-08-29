@@ -7,6 +7,7 @@ import { formatPaceRange, parsePace } from "@/lib/clubModel/pace"
 import { matchPaceGroup } from "@/lib/clubModel/matching"
 import { RACE_DISTANCE_LABELS, type RaceDistance, parseRaceTime, raceTimeToMarathonPace, marathonTimeRangeLabel } from "@/lib/clubModel/raceEquivalency"
 import { Select } from "@/components/Select"
+import ModalPortal from "@/components/ModalPortal"
 
 export type PaceGroupJoinResult = {
   paceGroupId: string
@@ -88,6 +89,7 @@ export default function PaceGroupJoinModal({
   }
 
   return (
+    <ModalPortal>
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm">
       <div className="w-full sm:max-w-sm max-h-[85vh] overflow-y-auto bg-[#1e2d12] border border-[#2e3d1a] rounded-t-3xl sm:rounded-3xl p-5 pb-8 sm:pb-5 animate-[fadeUp_0.25s_ease-out_forwards]">
         <div className="flex items-center justify-between mb-1">
@@ -191,5 +193,6 @@ export default function PaceGroupJoinModal({
         )}
       </div>
     </div>
+    </ModalPortal>
   )
 }

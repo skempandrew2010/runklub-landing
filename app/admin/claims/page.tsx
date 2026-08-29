@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { Check, X, Clock, ExternalLink, Send, RotateCcw, Search, Ban, Trash2, AlertTriangle, ChevronDown, ChevronUp, Globe, Mail } from "lucide-react"
+import ModalPortal from "@/components/ModalPortal"
 
 type Claim = {
   id: string
@@ -1519,6 +1520,7 @@ export default function AdminClaimsPage() {
 
     {/* Delete confirmation modal */}
     {deleteTarget && (
+      <ModalPortal>
       <div className="fixed inset-0 z-50 flex items-center justify-center px-5">
         <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={closeDelete} />
         <div className="relative bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-6 w-full max-w-sm max-h-[85vh] overflow-y-auto space-y-4">
@@ -1557,6 +1559,7 @@ export default function AdminClaimsPage() {
           </div>
         </div>
       </div>
+      </ModalPortal>
     )}
     </div>
   )

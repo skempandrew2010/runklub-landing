@@ -5,6 +5,7 @@ import { Calendar, ChevronLeft, ChevronRight, X, Lock } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { mondayOf } from "@/utils/dates"
 import { type WorkoutSegment, formatWorkoutSegment, parseWorkoutStructure, WORKOUT_DRAG_MIME } from "@/lib/workouts"
+import ModalPortal from "@/components/ModalPortal"
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 // day_of_week is stored 0=Sun..6=Sat, but the calendar reads Monday-first.
@@ -45,6 +46,18 @@ export default function WeeklyScheduleTab({ clubId, paceGroupIds, readOnly, refr
   const [overviewOpen, setOverviewOpen] = useState(false)
   const [overviewLoading, setOverviewLoading] = useState(false)
   const [overviewSchedule, setOverviewSchedule] = useState<Record<string, Record<number, string | null>>>({})
+
+  // Switching to a different klub (e.g. the coach nav switcher) reuses this
+  // same mounted component - reset the pace-group selection and the loaded
+  // schedule so the effects below don't keep querying with the previous
+  // klub's pace_group_id (which produces empty/wrong results) until some
+  // unrelated interaction like a tab change happens to remount things.
+  useEffect(() => {
+    setSelectedPaceGroupId(null)
+    setSchedule({})
+    setRunsByDay({})
+    setLoading(true)
+  }, [clubId])
 
   useEffect(() => {
     let query = supabase.from("pace_groups").select("id, name").eq("club_id", clubId).order("pace_min")
@@ -200,7 +213,7 @@ export default function WeeklyScheduleTab({ clubId, paceGroupIds, readOnly, refr
       {loading ? (
         <p className="text-white/60 text-sm">Loading…</p>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-7 gap-2">
+        <div className={`grid grid-cols-1 gap-2 ${readOnly ? "" : "lg:grid-cols-7"}`}>
           {DAY_ORDER.map((day, i) => {
             const label = DAY_LABELS[day]
             const dateStr = addDays(selectedWeek, i)
@@ -241,16 +254,16 @@ export default function WeeklyScheduleTab({ clubId, paceGroupIds, readOnly, refr
                 </div>
 
                 {selected ? (
-                  <div className="bg-[#1e2d12] border border-[#c5f135]/25 rounded-lg px-2 py-2 space-y-1">
-                    <p className="text-xs font-bold text-[#c5f135]">{selected.name}</p>
+                  <div className="bg-[#1e2d12] border border-[#c5f135]/25 rounded-lg px-2 py-2 space-y-1 min-w-0">
+                    <p className="text-xs font-bold text-[#c5f135] break-words">{selected.name}</p>
                     {selected.structure.length > 0 && (
                       <ul className="space-y-0.5">
                         {selected.structure.map((seg, i) => (
-                          <li key={i} className="text-[11px] text-[#c5f135]/70 font-semibold">{formatWorkoutSegment(seg)}</li>
+                          <li key={i} className="text-[11px] text-[#c5f135]/70 font-semibold break-words">{formatWorkoutSegment(seg)}</li>
                         ))}
                       </ul>
                     )}
-                    {selected.description && <p className="text-[11px] text-white/50 leading-relaxed">{selected.description}</p>}
+                    {selected.description && <p className="text-[11px] text-white/50 leading-relaxed break-words">{selected.description}</p>}
                     {!readOnly && (
                       <button
                         type="button"
@@ -270,7 +283,7 @@ export default function WeeklyScheduleTab({ clubId, paceGroupIds, readOnly, refr
 
                 {readOnly ? (
                   row.notes && (
-                    <p className="w-full min-w-0 text-white/40 text-xs px-2 py-1.5 leading-relaxed">{row.notes}</p>
+                    <p className="w-full min-w-0 text-white/40 text-xs px-2 py-1.5 leading-relaxed break-words">{row.notes}</p>
                   )
                 ) : (
                   <input
@@ -289,6 +302,7 @@ export default function WeeklyScheduleTab({ clubId, paceGroupIds, readOnly, refr
       )}
 
       {!readOnly && pickerDay !== null && (
+        <ModalPortal>
         <div
           onClick={() => setPickerDay(null)}
           className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm"
@@ -320,18 +334,20 @@ export default function WeeklyScheduleTab({ clubId, paceGroupIds, readOnly, refr
                       : "bg-[#1a2110] border-[#2e3d1a] hover:border-[#c5f135]/40"
                   }`}
                 >
-                  <p className="text-xs font-bold text-white">{w.name}</p>
+                  <p className="text-xs font-bold text-white break-words">{w.name}</p>
                   {w.structure.length > 0 && (
-                    <p className="text-[11px] text-[#c5f135]/70 mt-0.5">{w.structure.map(formatWorkoutSegment).join(" · ")}</p>
+                    <p className="text-[11px] text-[#c5f135]/70 mt-0.5 break-words">{w.structure.map(formatWorkoutSegment).join(" · ")}</p>
                   )}
                 </button>
               ))}
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
 
       {overviewOpen && (
+        <ModalPortal>
         <div
           onClick={() => setOverviewOpen(false)}
           className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm"
@@ -387,6 +403,7 @@ export default function WeeklyScheduleTab({ clubId, paceGroupIds, readOnly, refr
             )}
           </div>
         </div>
+        </ModalPortal>
       )}
     </div>
   )

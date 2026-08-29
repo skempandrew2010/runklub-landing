@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { Award } from "lucide-react"
 import { isNativeApp } from "@/utils/platform"
 import { TIER_ICONS } from "@/components/TierCard"
+import ModalPortal from "@/components/ModalPortal"
 
 const AUTO_DISMISS_MS = 3400
 
@@ -35,6 +36,7 @@ export default function BadgeUnlockModal({ badges, onDone }: { badges: UnlockedB
   if (badges.length === 0) return null
 
   return (
+    <ModalPortal>
     <div
       onClick={() => setDismissing(true)}
       className={`fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#111a0a]/95 backdrop-blur-sm transition-opacity duration-200 ${dismissing ? "opacity-0" : "opacity-100"}`}
@@ -59,5 +61,6 @@ export default function BadgeUnlockModal({ badges, onDone }: { badges: UnlockedB
         })}
       </div>
     </div>
+    </ModalPortal>
   )
 }

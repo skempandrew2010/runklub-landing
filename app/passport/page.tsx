@@ -24,6 +24,7 @@ import TierCard from "@/components/TierCard"
 import LoginModal from "@/components/LoginModal"
 import PassportWaitlist from "@/components/PassportWaitlist"
 import { PASSPORT_LAUNCHED } from "@/lib/passportConfig"
+import ModalPortal from "@/components/ModalPortal"
 
 type PreviewCity = { id: string; name: string; state: string | null; flag_asset_url: string | null }
 
@@ -317,6 +318,7 @@ function StampActionSheet({
 }) {
   const gradient = getGradient(slot.club_name)
   return (
+    <ModalPortal>
     <div
       onClick={onClose}
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm"
@@ -373,6 +375,7 @@ function StampActionSheet({
         </div>
       </div>
     </div>
+    </ModalPortal>
   )
 }
 

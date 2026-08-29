@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { X, FileText } from "lucide-react"
 import { interceptExternalClick } from "@/utils/openExternal"
+import ModalPortal from "@/components/ModalPortal"
 
 /** Shown once, before a member's first self-service check-in with a klub that has a waiver_url set - a lightweight acknowledgment, not a collected/stored signature. */
 export default function WaiverAckModal({
@@ -19,6 +20,7 @@ export default function WaiverAckModal({
   const [checked, setChecked] = useState(false)
 
   return (
+    <ModalPortal>
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm">
       <div className="w-full sm:max-w-sm max-h-[85vh] overflow-y-auto bg-[#1e2d12] border border-[#2e3d1a] rounded-t-3xl sm:rounded-3xl p-5 pb-8 sm:pb-5 animate-[fadeUp_0.25s_ease-out_forwards]">
         <div className="flex items-center justify-between mb-1">
@@ -73,5 +75,6 @@ export default function WaiverAckModal({
         </button>
       </div>
     </div>
+    </ModalPortal>
   )
 }

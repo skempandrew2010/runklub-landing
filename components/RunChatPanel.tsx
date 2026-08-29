@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { ArrowLeft, MapPin, MessageSquare, Send } from "lucide-react"
 import { formatRunTime } from "@/lib/timezone"
+import ModalPortal from "@/components/ModalPortal"
 
 export type RunChatTarget = {
   type: "run"
@@ -76,6 +77,12 @@ export default function RunChatPanel({
   const [loading, setLoading] = useState(true)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  // Only true once the viewer has actually drilled into a DM from the group
+  // view in this session - that's the only case where "back" landing on the
+  // group view makes sense. A DM opened directly (initialDm, e.g. "Message
+  // the director") never showed a group view here, so back should close the
+  // whole popup and return to whatever page it was opened from instead.
+  const dmFromGroupRef = useRef(false)
 
   const targetColumn = target.type === "run" ? "run_id" : "club_id"
 
@@ -121,16 +128,25 @@ export default function RunChatPanel({
 
   const startDm = (msg: ChatMessage) => {
     if (dm || msg.user_id === userId) return
+    dmFromGroupRef.current = true
     setDm({ userId: msg.user_id, name: msg.profiles?.display_name || "Runner", avatarUrl: msg.profiles?.avatar_url ?? null })
   }
 
   const clubInitials = initialsOf(target.clubName)
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-[#111a0a] animate-[fadeUp_0.25s_ease-out_forwards]" style={{ paddingTop: "env(safe-area-inset-top)" }}>
+    <ModalPortal>
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="w-full sm:max-w-sm sm:max-h-[70vh] bg-[#111a0a] border border-[#2e3d1a] rounded-t-3xl sm:rounded-3xl flex flex-col overflow-hidden animate-[fadeUp_0.25s_ease-out_forwards]"
+        onClick={(e) => e.stopPropagation()}
+      >
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-[#2e3d1a] bg-[#1a2110] shrink-0">
-        <button onClick={dm ? () => setDm(null) : onClose} className="text-white/50 hover:text-white transition p-1">
+        <button onClick={dm && dmFromGroupRef.current ? () => setDm(null) : onClose} className="text-white/50 hover:text-white transition p-1">
           <ArrowLeft className="w-5 h-5" />
         </button>
         {dm ? (
@@ -190,8 +206,8 @@ export default function RunChatPanel({
         </div>
       )}
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+      {/* Messages - a fixed compact height so this reads as a popup, not a full page */}
+      <div className="h-72 overflow-y-auto px-4 py-4 space-y-3">
         {loading ? (
           <div className="flex items-center justify-center h-full">
             <div className="w-6 h-6 border-2 border-[#c5f135]/30 border-t-[#c5f135] rounded-full animate-spin" />
@@ -267,6 +283,8 @@ export default function RunChatPanel({
           <Send className="w-4 h-4 text-[#1a2110]" />
         </button>
       </div>
+      </div>
     </div>
+    </ModalPortal>
   )
 }

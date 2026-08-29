@@ -18,6 +18,7 @@ import Image from "next/image"
 import { getTagStyle } from "@/utils/tagStyle"
 import { Select } from "@/components/Select"
 import { setLastMainTab } from "@/utils/lastMainTab"
+import ModalPortal from "@/components/ModalPortal"
 
 type SortOption = "closest" | "popular" | "newest"
 type RunSortOption = "time" | "closest"
@@ -800,6 +801,7 @@ function ExplorePageInner() {
       )}
 
       {deleteTarget && (
+        <ModalPortal>
         <div className="fixed inset-0 z-50 flex items-center justify-center px-5">
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={closeDelete} />
           <div className="relative bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-6 w-full max-w-sm max-h-[85vh] overflow-y-auto space-y-4">
@@ -838,6 +840,7 @@ function ExplorePageInner() {
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
     </>
   )

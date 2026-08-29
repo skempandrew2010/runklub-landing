@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { Share2 } from "lucide-react"
 import { isNativeApp } from "@/utils/platform"
+import ModalPortal from "@/components/ModalPortal"
 
 const GRADIENTS = [
   "from-[#2d5a1b] to-[#111a0a]", "from-[#1b3d5a] to-[#111a0a]",
@@ -25,7 +26,7 @@ async function fireHaptic() {
   try {
     const { Haptics, ImpactStyle } = await import("@capacitor/haptics")
     await Haptics.impact({ style: ImpactStyle.Medium })
-  } catch { /* haptics unavailable — visual/animation still lands fine without it */ }
+  } catch { /* haptics unavailable - visual/animation still lands fine without it */ }
 }
 
 async function shareImage(url: string) {
@@ -66,7 +67,7 @@ export default function CheckInMoment({
   shareCardUrl,
   onDone,
 }: CheckInMomentProps) {
-  // Real stamps never land perfectly straight — pick the imperfection once per moment.
+  // Real stamps never land perfectly straight - pick the imperfection once per moment.
   const rotation = useMemo(() => Math.round(Math.random() * 12 - 6), [])
   const [dismissing, setDismissing] = useState(false)
   const [sharing, setSharing] = useState(false)
@@ -87,6 +88,7 @@ export default function CheckInMoment({
   const initials = initialsOf(clubName)
 
   return (
+    <ModalPortal>
     <div
       onClick={() => setDismissing(true)}
       className={`fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#111a0a]/95 backdrop-blur-sm transition-opacity duration-200 ${dismissing ? "opacity-0" : "opacity-100"}`}
@@ -151,5 +153,6 @@ export default function CheckInMoment({
         )}
       </div>
     </div>
+    </ModalPortal>
   )
 }

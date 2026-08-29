@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { CheckCircle2 } from "lucide-react"
 import { isNativeApp } from "@/utils/platform"
+import ModalPortal from "@/components/ModalPortal"
 
 const AUTO_DISMISS_MS = 2000
 
@@ -11,10 +12,10 @@ async function fireHaptic() {
   try {
     const { Haptics, ImpactStyle } = await import("@capacitor/haptics")
     await Haptics.impact({ style: ImpactStyle.Light })
-  } catch { /* haptics unavailable — the popup still lands fine without it */ }
+  } catch { /* haptics unavailable - the popup still lands fine without it */ }
 }
 
-/** Unconditional "you're all checked in" confirmation — always shown first, independent of whether the passport/badge rollup succeeded. */
+/** Unconditional "you're all checked in" confirmation - always shown first, independent of whether the passport/badge rollup succeeded. */
 export default function CheckInConfirmation({ onDone }: { onDone: () => void }) {
   const [dismissing, setDismissing] = useState(false)
 
@@ -31,6 +32,7 @@ export default function CheckInConfirmation({ onDone }: { onDone: () => void }) 
   }, [dismissing, onDone])
 
   return (
+    <ModalPortal>
     <div
       onClick={() => setDismissing(true)}
       className={`fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#111a0a]/95 backdrop-blur-sm transition-opacity duration-200 ${dismissing ? "opacity-0" : "opacity-100"}`}
@@ -43,5 +45,6 @@ export default function CheckInConfirmation({ onDone }: { onDone: () => void }) 
       </div>
       <p className="animate-stamp-context mt-8 text-2xl font-black text-white">You&apos;re all checked in!</p>
     </div>
+    </ModalPortal>
   )
 }
