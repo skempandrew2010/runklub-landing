@@ -47,6 +47,18 @@ export default function WeeklyScheduleTab({ clubId, paceGroupIds, readOnly, refr
   const [overviewLoading, setOverviewLoading] = useState(false)
   const [overviewSchedule, setOverviewSchedule] = useState<Record<string, Record<number, string | null>>>({})
 
+  // Switching to a different klub (e.g. the coach nav switcher) reuses this
+  // same mounted component - reset the pace-group selection and the loaded
+  // schedule so the effects below don't keep querying with the previous
+  // klub's pace_group_id (which produces empty/wrong results) until some
+  // unrelated interaction like a tab change happens to remount things.
+  useEffect(() => {
+    setSelectedPaceGroupId(null)
+    setSchedule({})
+    setRunsByDay({})
+    setLoading(true)
+  }, [clubId])
+
   useEffect(() => {
     let query = supabase.from("pace_groups").select("id, name").eq("club_id", clubId).order("pace_min")
     if (paceGroupIds) query = query.in("id", paceGroupIds.length > 0 ? paceGroupIds : ["00000000-0000-0000-0000-000000000000"])
@@ -201,7 +213,7 @@ export default function WeeklyScheduleTab({ clubId, paceGroupIds, readOnly, refr
       {loading ? (
         <p className="text-white/60 text-sm">Loading…</p>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-7 gap-2">
+        <div className={`grid grid-cols-1 gap-2 ${readOnly ? "" : "lg:grid-cols-7"}`}>
           {DAY_ORDER.map((day, i) => {
             const label = DAY_LABELS[day]
             const dateStr = addDays(selectedWeek, i)
