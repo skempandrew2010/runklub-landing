@@ -21,6 +21,7 @@ import type { PaceGroup } from "@/lib/clubModel/types"
 import { formatPaceRange } from "@/lib/clubModel/pace"
 import { marathonTimeRangeLabel } from "@/lib/clubModel/raceEquivalency"
 import { memberLimitForTier } from "@/lib/memberCap"
+import { getLastMainTab } from "@/utils/lastMainTab"
 import { track } from "@vercel/analytics"
 
 export type Club = {
@@ -288,13 +289,14 @@ export default function ClubPageClient({
   const memberCapLimit = memberLimitForTier(club.tier as any)
   const atMemberCap = memberCapLimit !== null && paidMemberCount !== null && paidMemberCount >= memberCapLimit && !isPaidMember
 
-  // Returns to wherever the user actually came from (Home, Explore, a
-  // search result, etc.) instead of always landing on Explore -- falls back
-  // there only when this page was opened with no prior history (a shared
-  // link, a new tab).
+  // Always goes to whichever of Home/Discover was visited most recently,
+  // rather than router.back() - browser history isn't reliable here (e.g.
+  // Club -> Run -> Club -> back could bounce between Run and Club forever,
+  // since the run page always links straight back to its club instead of
+  // using history). This keeps the loop from ever happening: Run always
+  // goes to Club, Club always goes to Home or Discover.
   const goBack = () => {
-    if (typeof window !== "undefined" && window.history.length > 1) router.back()
-    else router.push("/explore")
+    router.push(getLastMainTab() === "home" ? "/" : "/explore")
   }
 
   const handleFollow = async () => {

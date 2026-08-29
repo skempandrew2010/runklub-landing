@@ -10,6 +10,7 @@ import CoachHomeSummary from "@/components/CoachHomeSummary"
 import FadeIn from "@/components/FadeIn"
 import { useNavIdentity } from "@/hooks/useNavIdentity"
 import { useViewMode } from "@/hooks/useViewMode"
+import { setLastMainTab } from "@/utils/lastMainTab"
 
 // Supabase persists the session in localStorage under a project-scoped key
 // (sb-<project-ref>-auth-token) before the SDK ever makes an async call --
@@ -39,7 +40,8 @@ export default function RootPage() {
     const isAuthRedirect =
       hash.includes("access_token=") &&
       (hash.includes("type=invite") || hash.includes("type=magiclink"))
-    if (isAuthRedirect) router.replace(`/welcome${hash}`)
+    if (isAuthRedirect) { router.replace(`/welcome${hash}`); return }
+    setLastMainTab("home")
   }, [router])
 
   // Signed-in users get the Hub here instead of the marketing page. Defaults

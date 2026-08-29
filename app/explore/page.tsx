@@ -17,6 +17,7 @@ import { SlidersHorizontal, CalendarCheck, Clock, MapPin, Lock, Crown } from "lu
 import Image from "next/image"
 import { getTagStyle } from "@/utils/tagStyle"
 import { Select } from "@/components/Select"
+import { setLastMainTab } from "@/utils/lastMainTab"
 
 type SortOption = "closest" | "popular" | "newest"
 type RunSortOption = "time" | "closest"
@@ -126,6 +127,10 @@ function ExplorePageInner() {
     }
     return new Set()
   })
+
+  useEffect(() => {
+    setLastMainTab("explore")
+  }, [])
 
   useEffect(() => {
     const getUser = async () => {
