@@ -254,16 +254,16 @@ export default function WeeklyScheduleTab({ clubId, paceGroupIds, readOnly, refr
                 </div>
 
                 {selected ? (
-                  <div className="bg-[#1e2d12] border border-[#c5f135]/25 rounded-lg px-2 py-2 space-y-1">
-                    <p className="text-xs font-bold text-[#c5f135]">{selected.name}</p>
+                  <div className="bg-[#1e2d12] border border-[#c5f135]/25 rounded-lg px-2 py-2 space-y-1 min-w-0">
+                    <p className="text-xs font-bold text-[#c5f135] break-words">{selected.name}</p>
                     {selected.structure.length > 0 && (
                       <ul className="space-y-0.5">
                         {selected.structure.map((seg, i) => (
-                          <li key={i} className="text-[11px] text-[#c5f135]/70 font-semibold">{formatWorkoutSegment(seg)}</li>
+                          <li key={i} className="text-[11px] text-[#c5f135]/70 font-semibold break-words">{formatWorkoutSegment(seg)}</li>
                         ))}
                       </ul>
                     )}
-                    {selected.description && <p className="text-[11px] text-white/50 leading-relaxed">{selected.description}</p>}
+                    {selected.description && <p className="text-[11px] text-white/50 leading-relaxed break-words">{selected.description}</p>}
                     {!readOnly && (
                       <button
                         type="button"
@@ -283,7 +283,7 @@ export default function WeeklyScheduleTab({ clubId, paceGroupIds, readOnly, refr
 
                 {readOnly ? (
                   row.notes && (
-                    <p className="w-full min-w-0 text-white/40 text-xs px-2 py-1.5 leading-relaxed">{row.notes}</p>
+                    <p className="w-full min-w-0 text-white/40 text-xs px-2 py-1.5 leading-relaxed break-words">{row.notes}</p>
                   )
                 ) : (
                   <input
@@ -334,9 +334,9 @@ export default function WeeklyScheduleTab({ clubId, paceGroupIds, readOnly, refr
                       : "bg-[#1a2110] border-[#2e3d1a] hover:border-[#c5f135]/40"
                   }`}
                 >
-                  <p className="text-xs font-bold text-white">{w.name}</p>
+                  <p className="text-xs font-bold text-white break-words">{w.name}</p>
                   {w.structure.length > 0 && (
-                    <p className="text-[11px] text-[#c5f135]/70 mt-0.5">{w.structure.map(formatWorkoutSegment).join(" · ")}</p>
+                    <p className="text-[11px] text-[#c5f135]/70 mt-0.5 break-words">{w.structure.map(formatWorkoutSegment).join(" · ")}</p>
                   )}
                 </button>
               ))}
