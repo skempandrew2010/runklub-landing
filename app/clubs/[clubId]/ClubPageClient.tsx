@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
-import { Heart, MapPin, Clock, Users, ArrowLeft, ExternalLink, MessageSquare, ChevronRight, Globe, FileText, Mail } from "lucide-react"
+import { Heart, MapPin, Clock, Users, ArrowLeft, ExternalLink, ChevronRight, Globe, FileText, Mail } from "lucide-react"
 import { getTagStyle } from "@/utils/tagStyle"
 import { localDateStr } from "@/utils/dates"
 import { formatRunTime } from "@/lib/timezone"
@@ -22,6 +22,8 @@ import { formatPaceRange } from "@/lib/clubModel/pace"
 import { marathonTimeRangeLabel } from "@/lib/clubModel/raceEquivalency"
 import { memberLimitForTier } from "@/lib/memberCap"
 import { getLastMainTab } from "@/utils/lastMainTab"
+import { useKlubMessaging } from "@/hooks/useKlubMessaging"
+import MessagingSidebar from "@/components/MessagingSidebar"
 import { track } from "@vercel/analytics"
 
 export type Club = {
@@ -99,8 +101,6 @@ export default function ClubPageClient({
   const [joinBanner, setJoinBanner] = useState(false)
   const [showClubChat, setShowClubChat] = useState(false)
   const [dmTarget, setDmTarget] = useState<{ userId: string; name: string; avatarUrl: string | null } | null>(null)
-  const [myCoach, setMyCoach] = useState<{ userId: string; name: string } | null>(null)
-  const [director, setDirector] = useState<{ userId: string; name: string; avatarUrl: string | null } | null>(null)
   const [isPaidMember, setIsPaidMember] = useState(false)
   // Starts true so the Follow/Join/Member button row waits for the real
   // membership check instead of briefly rendering as "not a member" (the
@@ -163,36 +163,7 @@ export default function ClubPageClient({
       .then(({ data }) => setPaceGroups((data as PaceGroup[]) ?? []))
   }, [club.id])
 
-  // Director info for the "Ask my director" DM entry point below.
-  useEffect(() => {
-    if (!club.user_id) return
-    supabase
-      .from("profiles")
-      .select("display_name, avatar_url")
-      .eq("id", club.user_id)
-      .single()
-      .then(({ data }) => {
-        if (data) setDirector({ userId: club.user_id!, name: data.display_name || club.name, avatarUrl: data.avatar_url ?? null })
-      })
-  }, [club.user_id, club.name])
-
-  // "My coach" is whichever active coach is scoped to my pace group (or
-  // scoped to none, i.e. covers the whole klub) - same matching logic as
-  // the director's own coach-scoping UI. Needs a signed-in user since
-  // coaches_select_members RLS requires a subscriptions row for the club.
-  useEffect(() => {
-    if (!userId) { setMyCoach(null); return }
-    supabase
-      .from("coaches")
-      .select("user_id, name, pace_group_ids, status")
-      .eq("club_id", club.id)
-      .eq("status", "active")
-      .then(({ data }) => {
-        const coaches = (data ?? []) as { user_id: string; name: string; pace_group_ids: string[] | null }[]
-        const match = coaches.find((c) => !c.pace_group_ids?.length || (myPaceGroupId && c.pace_group_ids.includes(myPaceGroupId))) ?? coaches[0] ?? null
-        setMyCoach(match ? { userId: match.user_id, name: match.name } : null)
-      })
-  }, [club.id, userId, myPaceGroupId])
+  const { director, coach: myCoach } = useKlubMessaging(club.id, club.user_id, userId, myPaceGroupId)
 
   useEffect(() => {
     supabase
@@ -843,57 +814,20 @@ export default function ClubPageClient({
           <ChevronRight className="w-4 h-4 text-white/20 shrink-0" />
         </Link>
 
-        {/* ── MESSAGES ── */}
-        {userId && isSubscribed ? (
-          <button
-            onClick={() => setShowClubChat(true)}
-            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-[#1e2d12] border border-[#2e3d1a] hover:border-[#c5f135]/30 transition text-left"
-          >
-            <div className="w-9 h-9 rounded-full bg-[#2e3d1a] flex items-center justify-center shrink-0">
-              <MessageSquare className="w-4 h-4 text-[#c5f135]" />
-            </div>
-            <div>
-              <p className="text-sm font-bold text-white">Messages</p>
-              <p className="text-xs text-white/40 mt-0.5">Group chat, or message a member privately</p>
-            </div>
-          </button>
-        ) : !userId ? (
-          <button
-            onClick={() => router.push("/login")}
-            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-[#1e2d12] border border-[#2e3d1a] hover:border-[#c5f135]/30 transition text-left"
-          >
-            <div className="w-8 h-8 rounded-full bg-[#2e3d1a] flex items-center justify-center shrink-0">
-              <MessageSquare className="w-4 h-4 text-white/30" />
-            </div>
-            <div>
-              <p className="text-sm font-bold text-white/60">Sign in to chat</p>
-              <p className="text-xs text-white/30 mt-0.5">Message the klub or ask about upcoming runs</p>
-            </div>
-          </button>
-        ) : null}
-
-        {/* ── ASK MY COACH / ASK MY DIRECTOR (private DMs) ── */}
-        {userId && isSubscribed && ((myCoach && myCoach.userId !== userId) || (director && director.userId !== userId)) && (
-          <div className="flex gap-2 flex-wrap">
-            {myCoach && myCoach.userId !== userId && (
-              <button
-                onClick={() => setDmTarget({ userId: myCoach.userId, name: myCoach.name, avatarUrl: null })}
-                className="flex-1 min-w-[150px] flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#1e2d12] border border-[#2e3d1a] hover:border-[#c5f135]/30 transition text-left"
-              >
-                <MessageSquare className="w-3.5 h-3.5 text-[#c5f135] shrink-0" />
-                <span className="text-xs font-bold text-white truncate">Ask my coach</span>
-              </button>
-            )}
-            {director && director.userId !== userId && (
-              <button
-                onClick={() => setDmTarget({ userId: director.userId, name: director.name, avatarUrl: director.avatarUrl })}
-                className="flex-1 min-w-[150px] flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#1e2d12] border border-[#2e3d1a] hover:border-[#c5f135]/30 transition text-left"
-              >
-                <MessageSquare className="w-3.5 h-3.5 text-[#c5f135] shrink-0" />
-                <span className="text-xs font-bold text-white truncate">Ask my director</span>
-              </button>
-            )}
-          </div>
+        {/* ── MESSAGES (group chat, my director, my coach) ── */}
+        {(!userId || isSubscribed) && (
+          <MessagingSidebar
+            loggedIn={!!userId}
+            currentUserId={userId}
+            director={director}
+            coach={myCoach}
+            groupChatLabel={club.name}
+            groupChatSubtitle="Group chat"
+            onOpenGroupChat={() => setShowClubChat(true)}
+            onOpenDirector={() => director && setDmTarget({ userId: director.userId, name: director.name, avatarUrl: director.avatarUrl })}
+            onOpenCoach={() => myCoach && setDmTarget({ userId: myCoach.userId, name: myCoach.name, avatarUrl: myCoach.avatarUrl })}
+            onRequireLogin={() => router.push("/login")}
+          />
         )}
 
         {/* ── LEADERBOARD (members only) ── */}

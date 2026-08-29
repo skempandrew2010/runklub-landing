@@ -3,12 +3,14 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Clock, MapPin, MessageSquare, CheckCircle2, ExternalLink, PartyPopper, Crown, Lock } from "lucide-react"
+import { ArrowLeft, Clock, MapPin, CheckCircle2, ExternalLink, PartyPopper, Crown, Lock } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { mondayOf } from "@/utils/dates"
 import { getTagStyle } from "@/utils/tagStyle"
 import { formatRunTime, runStartInstant, type TimedRun } from "@/lib/timezone"
-import RunChatPanel from "@/components/RunChatPanel"
+import RunChatPanel, { type DmTarget } from "@/components/RunChatPanel"
+import { useKlubMessaging } from "@/hooks/useKlubMessaging"
+import MessagingSidebar from "@/components/MessagingSidebar"
 import MissionCheckInModal from "@/components/MissionCheckInModal"
 import CheckInCelebration from "@/components/CheckInCelebration"
 import CheckInProximityMap from "@/components/CheckInProximityMap"
@@ -73,6 +75,8 @@ export default function RunPageClient({ runId }: { runId: string }) {
   const [checkedIn, setCheckedIn] = useState(false)
   const [celebrationData, setCelebrationData] = useState<CheckInResult | null>(null)
   const [showChat, setShowChat] = useState(false)
+  const [dmTarget, setDmTarget] = useState<DmTarget | null>(null)
+  const [myPaceGroupId, setMyPaceGroupId] = useState<string | null>(null)
   const [showMissionModal, setShowMissionModal] = useState(false)
   const [position, setPosition] = useState<{ lat: number; lng: number } | null>(null)
   const [positionError, setPositionError] = useState<string | null>(null)
@@ -173,6 +177,19 @@ export default function RunPageClient({ runId }: { runId: string }) {
       setSessionToken(session?.access_token ?? null)
     })
   }, [])
+
+  useEffect(() => {
+    if (!userId || !run) { setMyPaceGroupId(null); return }
+    supabase
+      .from("subscriptions")
+      .select("pace_group_id")
+      .eq("club_id", run.club_id)
+      .eq("user_id", userId)
+      .maybeSingle()
+      .then(({ data }) => setMyPaceGroupId((data as any)?.pace_group_id ?? null))
+  }, [userId, run])
+
+  const { director, coach: myCoach } = useKlubMessaging(run?.club_id ?? "", club?.user_id, userId, myPaceGroupId)
 
   useEffect(() => {
     if (!userId || !run) return
@@ -606,30 +623,18 @@ export default function RunPageClient({ runId }: { runId: string }) {
           )}
         </div>
 
-        {userId ? (
-          <button
-            onClick={() => setShowChat(true)}
-            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-[#1e2d12] border border-[#2e3d1a] hover:border-[#c5f135]/30 transition text-left"
-          >
-            <div className="w-9 h-9 rounded-full bg-[#2e3d1a] flex items-center justify-center shrink-0">
-              <MessageSquare className="w-4 h-4 text-[#c5f135]" />
-            </div>
-            <div>
-              <p className="text-sm font-bold text-white">Messages</p>
-              <p className="text-xs text-white/40 mt-0.5">Group chat, or message a member privately</p>
-            </div>
-          </button>
-        ) : (
-          <button
-            onClick={() => router.push("/login")}
-            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-[#1e2d12] border border-[#2e3d1a] hover:border-[#c5f135]/30 transition text-left"
-          >
-            <div className="w-9 h-9 rounded-full bg-[#2e3d1a] flex items-center justify-center shrink-0">
-              <MessageSquare className="w-4 h-4 text-white/30" />
-            </div>
-            <p className="text-sm font-bold text-white/60">Sign in to check in and chat</p>
-          </button>
-        )}
+        <MessagingSidebar
+          loggedIn={!!userId}
+          currentUserId={userId}
+          director={director}
+          coach={myCoach}
+          groupChatLabel={run.title}
+          groupChatSubtitle="Run chat"
+          onOpenGroupChat={() => setShowChat(true)}
+          onOpenDirector={() => director && setDmTarget({ userId: director.userId, name: director.name, avatarUrl: director.avatarUrl })}
+          onOpenCoach={() => myCoach && setDmTarget({ userId: myCoach.userId, name: myCoach.name, avatarUrl: myCoach.avatarUrl })}
+          onRequireLogin={() => router.push("/login")}
+        />
       </div>
 
       {showChat && userId && (
@@ -648,6 +653,22 @@ export default function RunPageClient({ runId }: { runId: string }) {
           }}
           userId={userId}
           onClose={() => setShowChat(false)}
+        />
+      )}
+
+      {/* Director/coach DMs are club-scoped (not run-scoped) so the same
+          conversation carries across every run at this klub. */}
+      {dmTarget && userId && (
+        <RunChatPanel
+          target={{
+            type: "club",
+            id: run.club_id,
+            clubName: club.name,
+            clubImageUrl: club.image_url,
+          }}
+          userId={userId}
+          initialDm={dmTarget}
+          onClose={() => setDmTarget(null)}
         />
       )}
 
