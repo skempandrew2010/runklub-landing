@@ -1,18 +1,20 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useSearchParams } from "next/navigation"
 import { Compass, Trophy, UserCircle, Home, Stamp, Flame, BarChart3, PlusCircle } from "lucide-react"
 import { useNavIdentity } from "@/hooks/useNavIdentity"
 import { useViewMode } from "@/hooks/useViewMode"
+import NavClubSwitcher from "@/components/NavClubSwitcher"
 
 export default function BottomBar() {
   const pathname = usePathname()
-  const { role, hasUnread, hasClub, isCoach, clubCount, primaryClubName } = useNavIdentity()
+  const searchParams = useSearchParams()
+  const { role, hasUnread, hasClub, isCoach, clubCount, primaryClubName, coachClubs } = useNavIdentity()
   const isManager = role === "manager"
   const { viewMode } = useViewMode(isManager || isCoach)
   const showDirectorTabs = (isManager || isCoach) && viewMode === "director"
-  // Only prompt "Create a Klub" when there's truly nowhere else to go —
+  // Only prompt "Create a Klub" when there's truly nowhere else to go -
   // someone who already coaches elsewhere gets Analytics/Coaches instead,
   // even if they also hold the manager role with no klub of their own yet.
   const needsClub = showDirectorTabs && isManager && !hasClub && !isCoach
@@ -22,7 +24,13 @@ export default function BottomBar() {
   // director and a coach shows the /director?as= picker instead of landing
   // anywhere specific, so naming one there would be a straight-up lie.
   const willShowPicker = isManager && isCoach
-  const directorSublabel = !willShowPicker && clubCount > 1 ? primaryClubName ?? undefined : undefined
+  // Coaching more than one klub with no director klub of your own: tapping
+  // the tab opens a switcher instead of navigating straight in.
+  const coachOnlyMultiClub = isCoach && !isManager && coachClubs.length > 1
+  const activeClubId = searchParams.get("club_id")
+  const directorSublabel = coachOnlyMultiClub
+    ? coachClubs.find((c) => c.id === activeClubId)?.name ?? primaryClubName ?? undefined
+    : !willShowPicker && clubCount > 1 ? primaryClubName ?? undefined : undefined
 
   const tabs = [
     { key: "home",      href: "/",           label: "Home",     Icon: Home,    badge: !showDirectorTabs && hasUnread },
@@ -30,7 +38,7 @@ export default function BottomBar() {
     ...(showDirectorTabs
       ? [needsClub
           ? { key: "insights", href: "/submit-club", label: "Create a Klub", Icon: PlusCircle, badge: false }
-          // Klub owners manage Passport payout enrollment here — a
+          // Klub owners manage Passport payout enrollment here - a
           // separate, standalone page (own billing decision, not part of
           // club management). Coaches without a klub of their own keep
           // seeing Analytics instead, since they have no equivalent to
@@ -49,7 +57,7 @@ export default function BottomBar() {
 
   const isActive = (href: string) => {
     if (href === "/") return pathname === "/"
-    // "/director" shares a prefix with its sibling standalone pages —
+    // "/director" shares a prefix with its sibling standalone pages -
     // don't let the shorter Director tab light up while actually viewing
     // one of those.
     if (href === "/director") return pathname === "/director" || (pathname.startsWith("/director/") && !pathname.startsWith("/director/analytics") && !pathname.startsWith("/director/passport"))
@@ -63,12 +71,9 @@ export default function BottomBar() {
           const { key, href, label, Icon, badge } = tab
           const sublabel = "sublabel" in tab ? tab.sublabel : undefined
           const active = isActive(href)
-          return (
-            <Link
-              key={key}
-              href={href}
-              className="flex-1 flex flex-col items-center justify-center gap-1 px-1 transition-colors"
-            >
+          const triggerClassName = "flex-1 flex flex-col items-center justify-center gap-1 px-1 transition-colors"
+          const content = (
+            <>
               <div className="relative">
                 <Icon
                   className={`w-5 h-5 transition-colors ${active ? "text-[#c5f135]" : "text-white/35"}`}
@@ -86,6 +91,26 @@ export default function BottomBar() {
                   {sublabel}
                 </span>
               )}
+            </>
+          )
+
+          if (key === "director" && coachOnlyMultiClub) {
+            return (
+              <NavClubSwitcher
+                key={key}
+                clubs={coachClubs}
+                activeClubId={activeClubId}
+                openUp
+                triggerClassName={triggerClassName}
+              >
+                {content}
+              </NavClubSwitcher>
+            )
+          }
+
+          return (
+            <Link key={key} href={href} className={triggerClassName}>
+              {content}
             </Link>
           )
         })}

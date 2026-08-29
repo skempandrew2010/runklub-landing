@@ -9,7 +9,6 @@ import RunChatPanel, { type ChatTarget, type DmTarget } from "@/components/RunCh
 import CoachCheckInRoster from "@/components/CoachCheckInRoster"
 import PendingCoachInviteBanner from "@/components/PendingCoachInviteBanner"
 import WeeklyScheduleTab from "@/app/director/WeeklyScheduleTab"
-import { Select } from "@/components/Select"
 
 type DashboardRun = {
   id: string
@@ -104,33 +103,15 @@ export default function CoachDashboard({ userId, clubId, initialTab }: { userId:
   const [chatTarget, setChatTarget] = useState<ChatTarget | null>(null)
   const [chatInitialDm, setChatInitialDm] = useState<DmTarget | undefined>(undefined)
 
-  // Every klub this account actively coaches, for the switcher dropdown -
-  // only rendered once there's more than one to choose between.
-  const [coachClubs, setCoachClubs] = useState<{ id: string; name: string }[]>([])
-  const [switchedClubId, setSwitchedClubId] = useState<string | null>(null)
   const loadIdRef = useRef(0)
 
   useEffect(() => {
-    supabase
-      .from("coaches")
-      .select("club_id, clubs(name)")
-      .eq("user_id", userId)
-      .eq("status", "active")
-      .then(({ data: rows }) => {
-        const list = ((rows ?? []) as any[])
-          .filter((r) => r.clubs)
-          .map((r) => ({ id: r.club_id as string, name: r.clubs.name as string }))
-        setCoachClubs(list)
-      })
-  }, [userId])
-
-  useEffect(() => {
     const load = async () => {
-      // A specific clubId (e.g. just accepted that klub's coach invite) skips
-      // the auto-pick entirely, so accepting an invite always scopes you to
-      // that klub instead of whichever one you coached first. A manual pick
-      // from the switcher always wins once one's been made.
-      let targetClubId = switchedClubId ?? clubId
+      // A specific clubId (e.g. just accepted that klub's coach invite, or
+      // picked from the klub switcher on the "Coaches" nav tab) skips the
+      // auto-pick entirely, so both always scope you to that klub instead of
+      // whichever one you coached first.
+      let targetClubId = clubId
       if (!targetClubId) {
         const { data: coachRows } = await supabase.from("coaches").select("club_id").eq("user_id", userId).eq("status", "active").order("accepted_at", { ascending: false }).limit(1)
         targetClubId = coachRows?.[0]?.club_id
@@ -154,7 +135,7 @@ export default function CoachDashboard({ userId, clubId, initialTab }: { userId:
       setRefetching(false)
     }
     load()
-  }, [userId, clubId, switchedClubId])
+  }, [userId, clubId])
 
   if (loading && !data) {
     return (
@@ -198,17 +179,7 @@ export default function CoachDashboard({ userId, clubId, initialTab }: { userId:
         <PendingCoachInviteBanner />
 
         <div>
-          {coachClubs.length > 1 ? (
-            <Select
-              value={data.clubId}
-              onChange={(e) => setSwitchedClubId(e.target.value)}
-              className="text-xs font-bold text-[#c5f135] uppercase tracking-widest bg-transparent border-0 px-0 py-0 mb-1 -ml-0.5"
-            >
-              {coachClubs.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </Select>
-          ) : (
-            <p className="text-xs font-bold text-[#c5f135]/60 uppercase tracking-widest mb-1">{data.clubName}</p>
-          )}
+          <p className="text-xs font-bold text-[#c5f135]/60 uppercase tracking-widest mb-1">{data.clubName}</p>
           <h1 className="text-2xl font-black text-white leading-tight">
             Coach Dashboard{refetching && <span className="ml-2 inline-block w-3.5 h-3.5 border-2 border-[#c5f135]/30 border-t-[#c5f135] rounded-full animate-spin align-middle" />}
           </h1>
