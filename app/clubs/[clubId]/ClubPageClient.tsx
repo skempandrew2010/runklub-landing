@@ -749,6 +749,22 @@ export default function ClubPageClient({
           )}
         </div>
 
+        {/* ── MESSAGES (group chat, my director, my coach) ── */}
+        {(!userId || isSubscribed) && (
+          <MessagingSidebar
+            loggedIn={!!userId}
+            currentUserId={userId}
+            director={director}
+            coach={myCoach}
+            groupChatLabel={club.name}
+            groupChatSubtitle="Group chat"
+            onOpenGroupChat={() => setShowClubChat(true)}
+            onOpenDirector={() => director && setDmTarget({ userId: director.userId, name: director.name, avatarUrl: director.avatarUrl })}
+            onOpenCoach={() => myCoach && setDmTarget({ userId: myCoach.userId, name: myCoach.name, avatarUrl: myCoach.avatarUrl })}
+            onRequireLogin={() => router.push("/login")}
+          />
+        )}
+
         {/* ── MY PACE GROUP ── */}
         {myPaceGroup ? (
           <div className="bg-[#1e2d12] rounded-2xl border border-[#2e3d1a] p-4">
@@ -813,22 +829,6 @@ export default function ClubPageClient({
           )}
           <ChevronRight className="w-4 h-4 text-white/20 shrink-0" />
         </Link>
-
-        {/* ── MESSAGES (group chat, my director, my coach) ── */}
-        {(!userId || isSubscribed) && (
-          <MessagingSidebar
-            loggedIn={!!userId}
-            currentUserId={userId}
-            director={director}
-            coach={myCoach}
-            groupChatLabel={club.name}
-            groupChatSubtitle="Group chat"
-            onOpenGroupChat={() => setShowClubChat(true)}
-            onOpenDirector={() => director && setDmTarget({ userId: director.userId, name: director.name, avatarUrl: director.avatarUrl })}
-            onOpenCoach={() => myCoach && setDmTarget({ userId: myCoach.userId, name: myCoach.name, avatarUrl: myCoach.avatarUrl })}
-            onRequireLogin={() => router.push("/login")}
-          />
-        )}
 
         {/* ── LEADERBOARD (members only) ── */}
         <div ref={leaderboardRef}>
