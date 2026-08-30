@@ -122,6 +122,18 @@ export default function RunChatPanel({
       recipient_id: dm?.userId ?? null,
       message: text,
     })
+    if (dm) {
+      const { data: sender } = await supabase.from("profiles").select("display_name, avatar_url").eq("id", userId).single()
+      await supabase.from("notifications").insert({
+        user_id: dm.userId,
+        type: "dm",
+        title: `New message from ${sender?.display_name || "a runner"}`,
+        body: text.slice(0, 140),
+        link: target.type === "run" ? `/runs/${target.id}?dm=${userId}` : `/clubs/${target.id}?dm=${userId}`,
+        club_id: target.type === "club" ? target.id : null,
+        avatar_url: sender?.avatar_url ?? null,
+      })
+    }
     setSending(false)
     inputRef.current?.focus()
   }
@@ -207,7 +219,7 @@ export default function RunChatPanel({
       )}
 
       {/* Messages - a fixed compact height so this reads as a popup, not a full page */}
-      <div className="h-72 overflow-y-auto px-4 py-4 space-y-3">
+      <div className="h-72 overflow-y-auto px-4 py-4 space-y-3 rk-scroll">
         {loading ? (
           <div className="flex items-center justify-center h-full">
             <div className="w-6 h-6 border-2 border-[#c5f135]/30 border-t-[#c5f135] rounded-full animate-spin" />

@@ -163,3 +163,17 @@ a:active {
 .rk-book-spine {
   background: linear-gradient(90deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0) 100%);
 }
+
+/* ── Custom scrollbar ───────────────────────────────────────────────────── */
+/* Recoloring the OS-default bar (scrollbar-width/-color, ::-webkit-scrollbar
+   with a colored thumb) still rendered as the plain system scrollbar on
+   Windows Chrome/Edge - same root problem the custom Select/dropdown panels
+   were built to dodge in the first place. Drop the bar chrome entirely
+   instead, same proven technique as .rk-book-scroller: content still
+   scrolls by touch/wheel/trackpad, there's just no visible track/thumb. */
+.rk-scroll {
+  scrollbar-width: none;
+}
+.rk-scroll::-webkit-scrollbar {
+  display: none;
+}

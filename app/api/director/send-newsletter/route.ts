@@ -203,6 +203,17 @@ export async function POST(req: NextRequest) {
       is_public: !!is_public,
     })
 
+    await adminSupabase.from("notifications").insert(
+      subIds.map((subId) => ({
+        user_id: subId,
+        type: "newsletter" as const,
+        title: `${club.name}: ${subject.trim()}`,
+        body: message.trim().slice(0, 140),
+        link: `/clubs/${club_id}/newsletters`,
+        club_id,
+      }))
+    )
+
     return NextResponse.json({ ok: true, sent, failed, total: emails.length })
   } catch (err: any) {
     console.error("send-newsletter error:", err)

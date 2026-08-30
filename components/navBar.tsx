@@ -7,6 +7,7 @@ import { Compass, Trophy, UserCircle, Home, Stamp, Flame, BarChart3, PlusCircle 
 import { useNavIdentity } from "@/hooks/useNavIdentity"
 import { useViewMode } from "@/hooks/useViewMode"
 import NavClubSwitcher from "@/components/NavClubSwitcher"
+import NotificationBell from "@/components/NotificationBell"
 
 export default function Navbar() {
   const pathname = usePathname()
@@ -162,8 +163,8 @@ export default function Navbar() {
           })}
         </div>
 
-        {/* Profile / Log In - right corner */}
-        <div className="flex justify-end sm:flex-1">
+        {/* Notifications + Profile / Log In - right corner */}
+        <div className="flex items-center justify-end gap-1 sm:flex-1">
           {loaded && !user ? (
             <Link
               href="/login"
@@ -171,30 +172,33 @@ export default function Navbar() {
             >
               Log In
             </Link>
-          ) : (
-            <Link
-              href="/profile"
-              className={`flex flex-col items-center justify-center gap-1 px-2 sm:px-4 py-2 rounded-xl transition ${profileActive ? "bg-[#c5f135]/10" : "hover:bg-[#2e3d1a]"}`}
-            >
-              {avatarUrl ? (
-                <div className={`w-6 h-6 rounded-full overflow-hidden ${profileActive ? "ring-2 ring-[#c5f135]" : ""}`}>
-                  <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
-                </div>
-              ) : initials ? (
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black ${profileActive ? "bg-[#c5f135] text-[#1a2110]" : "bg-[#2e3d1a] border border-[#3d5220] text-[#c5f135]"}`}>
-                  {initials}
-                </div>
-              ) : (
-                <UserCircle
-                  className={`w-5 h-5 transition-colors ${profileActive ? "text-[#c5f135]" : "text-white/35"}`}
-                  strokeWidth={profileActive ? 2.5 : 1.75}
-                />
-              )}
-              <span className={`hidden sm:block text-[10px] font-semibold tracking-wide transition-colors ${profileActive ? "text-[#c5f135]" : "text-white/30"}`}>
-                Profile
-              </span>
-            </Link>
-          )}
+          ) : user ? (
+            <>
+              <NotificationBell userId={user.id} className="w-9 h-9 rounded-xl hover:bg-[#2e3d1a]" />
+              <Link
+                href="/profile"
+                className={`flex flex-col items-center justify-center gap-1 px-2 sm:px-4 py-2 rounded-xl transition ${profileActive ? "bg-[#c5f135]/10" : "hover:bg-[#2e3d1a]"}`}
+              >
+                {avatarUrl ? (
+                  <div className={`w-6 h-6 rounded-full overflow-hidden ${profileActive ? "ring-2 ring-[#c5f135]" : ""}`}>
+                    <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+                  </div>
+                ) : initials ? (
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black ${profileActive ? "bg-[#c5f135] text-[#1a2110]" : "bg-[#2e3d1a] border border-[#3d5220] text-[#c5f135]"}`}>
+                    {initials}
+                  </div>
+                ) : (
+                  <UserCircle
+                    className={`w-5 h-5 transition-colors ${profileActive ? "text-[#c5f135]" : "text-white/35"}`}
+                    strokeWidth={profileActive ? 2.5 : 1.75}
+                  />
+                )}
+                <span className={`hidden sm:block text-[10px] font-semibold tracking-wide transition-colors ${profileActive ? "text-[#c5f135]" : "text-white/30"}`}>
+                  Profile
+                </span>
+              </Link>
+            </>
+          ) : null}
         </div>
 
       </div>
