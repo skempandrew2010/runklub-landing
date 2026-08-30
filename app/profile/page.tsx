@@ -555,16 +555,16 @@ export default function ProfilePage() {
                       setViewMode(key)
                     }}
                     disabled={roleChanging}
-                    className={`rounded-xl p-3.5 text-left border transition-all disabled:opacity-60
+                    className={`rounded-xl p-3.5 text-left border transition-all duration-300 ease-out disabled:opacity-60
                       ${active
                         ? "bg-[#c5f135]/10 border-[#c5f135] shadow-[0_0_0_1px_#c5f135]"
                         : "bg-[#1a2110] border-[#2e3d1a] hover:border-white/20"
                       }`}
                   >
-                    <Icon className={`w-5 h-5 mb-2 ${active ? "text-[#c5f135]" : "text-white/30"}`} />
-                    <p className={`text-sm font-bold ${active ? "text-white" : "text-white/50"}`}>{label}</p>
-                    <p className={`text-xs mt-0.5 ${active ? "text-white/50" : "text-white/25"}`}>{sub}</p>
-                    {active && <Check className="w-3.5 h-3.5 text-[#c5f135] mt-1.5" />}
+                    <Icon className={`w-5 h-5 mb-2 transition-colors duration-300 ${active ? "text-[#c5f135]" : "text-white/30"}`} />
+                    <p className={`text-sm font-bold transition-colors duration-300 ${active ? "text-white" : "text-white/50"}`}>{label}</p>
+                    <p className={`text-xs mt-0.5 transition-colors duration-300 ${active ? "text-white/50" : "text-white/25"}`}>{sub}</p>
+                    {active && <Check className="w-3.5 h-3.5 text-[#c5f135] mt-1.5 animate-[fadeUp_0.15s_ease-out_forwards]" />}
                   </button>
                 )
               })}
@@ -686,7 +686,7 @@ export default function ProfilePage() {
 
         {/* SUBSCRIPTION TIERS - director view only, so directors see what each klub plan unlocks */}
         {isManager && viewMode === "director" && (
-          <div>
+          <div key="director" className="animate-[fadeUp_0.2s_ease-out_forwards]">
             <h2 className="text-xs font-bold text-white/40 tracking-widest uppercase px-1 mb-2">Subscription Tiers</h2>
             <div className="bg-[#1e2d12] rounded-2xl overflow-hidden divide-y divide-[#2e3d1a]">
               {PLAN_ORDER.map((id) => {
@@ -727,7 +727,7 @@ export default function ProfilePage() {
         {/* PASSPORT CREDITS - member view only. Real Stripe checkout/portal now
             that the credit program is functional, not just a preview. */}
         {viewMode === "member" && (
-          <div>
+          <div key="member" className="animate-[fadeUp_0.2s_ease-out_forwards]">
             <h2 className="text-xs font-bold text-white/40 tracking-widest uppercase px-1 mb-2">Passport Credits</h2>
             <div className="bg-[#1e2d12] rounded-2xl overflow-hidden">
               {passportSub ? (
@@ -859,15 +859,19 @@ export default function ProfilePage() {
             <div className="flex items-center px-4 py-4 gap-3">
               <Ruler className="w-5 h-5 text-white/50 shrink-0" />
               <span className="flex-1 text-sm font-medium text-white">Distance Units</span>
-              <div className="flex rounded-full bg-[#1a2110] p-0.5 border border-[#2e3d1a] shrink-0">
+              <div className="relative flex rounded-full bg-[#1a2110] p-0.5 border border-[#2e3d1a] shrink-0 w-[104px]">
+                <div
+                  className="absolute top-0.5 bottom-0.5 left-0.5 w-[calc(50%-2px)] rounded-full bg-[#c5f135] transition-transform duration-300 ease-out"
+                  style={{ transform: (profile?.distance_unit || "miles") === "km" ? "translateX(100%)" : "translateX(0)" }}
+                />
                 {(["miles", "km"] as const).map((unit) => {
                   const active = (profile?.distance_unit || "miles") === unit
                   return (
                     <button
                       key={unit}
                       onClick={() => changeDistanceUnit(unit)}
-                      className={`px-3 py-1 rounded-full text-xs font-bold transition-all capitalize
-                        ${active ? "bg-[#c5f135] text-[#1a2110]" : "text-white/40 hover:text-white/70"}`}
+                      className={`relative z-10 flex-1 py-1 rounded-full text-xs font-bold capitalize transition-colors duration-300
+                        ${active ? "text-[#1a2110]" : "text-white/40 hover:text-white/70"}`}
                     >
                       {unit}
                     </button>
