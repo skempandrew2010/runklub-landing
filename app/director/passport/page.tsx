@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase"
 import { Card, SectionTitle, Button, Input, TextArea } from "@/app/admin/club-model/manager/ui"
 import FadeIn from "@/components/FadeIn"
 import { Select } from "@/components/Select"
+import PassportPricingCalculatorModal from "@/components/PassportPricingCalculatorModal"
 
 type ClubOption = {
   id: string
@@ -84,6 +85,7 @@ export default function DirectorPassportPage() {
   const [offers, setOffers] = useState<Offer[]>([])
   const [offersLoading, setOffersLoading] = useState(false)
   const [showOfferForm, setShowOfferForm] = useState(false)
+  const [showPricingCalculator, setShowPricingCalculator] = useState(false)
   const [offerDraft, setOfferDraft] = useState(emptyOfferDraft)
   const [savingOffer, setSavingOffer] = useState(false)
   const [offerError, setOfferError] = useState<string | null>(null)
@@ -462,6 +464,13 @@ export default function DirectorPassportPage() {
                         className="max-w-[100px]"
                       />
                       <span className="text-xs text-white/50">credits</span>
+                      <button
+                        type="button"
+                        onClick={() => setShowPricingCalculator(true)}
+                        className="text-xs font-bold text-[#c5f135]/70 hover:text-[#c5f135] transition ml-auto"
+                      >
+                        Help me price this
+                      </button>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
                       <Input
@@ -641,6 +650,16 @@ export default function DirectorPassportPage() {
           </div>
         )}
       </div>
+
+      {showPricingCalculator && (
+        <PassportPricingCalculatorModal
+          onClose={() => setShowPricingCalculator(false)}
+          onApply={(credits) => {
+            setOfferDraft((d) => ({ ...d, credit_cost: String(credits) }))
+            setShowPricingCalculator(false)
+          }}
+        />
+      )}
     </div>
   )
 }
