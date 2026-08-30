@@ -100,7 +100,7 @@ export default function RunPageClient({ runId }: { runId: string }) {
   }, [])
 
   // Passport: whether the viewer belongs to this klub at all (director,
-  // subscription, or active member) -- the gate below only ever applies to
+  // subscription, or active member) - the gate below only ever applies to
   // non-members, since Passport is specifically for checking into klubs you
   // don't belong to.
   const [membershipChecked, setMembershipChecked] = useState(false)
@@ -112,6 +112,10 @@ export default function RunPageClient({ runId }: { runId: string }) {
   const [passportError, setPassportError] = useState<string | null>(null)
   const [passportShortfall, setPassportShortfall] = useState<number | null>(null)
   const [buyingShortfall, setBuyingShortfall] = useState(false)
+  // The klub's active "standard session" offer - what a plain run check-in
+  // actually redeems now that Passport is offer-based instead of one fixed
+  // check-in type.
+  const [standardSessionOffer, setStandardSessionOffer] = useState<{ id: string; credit_cost: number } | null>(null)
 
   // Fetched client-side (not server-side with the anon key) so RLS evaluates
   // as the actual signed-in visitor - otherwise an approved member clicking
@@ -237,7 +241,7 @@ export default function RunPageClient({ runId }: { runId: string }) {
     }
   }, [userId, run])
 
-  // Only relevant for runs at a Passport-enrolled klub -- figure out if the
+  // Only relevant for runs at a Passport-enrolled klub - figure out if the
   // viewer already belongs (gate never applies to members), and if not,
   // whether they're a Passport subscriber with enough credits to redeem.
   useEffect(() => {
@@ -246,16 +250,18 @@ export default function RunPageClient({ runId }: { runId: string }) {
     let cancelled = false
     const load = async () => {
       const isDirector = club.user_id === userId
-      const [{ data: sub }, { data: member }, { data: passportSub }, { data: alreadyRedeemed }] = await Promise.all([
+      const [{ data: sub }, { data: member }, { data: passportSub }, { data: alreadyRedeemed }, { data: offer }] = await Promise.all([
         supabase.from("subscriptions").select("id").eq("club_id", run.club_id).eq("user_id", userId).maybeSingle(),
         supabase.from("members").select("id").eq("club_id", run.club_id).eq("user_id", userId).eq("status", "active").maybeSingle(),
         supabase.from("passport_subscriptions").select("id").eq("user_id", userId).eq("status", "active").maybeSingle(),
-        supabase.from("passport_checkins").select("id").eq("run_id", run.id).eq("user_id", userId).maybeSingle(),
+        supabase.from("passport_redemptions").select("id").eq("run_id", run.id).eq("user_id", userId).maybeSingle(),
+        supabase.from("passport_offers").select("id, credit_cost").eq("club_id", run.club_id).eq("offer_type", "standard_session").eq("is_active", true).maybeSingle(),
       ])
       if (cancelled) return
       setIsKlubMember(isDirector || !!sub || !!member)
       setPassportSubscribed(!!passportSub)
       setPassportRedeemed(!!alreadyRedeemed)
+      setStandardSessionOffer(offer ? { id: offer.id, credit_cost: offer.credit_cost } : null)
       if (passportSub) {
         const { data: batches } = await supabase
           .from("passport_credit_batches")
@@ -274,22 +280,28 @@ export default function RunPageClient({ runId }: { runId: string }) {
     return () => { cancelled = true }
   }, [userId, run, club])
 
-  const passportCreditValue = run && club ? (run.passport_credit_value ?? club.passport_default_credit_value) : null
+  const passportCreditValue = run && standardSessionOffer ? (run.passport_credit_value ?? standardSessionOffer.credit_cost) : null
   const passportGateActive = !!(
     membershipChecked && club?.passport_program_enrolled && !isKlubMember && run && !run.members_only && !run.external_url && !passportRedeemed
   )
 
   const redeemPassportCredits = async () => {
-    if (!run || !club) return
+    if (!run || !club || !standardSessionOffer) return
     if (!userId || !sessionToken) { router.push("/login"); return }
     setRedeemingPassport(true)
     setPassportError(null)
     setPassportShortfall(null)
     try {
-      const res = await fetch("/api/passport/checkin", {
+      const res = await fetch("/api/passport/redeem", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
-        body: JSON.stringify({ club_id: club.id, run_id: run.id }),
+        body: JSON.stringify({
+          offer_id: standardSessionOffer.id,
+          run_id: run.id,
+          checkin_method: "gps_geofence",
+          checkin_lat: position?.lat ?? null,
+          checkin_lng: position?.lng ?? null,
+        }),
       })
       const json = await res.json()
       if (!res.ok) {

@@ -8,8 +8,8 @@ import { CalendarCheck, Trophy, Zap, Clock, AlertTriangle } from "lucide-react"
 type Tier = { tier: number; name: string; monthly_price_cents: number; yearly_price_cents: number; credits_per_month: number }
 type Subscription = { id: string; tier: number; status: string; billing_interval: string; next_credit_issue_at: string | null; current_period_end: string | null }
 type Batch = { id: string; credits_issued: number; credits_remaining: number; status: string; issued_at: string; expires_at: string }
-type ClubRow = { id: string; name: string; passport_default_credit_value: number }
-type Checkin = { id: string; club_id: string; credits_spent: number; payout_amount_cents: number; payout_status: string; checked_in_at: string }
+type ClubRow = { id: string; name: string; passport_default_credit_value: number; standard_session_offer_id: string | null }
+type Checkin = { id: string; club_id: string; credits_spent: number; payout_amount_cents: number; payout_status: string; redeemed_at: string }
 
 function daysUntil(iso: string) {
   return Math.ceil((new Date(iso).getTime() - Date.now()) / 86400000)
@@ -41,7 +41,7 @@ export default function PassportCreditsTestPage() {
     const [{ data: subData }, { data: batchData }, { data: checkinData }] = await Promise.all([
       supabase.from("passport_subscriptions").select("id, tier, status, billing_interval, next_credit_issue_at, current_period_end").eq("user_id", uid).eq("status", "active").maybeSingle(),
       supabase.from("passport_credit_batches").select("id, credits_issued, credits_remaining, status, issued_at, expires_at").eq("user_id", uid).order("issued_at", { ascending: true }),
-      supabase.from("passport_checkins").select("id, club_id, credits_spent, payout_amount_cents, payout_status, checked_in_at").eq("user_id", uid).order("checked_in_at", { ascending: false }).limit(20),
+      supabase.from("passport_redemptions").select("id, club_id, credits_spent, payout_amount_cents, payout_status, redeemed_at").eq("user_id", uid).order("redeemed_at", { ascending: false }).limit(20),
     ])
     setSubscription(subData ?? null)
     setBatches(batchData ?? [])
@@ -63,7 +63,13 @@ export default function PassportCreditsTestPage() {
         supabase.from("clubs").select("id, name, passport_default_credit_value").eq("passport_program_enrolled", true).order("name").limit(50),
       ])
       setTiers(tiersData ?? [])
-      setClubs(clubsData ?? [])
+
+      const clubRows = clubsData ?? []
+      const { data: offersData } = clubRows.length > 0
+        ? await supabase.from("passport_offers").select("id, club_id").eq("offer_type", "standard_session").eq("is_active", true).in("club_id", clubRows.map((c) => c.id))
+        : { data: [] }
+      const offerIdByClub: Record<string, string> = Object.fromEntries((offersData ?? []).map((o) => [o.club_id, o.id]))
+      setClubs(clubRows.map((c) => ({ ...c, standard_session_offer_id: offerIdByClub[c.id] ?? null })))
 
       await refetchUserData(user.id)
       setLoading(false)
@@ -129,16 +135,16 @@ export default function PassportCreditsTestPage() {
   }
 
   const simulateCheckin = async (club: ClubRow) => {
-    if (!userId) return
+    if (!userId || !club.standard_session_offer_id) return
     setBusy(`checkin-${club.id}`)
     setError("")
     setLastResult(null)
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch("/api/passport/checkin", {
+      const res = await fetch("/api/passport/redeem", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
-        body: JSON.stringify({ club_id: club.id }),
+        body: JSON.stringify({ offer_id: club.standard_session_offer_id, checkin_method: "manual_code" }),
       })
       const json = await res.json()
       if (!res.ok) { setError(json.error ?? "Check-in failed"); return }
@@ -162,10 +168,10 @@ export default function PassportCreditsTestPage() {
       <div className="max-w-2xl mx-auto px-5 py-6 space-y-6">
         <div>
           <p className="text-xs font-bold text-[#c5f135]/60 uppercase tracking-widest mb-1">Admin prototype</p>
-          <h1 className="text-xl font-black text-white">Passport Credits — Test Tools</h1>
+          <h1 className="text-xl font-black text-white">Passport Credits - Test Tools</h1>
           <p className="text-sm text-white/40 mt-1">
             Acts as your own signed-in account. Subscription/issuance tools here bypass Stripe, but Check In calls the real
-            /api/passport/checkin route — including an actual Connect Transfer to the klub if it's onboarded.
+            /api/passport/redeem route - including an actual Connect Transfer to the klub if it's onboarded.
           </p>
         </div>
 
@@ -182,8 +188,8 @@ export default function PassportCreditsTestPage() {
           }`}>
             <Zap className={`w-4 h-4 shrink-0 ${lastResult.payoutStatus === "paid" ? "text-[#c5f135]" : "text-yellow-400"}`} />
             <p className={`text-xs ${lastResult.payoutStatus === "paid" ? "text-[#c5f135]" : "text-yellow-300"}`}>
-              Checked in at <span className="font-bold">{lastResult.clubName}</span> — spent {lastResult.creditsSpent} credits, klub earns ${(lastResult.payoutCents / 100).toFixed(2)}
-              {lastResult.payoutStatus === "paid" ? " (transferred)." : " — transfer failed, klub not fully onboarded to Connect."}
+              Checked in at <span className="font-bold">{lastResult.clubName}</span> - spent {lastResult.creditsSpent} credits, klub earns ${(lastResult.payoutCents / 100).toFixed(2)}
+              {lastResult.payoutStatus === "paid" ? " (transferred)." : " - transfer failed, klub not fully onboarded to Connect."}
             </p>
           </div>
         )}
@@ -261,7 +267,7 @@ export default function PassportCreditsTestPage() {
               </div>
             ) : (
               <div className="px-4 py-3.5">
-                <p className="text-sm text-white/50 mb-3">No test subscription yet — pick a tier to create one.</p>
+                <p className="text-sm text-white/50 mb-3">No test subscription yet - pick a tier to create one.</p>
                 <div className="grid grid-cols-2 gap-2">
                   {tiers.map((t) => (
                     <button
@@ -315,7 +321,7 @@ export default function PassportCreditsTestPage() {
 
         {/* KLUBS */}
         <section>
-          <h2 className="text-xs font-bold text-white/40 tracking-widest uppercase px-1 mb-2">Klubs — Simulate Check-In</h2>
+          <h2 className="text-xs font-bold text-white/40 tracking-widest uppercase px-1 mb-2">Klubs - Simulate Check-In</h2>
           <div className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl overflow-hidden divide-y divide-[#2e3d1a]">
             {clubs.length === 0 ? (
               <p className="px-4 py-3.5 text-sm text-white/40">No klubs found.</p>
@@ -333,7 +339,8 @@ export default function PassportCreditsTestPage() {
                     </div>
                     <button
                       onClick={() => simulateCheckin(club)}
-                      disabled={busy === `checkin-${club.id}` || !subscription}
+                      disabled={busy === `checkin-${club.id}` || !subscription || !club.standard_session_offer_id}
+                      title={!club.standard_session_offer_id ? "This klub has no active standard session offer" : undefined}
                       className="shrink-0 text-xs font-black px-3 py-1.5 rounded-full bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45] transition disabled:opacity-50"
                     >
                       {busy === `checkin-${club.id}` ? "…" : "Check In"}
@@ -358,7 +365,7 @@ export default function PassportCreditsTestPage() {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold text-white truncate">{clubById[c.club_id]?.name ?? "Klub"}</p>
                     <p className="text-xs text-white/40">
-                      {c.credits_spent} credits · ${(c.payout_amount_cents / 100).toFixed(2)} payout · {new Date(c.checked_in_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                      {c.credits_spent} credits · ${(c.payout_amount_cents / 100).toFixed(2)} payout · {new Date(c.redeemed_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
                     </p>
                   </div>
                   <span className={`text-[10px] font-black px-2 py-0.5 rounded-full shrink-0 uppercase ${

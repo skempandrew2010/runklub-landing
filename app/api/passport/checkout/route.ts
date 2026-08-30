@@ -12,12 +12,12 @@ function getSupabaseAdmin() {
   )
 }
 
-// POST /api/passport/checkout — starts a platform-level Checkout Session for
+// POST /api/passport/checkout - starts a platform-level Checkout Session for
 // one of the 4 Passport credit tiers. Platform-level (like /api/stripe/checkout
 // for klub SaaS plans), not Connect-scoped: the runner pays RunKlub directly,
-// since a Passport subscriber isn't paying for any one klub — payouts to the
-// klubs they actually check into happen separately, per check-in, via
-// /api/passport/checkin's Stripe Transfer.
+// since a Passport subscriber isn't paying for any one klub - payouts to the
+// klubs they actually redeem an offer at happen separately, per redemption,
+// via /api/passport/redeem's Stripe Transfer.
 export async function POST(req: NextRequest) {
   try {
     const { tier, interval } = await req.json()
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     const priceId = PASSPORT_TIER_PRICE_ENV[tier][billingInterval]
     if (!priceId) {
       console.error(`Stripe price ID not configured for Passport tier ${tier} (${billingInterval})`)
-      return NextResponse.json({ error: "Pricing not yet configured for this tier — contact support" }, { status: 500 })
+      return NextResponse.json({ error: "Pricing not yet configured for this tier - contact support" }, { status: 500 })
     }
 
     const { data: profile } = await admin
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
       customerId = customer.id
       await admin.from("profiles").update({ stripe_customer_id: customerId }).eq("id", user.id)
     } else {
-      // Same "don't trust our own DB alone" guard as /api/stripe/checkout —
+      // Same "don't trust our own DB alone" guard as /api/stripe/checkout -
       // a delayed/failed webhook could leave passport_subscriptions stale.
       const existingSubs = await getStripe().subscriptions.list({ customer: customerId, limit: 100 })
       const duplicate = existingSubs.data.find(
