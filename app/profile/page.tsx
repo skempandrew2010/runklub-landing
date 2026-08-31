@@ -11,6 +11,7 @@ import { PLANS, PLAN_ORDER } from "@/lib/plans"
 import { getUserTierProgress, type TierProgress } from "@/lib/checkins"
 import { TIER_ICONS } from "@/components/TierCard"
 import { useViewMode } from "@/hooks/useViewMode"
+import StripeCheckoutModal from "@/components/StripeCheckoutModal"
 
 type Profile = {
   id: string
@@ -68,6 +69,7 @@ export default function ProfilePage() {
   const [openingPassportPortal, setOpeningPassportPortal] = useState(false)
   const [nativeApp, setNativeApp] = useState(false)
   const [tierProgress, setTierProgress] = useState<TierProgress | null>(null)
+  const [checkoutClientSecret, setCheckoutClientSecret] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { setNativeApp(isNativeApp()) }, [])
@@ -171,14 +173,14 @@ export default function ProfilePage() {
       })
 
       const data = await res.json()
-      if (data.url) {
-        window.location.href = data.url
+      if (data.clientSecret) {
+        setCheckoutClientSecret(data.clientSecret)
       } else {
         alert(data.error ?? "Could not start checkout")
-        setSubscribingClubId(null)
       }
     } catch {
       alert("Could not start checkout. Try again.")
+    } finally {
       setSubscribingClubId(null)
     }
   }
@@ -248,14 +250,14 @@ export default function ProfilePage() {
       })
 
       const data = await res.json()
-      if (data.url) {
-        window.location.href = data.url
+      if (data.clientSecret) {
+        setCheckoutClientSecret(data.clientSecret)
       } else {
         alert(data.error ?? "Could not start checkout")
-        setSubscribingPassportTier(null)
       }
     } catch {
       alert("Could not start checkout. Try again.")
+    } finally {
       setSubscribingPassportTier(null)
     }
   }
@@ -632,7 +634,7 @@ export default function ProfilePage() {
                             disabled={subscribingClubId === club.id}
                             className="text-xs font-black px-3 py-1.5 rounded-full shrink-0 bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45] transition disabled:opacity-50"
                           >
-                            {subscribingClubId === club.id ? "Redirecting…" : "Upgrade"}
+                            {subscribingClubId === club.id ? "Loading…" : "Upgrade"}
                           </button>
                         )
                       ) : (
@@ -820,7 +822,7 @@ export default function ProfilePage() {
                                 )}
                                 <p className="text-[10px] text-white/40">{t.credits_per_month} credits/mo</p>
                                 <p className="text-[10px] font-bold text-[#c5f135] mt-1">
-                                  {subscribingPassportTier === t.tier ? "Redirecting…" : "Subscribe"}
+                                  {subscribingPassportTier === t.tier ? "Loading…" : "Subscribe"}
                                 </p>
                               </button>
                             )
@@ -898,6 +900,13 @@ export default function ProfilePage() {
 
         <div className="h-8" />
       </div>
+
+      {checkoutClientSecret && (
+        <StripeCheckoutModal
+          clientSecret={checkoutClientSecret}
+          onClose={() => setCheckoutClientSecret(null)}
+        />
+      )}
     </div>
   )
 }

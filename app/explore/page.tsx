@@ -46,6 +46,7 @@ type WeekRun = {
   club_image: string | null
   club_lat: number | null
   club_lng: number | null
+  external_url: string | null
 }
 
 function formatDate(dateStr: string) {
@@ -111,6 +112,9 @@ function ExplorePageInner() {
   const [mapBounds, setMapBounds] = useState<{ north: number; south: number; east: number; west: number } | null>(null)
   const [cityCentroids, setCityCentroids] = useState<Record<string, { lat: number; lng: number }>>({})
   const [userSubscribedIds, setUserSubscribedIds] = useState<Set<string>>(new Set())
+  const [userMemberClubIds, setUserMemberClubIds] = useState<Set<string>>(new Set())
+  const [redeemedRunIds, setRedeemedRunIds] = useState<Set<string>>(new Set())
+  const [designatedRunIds, setDesignatedRunIds] = useState<Set<string>>(new Set())
   // The mobile/desktop layouts below are both always in the DOM (only CSS-hidden via
   // Tailwind's md: classes), so without this we'd mount two live Mapbox GL maps at
   // once. Track the real viewport and only ever render one <MapView> at a time.
@@ -219,7 +223,7 @@ function ExplorePageInner() {
 
       const [{ data: clubData }, { data: runsData }, { data: citiesData }] = await Promise.all([
         isLocalDev ? clubsQuery.or(`is_public.eq.true,id.eq.${TEST_CLUB_ID}`) : clubsQuery.eq("is_public", true),
-        supabase.from("runs").select("id, title, date, time, timezone, distance, meeting_point, city, run_lat, run_lng, tags, club_id").gte("date", todayStr).lte("date", weekStr).eq("is_public", true).order("date", { ascending: true }).order("time", { ascending: true }),
+        supabase.from("runs").select("id, title, date, time, timezone, distance, meeting_point, city, run_lat, run_lng, tags, club_id, external_url").gte("date", todayStr).lte("date", weekStr).eq("is_public", true).order("date", { ascending: true }).order("time", { ascending: true }),
         supabase.from("cities").select("name, lat, lng"),
       ])
 
@@ -248,6 +252,7 @@ function ExplorePageInner() {
           run_lat: r.run_lat ?? null,
           run_lng: r.run_lng ?? null,
           city: r.city ?? null,
+          external_url: r.external_url ?? null,
         }))
       )
       setWeekRunsLoading(false)
@@ -261,6 +266,30 @@ function ExplorePageInner() {
     supabase.from("subscriptions").select("club_id").eq("user_id", userId)
       .then(({ data }) => setUserSubscribedIds(new Set(data?.map((s) => s.club_id) ?? [])))
   }, [userId])
+
+  // Roster membership (coaches/pace-group members without a paid subscription) -
+  // combined with userSubscribedIds and club ownership, this mirrors the same
+  // "is this viewer a klub member" check the run detail page's Passport gate uses.
+  useEffect(() => {
+    if (!userId) { setUserMemberClubIds(new Set()); return }
+    supabase.from("members").select("club_id").eq("user_id", userId).eq("status", "active")
+      .then(({ data }) => setUserMemberClubIds(new Set(data?.map((m) => m.club_id) ?? [])))
+  }, [userId])
+
+  // Runs this viewer has already redeemed Passport credits for - once redeemed,
+  // the run's real time/location stay unlocked here too (same rule as the run page).
+  useEffect(() => {
+    if (!userId) { setRedeemedRunIds(new Set()); return }
+    supabase.from("passport_redemptions").select("run_id").eq("user_id", userId).eq("status", "confirmed").not("run_id", "is", null)
+      .then(({ data }) => setRedeemedRunIds(new Set((data ?? []).map((r) => r.run_id as string))))
+  }, [userId])
+
+  // Runs a director has actually designated as a Passport event - standard
+  // session redemption no longer applies to every public run automatically.
+  useEffect(() => {
+    supabase.from("passport_designated_runs").select("run_id")
+      .then(({ data }) => setDesignatedRunIds(new Set((data ?? []).map((r) => r.run_id as string))))
+  }, [])
 
   useEffect(() => {
     if (!selectedClub) return
@@ -369,6 +398,11 @@ function ExplorePageInner() {
     filters.membershipType !== "all",
   ].filter(Boolean).length
 
+  const passportClubIds = useMemo(
+    () => new Set(clubs.filter((c) => c.passport_program_enrolled).map((c) => c.id)),
+    [clubs]
+  )
+
   const mapClubs = useMemo(
     () =>
       clubs
@@ -392,27 +426,54 @@ function ExplorePageInner() {
     [clubs]
   )
 
-  const mapRuns = useMemo(() => mapBounds
-    ? allWeekRuns.filter((r) => {
-        const lat = r.run_lat ?? r.club_lat
-        const lng = r.run_lng ?? r.club_lng
-        if (lat == null || lng == null) return false
-        return lat >= mapBounds.south && lat <= mapBounds.north && lng >= mapBounds.west && lng <= mapBounds.east
-      })
-    : allWeekRuns, [mapBounds, allWeekRuns])
+  // Klubs this viewer belongs to in any capacity - owner, paid subscriber, or
+  // active roster member. Mirrors the run detail page's own membership check
+  // so the Passport location gate agrees between the two pages.
+  const memberClubIds = useMemo(() => {
+    const set = new Set<string>(userSubscribedIds)
+    userMemberClubIds.forEach((id) => set.add(id))
+    ownedClubIds.forEach((id) => set.add(id))
+    return set
+  }, [userSubscribedIds, userMemberClubIds, ownedClubIds])
+
+  // A Passport klub's designated runs stay locked (no exact time/location)
+  // until the viewer is a klub member or has already redeemed Passport
+  // credits for that run - same rule the run detail page enforces, applied
+  // here too so browsing Explore can't leak what redeeming is supposed to
+  // unlock. Only runs the director actually designated as a Passport event
+  // are gated at all - other public runs at the same klub are unaffected.
+  const isRunLocationGated = (run: WeekRun) =>
+    designatedRunIds.has(run.id) && !run.external_url && !memberClubIds.has(run.club_id) && !redeemedRunIds.has(run.id)
+
+  const mapRuns = useMemo(() => allWeekRuns
+    .filter((r) => !passportOnly || passportClubIds.has(r.club_id))
+    .map((r) => {
+      if (!isRunLocationGated(r)) return r
+      const cityName = r.city?.split(",")[0]?.trim()
+      const centroid = cityName ? cityCentroids[cityName] : undefined
+      return { ...r, meeting_point: null, run_lat: centroid?.lat ?? null, run_lng: centroid?.lng ?? null, club_lat: centroid?.lat ?? null, club_lng: centroid?.lng ?? null }
+    })
+    .filter((r) => {
+      if (!mapBounds) return true
+      const lat = r.run_lat ?? r.club_lat
+      const lng = r.run_lng ?? r.club_lng
+      if (lat == null || lng == null) return false
+      return lat >= mapBounds.south && lat <= mapBounds.north && lng >= mapBounds.west && lng <= mapBounds.east
+    }), [mapBounds, allWeekRuns, passportOnly, passportClubIds, memberClubIds, redeemedRunIds, designatedRunIds, cityCentroids])
 
   const nearbyClubIds = useMemo(() => new Set(baseClubs.map((c) => c.id)), [baseClubs])
 
-  const weekRuns = useMemo(() => center
-    ? allWeekRuns.filter((r) => {
-        const lat = r.run_lat ?? r.club_lat
-        const lng = r.run_lng ?? r.club_lng
-        if (lat != null && lng != null) {
-          return getDistanceMiles(center.lat, center.lng, lat, lng) <= 50
-        }
-        return nearbyClubIds.has(r.club_id)
-      })
-    : allWeekRuns, [center, allWeekRuns, nearbyClubIds])
+  const weekRuns = useMemo(() => allWeekRuns
+    .filter((r) => !passportOnly || passportClubIds.has(r.club_id))
+    .filter((r) => {
+      if (!center) return true
+      const lat = r.run_lat ?? r.club_lat
+      const lng = r.run_lng ?? r.club_lng
+      if (lat != null && lng != null) {
+        return getDistanceMiles(center.lat, center.lng, lat, lng) <= 50
+      }
+      return nearbyClubIds.has(r.club_id)
+    }), [center, allWeekRuns, nearbyClubIds, passportOnly, passportClubIds])
 
   // weekRuns already arrives sorted by date, time (query order) - distance needs computing per-run
   const sortedWeekRuns = useMemo(() => {
@@ -615,6 +676,7 @@ function ExplorePageInner() {
   )
 
   function renderRunRow(run: WeekRun, showDate: boolean) {
+    const locked = isRunLocationGated(run)
     return (
       <div key={run.id} onClick={() => router.push(`/runs/${run.id}`)} className="px-4 py-3.5 flex items-start gap-3 cursor-pointer hover:bg-[#2e3d1a]/50 transition-colors">
         <div className="relative w-9 h-9 rounded-full bg-[#2e3d1a] shrink-0 overflow-hidden flex items-center justify-center">
@@ -635,13 +697,21 @@ function ExplorePageInner() {
                 <CalendarCheck className="w-3 h-3" /> {formatDate(run.date)}
               </span>
             )}
-            <span className="flex items-center gap-1 text-xs text-white/50">
-              <Clock className="w-3 h-3" /> {formatTime(run)}
-            </span>
-            {run.meeting_point && (
-              <span className="flex items-center gap-1 text-xs text-white/50">
-                <MapPin className="w-3 h-3" /> {run.meeting_point}
+            {locked ? (
+              <span className="flex items-center gap-1 text-xs text-[#c5f135]/70">
+                <Lock className="w-3 h-3" /> RSVP to see time &amp; location
               </span>
+            ) : (
+              <>
+                <span className="flex items-center gap-1 text-xs text-white/50">
+                  <Clock className="w-3 h-3" /> {formatTime(run)}
+                </span>
+                {run.meeting_point && (
+                  <span className="flex items-center gap-1 text-xs text-white/50">
+                    <MapPin className="w-3 h-3" /> {run.meeting_point}
+                  </span>
+                )}
+              </>
             )}
             {run.distance && <span className="text-xs text-white/40">{run.distance}</span>}
           </div>

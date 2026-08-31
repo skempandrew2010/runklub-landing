@@ -16,6 +16,7 @@ import CheckInCelebration from "@/components/CheckInCelebration"
 import CheckInProximityMap from "@/components/CheckInProximityMap"
 import { resolveCheckinTarget, getCurrentPosition } from "@/lib/checkinGeofence"
 import WaiverAckModal from "@/components/WaiverAckModal"
+import StripeCheckoutModal from "@/components/StripeCheckoutModal"
 import { needsWaiverAck, acknowledgeWaiver } from "@/lib/waiver"
 import type { CheckInResult } from "@/lib/server/checkin"
 import { type WorkoutSegment, formatWorkoutSegment, parseWorkoutStructure } from "@/lib/workouts"
@@ -61,7 +62,6 @@ export type Club = {
   tier: string | null
   waiver_url: string | null
   passport_program_enrolled: boolean
-  passport_default_credit_value: number
 }
 
 export default function RunPageClient({ runId }: { runId: string }) {
@@ -100,7 +100,7 @@ export default function RunPageClient({ runId }: { runId: string }) {
   }, [])
 
   // Passport: whether the viewer belongs to this klub at all (director,
-  // subscription, or active member) -- the gate below only ever applies to
+  // subscription, or active member) - the gate below only ever applies to
   // non-members, since Passport is specifically for checking into klubs you
   // don't belong to.
   const [membershipChecked, setMembershipChecked] = useState(false)
@@ -112,6 +112,12 @@ export default function RunPageClient({ runId }: { runId: string }) {
   const [passportError, setPassportError] = useState<string | null>(null)
   const [passportShortfall, setPassportShortfall] = useState<number | null>(null)
   const [buyingShortfall, setBuyingShortfall] = useState(false)
+  const [checkoutClientSecret, setCheckoutClientSecret] = useState<string | null>(null)
+  // The klub's active "standard session" offer - what a plain run check-in
+  // actually redeems now that Passport is offer-based instead of one fixed
+  // check-in type.
+  const [standardSessionOffer, setStandardSessionOffer] = useState<{ id: string; credit_cost: number } | null>(null)
+  const [isDesignatedPassportRun, setIsDesignatedPassportRun] = useState(false)
 
   // Fetched client-side (not server-side with the anon key) so RLS evaluates
   // as the actual signed-in visitor - otherwise an approved member clicking
@@ -121,7 +127,7 @@ export default function RunPageClient({ runId }: { runId: string }) {
       const { data, error } = await supabase
         .from("runs")
         .select(
-          "id, club_id, title, date, time, distance, meeting_point, city, external_url, description, tags, is_in_person, members_only, timezone, run_lat, run_lng, passport_credit_value, passport_checkin_limit, clubs(id, name, user_id, image_url, latitude, longitude, city, tier, waiver_url, passport_program_enrolled, passport_default_credit_value), workout:workout_type_id(title, description, structure)"
+          "id, club_id, title, date, time, distance, meeting_point, city, external_url, description, tags, is_in_person, members_only, timezone, run_lat, run_lng, passport_credit_value, passport_checkin_limit, clubs(id, name, user_id, image_url, latitude, longitude, city, tier, waiver_url, passport_program_enrolled), workout:workout_type_id(title, description, structure)"
         )
         .eq("id", runId)
         .maybeSingle()
@@ -237,7 +243,7 @@ export default function RunPageClient({ runId }: { runId: string }) {
     }
   }, [userId, run])
 
-  // Only relevant for runs at a Passport-enrolled klub -- figure out if the
+  // Only relevant for runs at a Passport-enrolled klub - figure out if the
   // viewer already belongs (gate never applies to members), and if not,
   // whether they're a Passport subscriber with enough credits to redeem.
   useEffect(() => {
@@ -246,16 +252,34 @@ export default function RunPageClient({ runId }: { runId: string }) {
     let cancelled = false
     const load = async () => {
       const isDirector = club.user_id === userId
-      const [{ data: sub }, { data: member }, { data: passportSub }, { data: alreadyRedeemed }] = await Promise.all([
+      const [{ data: sub }, { data: member }, { data: passportSub }, { data: alreadyRedeemed }, { data: offer }] = await Promise.all([
         supabase.from("subscriptions").select("id").eq("club_id", run.club_id).eq("user_id", userId).maybeSingle(),
         supabase.from("members").select("id").eq("club_id", run.club_id).eq("user_id", userId).eq("status", "active").maybeSingle(),
         supabase.from("passport_subscriptions").select("id").eq("user_id", userId).eq("status", "active").maybeSingle(),
-        supabase.from("passport_checkins").select("id").eq("run_id", run.id).eq("user_id", userId).maybeSingle(),
+        supabase.from("passport_redemptions").select("id").eq("run_id", run.id).eq("user_id", userId).maybeSingle(),
+        supabase.from("passport_offers").select("id, credit_cost").eq("club_id", run.club_id).eq("offer_type", "standard_session").eq("is_active", true).maybeSingle(),
       ])
       if (cancelled) return
       setIsKlubMember(isDirector || !!sub || !!member)
       setPassportSubscribed(!!passportSub)
       setPassportRedeemed(!!alreadyRedeemed)
+      setStandardSessionOffer(offer ? { id: offer.id, credit_cost: offer.credit_cost } : null)
+
+      // Standard-session redemption only applies to runs the director has
+      // explicitly designated as a Passport event - not every public run.
+      if (offer) {
+        const { data: designation } = await supabase
+          .from("passport_offer_runs")
+          .select("run_id")
+          .eq("offer_id", offer.id)
+          .eq("run_id", run.id)
+          .maybeSingle()
+        if (cancelled) return
+        setIsDesignatedPassportRun(!!designation)
+      } else {
+        setIsDesignatedPassportRun(false)
+      }
+
       if (passportSub) {
         const { data: batches } = await supabase
           .from("passport_credit_batches")
@@ -274,22 +298,29 @@ export default function RunPageClient({ runId }: { runId: string }) {
     return () => { cancelled = true }
   }, [userId, run, club])
 
-  const passportCreditValue = run && club ? (run.passport_credit_value ?? club.passport_default_credit_value) : null
+  const passportCreditValue = run && standardSessionOffer ? (run.passport_credit_value ?? standardSessionOffer.credit_cost) : null
   const passportGateActive = !!(
-    membershipChecked && club?.passport_program_enrolled && !isKlubMember && run && !run.members_only && !run.external_url && !passportRedeemed
+    membershipChecked && club?.passport_program_enrolled && !isKlubMember && run && !run.members_only && !run.external_url && !passportRedeemed && isDesignatedPassportRun
   )
 
-  const redeemPassportCredits = async () => {
-    if (!run || !club) return
+  // A Passport-gated visitor never has to be physically at the run -
+  // RSVPing "going" is itself the redemption (no separate step, no GPS).
+  // This is the RSVP action for that case; the plain toggleRsvp below
+  // handles everyone else (members, already-redeemed, un-RSVPing).
+  const redeemAndRsvp = async () => {
+    if (!run || !club || !standardSessionOffer) return
     if (!userId || !sessionToken) { router.push("/login"); return }
     setRedeemingPassport(true)
     setPassportError(null)
     setPassportShortfall(null)
     try {
-      const res = await fetch("/api/passport/checkin", {
+      const res = await fetch("/api/passport/redeem", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
-        body: JSON.stringify({ club_id: club.id, run_id: run.id }),
+        body: JSON.stringify({
+          offer_id: standardSessionOffer.id,
+          run_id: run.id,
+        }),
       })
       const json = await res.json()
       if (!res.ok) {
@@ -299,6 +330,12 @@ export default function RunPageClient({ runId }: { runId: string }) {
         return
       }
       setPassportRedeemed(true)
+      setMyRsvp(true)
+      setRsvpCount((c) => c + 1)
+      await supabase.from("rsvps").upsert(
+        { run_id: run.id, user_id: userId, going: true, updated_at: new Date().toISOString() },
+        { onConflict: "run_id,user_id" }
+      )
     } catch {
       setPassportError("Could not redeem credits. Try again.")
     } finally {
@@ -316,10 +353,11 @@ export default function RunPageClient({ runId }: { runId: string }) {
         body: JSON.stringify({ credits: passportShortfall, returnPath: `/runs/${runId}` }),
       })
       const json = await res.json()
-      if (json.url) window.location.href = json.url
-      else { setPassportError(json.error ?? "Could not start checkout"); setBuyingShortfall(false) }
+      if (json.clientSecret) setCheckoutClientSecret(json.clientSecret)
+      else setPassportError(json.error ?? "Could not start checkout")
     } catch {
       setPassportError("Could not start checkout. Try again.")
+    } finally {
       setBuyingShortfall(false)
     }
   }
@@ -481,7 +519,7 @@ export default function RunPageClient({ runId }: { runId: string }) {
 
           {passportGateActive ? (
             <p className="flex items-center gap-1.5 text-sm text-white/40 mb-3">
-              <Lock className="w-3.5 h-3.5 shrink-0" /> Time and location unlock after you redeem credits
+              <Lock className="w-3.5 h-3.5 shrink-0" /> Time and location unlock after you RSVP
             </p>
           ) : run.meeting_point ? (
             <p className="flex items-center gap-1.5 text-sm text-white/50 mb-3">
@@ -496,7 +534,7 @@ export default function RunPageClient({ runId }: { runId: string }) {
           {passportGateActive && (
             <div className="rounded-2xl border border-[#c5f135]/30 bg-gradient-to-br from-[#c5f135]/10 to-[#1e2d12] p-4 mb-4">
               <p className="text-sm text-white/70 leading-relaxed mb-3">
-                {club.name} is on the Passport network. Redeem credits to unlock this event&apos;s time and location, and to message the director.
+                {club.name} is on the Passport network. RSVP to unlock this event&apos;s time and location, and to message the director - no need to be there in person, RSVPing is what spends your credits.
               </p>
               {passportError && <p className="text-xs text-red-300 mb-3">{passportError}</p>}
               {!userId ? (
@@ -523,13 +561,13 @@ export default function RunPageClient({ runId }: { runId: string }) {
                 </button>
               ) : (
                 <button
-                  onClick={redeemPassportCredits}
+                  onClick={redeemAndRsvp}
                   disabled={redeemingPassport || passportCreditValue == null}
                   className="w-full py-3 rounded-2xl text-sm font-black bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45] transition disabled:opacity-50"
                 >
                   {redeemingPassport
                     ? "…"
-                    : `Use ${passportCreditValue} credit${passportCreditValue === 1 ? "" : "s"} to attend`}
+                    : `RSVP - uses ${passportCreditValue} credit${passportCreditValue === 1 ? "" : "s"}`}
                 </button>
               )}
               {passportSubscribed && passportShortfall == null && (
@@ -717,6 +755,13 @@ export default function RunPageClient({ runId }: { runId: string }) {
           clubName={club.name}
           userId={userId}
           onDone={() => setCelebrationData(null)}
+        />
+      )}
+
+      {checkoutClientSecret && (
+        <StripeCheckoutModal
+          clientSecret={checkoutClientSecret}
+          onClose={() => setCheckoutClientSecret(null)}
         />
       )}
     </div>

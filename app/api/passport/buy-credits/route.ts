@@ -11,20 +11,23 @@ function getSupabaseAdmin() {
   )
 }
 
-const CREDIT_PRICE_CENTS = 600
+const PACK_PRICE_CENTS = 600
+const CREDITS_PER_PACK = 10
 
-// POST /api/passport/buy-credits — one-time purchase of extra Passport
-// credits on top of a runner's monthly plan, at a flat $6.00/credit with no
-// cap on quantity. Same platform-level pattern as /api/passport/checkout;
-// the resulting credit batch is issued by the checkout.session.completed
-// handler in /api/stripe/webhook once payment actually completes, not here.
+// POST /api/passport/buy-credits - one-time purchase of extra Passport
+// credits on top of a runner's monthly plan, sold in $6.00 packs of 10
+// credits with no cap on pack quantity. Same platform-level pattern as
+// /api/passport/checkout; the resulting credit batch is issued by the
+// checkout.session.completed handler in /api/stripe/webhook once payment
+// actually completes, not here.
 export async function POST(req: NextRequest) {
   try {
-    const { credits, returnPath } = await req.json()
-    if (!Number.isInteger(credits) || credits < 1) {
-      return NextResponse.json({ error: "credits must be a whole number of 1 or more" }, { status: 400 })
+    const { packs, returnPath } = await req.json()
+    if (!Number.isInteger(packs) || packs < 1) {
+      return NextResponse.json({ error: "packs must be a whole number of 1 or more" }, { status: 400 })
     }
-    // Only ever used to build a same-origin redirect URL below — must stay a
+    const credits = packs * CREDITS_PER_PACK
+    // Only ever used to build a same-origin redirect URL below - must stay a
     // relative path so this can't be turned into an open redirect.
     const safeReturnPath = typeof returnPath === "string" && returnPath.startsWith("/") && !returnPath.startsWith("//") ? returnPath : "/passport/credits"
 
@@ -58,23 +61,23 @@ export async function POST(req: NextRequest) {
     const session = await getStripe().checkout.sessions.create({
       customer: customerId,
       mode: "payment",
+      ui_mode: "embedded_page",
       line_items: [{
         price_data: {
           currency: "usd",
-          unit_amount: CREDIT_PRICE_CENTS,
-          product_data: { name: "RunKlub Passport Credit" },
+          unit_amount: PACK_PRICE_CENTS,
+          product_data: { name: "RunKlub Passport Credit Pack (10 credits)" },
         },
-        quantity: credits,
+        quantity: packs,
       }],
       payment_intent_data: {
         metadata: { passportCreditPurchase: "true", userId: user.id, credits: String(credits) },
       },
       metadata: { passportCreditPurchase: "true", userId: user.id, credits: String(credits) },
-      success_url: `${appUrl}${safeReturnPath}${safeReturnPath.includes("?") ? "&" : "?"}purchased=1`,
-      cancel_url: `${appUrl}${safeReturnPath}${safeReturnPath.includes("?") ? "&" : "?"}purchase_cancelled=1`,
+      return_url: `${appUrl}${safeReturnPath}${safeReturnPath.includes("?") ? "&" : "?"}purchased=1`,
     })
 
-    return NextResponse.json({ url: session.url })
+    return NextResponse.json({ clientSecret: session.client_secret })
   } catch (err) {
     console.error("Passport credit purchase error:", err)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

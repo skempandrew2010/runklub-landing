@@ -12,7 +12,7 @@ function getSupabaseAdmin() {
   )
 }
 
-// Must read raw body before any parsing — required for Stripe signature verification
+// Must read raw body before any parsing - required for Stripe signature verification
 export async function POST(req: NextRequest) {
   const rawBody = await req.text()
   const signature = req.headers.get("stripe-signature")
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session
 
-        // Passport credit subscription — distinguished from klub SaaS
+        // Passport credit subscription - distinguished from klub SaaS
         // checkout by metadata, since both share this one platform-level
         // webhook/secret. Only creates the subscriptions row; the first
         // credit batch is issued by invoice.paid below (same event that
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
           // Idempotent against Stripe's at-least-once webhook delivery (a
           // redelivered event re-updates the same row) and defensive against
           // a stale active row for this user from an earlier subscription
-          // our webhook missed the cancellation of — either way, update
+          // our webhook missed the cancellation of - either way, update
           // rather than insert, so we never hit the one-active-subscription-
           // per-user unique index.
           const { data: existing } = await admin
@@ -96,9 +96,11 @@ export async function POST(req: NextRequest) {
           break
         }
 
-        // One-time extra credit purchase — issues a batch straight into the
+        // One-time extra credit purchase - issues a batch straight into the
         // same FIFO ledger monthly grants use, so redemption never has to
-        // branch on where credits came from.
+        // branch on where credits came from. Rate is looked up (not
+        // hardcoded) so it snapshots whatever passport_credit_sources says
+        // for add_on at purchase time.
         if (session.metadata?.passportCreditPurchase === "true") {
           const { userId, credits } = session.metadata
           if (!userId || !credits) break
@@ -114,6 +116,12 @@ export async function POST(req: NextRequest) {
             if (existing) break
           }
 
+          const { data: addOnSource } = await admin
+            .from("passport_credit_sources")
+            .select("rate_per_credit_cents")
+            .eq("source", "add_on")
+            .single()
+
           const creditsNum = Number(credits)
           const issuedAt = new Date()
           const expiresAt = new Date(issuedAt.getTime() + 45 * 24 * 60 * 60 * 1000)
@@ -122,7 +130,8 @@ export async function POST(req: NextRequest) {
             credits_issued: creditsNum,
             credits_remaining: creditsNum,
             status: "active",
-            source: "purchase",
+            source: "add_on",
+            rate_per_credit_cents: addOnSource?.rate_per_credit_cents,
             issued_at: issuedAt.toISOString(),
             expires_at: expiresAt.toISOString(),
             stripe_payment_intent_id: paymentIntentId,
@@ -144,7 +153,7 @@ export async function POST(req: NextRequest) {
         break
       }
 
-      // ── Invoice paid — for Passport, this is the subscriber's billing
+      // ── Invoice paid - for Passport, this is the subscriber's billing
       //    date and the only trigger for issuing a credit batch (covers
       //    both the first payment and every renewal, so issuance never has
       //    to be duplicated in checkout.session.completed). ──
@@ -166,7 +175,7 @@ export async function POST(req: NextRequest) {
         if (error) console.error("passport_issue_credits failed for invoice.paid:", error)
 
         // A yearly subscriber only reaches this case at signup and once a
-        // year at renewal — either way, restart their monthly cadence for
+        // year at renewal - either way, restart their monthly cadence for
         // the new period (this invoice's payment already covered month 1).
         if (passportSub.billing_interval === "yearly") {
           await admin.from("passport_subscriptions").update({
@@ -193,7 +202,7 @@ export async function POST(req: NextRequest) {
               ? new Date((sub as any).current_period_end * 1000).toISOString() : null,
           }
           // A plan switch (upgrade/downgrade, or monthly<->yearly) takes
-          // effect at the next billing date, not immediately — invoice.paid
+          // effect at the next billing date, not immediately - invoice.paid
           // issues credits at whatever tier/interval is on the row *then*,
           // so just keep tier/interval in sync with Stripe's current price
           // rather than issuing anything here.
@@ -201,7 +210,7 @@ export async function POST(req: NextRequest) {
             updates.tier = resolved.tier
             updates.billing_interval = resolved.interval
             if (resolved.interval === "yearly") {
-              // Switched into yearly — if there's no schedule yet, start one.
+              // Switched into yearly - if there's no schedule yet, start one.
               const { data: current } = await admin
                 .from("passport_subscriptions")
                 .select("next_credit_issue_at")
@@ -250,7 +259,7 @@ export async function POST(req: NextRequest) {
         const sub = event.data.object as Stripe.Subscription
 
         if (sub.metadata?.passportProgram === "true") {
-          // Already-issued, unexpired credit batches are left alone — they
+          // Already-issued, unexpired credit batches are left alone - they
           // remain spendable until their normal 45-day expiration.
           await getSupabaseAdmin().from("passport_subscriptions").update({
             status: "canceled",
