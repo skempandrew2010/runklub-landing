@@ -79,6 +79,15 @@ type RunChatPreview = RunWithClub & {
 
 type MembershipType = "free" | "optional_paid" | "paid_required"
 
+// Stripe subscriptions stay "active" right up until the period actually
+// ends, whether or not a cancellation is scheduled - cancel_at_period_end
+// is the only thing that tells "renews on X" apart from "ends on X".
+function billingStatusLabel(dateIso: string | null, cancelAtPeriodEnd: boolean) {
+  if (!dateIso) return null
+  const formatted = new Date(dateIso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+  return cancelAtPeriodEnd ? `Ends ${formatted}` : `Renews ${formatted}`
+}
+
 type ClubWithCount = {
   id: string
   name: string
@@ -88,6 +97,8 @@ type ClubWithCount = {
   meeting_time: string | null
   image_url: string | null
   tier: string | null
+  tier_expires_at: string | null
+  cancel_at_period_end: boolean
   follower_count: number
   member_count: number
   is_public: boolean
@@ -666,7 +677,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
     const load = async () => {
       const { data: clubs } = await supabase
         .from("clubs")
-        .select("id, name, city, location, meeting_day, meeting_time, image_url, tier, is_public, instagram_handle, membership_type, website, waiver_url, default_timezone, stripe_connect_account_id, stripe_connect_charges_enabled, stripe_connect_payouts_enabled, stripe_connect_details_submitted, passport_program_enrolled")
+        .select("id, name, city, location, meeting_day, meeting_time, image_url, tier, tier_expires_at, cancel_at_period_end, is_public, instagram_handle, membership_type, website, waiver_url, default_timezone, stripe_connect_account_id, stripe_connect_charges_enabled, stripe_connect_payouts_enabled, stripe_connect_details_submitted, passport_program_enrolled")
         .eq("user_id", userId)
       const rawClubs = clubs || []
       const clubIds = rawClubs.map((c: any) => c.id)
@@ -2566,10 +2577,15 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
 
               <Card>
                 <SectionTitle>Plan & Billing</SectionTitle>
-                <div className="flex items-center gap-2 mb-3">
+                <div className="flex items-center gap-2 mb-0.5">
                   <span className="text-sm text-white/80">Current plan:</span>
                   <span className="text-sm font-bold text-white capitalize">{selectedClub.tier || "Free"}</span>
                 </div>
+                <p className="text-xs text-white/40 font-semibold mb-3 min-h-[1em]">
+                  {selectedClub.tier && selectedClub.tier !== "free"
+                    ? billingStatusLabel(selectedClub.tier_expires_at, selectedClub.cancel_at_period_end)
+                    : null}
+                </p>
                 {!nativeApp ? (
                   <>
                     {!isEnterprise && (() => {

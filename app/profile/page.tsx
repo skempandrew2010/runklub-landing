@@ -38,6 +38,15 @@ function getAvatarColors(name: string) {
   return AVATAR_GRADIENTS[hash % AVATAR_GRADIENTS.length]
 }
 
+// Stripe subscriptions stay "active" right up until the period actually
+// ends, whether or not a cancellation is scheduled - cancel_at_period_end
+// is the only thing that tells "renews on X" apart from "ends on X".
+function billingStatusLabel(dateIso: string | null | undefined, cancelAtPeriodEnd: boolean | null | undefined, nonRecurring = false) {
+  if (!dateIso) return null
+  const formatted = new Date(dateIso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+  return cancelAtPeriodEnd || nonRecurring ? `Ends ${formatted}` : `Renews ${formatted}`
+}
+
 export default function ProfilePage() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
@@ -46,7 +55,7 @@ export default function ProfilePage() {
   const [subscribedClubs, setSubscribedClubs] = useState<Club[]>([])
   const [paidMemberships, setPaidMemberships] = useState<Club[]>([])
   const [passportTiers, setPassportTiers] = useState<{ tier: number; name: string; monthly_price_cents: number; yearly_price_cents: number; credits_per_month: number }[]>([])
-  const [passportSub, setPassportSub] = useState<{ tier: number; billing_interval: string; current_period_end: string | null } | null>(null)
+  const [passportSub, setPassportSub] = useState<{ tier: number; billing_interval: string; current_period_end: string | null; cancel_at_period_end: boolean } | null>(null)
   const [passportInterval, setPassportInterval] = useState<"monthly" | "yearly">("yearly")
   const [passportCreditBalance, setPassportCreditBalance] = useState(0)
   const [coachClubs, setCoachClubs] = useState<Club[]>([])
@@ -68,6 +77,7 @@ export default function ProfilePage() {
   const [subscribingPassportTier, setSubscribingPassportTier] = useState<number | null>(null)
   const [openingPassportPortal, setOpeningPassportPortal] = useState(false)
   const [nativeApp, setNativeApp] = useState(false)
+  const [leavingClubId, setLeavingClubId] = useState<string | null>(null)
   const [tierProgress, setTierProgress] = useState<TierProgress | null>(null)
   const [checkoutClientSecret, setCheckoutClientSecret] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -97,13 +107,14 @@ export default function ProfilePage() {
       setEditUsername(prof?.username || "")
       setEditLocation(prof?.location || "")
 
-      const { data: clubs } = await supabase.from("clubs").select("id, name, city, image_url, tier, tier_expires_at, stripe_subscription_status").eq("user_id", user.id)
+      const { data: clubs } = await supabase.from("clubs").select("id, name, city, image_url, tier, tier_expires_at, stripe_subscription_status, cancel_at_period_end").eq("user_id", user.id)
       setMyClubs((clubs || []) as any)
 
-      const { data: subs } = await supabase.from("subscriptions").select("member_type, clubs(*)").eq("user_id", user.id)
+      const { data: subs } = await supabase.from("subscriptions").select("member_type, expires_at, cancel_at_period_end, billing_interval, clubs(*)").eq("user_id", user.id)
       const subRows = (subs || []) as any[]
-      setSubscribedClubs(subRows.map((s) => s.clubs).filter(Boolean))
-      setPaidMemberships(subRows.filter((s) => s.member_type === "paid" && s.clubs).map((s) => s.clubs))
+      const withBilling = (s: any) => s.clubs ? { ...s.clubs, expires_at: s.expires_at, cancel_at_period_end: s.cancel_at_period_end, billing_interval: s.billing_interval } : null
+      setSubscribedClubs(subRows.map(withBilling).filter(Boolean))
+      setPaidMemberships(subRows.filter((s) => s.member_type === "paid" && s.clubs).map(withBilling))
 
       const { data: coachRows } = await supabase.from("coaches").select("id, club_id, clubs(*)").eq("user_id", user.id).eq("status", "active")
       setIsCoach((coachRows?.length ?? 0) > 0)
@@ -111,7 +122,7 @@ export default function ProfilePage() {
 
       const [{ data: passportTiersData }, { data: passportSubData }] = await Promise.all([
         supabase.from("passport_tiers").select("tier, name, monthly_price_cents, yearly_price_cents, credits_per_month").order("tier"),
-        supabase.from("passport_subscriptions").select("tier, billing_interval, current_period_end").eq("user_id", user.id).eq("status", "active").maybeSingle(),
+        supabase.from("passport_subscriptions").select("tier, billing_interval, current_period_end, cancel_at_period_end").eq("user_id", user.id).eq("status", "active").maybeSingle(),
       ])
       setPassportTiers(passportTiersData ?? [])
       setPassportSub(passportSubData ?? null)
@@ -313,6 +324,22 @@ export default function ProfilePage() {
     const next = profile?.home_club_id === clubId ? null : clubId
     setProfile((p) => p ? { ...p, home_club_id: next } : p)
     await supabase.from("profiles").update({ home_club_id: next, updated_at: new Date().toISOString() }).eq("id", user.id)
+  }
+
+  // Free-follow leave only - paid memberships cancel through the Stripe
+  // portal ("Manage" button below) so the subscription actually stops
+  // billing instead of just disappearing from this list.
+  const leaveKlub = async (clubId: string, clubName: string) => {
+    if (!user) return
+    if (!window.confirm(`Leave ${clubName}?`)) return
+    setLeavingClubId(clubId)
+    await supabase.from("subscriptions").delete().eq("user_id", user.id).eq("club_id", clubId)
+    setSubscribedClubs((clubs) => clubs.filter((c) => c.id !== clubId))
+    if (profile?.home_club_id === clubId) {
+      setProfile((p) => p ? { ...p, home_club_id: null } : p)
+      await supabase.from("profiles").update({ home_club_id: null, updated_at: new Date().toISOString() }).eq("id", user.id)
+    }
+    setLeavingClubId(null)
   }
 
   const uploadAvatar = async (file: File) => {
@@ -517,14 +544,28 @@ export default function ProfilePage() {
                       }`}>
                       {club.role}
                     </span>
+                    {club.role === "MEMBER" && !paidMemberships.some((c) => c.id === club.id) && (
+                      <button
+                        onClick={() => leaveKlub(club.id, club.name)}
+                        disabled={leavingClubId === club.id}
+                        className="shrink-0 text-xs font-bold text-white/30 hover:text-red-400 transition disabled:opacity-50"
+                      >
+                        {leavingClubId === club.id ? "…" : "Leave"}
+                      </button>
+                    )}
                   </div>
                 )
               })
             )}
-            <div className="px-4 py-3">
+            <div className="px-4 py-3 flex items-center gap-4">
               <Link href="/explore" className="text-xs text-[#c5f135] font-semibold hover:underline">
                 + Discover more klubs
               </Link>
+              {viewMode === "director" && (
+                <Link href="/submit-club" className="text-xs text-[#c5f135] font-semibold hover:underline">
+                  + Create a Klub
+                </Link>
+              )}
             </div>
           </div>
         </div>
@@ -584,7 +625,13 @@ export default function ProfilePage() {
                   <Users className="w-4 h-4 text-[#c5f135] shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-white truncate">{club.name}</p>
-                    <p className="text-xs text-white/40">Paid member</p>
+                    <p className="text-xs text-white/40">
+                      {billingStatusLabel(
+                        (club as any).expires_at,
+                        (club as any).cancel_at_period_end,
+                        (club as any).billing_interval === "seasonal"
+                      ) ?? "Paid member"}
+                    </p>
                   </div>
                   {!nativeApp && (
                     <button
@@ -607,8 +654,9 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* MANAGE SUBSCRIPTIONS - shown for anyone who owns/manages a klub, even on Free */}
-        {myClubs.length > 0 && (
+        {/* MANAGE SUBSCRIPTIONS - klub management plan, director view only so
+            it doesn't clutter the page while browsing as a member */}
+        {myClubs.length > 0 && viewMode === "director" && (
           <div>
             <h2 className="text-xs font-bold text-white/40 tracking-widest uppercase px-1 mb-2">Subscriptions</h2>
             <div className="bg-[#1e2d12] rounded-2xl overflow-hidden divide-y divide-[#2e3d1a]">
@@ -625,7 +673,12 @@ export default function ProfilePage() {
                       }
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-white truncate">{club.name}</p>
-                        <p className="text-xs text-white/40 capitalize">{tier} plan</p>
+                        <p className="text-xs text-white/40 capitalize">
+                          {tier} plan
+                          {!isFree && billingStatusLabel((club as any).tier_expires_at, (club as any).cancel_at_period_end) && (
+                            <> · {billingStatusLabel((club as any).tier_expires_at, (club as any).cancel_at_period_end)}</>
+                          )}
+                        </p>
                       </div>
                       {isFree ? (
                         !nativeApp && (
@@ -748,6 +801,11 @@ export default function ProfilePage() {
                   <p className="text-xs text-white/40 mt-2 leading-relaxed">
                     Spend credits checking in at partner klubs beyond your home klub - unspent credits expire 45 days after they're issued.
                   </p>
+                  {billingStatusLabel(passportSub.current_period_end, passportSub.cancel_at_period_end) && (
+                    <p className="text-xs text-white/40 mt-1.5 font-semibold">
+                      {billingStatusLabel(passportSub.current_period_end, passportSub.cancel_at_period_end)}
+                    </p>
+                  )}
                   {!nativeApp && (
                     <button
                       onClick={managePassportBilling}

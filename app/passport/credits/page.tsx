@@ -2,19 +2,24 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import dynamic from "next/dynamic"
 import Link from "next/link"
-import { Zap, Crown } from "lucide-react"
+import { Zap, Crown, MapPin } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import FadeIn from "@/components/FadeIn"
-import type { ClubPin } from "@/components/mapview"
 import { hasPassportAccess } from "@/lib/passportConfig"
 import StripeCheckoutModal from "@/components/StripeCheckoutModal"
 
-const MapView = dynamic(() => import("@/components/mapview"), { ssr: false })
-
 type PassportTier = { tier: number; name: string; monthly_price_cents: number; yearly_price_cents: number; credits_per_month: number }
-type PassportSub = { tier: number; billing_interval: string; current_period_end: string | null }
+type PassportSub = { tier: number; billing_interval: string; current_period_end: string | null; cancel_at_period_end: boolean }
+
+// Stripe subscriptions stay "active" right up until the period actually
+// ends, whether or not a cancellation is scheduled - cancel_at_period_end
+// is the only thing that tells "renews on X" apart from "ends on X".
+function billingStatusLabel(dateIso: string | null, cancelAtPeriodEnd: boolean) {
+  if (!dateIso) return null
+  const formatted = new Date(dateIso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+  return cancelAtPeriodEnd ? `Ends ${formatted}` : `Renews ${formatted}`
+}
 
 // Standalone intro page for members buying Passport credits, same big
 // centered pitch treatment as /director/passport and /director/plans.
@@ -32,7 +37,6 @@ export default function PassportCreditsPage() {
   const [openingPortal, setOpeningPortal] = useState(false)
   const [buyPacks, setBuyPacks] = useState("1")
   const [buyingCredits, setBuyingCredits] = useState(false)
-  const [passportClubs, setPassportClubs] = useState<ClubPin[]>([])
   const [checkoutClientSecret, setCheckoutClientSecret] = useState<string | null>(null)
 
   useEffect(() => {
@@ -41,16 +45,14 @@ export default function PassportCreditsPage() {
       if (!hasPassportAccess(user?.email)) { router.replace("/passport"); return }
       setUserId(user?.id ?? null)
 
-      const [{ data: tiersData }, subResult, { data: clubsData }] = await Promise.all([
+      const [{ data: tiersData }, subResult] = await Promise.all([
         supabase.from("passport_tiers").select("tier, name, monthly_price_cents, yearly_price_cents, credits_per_month").order("tier"),
         user
-          ? supabase.from("passport_subscriptions").select("tier, billing_interval, current_period_end").eq("user_id", user.id).eq("status", "active").maybeSingle()
+          ? supabase.from("passport_subscriptions").select("tier, billing_interval, current_period_end, cancel_at_period_end").eq("user_id", user.id).eq("status", "active").maybeSingle()
           : Promise.resolve({ data: null }),
-        supabase.from("clubs").select("id, name, latitude, longitude, image_url, tier").eq("passport_program_enrolled", true).eq("is_public", true).not("latitude", "is", null).not("longitude", "is", null),
       ])
       setTiers(tiersData ?? [])
       setSub(subResult.data ?? null)
-      setPassportClubs((clubsData ?? []).map((c) => ({ id: c.id, name: c.name, lat: c.latitude!, lng: c.longitude!, image_url: c.image_url, tier: c.tier })))
 
       if (user && subResult.data) {
         const { data: batches } = await supabase
@@ -150,21 +152,6 @@ export default function PassportCreditsPage() {
     <div className="min-h-screen bg-[#1a2110] pb-24">
       <div className="max-w-5xl mx-auto px-5 sm:px-6 py-10">
 
-        {/* Find Passport klubs near you - uses your location to center the
-            map (handled inside MapView); pins are klubs enrolled in the
-            payout program, tap one to see the klub. */}
-        <FadeIn className="mb-12">
-          <div className="flex items-center justify-between gap-3 mb-3">
-            <h2 className="text-lg font-black text-white">Find Passport Klubs Near You</h2>
-            <Link href="/explore?passport=1" className="text-xs font-bold text-[#c5f135] hover:text-[#d4fb4d] transition shrink-0">
-              Full map search →
-            </Link>
-          </div>
-          <div className="rounded-2xl overflow-hidden border border-[#2e3d1a]" style={{ height: 360 }}>
-            <MapView city="" runs={[]} clubs={passportClubs} />
-          </div>
-        </FadeIn>
-
         {/* Hero pitch - same scale/animation as /director/passport and /director/plans */}
         <FadeIn className="text-center mb-12">
           <p className="text-xs font-bold text-[#c5f135]/60 uppercase tracking-widest mb-3">RunKlub Passport</p>
@@ -189,6 +176,11 @@ export default function PassportCreditsPage() {
                 </span>
               </div>
               <p className="text-2xl font-black text-white">{creditBalance} <span className="text-sm font-bold text-white/40">credits available</span></p>
+              {billingStatusLabel(sub.current_period_end, sub.cancel_at_period_end) && (
+                <p className="text-xs text-white/40 font-semibold -mt-2">
+                  {billingStatusLabel(sub.current_period_end, sub.cancel_at_period_end)}
+                </p>
+              )}
 
               {creditBalance === 0 && (
                 <div className="w-full pt-4 border-t border-[#2e3d1a]">
@@ -288,6 +280,28 @@ export default function PassportCreditsPage() {
               })}
             </div>
           </>
+        )}
+
+        {sub && (
+          <FadeIn className="mt-12">
+            <Link
+              href="/explore?passport=1"
+              className="flex items-center justify-between gap-4 bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl px-6 py-5 hover:border-[#c5f135]/40 transition group"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-[#c5f135]/10 border border-[#c5f135]/30 flex items-center justify-center shrink-0">
+                  <MapPin className="w-4 h-4 text-[#c5f135]" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-white">Find Passport Klubs Near You</p>
+                  <p className="text-xs text-white/40">Browse every partner klub on the map</p>
+                </div>
+              </div>
+              <span className="text-xs font-bold text-[#c5f135] group-hover:text-[#d4fb4d] transition shrink-0">
+                Open map →
+              </span>
+            </Link>
+          </FadeIn>
         )}
       </div>
 

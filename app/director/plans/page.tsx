@@ -9,7 +9,16 @@ import FadeIn from "@/components/FadeIn"
 import { Select } from "@/components/Select"
 import StripeCheckoutModal from "@/components/StripeCheckoutModal"
 
-type ClubOption = { id: string; name: string; tier: PlanId | null }
+type ClubOption = { id: string; name: string; tier: PlanId | null; tier_expires_at: string | null; cancel_at_period_end: boolean }
+
+// Stripe subscriptions stay "active" right up until the period actually
+// ends, whether or not a cancellation is scheduled - cancel_at_period_end
+// is the only thing that tells "renews on X" apart from "ends on X".
+function billingStatusLabel(dateIso: string | null, cancelAtPeriodEnd: boolean) {
+  if (!dateIso) return null
+  const formatted = new Date(dateIso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+  return cancelAtPeriodEnd ? `Ends ${formatted}` : `Renews ${formatted}`
+}
 
 const TIER_RANK: Record<PlanId, number> = { free: 0, starter: 1, growth: 2, enterprise: 3 }
 
@@ -32,7 +41,7 @@ export default function DirectorPlansPage() {
       if (!user) { router.push("/login"); return }
       const { data: myClubs } = await supabase
         .from("clubs")
-        .select("id, name, tier")
+        .select("id, name, tier, tier_expires_at, cancel_at_period_end")
         .eq("user_id", user.id)
         .order("name")
 
@@ -148,6 +157,11 @@ export default function DirectorPlansPage() {
                   {isCurrent ? (
                     <div className="text-center py-3 rounded-xl border border-[#2e3d1a] text-white/30 text-sm font-bold">
                       You&apos;re on this plan
+                      {!isFree && billingStatusLabel(selectedClub.tier_expires_at, selectedClub.cancel_at_period_end) && (
+                        <p className="text-xs text-white/25 font-semibold mt-0.5">
+                          {billingStatusLabel(selectedClub.tier_expires_at, selectedClub.cancel_at_period_end)}
+                        </p>
+                      )}
                     </div>
                   ) : isFree ? (
                     <div className="text-center py-3 rounded-xl border border-[#2e3d1a] text-white/30 text-sm font-bold">

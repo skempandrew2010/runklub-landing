@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { MapPin, Calendar, Home, ChevronDown, ChevronRight, Check, Gift } from "lucide-react"
+import { MapPin, Calendar, Home, ChevronRight, Check } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import PassportWaitlist from "@/components/PassportWaitlist"
 import ModalPortal from "@/components/ModalPortal"
@@ -19,7 +19,19 @@ type VisitedClub = {
   total_credits_spent: number
 }
 
-type PartnerClub = { id: string; name: string; image_url: string | null; city: string | null }
+type PartnerClub = { id: string; name: string; image_url: string | null; city: string | null; latitude: number | null; longitude: number | null }
+
+// Straight-line distance, close enough for ranking "nearby" offers without
+// needing a DB extension or browser geolocation permission prompt.
+function haversineMiles(lat1: number, lng1: number, lat2: number, lng2: number) {
+  const R = 3958.8
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLng = (lng2 - lng1) * Math.PI / 180
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+const NEARBY_RADIUS_MILES = 75
 
 type StateBadge = { state: string; redemption_count: number; first_earned_at: string }
 
@@ -33,14 +45,6 @@ type Offer = {
   redemption_limit_per_runner: number | null
   total_redemption_cap: number | null
   total_redemption_count: number
-}
-
-const OFFER_TYPE_LABELS: Record<string, string> = {
-  standard_session: "Session check-in",
-  race_kickback: "Race entry kickback",
-  special_session: "Special session",
-  gear_discount: "Gear discount",
-  other: "Offer",
 }
 
 function initialsOf(name: string) {
@@ -70,7 +74,7 @@ export default function PassportPage() {
   const [stateBadges, setStateBadges] = useState<Record<string, StateBadge>>({})
   const [partnerClubs, setPartnerClubs] = useState<PartnerClub[]>([])
   const [offersByClub, setOffersByClub] = useState<Record<string, Offer[]>>({})
-  const [expandedClubId, setExpandedClubId] = useState<string | null>(null)
+  const [homeClubCoords, setHomeClubCoords] = useState<{ lat: number; lng: number } | null>(null)
 
   const [redeemTarget, setRedeemTarget] = useState<{ offer: Offer; club: PartnerClub } | null>(null)
   const [externalReference, setExternalReference] = useState("")
@@ -99,15 +103,17 @@ export default function PassportPage() {
 
       const [{ data: batches }, { data: profile }, { data: history }, { data: clubs }, { data: badges }] = await Promise.all([
         supabase.from("passport_credit_batches").select("credits_remaining, expires_at").eq("user_id", user.id).eq("status", "active").gt("credits_remaining", 0),
-        supabase.from("profiles").select("home_club_id, clubs:home_club_id(name)").eq("id", user.id).maybeSingle(),
+        supabase.from("profiles").select("home_club_id, clubs:home_club_id(name, latitude, longitude)").eq("id", user.id).maybeSingle(),
         supabase.from("runner_club_history").select("*").eq("user_id", user.id).order("last_visit_at", { ascending: false }),
-        supabase.from("clubs").select("id, name, image_url, city").eq("passport_program_enrolled", true).order("name"),
+        supabase.from("clubs").select("id, name, image_url, city, latitude, longitude").eq("passport_program_enrolled", true).order("name"),
         supabase.from("passport_runner_state_badges").select("state, redemption_count, first_earned_at").eq("user_id", user.id),
       ])
 
       const now = new Date()
       setCreditBalance((batches ?? []).filter((b) => new Date(b.expires_at) > now).reduce((sum, b) => sum + b.credits_remaining, 0))
-      setHomeClubName((profile?.clubs as unknown as { name: string } | null)?.name ?? null)
+      const homeClub = profile?.clubs as unknown as { name: string; latitude: number | null; longitude: number | null } | null
+      setHomeClubName(homeClub?.name ?? null)
+      setHomeClubCoords(homeClub?.latitude != null && homeClub?.longitude != null ? { lat: homeClub.latitude, lng: homeClub.longitude } : null)
       setVisitedClubs((history as VisitedClub[]) ?? [])
       setStateBadges(Object.fromEntries(((badges as StateBadge[]) ?? []).map((b) => [b.state, b])))
 
@@ -164,6 +170,24 @@ export default function PassportPage() {
       setRedeeming(false)
     }
   }
+
+  // Ranked by how many people have redeemed each offer, restricted to clubs
+  // near the runner's home klub when we have coordinates for one - falls
+  // back to the overall top 5 so the section isn't empty for runners
+  // without a home klub set yet, or before any offer has real usage yet
+  // (a fresh offer still deserves surfacing, it just won't say "N used").
+  const clubById: Record<string, PartnerClub> = Object.fromEntries(partnerClubs.map((c) => [c.id, c]))
+  const allOffers = Object.values(offersByClub).flat()
+  const nearbyOffers = homeClubCoords
+    ? allOffers.filter((o) => {
+        const club = clubById[o.club_id]
+        if (!club || club.latitude == null || club.longitude == null) return false
+        return haversineMiles(homeClubCoords.lat, homeClubCoords.lng, club.latitude, club.longitude) <= NEARBY_RADIUS_MILES
+      })
+    : []
+  const popularOffers = [...(nearbyOffers.length > 0 ? nearbyOffers : allOffers)]
+    .sort((a, b) => b.total_redemption_count - a.total_redemption_count)
+    .slice(0, 5)
 
   if (loading) {
     return (
@@ -224,80 +248,59 @@ export default function PassportPage() {
         )}
 
         {/* ── DISCOVER PARTNER CLUBS ── */}
-        <div>
-          <h2 className="text-xs font-bold text-white/40 uppercase tracking-widest px-1 mb-2">Discover Partner Clubs</h2>
-          {partnerClubs.length === 0 ? (
-            <div className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-8 text-center">
-              <p className="text-white/40 text-sm">No partner klubs yet - check back soon.</p>
+        <Link
+          href="/explore?passport=1"
+          className="flex items-center justify-between gap-4 bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl px-4 py-3.5 hover:border-[#c5f135]/40 transition group"
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-full bg-[#c5f135]/10 border border-[#c5f135]/30 flex items-center justify-center shrink-0">
+              <MapPin className="w-4 h-4 text-[#c5f135]" />
             </div>
-          ) : (
-            <div className="space-y-2">
-              {partnerClubs.map((club) => {
-                const expanded = expandedClubId === club.id
-                const offers = offersByClub[club.id] ?? []
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-white truncate">Discover Partner Klubs</p>
+              <p className="text-xs text-white/40 truncate">Browse every partner klub on the map</p>
+            </div>
+          </div>
+          <ChevronRight className="w-4 h-4 text-white/20 shrink-0 group-hover:text-[#c5f135] transition" />
+        </Link>
+
+        {/* ── POPULAR OFFERS NEAR YOU ── */}
+        {popularOffers.length > 0 && (
+          <div>
+            <h2 className="text-xs font-bold text-white/40 uppercase tracking-widest px-1 mb-2">Popular Offers Near You</h2>
+            <div className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl overflow-hidden divide-y divide-[#2e3d1a]">
+              {popularOffers.map((offer) => {
+                const club = clubById[offer.club_id]
+                if (!club) return null
+                const capped = offer.total_redemption_cap != null && offer.total_redemption_count >= offer.total_redemption_cap
+                const isStandardSession = offer.offer_type === "standard_session"
                 return (
-                  <div key={club.id} className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl overflow-hidden">
-                    <button
-                      onClick={() => setExpandedClubId(expanded ? null : club.id)}
-                      className="w-full flex items-center gap-3 px-4 py-3.5 text-left"
-                    >
-                      <ClubAvatar name={club.name} imageUrl={club.image_url} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-white truncate">{club.name}</p>
-                        {club.city && (
-                          <p className="text-xs text-white/40 mt-0.5 flex items-center gap-1">
-                            <MapPin className="w-3 h-3 shrink-0" />{club.city}
-                          </p>
-                        )}
-                      </div>
-                      <span className="text-[10px] font-bold text-white/30 shrink-0">{offers.length} offer{offers.length === 1 ? "" : "s"}</span>
-                      <ChevronDown className={`w-4 h-4 text-white/30 shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`} />
-                    </button>
-                    {expanded && (
-                      <div className="border-t border-[#2e3d1a] px-4 py-3 space-y-2">
-                        {offers.length === 0 ? (
-                          <p className="text-xs text-white/30 py-2">No active offers right now.</p>
-                        ) : (
-                          offers.map((offer) => {
-                            const capped = offer.total_redemption_cap != null && offer.total_redemption_count >= offer.total_redemption_cap
-                            const isStandardSession = offer.offer_type === "standard_session"
-                            return (
-                              <button
-                                key={offer.id}
-                                onClick={() => {
-                                  if (isStandardSession) router.push(`/clubs/${club.id}`)
-                                  else if (!capped) openRedeem(offer, club)
-                                }}
-                                disabled={!isStandardSession && capped}
-                                className="w-full flex items-center gap-3 bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2.5 text-left hover:border-[#c5f135]/30 transition disabled:opacity-40"
-                              >
-                                <div className="w-8 h-8 rounded-full bg-[#2e3d1a] flex items-center justify-center shrink-0">
-                                  <Gift className="w-3.5 h-3.5 text-[#c5f135]" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-bold text-white truncate">{offer.title}</p>
-                                  <p className="text-xs text-white/40 mt-0.5 truncate">
-                                    {isStandardSession
-                                      ? "RSVP to one of their runs to redeem"
-                                      : OFFER_TYPE_LABELS[offer.offer_type] ?? offer.offer_type}
-                                    {!isStandardSession && offer.description && ` · ${offer.description}`}
-                                  </p>
-                                </div>
-                                <span className="text-xs font-black text-[#c5f135] shrink-0">
-                                  {isStandardSession ? `${offer.credit_cost} cr` : capped ? "Full" : `${offer.credit_cost} cr`}
-                                </span>
-                              </button>
-                            )
-                          })
-                        )}
-                      </div>
-                    )}
-                  </div>
+                  <button
+                    key={offer.id}
+                    onClick={() => {
+                      if (isStandardSession) router.push(`/clubs/${club.id}`)
+                      else if (!capped) openRedeem(offer, club)
+                    }}
+                    disabled={!isStandardSession && capped}
+                    className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-[#2e3d1a]/40 transition disabled:opacity-40"
+                  >
+                    <ClubAvatar name={club.name} imageUrl={club.image_url} className="w-10 h-10" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-white truncate">{offer.title}</p>
+                      <p className="text-xs text-white/40 mt-0.5 truncate">
+                        {club.name}
+                        {offer.total_redemption_count > 0 && ` · ${offer.total_redemption_count} used`}
+                      </p>
+                    </div>
+                    <span className="text-xs font-black text-[#c5f135] shrink-0">
+                      {capped && !isStandardSession ? "Full" : `${offer.credit_cost} cr`}
+                    </span>
+                  </button>
                 )
               })}
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* ── STATE BADGES ── */}
         <div>

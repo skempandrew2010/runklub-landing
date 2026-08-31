@@ -103,7 +103,7 @@ function parsePaceMetadata(metadata: Record<string, string | undefined>) {
 async function revertToFollower(subscriptionId: string) {
   await getSupabaseAdmin()
     .from("subscriptions")
-    .update({ member_type: "community" })
+    .update({ member_type: "community", expires_at: null, cancel_at_period_end: false })
     .eq("stripe_subscription_id", subscriptionId)
 }
 
@@ -210,6 +210,11 @@ export async function POST(req: NextRequest) {
         const { clubId, userId, billingInterval, priceCents, planId, planName } = sub.metadata ?? {}
         if (!clubId || !userId) break
 
+        // Stripe moved current_period_end off the Subscription object and
+        // onto each SubscriptionItem (flexible billing mode) - every
+        // subscription here has exactly one item, so item[0] is authoritative.
+        const periodEnd: number | undefined = (sub.items.data[0] as any)?.current_period_end
+
         if (["active", "trialing"].includes(sub.status)) {
           await getSupabaseAdmin().from("subscriptions").upsert({
             user_id: userId,
@@ -221,6 +226,8 @@ export async function POST(req: NextRequest) {
             price_cents: priceCents ? Number(priceCents) : null,
             plan_id: planId ?? null,
             plan_name: planName ?? null,
+            expires_at: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
+            cancel_at_period_end: sub.cancel_at_period_end,
             ...parsePaceMetadata(sub.metadata ?? {}),
           }, { onConflict: "user_id,club_id" })
         } else if (["canceled", "unpaid"].includes(sub.status)) {

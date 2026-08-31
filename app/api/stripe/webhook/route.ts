@@ -188,6 +188,12 @@ export async function POST(req: NextRequest) {
       // ── Subscription renewed, plan-changed, or payment failed ──
       case "customer.subscription.updated": {
         const sub = event.data.object as Stripe.Subscription
+        // Stripe moved current_period_start/end off the Subscription object
+        // and onto each SubscriptionItem (flexible billing mode) - every
+        // subscription here has exactly one item, so item[0] is authoritative.
+        const item = sub.items.data[0] as any
+        const periodStart: number | undefined = item?.current_period_start
+        const periodEnd: number | undefined = item?.current_period_end
 
         if (sub.metadata?.passportProgram === "true") {
           const admin = getSupabaseAdmin()
@@ -196,10 +202,9 @@ export async function POST(req: NextRequest) {
           const isActive = ["active", "trialing"].includes(sub.status)
           const updates: Record<string, unknown> = {
             status: isActive ? "active" : sub.status === "past_due" ? "past_due" : "canceled",
-            current_period_start: (sub as any).current_period_start
-              ? new Date((sub as any).current_period_start * 1000).toISOString() : null,
-            current_period_end: (sub as any).current_period_end
-              ? new Date((sub as any).current_period_end * 1000).toISOString() : null,
+            current_period_start: periodStart ? new Date(periodStart * 1000).toISOString() : null,
+            current_period_end: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
+            cancel_at_period_end: sub.cancel_at_period_end,
           }
           // A plan switch (upgrade/downgrade, or monthly<->yearly) takes
           // effect at the next billing date, not immediately - invoice.paid
@@ -247,9 +252,8 @@ export async function POST(req: NextRequest) {
         await getSupabaseAdmin().from("clubs").update({
           tier: isActive ? resolvedTier : "free",
           stripe_subscription_status: sub.status,
-          tier_expires_at: (sub as any).current_period_end
-            ? new Date((sub as any).current_period_end * 1000).toISOString()
-            : null,
+          tier_expires_at: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
+          cancel_at_period_end: sub.cancel_at_period_end,
         }).eq("id", club.id)
         break
       }
@@ -264,6 +268,7 @@ export async function POST(req: NextRequest) {
           await getSupabaseAdmin().from("passport_subscriptions").update({
             status: "canceled",
             canceled_at: new Date().toISOString(),
+            cancel_at_period_end: false,
           }).eq("stripe_subscription_id", sub.id)
           break
         }
@@ -281,6 +286,7 @@ export async function POST(req: NextRequest) {
           stripe_subscription_status: "canceled",
           stripe_subscription_id: null,
           tier_expires_at: null,
+          cancel_at_period_end: false,
         }).eq("id", club.id)
         break
       }
