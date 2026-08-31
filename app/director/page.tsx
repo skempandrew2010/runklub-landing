@@ -34,6 +34,7 @@ import { RollerSelect } from "@/components/RollerSelect"
 import { DateInput } from "@/components/DateInput"
 import AddressAutocomplete from "@/components/AddressAutocomplete"
 import { TimeInput } from "@/components/TimeInput"
+import StripeCheckoutModal from "@/components/StripeCheckoutModal"
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -486,6 +487,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
   const [scheduleResult, setScheduleResult] = useState<{ sent: number; skipped: number; total: number } | null>(null)
   const [scheduleError, setScheduleError] = useState("")
   const [upgrading, setUpgrading] = useState(false)
+  const [checkoutClientSecret, setCheckoutClientSecret] = useState<string | null>(null)
   const [billingInterval, setBillingInterval] = useState<"monthly" | "yearly">("monthly")
   const [nativeApp, setNativeApp] = useState(false)
   const [tierOverride, setTierOverride] = useState<"free" | "starter" | "growth" | "enterprise" | null>(null)
@@ -932,9 +934,10 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
         body: JSON.stringify({ clubId: selectedClubId, tier, interval }),
       })
       const json = await res.json()
-      if (json.url) { window.location.href = json.url } else { alert(json.error ?? "Could not start checkout"); setUpgrading(false) }
+      if (json.clientSecret) { setCheckoutClientSecret(json.clientSecret) } else { alert(json.error ?? "Could not start checkout") }
     } catch {
       alert("Could not start checkout. Try again.")
+    } finally {
       setUpgrading(false)
     }
   }
@@ -1344,7 +1347,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
         ) : (
           <>
             <Button onClick={() => startCheckout(targetTier)} disabled={upgrading} className="w-full text-center">
-              {upgrading ? "Redirecting…" : `Upgrade to ${info.name}`}
+              {upgrading ? "Loading…" : `Upgrade to ${info.name}`}
             </Button>
             <Link href="/director/plans" className="block text-center text-xs text-white/40 hover:text-[#c5f135] transition mt-2">
               See everything included in every plan
@@ -2116,7 +2119,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                           <p className="text-xs text-white/80 mt-0.5">Upgrade to Growth to email your followers directly.</p>
                         </div>
                       </div>
-                      {!nativeApp && <Button onClick={() => startCheckout("growth")} disabled={upgrading}>{upgrading ? "Redirecting…" : "Upgrade to Growth"}</Button>}
+                      {!nativeApp && <Button onClick={() => startCheckout("growth")} disabled={upgrading}>{upgrading ? "Loading…" : "Upgrade to Growth"}</Button>}
                     </div>
                   )}
                   {newsletterOpen && (isGrowth || isEnterprise) && (
@@ -2202,7 +2205,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                           <p className="text-xs text-white/80 mt-0.5">Upgrade to email your klub's weekly training schedule to active members.</p>
                         </div>
                       </div>
-                      {!nativeApp && <Button onClick={() => startCheckout("growth")} disabled={upgrading}>{upgrading ? "Redirecting…" : "Upgrade to Growth"}</Button>}
+                      {!nativeApp && <Button onClick={() => startCheckout("growth")} disabled={upgrading}>{upgrading ? "Loading…" : "Upgrade to Growth"}</Button>}
                     </div>
                   ) : scheduleResult ? (
                     <div className="flex items-center gap-3 py-1">
@@ -2599,7 +2602,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                     <div className="flex gap-2 flex-wrap">
                       {!isEnterprise && (
                         <Button onClick={() => startCheckout(isGrowth ? "enterprise" : isStarter ? "growth" : "starter", billingInterval)} disabled={upgrading}>
-                          {upgrading ? "Redirecting…" : isGrowth ? "Upgrade to Enterprise" : isStarter ? "Upgrade to Growth" : "Upgrade to Starter"}
+                          {upgrading ? "Loading…" : isGrowth ? "Upgrade to Enterprise" : isStarter ? "Upgrade to Growth" : "Upgrade to Starter"}
                         </Button>
                       )}
                       <Link href="/profile">
@@ -2642,6 +2645,13 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
           }}
           userId={userId}
           onClose={() => setSelectedRun(null)}
+        />
+      )}
+
+      {checkoutClientSecret && (
+        <StripeCheckoutModal
+          clientSecret={checkoutClientSecret}
+          onClose={() => setCheckoutClientSecret(null)}
         />
       )}
     </div>

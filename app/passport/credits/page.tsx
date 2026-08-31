@@ -9,6 +9,7 @@ import { supabase } from "@/lib/supabase"
 import FadeIn from "@/components/FadeIn"
 import type { ClubPin } from "@/components/mapview"
 import { PASSPORT_LAUNCHED } from "@/lib/passportConfig"
+import StripeCheckoutModal from "@/components/StripeCheckoutModal"
 
 const MapView = dynamic(() => import("@/components/mapview"), { ssr: false })
 
@@ -32,6 +33,7 @@ export default function PassportCreditsPage() {
   const [buyQuantity, setBuyQuantity] = useState("1")
   const [buyingCredits, setBuyingCredits] = useState(false)
   const [passportClubs, setPassportClubs] = useState<ClubPin[]>([])
+  const [checkoutClientSecret, setCheckoutClientSecret] = useState<string | null>(null)
 
   useEffect(() => {
     if (!PASSPORT_LAUNCHED) router.replace("/passport")
@@ -84,14 +86,14 @@ export default function PassportCreditsPage() {
         body: JSON.stringify({ tier, interval }),
       })
       const data = await res.json()
-      if (data.url) {
-        window.location.href = data.url
+      if (data.clientSecret) {
+        setCheckoutClientSecret(data.clientSecret)
       } else {
         alert(data.error ?? "Could not start checkout")
-        setSubscribingTier(null)
       }
     } catch {
       alert("Could not start checkout. Try again.")
+    } finally {
       setSubscribingTier(null)
     }
   }
@@ -109,14 +111,14 @@ export default function PassportCreditsPage() {
         body: JSON.stringify({ credits: qty }),
       })
       const data = await res.json()
-      if (data.url) {
-        window.location.href = data.url
+      if (data.clientSecret) {
+        setCheckoutClientSecret(data.clientSecret)
       } else {
         alert(data.error ?? "Could not start checkout")
-        setBuyingCredits(false)
       }
     } catch {
       alert("Could not start checkout. Try again.")
+    } finally {
       setBuyingCredits(false)
     }
   }
@@ -281,7 +283,7 @@ export default function PassportCreditsPage() {
                         disabled={subscribingTier === t.tier}
                         className="mt-6 w-full py-3.5 rounded-full bg-[#c5f135] text-[#1a2110] text-sm font-black hover:bg-[#d4fb4d] transition disabled:opacity-50"
                       >
-                        {subscribingTier === t.tier ? "Redirecting…" : `Buy ${t.credits_per_month} Credits`}
+                        {subscribingTier === t.tier ? "Loading…" : `Buy ${t.credits_per_month} Credits`}
                       </button>
                     </div>
                   </FadeIn>
@@ -291,6 +293,13 @@ export default function PassportCreditsPage() {
           </>
         )}
       </div>
+
+      {checkoutClientSecret && (
+        <StripeCheckoutModal
+          clientSecret={checkoutClientSecret}
+          onClose={() => setCheckoutClientSecret(null)}
+        />
+      )}
     </div>
   )
 }

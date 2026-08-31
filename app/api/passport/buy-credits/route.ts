@@ -58,6 +58,7 @@ export async function POST(req: NextRequest) {
     const session = await getStripe().checkout.sessions.create({
       customer: customerId,
       mode: "payment",
+      ui_mode: "embedded_page",
       line_items: [{
         price_data: {
           currency: "usd",
@@ -70,11 +71,10 @@ export async function POST(req: NextRequest) {
         metadata: { passportCreditPurchase: "true", userId: user.id, credits: String(credits) },
       },
       metadata: { passportCreditPurchase: "true", userId: user.id, credits: String(credits) },
-      success_url: `${appUrl}${safeReturnPath}${safeReturnPath.includes("?") ? "&" : "?"}purchased=1`,
-      cancel_url: `${appUrl}${safeReturnPath}${safeReturnPath.includes("?") ? "&" : "?"}purchase_cancelled=1`,
+      return_url: `${appUrl}${safeReturnPath}${safeReturnPath.includes("?") ? "&" : "?"}purchased=1`,
     })
 
-    return NextResponse.json({ url: session.url })
+    return NextResponse.json({ clientSecret: session.client_secret })
   } catch (err) {
     console.error("Passport credit purchase error:", err)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

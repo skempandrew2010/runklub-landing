@@ -75,15 +75,15 @@ export async function POST(req: NextRequest) {
     const session = await getStripe().checkout.sessions.create({
       customer: customerId,
       mode: "subscription",
+      ui_mode: "embedded_page",
       line_items: [{ price: priceId, quantity: 1 }],
       metadata: { passportProgram: "true", tier: String(tier), interval: billingInterval, userId: user.id },
       subscription_data: { metadata: { passportProgram: "true", tier: String(tier), interval: billingInterval, userId: user.id } },
-      success_url: `${appUrl}/profile?passport_subscribed=1`,
-      cancel_url: `${appUrl}/profile?passport_cancelled=1`,
+      return_url: `${appUrl}/profile?passport_subscribed=1`,
       allow_promotion_codes: true,
     })
 
-    return NextResponse.json({ url: session.url })
+    return NextResponse.json({ clientSecret: session.client_secret })
   } catch (err) {
     console.error("Passport checkout error:", err)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

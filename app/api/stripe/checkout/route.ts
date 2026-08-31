@@ -124,18 +124,18 @@ export async function POST(req: NextRequest) {
     const session = await getStripe().checkout.sessions.create({
       customer: customerId,
       mode: "subscription",
+      ui_mode: "embedded_page",
       line_items: [{ price: priceId, quantity: 1 }],
       // metadata on the session itself (used by checkout.session.completed)
       metadata: { clubId, tier, interval: billingInterval, userId: user.id },
       // metadata on the subscription so renewals (customer.subscription.updated)
       // can read the tier without re-querying the original session
       subscription_data: { metadata: { clubId, tier, interval: billingInterval, userId: user.id } },
-      success_url: `${appUrl}/stripe/success?club_id=${clubId}&tier=${tier}`,
-      cancel_url:  `${appUrl}/stripe/cancel?club_id=${clubId}`,
+      return_url: `${appUrl}/stripe/success?club_id=${clubId}&tier=${tier}`,
       allow_promotion_codes: true,
     })
 
-    return NextResponse.json({ url: session.url })
+    return NextResponse.json({ clientSecret: session.client_secret })
   } catch (err) {
     console.error("Stripe checkout error:", err)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
