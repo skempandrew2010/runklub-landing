@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
 
     const { data: profile } = await adminSupabase
       .from("profiles")
-      .select("display_name")
+      .select("display_name, avatar_url")
       .eq("id", user.id)
       .single()
 
@@ -78,6 +78,18 @@ export async function POST(req: NextRequest) {
       .from("coach_invites")
       .update({ status: "accepted", accepted_at: new Date().toISOString() })
       .eq("id", invite.id)
+
+    const { data: club } = await adminSupabase.from("clubs").select("name, user_id").eq("id", invite.club_id).single()
+    if (club) {
+      await adminSupabase.from("notifications").insert({
+        user_id: club.user_id,
+        type: "coach_invite_accepted",
+        title: `${coachName} accepted your coach invite for ${club.name}`,
+        link: "/director?tab=members",
+        club_id: invite.club_id,
+        avatar_url: profile?.avatar_url ?? null,
+      })
+    }
 
     return NextResponse.json({ ok: true, club_id: invite.club_id })
   } catch (err: any) {

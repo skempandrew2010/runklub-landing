@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { ArrowLeft, MapPin, MessageSquare, Send } from "lucide-react"
 import { formatRunTime } from "@/lib/timezone"
+import ModalPortal from "@/components/ModalPortal"
 
 export type RunChatTarget = {
   type: "run"
@@ -76,6 +77,12 @@ export default function RunChatPanel({
   const [loading, setLoading] = useState(true)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  // Only true once the viewer has actually drilled into a DM from the group
+  // view in this session - that's the only case where "back" landing on the
+  // group view makes sense. A DM opened directly (initialDm, e.g. "Message
+  // the director") never showed a group view here, so back should close the
+  // whole popup and return to whatever page it was opened from instead.
+  const dmFromGroupRef = useRef(false)
 
   const targetColumn = target.type === "run" ? "run_id" : "club_id"
 
@@ -115,22 +122,43 @@ export default function RunChatPanel({
       recipient_id: dm?.userId ?? null,
       message: text,
     })
+    if (dm) {
+      const { data: sender } = await supabase.from("profiles").select("display_name, avatar_url").eq("id", userId).single()
+      await supabase.from("notifications").insert({
+        user_id: dm.userId,
+        type: "dm",
+        title: `New message from ${sender?.display_name || "a runner"}`,
+        body: text.slice(0, 140),
+        link: target.type === "run" ? `/runs/${target.id}?dm=${userId}` : `/clubs/${target.id}?dm=${userId}`,
+        club_id: target.type === "club" ? target.id : null,
+        avatar_url: sender?.avatar_url ?? null,
+      })
+    }
     setSending(false)
     inputRef.current?.focus()
   }
 
   const startDm = (msg: ChatMessage) => {
     if (dm || msg.user_id === userId) return
+    dmFromGroupRef.current = true
     setDm({ userId: msg.user_id, name: msg.profiles?.display_name || "Runner", avatarUrl: msg.profiles?.avatar_url ?? null })
   }
 
   const clubInitials = initialsOf(target.clubName)
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-[#111a0a]" style={{ paddingTop: "env(safe-area-inset-top)" }}>
+    <ModalPortal>
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="w-full sm:max-w-sm sm:max-h-[70vh] bg-[#111a0a] border border-[#2e3d1a] rounded-t-3xl sm:rounded-3xl flex flex-col overflow-hidden animate-[fadeUp_0.25s_ease-out_forwards]"
+        onClick={(e) => e.stopPropagation()}
+      >
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-[#2e3d1a] bg-[#1a2110] shrink-0">
-        <button onClick={dm ? () => setDm(null) : onClose} className="text-white/50 hover:text-white transition p-1">
+        <button onClick={dm && dmFromGroupRef.current ? () => setDm(null) : onClose} className="text-white/50 hover:text-white transition p-1">
           <ArrowLeft className="w-5 h-5" />
         </button>
         {dm ? (
@@ -148,7 +176,7 @@ export default function RunChatPanel({
           </>
         ) : (
           <>
-            <div className="w-9 h-9 rounded-xl overflow-hidden shrink-0 flex items-center justify-center bg-[#2e3d1a]">
+            <div className="w-9 h-9 rounded-full overflow-hidden shrink-0 flex items-center justify-center bg-[#2e3d1a]">
               {target.clubImageUrl
                 ? <img src={target.clubImageUrl} alt="" className="w-full h-full object-cover" />
                 : <span className="text-xs font-black text-[#c5f135]">{clubInitials}</span>
@@ -173,7 +201,7 @@ export default function RunChatPanel({
         )}
       </div>
 
-      {/* Run details strip — group view only */}
+      {/* Run details strip - group view only */}
       {!dm && target.type === "run" && (target.distance || target.meeting_point) && (
         <div className="shrink-0 px-4 py-2.5 border-b border-[#2e3d1a] bg-[#141f0d] flex flex-wrap gap-2">
           {target.distance && (
@@ -190,8 +218,8 @@ export default function RunChatPanel({
         </div>
       )}
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+      {/* Messages - a fixed compact height so this reads as a popup, not a full page */}
+      <div className="h-72 overflow-y-auto px-4 py-4 space-y-3 rk-scroll">
         {loading ? (
           <div className="flex items-center justify-center h-full">
             <div className="w-6 h-6 border-2 border-[#c5f135]/30 border-t-[#c5f135] rounded-full animate-spin" />
@@ -267,6 +295,8 @@ export default function RunChatPanel({
           <Send className="w-4 h-4 text-[#1a2110]" />
         </button>
       </div>
+      </div>
     </div>
+    </ModalPortal>
   )
 }

@@ -3,15 +3,15 @@
 import { useState, useEffect, useRef } from "react"
 import { supabase } from "@/lib/supabase"
 import { useRouter } from "next/navigation"
-import { MapPin, ArrowRight, Check, ChevronRight, Trophy, Users, Camera } from "lucide-react"
+import { MapPin, ArrowRight, Check, Trophy, Users, Camera } from "lucide-react"
 import { track } from "@vercel/analytics"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type Loc = { lat: number; lng: number }
 type Role = "manager" | "member"
-type Step = 0 | 1 | 2 | 3 | 4 | 5  // 0=location, 1=role, 2=profile, 3=photo, 4=strava, 5=finish
+type Step = 0 | 1 | 2 | 3 | 4  // 0=location, 1=role, 2=profile, 3=photo, 4=finish
 
-const TOTAL_STEPS = 6
+const TOTAL_STEPS = 5
 
 // ─── Pace options ─────────────────────────────────────────────────────────────
 const PACE_OPTIONS = [
@@ -49,20 +49,20 @@ export default function OnboardingPage() {
   const [step, setStep] = useState<Step>(0)
   const [userId, setUserId] = useState<string | null>(null)
 
-  // Step 0 — location
+  // Step 0 - location
   const [location, setLocation] = useState<Loc | null>(null)
   const [cityInput, setCityInput] = useState("")
   const [showCityInput, setShowCityInput] = useState(false)
   const [locLoading, setLocLoading] = useState(false)
 
-  // Step 1 — role
+  // Step 1 - role
   const [role, setRole] = useState<Role | null>(null)
 
-  // Step 2 — quick profile
+  // Step 2 - quick profile
   const [pace, setPace] = useState<string | null>(null)
   const [runType, setRunType] = useState<string | null>(null)
 
-  // Step 3 — profile photo
+  // Step 3 - profile photo
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
   const [avatarUploading, setAvatarUploading] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -72,7 +72,7 @@ export default function OnboardingPage() {
       if (!user) { router.push("/login"); return }
       setUserId(user.id)
 
-      // Resume with whatever this account already has instead of wiping it —
+      // Resume with whatever this account already has instead of wiping it -
       // returning users who never finished onboarding get routed back here on
       // every login, so treat existing values as the starting point, not a
       // blank slate that a stray "Continue" click could downgrade to member.
@@ -93,8 +93,8 @@ export default function OnboardingPage() {
     })
   }, [router])
 
-  // Track each step as users reach it — shows funnel drop-off
-  const STEP_NAMES = ["location", "role", "profile", "photo", "strava", "finish"]
+  // Track each step as users reach it - shows funnel drop-off
+  const STEP_NAMES = ["location", "role", "profile", "photo", "finish"]
   useEffect(() => {
     track("onboarding_step", { step, name: STEP_NAMES[step] })
   }, [step]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -139,7 +139,7 @@ export default function OnboardingPage() {
   }
 
   // ── Advance step ──
-  const advance = () => setStep((s) => Math.min(s + 1, 5) as Step)
+  const advance = () => setStep((s) => Math.min(s + 1, 4) as Step)
   const back = () => setStep((s) => Math.max(0, s - 1) as Step)
 
   // ── Step 2: save profile then advance ──
@@ -177,17 +177,12 @@ export default function OnboardingPage() {
               ← Back
             </button>
           ) : <div />}
-          {step === 4 && (
-            <button onClick={advance} className="text-white/40 hover:text-white text-sm transition">
-              Skip →
-            </button>
-          )}
         </div>
 
         <ProgressBar step={step} />
 
         {/* ═══════════════════════════════════════════════════════════════
-            STEP 0 — Allow Location
+            STEP 0 - Allow Location
         ═══════════════════════════════════════════════════════════════ */}
         {step === 0 && (
           <div className="flex flex-col flex-1 animate-[fadeUp_0.4s_ease-out]">
@@ -238,7 +233,7 @@ export default function OnboardingPage() {
         )}
 
         {/* ═══════════════════════════════════════════════════════════════
-            STEP 1 — Role Selection
+            STEP 1 - Role Selection
         ═══════════════════════════════════════════════════════════════ */}
         {step === 1 && (
           <div className="flex flex-col flex-1 animate-[fadeUp_0.4s_ease-out]">
@@ -310,13 +305,13 @@ export default function OnboardingPage() {
         )}
 
         {/* ═══════════════════════════════════════════════════════════════
-            STEP 2 — Quick Profile
+            STEP 2 - Quick Profile
         ═══════════════════════════════════════════════════════════════ */}
         {step === 2 && (
           <div className="flex flex-col flex-1 animate-[fadeUp_0.4s_ease-out]">
             <div className="mb-6">
               <h1 className="text-3xl font-black text-white mb-2">Quick profile</h1>
-              <p className="text-white/50">Tap to set your running style — 2 taps max.</p>
+              <p className="text-white/50">Tap to set your running style - 2 taps max.</p>
             </div>
 
             <div className="space-y-5 flex-1">
@@ -374,7 +369,7 @@ export default function OnboardingPage() {
         )}
 
         {/* ═══════════════════════════════════════════════════════════════
-            STEP 3 — Profile Photo
+            STEP 3 - Profile Photo
         ═══════════════════════════════════════════════════════════════ */}
         {step === 3 && (
           <div className="flex flex-col flex-1 animate-[fadeUp_0.4s_ease-out]">
@@ -421,42 +416,9 @@ export default function OnboardingPage() {
         )}
 
         {/* ═══════════════════════════════════════════════════════════════
-            STEP 4 — Connect Strava
+            STEP 4 - All set
         ═══════════════════════════════════════════════════════════════ */}
         {step === 4 && (
-          <div className="flex flex-col flex-1 animate-[fadeUp_0.4s_ease-out]">
-            <div className="flex-1 flex flex-col items-center justify-center text-center px-2">
-              <div className="w-20 h-20 rounded-full flex items-center justify-center mb-6 text-4xl"
-                style={{ background: "linear-gradient(135deg, #FC4C02, #e63e00)" }}>
-                <span className="font-black text-white text-2xl">S</span>
-              </div>
-              <h1 className="text-3xl font-black text-white mb-3">Connect Strava</h1>
-              <p className="text-white/50 text-base leading-relaxed mb-2">
-                Sync your runs, track miles, and share achievements with your klub.
-              </p>
-              <p className="text-white/25 text-sm">Optional — you can always connect later.</p>
-            </div>
-
-            <div className="space-y-3 mt-6">
-              <button
-                disabled
-                className="w-full font-black text-base py-4 rounded-2xl flex items-center justify-center gap-2 transition opacity-40 cursor-not-allowed text-white"
-                style={{ background: "linear-gradient(135deg, #FC4C02, #e63e00)" }}
-              >
-                Connect Strava
-                <span className="text-xs font-normal opacity-60">(coming soon)</span>
-              </button>
-              <button onClick={advance} className="w-full border border-white/10 text-white/50 font-semibold py-4 rounded-2xl hover:border-white/25 hover:text-white/80 transition flex items-center justify-center gap-2">
-                Skip for now <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* ═══════════════════════════════════════════════════════════════
-            STEP 5 — All set
-        ═══════════════════════════════════════════════════════════════ */}
-        {step === 5 && (
           <div className="flex flex-col flex-1 animate-[fadeUp_0.4s_ease-out]">
             <div className="flex-1 flex flex-col items-center justify-center text-center px-2">
               <div className="w-20 h-20 rounded-2xl bg-[#c5f135]/10 flex items-center justify-center mb-6">

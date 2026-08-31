@@ -1,7 +1,7 @@
 // Canonical source of truth for RunKlub's director-facing SaaS plans. This is
 // the `clubs.tier` field's full value set (extending the pro/premium check in
 // lib/clubModel/tierGate.ts) plus every price and limit tied to each tier.
-// Nothing here is enforced automatically just by existing in this file —
+// Nothing here is enforced automatically just by existing in this file -
 // each limit still needs its own check wired in wherever it applies (see
 // lib/clubModel/tierGate.ts for the one built so far: region caps).
 
@@ -17,11 +17,14 @@ export type Plan = {
   tagline: string | null
   // null = free, no billing at all.
   price: { monthly: number; yearly: number } | null
-  // null = unlimited. On Free this counts community members (chat/follow) —
-  // there's no cap on those regardless of tier since they never pay anything.
+  // null = unlimited. Caps only PAID members (member_type = 'paid') -
+  // enforced in lib/memberCap.ts wherever a new paid member could be added.
+  // Free "followers" are always unlimited, regardless of tier, since they
+  // never pay anything. Klubs over the Enterprise ceiling need custom
+  // pricing (sales-negotiated, not modeled as a plan here).
   memberLimit: number | null
   // Whether the club can charge its own members to join (clubs.membership_type
-  // = optional_paid/paid_required). Free clubs can only ever be free to join —
+  // = optional_paid/paid_required). Free clubs can only ever be free to join -
   // paid tiers unlock charging for club membership itself, separate from
   // charging for individual events (which every tier, including Free, can do).
   clubMembershipPaymentsAllowed: boolean
@@ -34,7 +37,7 @@ export type Plan = {
   coachLimit: number | null
   eventLimit: number | null
   // Added on top of Stripe's own processing fee, for event ticket payments.
-  // null = not yet defined by the business — do not assume a number here.
+  // null = not yet defined by the business - do not assume a number here.
   paymentFeeSurchargePct: number | null
   emailCadence: EmailCadence
   instagramAutoPost: boolean
@@ -47,7 +50,7 @@ export type Plan = {
   // Verified badge is included as long as the club keeps paying for this
   // plan; it disappears if they cancel, unless they've also bought the
   // separate one-time $49 lifetime verification (tracked independently of
-  // tier — not modeled here yet).
+  // tier - not modeled here yet).
   verificationIncludedWhileSubscribed: boolean
   // Display bullets for the pricing page, in order.
   features: string[]
@@ -78,11 +81,11 @@ export const PLANS: Record<PlanId, Plan> = {
     searchPlacement: "standard",
     verificationIncludedWhileSubscribed: false,
     features: [
-      "Unlimited community members",
+      "Unlimited followers",
       "Chat with your klub members",
       "Post free or paid community events, open to everyone",
       "Push notifications remind members of upcoming runs",
-      "Accept event payments (Stripe fee + 4%) — klub membership itself always stays free",
+      "Accept event payments (Stripe fee + 4%) - klub membership itself always stays free",
     ],
   },
   starter: {
@@ -90,7 +93,7 @@ export const PLANS: Record<PlanId, Plan> = {
     name: "Starter",
     tagline: "Best for klubs just starting out",
     price: { monthly: 24.99, yearly: 249.99 },
-    memberLimit: null,
+    memberLimit: 100,
     clubMembershipPaymentsAllowed: true,
     regionLimit: 0,
     singleWeeklyLocationOnly: true,
@@ -113,7 +116,7 @@ export const PLANS: Record<PlanId, Plan> = {
       "One weekly location (no regions yet)",
       "Event payments at Stripe fee + 3%",
       "Optionally charge members to join your klub",
-      "Unlimited members",
+      "Unlimited followers, up to 100 paid members",
       "Up to 4 coaches",
       "Access to race benefits & sponsors",
       "Verified badge included while subscribed",
@@ -124,7 +127,7 @@ export const PLANS: Record<PlanId, Plan> = {
     name: "Growth",
     tagline: null,
     price: { monthly: 49.99, yearly: 499.99 },
-    memberLimit: null,
+    memberLimit: 250,
     clubMembershipPaymentsAllowed: true,
     regionLimit: 1,
     singleWeeklyLocationOnly: false,
@@ -145,7 +148,7 @@ export const PLANS: Record<PlanId, Plan> = {
       "One branch, unlimited locations (upgrade to Enterprise for multiple branches)",
       "Klub update emails 3x a week",
       "Event payments at Stripe fee + 2%",
-      "Unlimited members",
+      "Unlimited followers, up to 250 paid members",
       "Up to 10 coaches",
       "Priority verified placement",
       "Free sponsor banners",
@@ -157,7 +160,7 @@ export const PLANS: Record<PlanId, Plan> = {
     name: "Enterprise",
     tagline: null,
     price: { monthly: 99.99, yearly: 999.99 },
-    memberLimit: null,
+    memberLimit: 500,
     clubMembershipPaymentsAllowed: true,
     regionLimit: null,
     singleWeeklyLocationOnly: false,
@@ -175,7 +178,7 @@ export const PLANS: Record<PlanId, Plan> = {
     verificationIncludedWhileSubscribed: true,
     features: [
       "Everything in Growth",
-      "Unlimited members",
+      "Unlimited followers, up to 500 paid members",
       "Daily email updates for members",
       "Event payments at Stripe fee + 1%",
       "First klub to show up in city search",
@@ -190,3 +193,8 @@ export const PLANS: Record<PlanId, Plan> = {
 }
 
 export const PLAN_ORDER: PlanId[] = ["free", "starter", "growth", "enterprise"]
+
+// Enterprise (500) is the highest number we sell as a fixed plan. Klubs that
+// outgrow it need a sales-negotiated custom plan rather than a self-serve tier.
+export const CUSTOM_PRICING_MESSAGE =
+  "Need more than 500 paid members? Contact us for custom pricing."

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { formatRunTime } from "@/lib/timezone"
@@ -85,28 +85,32 @@ function initialsOf(name: string) {
 }
 
 /**
- * The limited "Coach" view of /director — rendered instead of the full
+ * The limited "Coach" view of /director - rendered instead of the full
  * ManagerView when the signed-in user doesn't own the klub but is an active
  * coach for one. Deliberately narrower than the director's tab set: just
  * Members (roster + check-in, scoped to their pace group/branch),
  * Communicate (klub chat + DM the director), and a read-only multi-week
- * Schedule. No analytics here — that's its own Analytics tab — and no
+ * Schedule. No analytics here - that's its own Analytics tab - and no
  * editing the training plan.
  */
 export default function CoachDashboard({ userId, clubId, initialTab }: { userId: string; clubId?: string; initialTab?: TabKey }) {
   const [tab, setTab] = useState<TabKey>(initialTab ?? "members")
   const [loading, setLoading] = useState(true)
+  const [refetching, setRefetching] = useState(false)
   const [error, setError] = useState("")
   const [data, setData] = useState<DashboardData | null>(null)
   const [expandedRunId, setExpandedRunId] = useState<string | null>(null)
   const [chatTarget, setChatTarget] = useState<ChatTarget | null>(null)
   const [chatInitialDm, setChatInitialDm] = useState<DmTarget | undefined>(undefined)
 
+  const loadIdRef = useRef(0)
+
   useEffect(() => {
     const load = async () => {
-      // A specific clubId (e.g. just accepted that klub's coach invite) skips
-      // the auto-pick entirely, so accepting an invite always scopes you to
-      // that klub instead of whichever one you coached first.
+      // A specific clubId (e.g. just accepted that klub's coach invite, or
+      // picked from the klub switcher on the "Coaches" nav tab) skips the
+      // auto-pick entirely, so both always scope you to that klub instead of
+      // whichever one you coached first.
       let targetClubId = clubId
       if (!targetClubId) {
         const { data: coachRows } = await supabase.from("coaches").select("club_id").eq("user_id", userId).eq("status", "active").order("accepted_at", { ascending: false }).limit(1)
@@ -117,18 +121,23 @@ export default function CoachDashboard({ userId, clubId, initialTab }: { userId:
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) { setLoading(false); return }
 
+      const myLoadId = ++loadIdRef.current
+      setRefetching(true)
       const res = await fetch(`/api/coach/dashboard?club_id=${targetClubId}`, {
         headers: { Authorization: `Bearer ${session.access_token}` },
       })
       const json = await res.json()
-      if (!res.ok) { setError(json.error ?? "Something went wrong."); setLoading(false); return }
+      if (myLoadId !== loadIdRef.current) return // a newer switch superseded this one
+      if (!res.ok) { setError(json.error ?? "Something went wrong."); setLoading(false); setRefetching(false); return }
       setData(json)
+      setExpandedRunId(null)
       setLoading(false)
+      setRefetching(false)
     }
     load()
   }, [userId, clubId])
 
-  if (loading) {
+  if (loading && !data) {
     return (
       <div className="min-h-screen bg-[#1a2110] flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-[#c5f135]/30 border-t-[#c5f135] rounded-full animate-spin" />
@@ -171,7 +180,9 @@ export default function CoachDashboard({ userId, clubId, initialTab }: { userId:
 
         <div>
           <p className="text-xs font-bold text-[#c5f135]/60 uppercase tracking-widest mb-1">{data.clubName}</p>
-          <h1 className="text-2xl font-black text-white leading-tight">Coach Dashboard</h1>
+          <h1 className="text-2xl font-black text-white leading-tight">
+            Coach Dashboard{refetching && <span className="ml-2 inline-block w-3.5 h-3.5 border-2 border-[#c5f135]/30 border-t-[#c5f135] rounded-full animate-spin align-middle" />}
+          </h1>
           <p className="text-sm text-white/40 mt-1">
             {data.paceGroups.length > 0 ? data.paceGroups.map((pg) => pg.name).join(", ") : "No pace group assigned yet"}
             {data.regions.length > 0 && ` · ${data.regions.map((r) => r.name).join(", ")}`}
@@ -277,7 +288,7 @@ export default function CoachDashboard({ userId, clubId, initialTab }: { userId:
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-bold text-white truncate">{m.displayName}</p>
                         <p className="text-xs text-white/40 truncate">
-                          {m.paceGroupName ?? "—"}
+                          {m.paceGroupName ?? "-"}
                           {m.lastCheckinAt && ` · last run ${formatDay(m.lastCheckinAt.slice(0, 10))}`}
                         </p>
                       </div>
@@ -335,7 +346,7 @@ export default function CoachDashboard({ userId, clubId, initialTab }: { userId:
         {/* ── SCHEDULE (read-only) ── */}
         {tab === "schedule" && (
           <section key="schedule" className="animate-[fadeUp_0.2s_ease-out_forwards]">
-            <SectionHeader title="Training Schedule" sub="Same view as your director — you just can't edit it" />
+            <SectionHeader title="Training Schedule" sub="Same view as your director - you just can't edit it" />
             <WeeklyScheduleTab clubId={data.clubId} paceGroupIds={data.paceGroups.map((pg) => pg.id)} readOnly />
           </section>
         )}

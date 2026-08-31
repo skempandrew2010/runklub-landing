@@ -8,6 +8,10 @@ import { localDateStr, mondayOf } from "@/utils/dates"
 import { COMMON_TIMEZONES, getBrowserTimezone } from "@/lib/timezone"
 import { type WorkoutSegment, formatWorkoutSegment, parseWorkoutStructure } from "@/lib/workouts"
 import AddressAutocomplete from "@/components/AddressAutocomplete"
+import { Select } from "@/components/Select"
+import { RollerSelect } from "@/components/RollerSelect"
+import { DateInput } from "@/components/DateInput"
+import { TimeInput } from "@/components/TimeInput"
 
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
@@ -204,7 +208,7 @@ export default function RunFormPanel({
   }, [clubId, runId, isEdit])
 
   // Suggest whatever the weekly training schedule has for this run's pace group,
-  // specific week, and day of week — only for new runs with a pace group picked,
+  // specific week, and day of week - only for new runs with a pace group picked,
   // and only until the director picks a workout themselves.
   useEffect(() => {
     if (isEdit || workoutManuallySet || !date || selectedPaceGroupIds.length === 0) return
@@ -390,7 +394,7 @@ export default function RunFormPanel({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={lc}>Date *</label>
-                <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required className={ic} />
+                <DateInput value={date} onChange={(e) => setDate(e.target.value)} required className={ic} />
               </div>
               <div>
                 <label className={lc}>Distance</label>
@@ -401,13 +405,11 @@ export default function RunFormPanel({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={lc}>Time *</label>
-              <input type="time" value={time} onChange={(e) => setTime(e.target.value)} required className={ic} />
+              <TimeInput value={time} onChange={(e) => setTime(e.target.value)} required className={ic} />
             </div>
             <div>
               <label className={lc}>Timezone</label>
-              <select value={timezone} onChange={(e) => setTimezone(e.target.value)} className={ic}>
-                {COMMON_TIMEZONES.map((tz) => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
-              </select>
+              <RollerSelect value={timezone} onChange={(e) => setTimezone(e.target.value)} options={COMMON_TIMEZONES} className={ic} panelWidth={260} />
             </div>
             {(!quickMode || showAdvanced) && (
               <div>
@@ -440,7 +442,7 @@ export default function RunFormPanel({
           {manageMode === "external" && (
             <div className="space-y-3 pt-1">
               <p className="text-[11px] text-white/25">
-                We'll list this run with just the day and time — runners tap through to your link to see the location or RSVP.
+                We'll list this run with just the day and time - runners tap through to your link to see the location or RSVP.
               </p>
               <div>
                 <label className={lc}>City</label>
@@ -516,13 +518,13 @@ export default function RunFormPanel({
               ) : (
                 <button type="button" onClick={onGoToSetup}
                   className="px-3 py-1.5 rounded-full text-xs font-semibold bg-[#c5f135]/15 text-[#c5f135] border border-[#c5f135]/30 hover:bg-[#c5f135]/25 transition">
-                  No locations set up yet — go to Setup → Branches & Locations
+                  No locations set up yet - go to Setup → Branches & Locations
                 </button>
               )}
               <div>
                 <label className={lc}>Branch</label>
                 <div className={`${ic} ${selectedRegion ? "text-white" : "text-white/20"}`}>
-                  {selectedRegion?.name ?? "—"}
+                  {selectedRegion?.name ?? "-"}
                 </div>
               </div>
             </div>
@@ -574,14 +576,14 @@ export default function RunFormPanel({
                 </div>
               )}
               {selectedWorkoutTypeId && !workoutManuallySet && (
-                <p className="text-[11px] text-[#c5f135]/70">Suggested from your weekly training schedule — pick another to override.</p>
+                <p className="text-[11px] text-[#c5f135]/70">Suggested from your weekly training schedule - pick another to override.</p>
               )}
               {selectedWorkoutTypeId && (() => {
                 const wt = workoutTypes.find((w) => w.id === selectedWorkoutTypeId)
                 if (!wt || (wt.structure.length === 0 && !wt.description)) return null
                 return (
                   <div className="bg-[#1a2110] border border-[#c5f135]/20 rounded-xl px-3 py-2.5 space-y-2">
-                    <p className="text-[10px] font-bold text-[#c5f135]/60 uppercase tracking-widest">{wt.name} — what runners will see</p>
+                    <p className="text-[10px] font-bold text-[#c5f135]/60 uppercase tracking-widest">{wt.name} - what runners will see</p>
                     {wt.structure.length > 0 && (
                       <ul className="space-y-1">
                         {wt.structure.map((seg, i) => (
@@ -616,7 +618,7 @@ export default function RunFormPanel({
               </button>
 
               <div>
-                <label className={lc}>Passport Credit Value <span className="text-white/25 font-normal">(optional — overrides your klub default)</span></label>
+                <label className={lc}>Passport Credit Value <span className="text-white/25 font-normal">(optional - overrides your klub default)</span></label>
                 <div className="flex flex-wrap gap-1.5">
                   <button
                     type="button"
@@ -634,7 +636,7 @@ export default function RunFormPanel({
                     </button>
                   ))}
                 </div>
-                <p className="text-[11px] text-white/25 mt-1">How many credits a Passport subscriber spends to check into this specific run — higher values earn a bigger payout.</p>
+                <p className="text-[11px] text-white/25 mt-1">How many credits a Passport subscriber spends to check into this specific run - higher values earn a bigger payout.</p>
               </div>
 
               <div>
@@ -653,7 +655,7 @@ export default function RunFormPanel({
               <div className="space-y-2">
                 <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Pace Group</p>
                 {paceGroups.length === 0 ? (
-                  <p className="text-xs text-white/30 italic">No pace groups yet — add them in Setup.</p>
+                  <p className="text-xs text-white/30 italic">No pace groups yet - add them in Setup.</p>
                 ) : (
                   <div className="flex flex-wrap gap-2">
                     {paceGroups.map((pg) => {
@@ -675,7 +677,7 @@ export default function RunFormPanel({
               <div className="space-y-2">
                 <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Coach</p>
                 {coaches.length === 0 ? (
-                  <p className="text-xs text-white/30 italic">No coaches yet — add them in Members.</p>
+                  <p className="text-xs text-white/30 italic">No coaches yet - add them in Members.</p>
                 ) : (
                   <div className="flex flex-wrap gap-2">
                     <button type="button" onClick={() => setSelectedCoachId("")}
@@ -768,7 +770,7 @@ export default function RunFormPanel({
                           <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${i === 0 ? "bg-[#c5f135]" : "bg-white/15"}`} />
                           <span className={i === 0 ? "text-[#c5f135] font-semibold" : "text-white/35"}>
                             {new Date(d + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
-                            {i === 0 && <span className="text-[#c5f135]/50 font-normal"> — first run</span>}
+                            {i === 0 && <span className="text-[#c5f135]/50 font-normal"> - first run</span>}
                           </span>
                         </div>
                       ))}

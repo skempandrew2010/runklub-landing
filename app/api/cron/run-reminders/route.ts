@@ -14,7 +14,7 @@ function getAdminSupabase() {
   )
 }
 
-// UTC calendar date, offset by `days` — bounds the query independent of the
+// UTC calendar date, offset by `days` - bounds the query independent of the
 // server process's own timezone (irrelevant to which zone any given run is in).
 function utcDateStr(days: number) {
   const d = new Date()
@@ -70,6 +70,13 @@ export async function GET(req: NextRequest) {
         `${run.title} starts in about an hour`,
         `https://www.runklub.fit/runs/${run.id}`
       )
+      await admin.from("notifications").insert({
+        user_id: rsvp.user_id,
+        type: "run_reminder",
+        title: "Run starting soon",
+        body: `${run.title} starts in about an hour`,
+        link: `/runs/${run.id}`,
+      })
       await admin.from("rsvps").update({ reminder_sent_at: new Date().toISOString() }).eq("id", rsvp.id)
       sent++
     } catch (err) {

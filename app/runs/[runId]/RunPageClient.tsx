@@ -2,13 +2,15 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { ArrowLeft, Clock, MapPin, MessageSquare, CheckCircle2, ExternalLink, PartyPopper, Crown, Lock } from "lucide-react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { ArrowLeft, Clock, MapPin, CheckCircle2, ExternalLink, PartyPopper, Crown, Lock } from "lucide-react"
 import { supabase } from "@/lib/supabase"
-import { localDateStr, mondayOf } from "@/utils/dates"
+import { mondayOf } from "@/utils/dates"
 import { getTagStyle } from "@/utils/tagStyle"
-import { formatRunTime, type TimedRun } from "@/lib/timezone"
-import RunChatPanel from "@/components/RunChatPanel"
+import { formatRunTime, runStartInstant, type TimedRun } from "@/lib/timezone"
+import RunChatPanel, { type DmTarget } from "@/components/RunChatPanel"
+import { useKlubMessaging } from "@/hooks/useKlubMessaging"
+import MessagingSidebar from "@/components/MessagingSidebar"
 import MissionCheckInModal from "@/components/MissionCheckInModal"
 import CheckInCelebration from "@/components/CheckInCelebration"
 import CheckInProximityMap from "@/components/CheckInProximityMap"
@@ -64,6 +66,7 @@ export type Club = {
 
 export default function RunPageClient({ runId }: { runId: string }) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [run, setRun] = useState<Run | null>(null)
   const [club, setClub] = useState<Club | null>(null)
   const [cityFallback, setCityFallback] = useState<{ lat: number; lng: number } | null>(null)
@@ -73,6 +76,12 @@ export default function RunPageClient({ runId }: { runId: string }) {
   const [checkedIn, setCheckedIn] = useState(false)
   const [celebrationData, setCelebrationData] = useState<CheckInResult | null>(null)
   const [showChat, setShowChat] = useState(false)
+  const [dmTarget, setDmTarget] = useState<DmTarget | null>(null)
+  // Separate from dmTarget - a notification-driven DM preserves whatever
+  // scope the conversation actually happened in (this run), whereas dmTarget
+  // (director/coach, opened from the sidebar) is always club-scoped.
+  const [runDmTarget, setRunDmTarget] = useState<DmTarget | null>(null)
+  const [myPaceGroupId, setMyPaceGroupId] = useState<string | null>(null)
   const [showMissionModal, setShowMissionModal] = useState(false)
   const [position, setPosition] = useState<{ lat: number; lng: number } | null>(null)
   const [positionError, setPositionError] = useState<string | null>(null)
@@ -81,9 +90,17 @@ export default function RunPageClient({ runId }: { runId: string }) {
   const [myRsvp, setMyRsvp] = useState(false)
   const [rsvpSaving, setRsvpSaving] = useState(false)
   const [showWaiverModal, setShowWaiverModal] = useState(false)
+  // Ticks once a minute so the "check in up to 10 minutes before" gate
+  // actually opens on its own while the page is sitting open, instead of
+  // needing a refresh to notice the window arrived.
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000)
+    return () => clearInterval(id)
+  }, [])
 
   // Passport: whether the viewer belongs to this klub at all (director,
-  // subscription, or active member) -- the gate below only ever applies to
+  // subscription, or active member) - the gate below only ever applies to
   // non-members, since Passport is specifically for checking into klubs you
   // don't belong to.
   const [membershipChecked, setMembershipChecked] = useState(false)
@@ -95,9 +112,13 @@ export default function RunPageClient({ runId }: { runId: string }) {
   const [passportError, setPassportError] = useState<string | null>(null)
   const [passportShortfall, setPassportShortfall] = useState<number | null>(null)
   const [buyingShortfall, setBuyingShortfall] = useState(false)
+  // The klub's active "standard session" offer - what a plain run check-in
+  // actually redeems now that Passport is offer-based instead of one fixed
+  // check-in type.
+  const [standardSessionOffer, setStandardSessionOffer] = useState<{ id: string; credit_cost: number } | null>(null)
 
   // Fetched client-side (not server-side with the anon key) so RLS evaluates
-  // as the actual signed-in visitor — otherwise an approved member clicking
+  // as the actual signed-in visitor - otherwise an approved member clicking
   // a shared link to their own private run would incorrectly see "not found."
   useEffect(() => {
     const load = async () => {
@@ -166,6 +187,30 @@ export default function RunPageClient({ runId }: { runId: string }) {
     })
   }, [])
 
+  // Arriving from a "New message from X" notification (?dm=<their user id>)
+  // opens straight into that DM instead of just landing on the run page.
+  useEffect(() => {
+    const dmUserId = searchParams.get("dm")
+    if (!dmUserId || !userId || dmUserId === userId) return
+    supabase.from("profiles").select("display_name, avatar_url").eq("id", dmUserId).single()
+      .then(({ data }) => {
+        setRunDmTarget({ userId: dmUserId, name: data?.display_name || "Runner", avatarUrl: data?.avatar_url ?? null })
+      })
+  }, [searchParams, userId])
+
+  useEffect(() => {
+    if (!userId || !run) { setMyPaceGroupId(null); return }
+    supabase
+      .from("subscriptions")
+      .select("pace_group_id")
+      .eq("club_id", run.club_id)
+      .eq("user_id", userId)
+      .maybeSingle()
+      .then(({ data }) => setMyPaceGroupId((data as any)?.pace_group_id ?? null))
+  }, [userId, run])
+
+  const { director, coach: myCoach } = useKlubMessaging(run?.club_id ?? "", club?.user_id, userId, myPaceGroupId)
+
   useEffect(() => {
     if (!userId || !run) return
     supabase
@@ -196,7 +241,7 @@ export default function RunPageClient({ runId }: { runId: string }) {
     }
   }, [userId, run])
 
-  // Only relevant for runs at a Passport-enrolled klub -- figure out if the
+  // Only relevant for runs at a Passport-enrolled klub - figure out if the
   // viewer already belongs (gate never applies to members), and if not,
   // whether they're a Passport subscriber with enough credits to redeem.
   useEffect(() => {
@@ -205,16 +250,18 @@ export default function RunPageClient({ runId }: { runId: string }) {
     let cancelled = false
     const load = async () => {
       const isDirector = club.user_id === userId
-      const [{ data: sub }, { data: member }, { data: passportSub }, { data: alreadyRedeemed }] = await Promise.all([
+      const [{ data: sub }, { data: member }, { data: passportSub }, { data: alreadyRedeemed }, { data: offer }] = await Promise.all([
         supabase.from("subscriptions").select("id").eq("club_id", run.club_id).eq("user_id", userId).maybeSingle(),
         supabase.from("members").select("id").eq("club_id", run.club_id).eq("user_id", userId).eq("status", "active").maybeSingle(),
         supabase.from("passport_subscriptions").select("id").eq("user_id", userId).eq("status", "active").maybeSingle(),
-        supabase.from("passport_checkins").select("id").eq("run_id", run.id).eq("user_id", userId).maybeSingle(),
+        supabase.from("passport_redemptions").select("id").eq("run_id", run.id).eq("user_id", userId).maybeSingle(),
+        supabase.from("passport_offers").select("id, credit_cost").eq("club_id", run.club_id).eq("offer_type", "standard_session").eq("is_active", true).maybeSingle(),
       ])
       if (cancelled) return
       setIsKlubMember(isDirector || !!sub || !!member)
       setPassportSubscribed(!!passportSub)
       setPassportRedeemed(!!alreadyRedeemed)
+      setStandardSessionOffer(offer ? { id: offer.id, credit_cost: offer.credit_cost } : null)
       if (passportSub) {
         const { data: batches } = await supabase
           .from("passport_credit_batches")
@@ -233,22 +280,28 @@ export default function RunPageClient({ runId }: { runId: string }) {
     return () => { cancelled = true }
   }, [userId, run, club])
 
-  const passportCreditValue = run && club ? (run.passport_credit_value ?? club.passport_default_credit_value) : null
+  const passportCreditValue = run && standardSessionOffer ? (run.passport_credit_value ?? standardSessionOffer.credit_cost) : null
   const passportGateActive = !!(
     membershipChecked && club?.passport_program_enrolled && !isKlubMember && run && !run.members_only && !run.external_url && !passportRedeemed
   )
 
   const redeemPassportCredits = async () => {
-    if (!run || !club) return
+    if (!run || !club || !standardSessionOffer) return
     if (!userId || !sessionToken) { router.push("/login"); return }
     setRedeemingPassport(true)
     setPassportError(null)
     setPassportShortfall(null)
     try {
-      const res = await fetch("/api/passport/checkin", {
+      const res = await fetch("/api/passport/redeem", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
-        body: JSON.stringify({ club_id: club.id, run_id: run.id }),
+        body: JSON.stringify({
+          offer_id: standardSessionOffer.id,
+          run_id: run.id,
+          checkin_method: "gps_geofence",
+          checkin_lat: position?.lat ?? null,
+          checkin_lng: position?.lng ?? null,
+        }),
       })
       const json = await res.json()
       if (!res.ok) {
@@ -335,7 +388,7 @@ export default function RunPageClient({ runId }: { runId: string }) {
     return () => { cancelled = true }
   }, [userId, run])
 
-  // Best-effort — just for the "how far away am I" readout, so a denial
+  // Best-effort - just for the "how far away am I" readout, so a denial
   // here shouldn't block anything else on the page.
   useEffect(() => {
     if (!run || !club || !run.is_in_person) return
@@ -364,9 +417,10 @@ export default function RunPageClient({ runId }: { runId: string }) {
     )
   }
 
-  const todayStr = localDateStr()
-  const isToday = run.date === todayStr
-  const canCheckIn = isToday && run.is_in_person && !passportGateActive
+  const minutesUntilStart = (runStartInstant(run).getTime() - now) / 60_000
+  const checkInEligible = run.is_in_person && !passportGateActive
+  const canCheckIn = checkInEligible && minutesUntilStart <= 10
+  const checkInTooEarly = checkInEligible && !canCheckIn
 
   const openCheckIn = async () => {
     if (!userId || !sessionToken) { router.push("/login"); return }
@@ -388,7 +442,7 @@ export default function RunPageClient({ runId }: { runId: string }) {
   const handleCheckedIn = (data: CheckInResult) => {
     setShowMissionModal(false)
     setCheckedIn(true)
-    // A run only ever gets one check-in per user — if this was a repeat call
+    // A run only ever gets one check-in per user - if this was a repeat call
     // (e.g. the button and the watcher racing), there's nothing new to celebrate.
     if (!data.alreadyCheckedIn) setCelebrationData(data)
   }
@@ -405,7 +459,7 @@ export default function RunPageClient({ runId }: { runId: string }) {
 
         <div className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-5 mb-5">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-11 h-11 rounded-xl overflow-hidden shrink-0 flex items-center justify-center bg-[#2e3d1a]">
+            <div className="w-11 h-11 rounded-full overflow-hidden shrink-0 flex items-center justify-center bg-[#2e3d1a]">
               {club.image_url ? (
                 <img src={club.image_url} alt="" className="w-full h-full object-cover" />
               ) : (
@@ -572,6 +626,12 @@ export default function RunPageClient({ runId }: { runId: string }) {
             </a>
           )}
 
+          {checkInTooEarly && (
+            <div className="w-full py-3 rounded-2xl text-sm font-bold text-center bg-[#1a2110] border border-[#2e3d1a] text-white/50">
+              This run starts {formatTime(run)} on {new Date(run.date + "T00:00:00").toLocaleDateString("en-US", { month: "numeric", day: "numeric" })} - check in up to 10 minutes before it starts
+            </div>
+          )}
+
           {canCheckIn && (
             <button
               onClick={() => !checkedIn && openCheckIn()}
@@ -591,33 +651,21 @@ export default function RunPageClient({ runId }: { runId: string }) {
           )}
         </div>
 
-        {userId ? (
-          <button
-            onClick={() => setShowChat(true)}
-            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-[#1e2d12] border border-[#2e3d1a] hover:border-[#c5f135]/30 transition text-left"
-          >
-            <div className="w-9 h-9 rounded-full bg-[#2e3d1a] flex items-center justify-center shrink-0">
-              <MessageSquare className="w-4 h-4 text-[#c5f135]" />
-            </div>
-            <div>
-              <p className="text-sm font-bold text-white">Messages</p>
-              <p className="text-xs text-white/40 mt-0.5">Group chat, or message a member privately</p>
-            </div>
-          </button>
-        ) : (
-          <button
-            onClick={() => router.push("/login")}
-            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-[#1e2d12] border border-[#2e3d1a] hover:border-[#c5f135]/30 transition text-left"
-          >
-            <div className="w-9 h-9 rounded-full bg-[#2e3d1a] flex items-center justify-center shrink-0">
-              <MessageSquare className="w-4 h-4 text-white/30" />
-            </div>
-            <p className="text-sm font-bold text-white/60">Sign in to check in and chat</p>
-          </button>
-        )}
+        <MessagingSidebar
+          loggedIn={!!userId}
+          currentUserId={userId}
+          director={director}
+          coach={myCoach}
+          groupChatLabel={run.title}
+          groupChatSubtitle="Run chat"
+          onOpenGroupChat={() => setShowChat(true)}
+          onOpenDirector={() => director && setDmTarget({ userId: director.userId, name: director.name, avatarUrl: director.avatarUrl })}
+          onOpenCoach={() => myCoach && setDmTarget({ userId: myCoach.userId, name: myCoach.name, avatarUrl: myCoach.avatarUrl })}
+          onRequireLogin={() => router.push("/login")}
+        />
       </div>
 
-      {showChat && userId && (
+      {(showChat || runDmTarget) && userId && (
         <RunChatPanel
           target={{
             type: "run",
@@ -632,7 +680,24 @@ export default function RunPageClient({ runId }: { runId: string }) {
             clubImageUrl: club.image_url,
           }}
           userId={userId}
-          onClose={() => setShowChat(false)}
+          initialDm={runDmTarget ?? undefined}
+          onClose={() => { setShowChat(false); setRunDmTarget(null) }}
+        />
+      )}
+
+      {/* Director/coach DMs are club-scoped (not run-scoped) so the same
+          conversation carries across every run at this klub. */}
+      {dmTarget && userId && (
+        <RunChatPanel
+          target={{
+            type: "club",
+            id: run.club_id,
+            clubName: club.name,
+            clubImageUrl: club.image_url,
+          }}
+          userId={userId}
+          initialDm={dmTarget}
+          onClose={() => setDmTarget(null)}
         />
       )}
 

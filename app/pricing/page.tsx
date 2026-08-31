@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { Check } from "lucide-react"
-import { PLANS, PLAN_ORDER, LIFETIME_VERIFICATION_PRICE, type BillingInterval } from "@/lib/plans"
+import { PLANS, PLAN_ORDER, LIFETIME_VERIFICATION_PRICE, CUSTOM_PRICING_MESSAGE, type BillingInterval } from "@/lib/plans"
 
 function yearlySavingsPct(monthly: number, yearly: number) {
   const fullYear = monthly * 12
@@ -115,6 +115,9 @@ export default function PricingPage() {
           Every plan can also purchase a lifetime verification badge for a one-time ${LIFETIME_VERIFICATION_PRICE} fee,
           which stays even if you later cancel a paid plan. Verified badges included with a paid plan last only as
           long as the subscription stays active.
+        </p>
+        <p className="text-center text-xs text-white/35 mt-2 max-w-lg mx-auto leading-relaxed">
+          Followers are always unlimited on every plan. {CUSTOM_PRICING_MESSAGE}
         </p>
       </div>
     </div>

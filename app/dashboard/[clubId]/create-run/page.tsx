@@ -7,6 +7,10 @@ import { ArrowLeft, CalendarPlus, Repeat2, Globe, Lock, Bell } from "lucide-reac
 import mapboxSdk from "@mapbox/mapbox-sdk/services/geocoding"
 import { localDateStr } from "@/utils/dates"
 import { COMMON_TIMEZONES, getBrowserTimezone } from "@/lib/timezone"
+import { Select } from "@/components/Select"
+import { DateInput } from "@/components/DateInput"
+import { TimeInput } from "@/components/TimeInput"
+import { RollerSelect } from "@/components/RollerSelect"
 
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
@@ -130,7 +134,7 @@ function CreateRunContent() {
     })
   }, [clubId])
 
-  // Public clubs have no members concept — a Members Only run would be unreachable.
+  // Public clubs have no members concept - a Members Only run would be unreachable.
   useEffect(() => {
     if (!clubIsPrivate) setIsPublic(true)
   }, [clubIsPrivate])
@@ -348,7 +352,7 @@ function CreateRunContent() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className={labelClass}>Date *</label>
-                  <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required className={inputClass} />
+                  <DateInput value={date} onChange={(e) => setDate(e.target.value)} required className={inputClass} />
                 </div>
                 <div>
                   <label className={labelClass}>Distance</label>
@@ -360,13 +364,11 @@ function CreateRunContent() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelClass}>Time *</label>
-                <input type="time" value={time} onChange={(e) => setTime(e.target.value)} required className={inputClass} />
+                <TimeInput value={time} onChange={(e) => setTime(e.target.value)} required className={inputClass} />
               </div>
               <div>
                 <label className={labelClass}>Timezone</label>
-                <select value={timezone} onChange={(e) => setTimezone(e.target.value)} className={inputClass}>
-                  {COMMON_TIMEZONES.map((tz) => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
-                </select>
+                <RollerSelect value={timezone} onChange={(e) => setTimezone(e.target.value)} options={COMMON_TIMEZONES} className={inputClass} panelWidth={260} />
               </div>
               {(!quickMode || showAdvanced) && (
                 <div>
@@ -470,7 +472,7 @@ function CreateRunContent() {
                 <div className="space-y-2">
                   <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Pace Group</p>
                   {paceGroups.length === 0 ? (
-                    <p className="text-xs text-white/30 italic">No pace groups set up yet — add them in the klub manager.</p>
+                    <p className="text-xs text-white/30 italic">No pace groups set up yet - add them in the klub manager.</p>
                   ) : (
                     <div className="flex flex-wrap gap-2">
                       {paceGroups.map((pg) => {
@@ -493,7 +495,7 @@ function CreateRunContent() {
                 <div className="space-y-2">
                   <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Coach</p>
                   {coaches.length === 0 ? (
-                    <p className="text-xs text-white/30 italic">No coaches set up yet — add them in the klub manager.</p>
+                    <p className="text-xs text-white/30 italic">No coaches set up yet - add them in the klub manager.</p>
                   ) : (
                     <div className="flex flex-wrap gap-2">
                       <button type="button" onClick={() => setSelectedCoachId("")}
@@ -590,7 +592,7 @@ function CreateRunContent() {
                             {new Date(d + "T00:00:00").toLocaleDateString("en-US", {
                               weekday: "short", month: "short", day: "numeric",
                             })}
-                            {i === 0 && <span className="text-[#c5f135]/50 font-normal"> — first run</span>}
+                            {i === 0 && <span className="text-[#c5f135]/50 font-normal"> - first run</span>}
                           </span>
                         </div>
                       ))}

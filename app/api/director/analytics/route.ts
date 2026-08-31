@@ -36,16 +36,16 @@ export async function GET(req: NextRequest) {
     const { data: subs } = await admin.from("subscriptions").select("user_id, member_type, created_at, billing_interval, price_cents, plan_name").eq("club_id", clubId)
     const memberIds = [...new Set((subs ?? []).map((s) => s.user_id))]
     // A "member" is a paid subscriber (member_type='paid'); everyone else with a
-    // subscriptions row is a free "follower" — the two are mutually exclusive here,
+    // subscriptions row is a free "follower" - the two are mutually exclusive here,
     // unlike the combined memberIds list used below for community-wide metrics.
     const paidSubs = (subs ?? []).filter((s) => s.member_type === "paid")
     const paidMemberIds = new Set(paidSubs.map((s) => s.user_id))
     const followerCount = memberIds.length - paidMemberIds.size
     const paidMemberCount = paidMemberIds.size
-    // Monthly-equivalent total across a mix of monthly/yearly members —
+    // Monthly-equivalent total across a mix of monthly/yearly members -
     // yearly contributions are divided by 12 so this is a real MRR figure.
     // Seasonal (one-time, non-renewing) payments are deliberately excluded
-    // — they're not recurring revenue.
+    // - they're not recurring revenue.
     const membershipRevenueCents = paidSubs.reduce((sum, s) => {
       if (!s.price_cents || s.billing_interval === "seasonal") return sum
       return sum + (s.billing_interval === "yearly" ? s.price_cents / 12 : s.price_cents)
@@ -74,7 +74,7 @@ export async function GET(req: NextRequest) {
     const thirtyDaysAgo = new Date(today); thirtyDaysAgo.setDate(today.getDate() - 30)
     const sixtyDaysAgo = new Date(today); sixtyDaysAgo.setDate(today.getDate() - 60)
 
-    const [profilesRes, recentCheckinsRes, otherClubCheckinsRes, passportCheckinsRes, recentRunsRes, lastCheckinRes, emailSendsRes] = await Promise.all([
+    const [profilesRes, recentCheckinsRes, otherClubCheckinsRes, passportCheckinsRes, passportPayoutTotalsRes, recentRunsRes, lastCheckinRes, emailSendsRes] = await Promise.all([
       admin.from("profiles").select("id, display_name, avatar_url").in("id", memberIds),
       admin.from("run_checkins")
         .select("id, user_id, checked_in_at, run_id, runs(title, date)")
@@ -87,13 +87,18 @@ export async function GET(req: NextRequest) {
         .neq("club_id", clubId)
         .order("first_checkin_at", { ascending: false })
         .limit(50),
-      // Passport check-ins: runners from *other* klubs redeeming credits at
-      // this one — the payout this club earns from the Passport program.
-      admin.from("passport_checkins")
-        .select("id, user_id, credits_spent, payout_amount_cents, checked_in_at")
+      // Passport redemptions: runners from *other* klubs redeeming offers at
+      // this one - the payout this club earns from the Passport program.
+      admin.from("passport_redemptions")
+        .select("id, user_id, credits_spent, payout_amount_cents, payout_status, redeemed_at")
         .eq("club_id", clubId)
-        .order("checked_in_at", { ascending: false })
+        .order("redeemed_at", { ascending: false })
         .limit(50),
+      // Uncapped, for accurate totals (the list above is capped at 50 for
+      // display) - only the columns needed to count and sum correctly.
+      admin.from("passport_redemptions")
+        .select("payout_amount_cents, payout_status")
+        .eq("club_id", clubId),
       // RSVP vs check-in: runs at this club in the last 30 days (including today).
       admin.from("runs")
         .select("id, title, date, rsvps(going), run_checkins(id)")
@@ -120,7 +125,7 @@ export async function GET(req: NextRequest) {
 
     // Passport check-ins are visiting runners from *other* klubs, so their
     // profiles won't already be in profileById (that's only this club's own
-    // members) — fetch the handful needed separately.
+    // members) - fetch the handful needed separately.
     const passportCheckinRows = (passportCheckinsRes.data ?? []) as any[]
     const passportVisitorIds = [...new Set(passportCheckinRows.map((c) => c.user_id))]
     const passportProfileById: Record<string, { display_name: string | null }> = {}
@@ -155,9 +160,16 @@ export async function GET(req: NextRequest) {
       displayName: passportProfileById[c.user_id]?.display_name ?? "Runner",
       creditsSpent: c.credits_spent,
       payoutCents: c.payout_amount_cents,
-      checkedInAt: c.checked_in_at,
+      payoutStatus: c.payout_status,
+      checkedInAt: c.redeemed_at,
     }))
-    const passportTotalPayoutCents = passportCheckinRows.reduce((sum, c) => sum + c.payout_amount_cents, 0)
+    // Uncapped and paid-only - a failed Stripe transfer never actually moved
+    // money, so it shouldn't count toward what the klub has "earned."
+    const passportPayoutRows = (passportPayoutTotalsRes.data ?? []) as { payout_amount_cents: number; payout_status: string }[]
+    const passportTotalPayoutCents = passportPayoutRows
+      .filter((c) => c.payout_status === "paid")
+      .reduce((sum, c) => sum + c.payout_amount_cents, 0)
+    const passportTotalRedemptionCount = passportPayoutRows.length
 
     const payingMembers = paidSubs
       .map((s) => ({
@@ -196,7 +208,7 @@ export async function GET(req: NextRequest) {
         else churned++
         continue
       }
-      // No check-in yet — measure the retention window from when they
+      // No check-in yet - measure the retention window from when they
       // signed up rather than auto-churning, so a brand-new member isn't
       // flagged "churned" before they've had a chance to attend anything.
       const signupDate = signupByUser[id] ? new Date(signupByUser[id]) : null
@@ -228,7 +240,7 @@ export async function GET(req: NextRequest) {
       recentWorkouts,
       crossClubCheckins,
       passportCheckins: {
-        checkinCount: passportCheckinList.length,
+        checkinCount: passportTotalRedemptionCount,
         totalPayoutCents: passportTotalPayoutCents,
         recentCheckins: passportCheckinList.slice(0, 10),
       },

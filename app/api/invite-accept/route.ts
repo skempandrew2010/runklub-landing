@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js"
 import { NextRequest, NextResponse } from "next/server"
+import { isClubAtMemberCap, memberCapMessage } from "@/lib/memberCap"
 
 function getAdminSupabase() {
   return createClient(
@@ -22,7 +23,7 @@ export async function POST(req: NextRequest) {
     const { token } = await req.json()
     if (!token) return NextResponse.json({ error: "token required" }, { status: 400 })
 
-    // Look up invite — include preferred_region_id and name so we can enroll them
+    // Look up invite - include preferred_region_id and name so we can enroll them
     const { data: invite } = await adminSupabase
       .from("member_invites")
       .select("id, club_id, email, name, status, preferred_region_id")
@@ -32,6 +33,19 @@ export async function POST(req: NextRequest) {
     if (!invite) return NextResponse.json({ error: "Invite not found" }, { status: 404 })
     if (invite.status === "revoked") return NextResponse.json({ error: "This invite has been revoked" }, { status: 400 })
     if (invite.status === "accepted") return NextResponse.json({ ok: true, already: true })
+
+    const { data: existing } = await adminSupabase
+      .from("subscriptions")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("club_id", invite.club_id)
+      .maybeSingle()
+
+    if (!existing) {
+      const { data: club } = await adminSupabase.from("clubs").select("tier").eq("id", invite.club_id).single()
+      const cap = await isClubAtMemberCap(adminSupabase, invite.club_id, club?.tier)
+      if (cap.atCap) return NextResponse.json({ error: memberCapMessage(cap.limit!) }, { status: 400 })
+    }
 
     // Add to subscriptions as a paying member (director explicitly invited them)
     await adminSupabase

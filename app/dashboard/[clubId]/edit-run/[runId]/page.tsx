@@ -6,6 +6,10 @@ import { supabase } from "@/lib/supabase"
 import { ArrowLeft, Check, Globe, Lock } from "lucide-react"
 import mapboxSdk from "@mapbox/mapbox-sdk/services/geocoding"
 import { COMMON_TIMEZONES, getBrowserTimezone } from "@/lib/timezone"
+import { Select } from "@/components/Select"
+import { DateInput } from "@/components/DateInput"
+import { TimeInput } from "@/components/TimeInput"
+import { RollerSelect } from "@/components/RollerSelect"
 
 const geocodingClient = mapboxSdk({ accessToken: process.env.NEXT_PUBLIC_MAPBOX_TOKEN! })
 
@@ -178,8 +182,7 @@ export default function EditRunPage() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelClass}>Date *</label>
-                <input
-                  type="date"
+                <DateInput
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
                   required
@@ -188,8 +191,7 @@ export default function EditRunPage() {
               </div>
               <div>
                 <label className={labelClass}>Time *</label>
-                <input
-                  type="time"
+                <TimeInput
                   value={time}
                   onChange={(e) => setTime(e.target.value)}
                   required
@@ -200,9 +202,7 @@ export default function EditRunPage() {
 
             <div>
               <label className={labelClass}>Timezone</label>
-              <select value={timezone} onChange={(e) => setTimezone(e.target.value)} className={inputClass}>
-                {COMMON_TIMEZONES.map((tz) => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
-              </select>
+              <RollerSelect value={timezone} onChange={(e) => setTimezone(e.target.value)} options={COMMON_TIMEZONES} className={inputClass} panelWidth={260} />
             </div>
 
             <div className="grid grid-cols-2 gap-3">

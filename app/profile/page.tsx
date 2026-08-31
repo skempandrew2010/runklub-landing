@@ -477,7 +477,7 @@ export default function ProfilePage() {
           <div className="bg-[#1e2d12] rounded-2xl overflow-hidden divide-y divide-[#2e3d1a]">
             {allKlubs.length === 0 ? (
               <div className="px-4 py-5 text-sm text-white/40 text-center">
-                No klubs yet —{" "}
+                No klubs yet -{" "}
                 <Link href="/explore" className="text-[#c5f135] hover:underline">discover klubs</Link>
               </div>
             ) : (
@@ -487,11 +487,11 @@ export default function ProfilePage() {
                 return (
                   <div key={club.id} className="flex items-center gap-3 px-4 py-3.5">
                     <div
-                      className="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-black shrink-0"
+                      className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-black shrink-0 overflow-hidden"
                       style={{ background: `linear-gradient(135deg, ${bg}, #1a2110)` }}
                     >
                       {(club as any).image_url ? (
-                        <img src={(club as any).image_url} alt="" className="w-full h-full object-cover rounded-xl" />
+                        <img src={(club as any).image_url} alt="" className="w-full h-full object-cover" />
                       ) : (
                         <span className="text-white/80">{abbr}</span>
                       )}
@@ -533,7 +533,7 @@ export default function ProfilePage() {
           <div className="bg-[#1e2d12] rounded-2xl p-4">
             <p className="text-xs text-white/40 mb-3 leading-relaxed">
               {isManager || isCoach
-                ? "Switch your view between the Director tab and browsing as a member — this doesn't change your account."
+                ? "Switch your view between the Director tab and browsing as a member - this doesn't change your account."
                 : "Switch between running a klub or joining one. This changes your Director tab."}
             </p>
             <div className="grid grid-cols-2 gap-2">
@@ -555,16 +555,16 @@ export default function ProfilePage() {
                       setViewMode(key)
                     }}
                     disabled={roleChanging}
-                    className={`rounded-xl p-3.5 text-left border transition-all disabled:opacity-60
+                    className={`rounded-xl p-3.5 text-left border transition-all duration-300 ease-out disabled:opacity-60
                       ${active
                         ? "bg-[#c5f135]/10 border-[#c5f135] shadow-[0_0_0_1px_#c5f135]"
                         : "bg-[#1a2110] border-[#2e3d1a] hover:border-white/20"
                       }`}
                   >
-                    <Icon className={`w-5 h-5 mb-2 ${active ? "text-[#c5f135]" : "text-white/30"}`} />
-                    <p className={`text-sm font-bold ${active ? "text-white" : "text-white/50"}`}>{label}</p>
-                    <p className={`text-xs mt-0.5 ${active ? "text-white/50" : "text-white/25"}`}>{sub}</p>
-                    {active && <Check className="w-3.5 h-3.5 text-[#c5f135] mt-1.5" />}
+                    <Icon className={`w-5 h-5 mb-2 transition-colors duration-300 ${active ? "text-[#c5f135]" : "text-white/30"}`} />
+                    <p className={`text-sm font-bold transition-colors duration-300 ${active ? "text-white" : "text-white/50"}`}>{label}</p>
+                    <p className={`text-xs mt-0.5 transition-colors duration-300 ${active ? "text-white/50" : "text-white/25"}`}>{sub}</p>
+                    {active && <Check className="w-3.5 h-3.5 text-[#c5f135] mt-1.5 animate-[fadeUp_0.15s_ease-out_forwards]" />}
                   </button>
                 )
               })}
@@ -572,7 +572,7 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* KLUB MEMBERSHIP — paid membership(s) as a runner, kept separate from the director plan below */}
+        {/* KLUB MEMBERSHIP - paid membership(s) as a runner, kept separate from the director plan below */}
         {paidMemberships.length > 0 && (
           <div>
             <h2 className="text-xs font-bold text-white/40 tracking-widest uppercase px-1 mb-2">Klub Membership</h2>
@@ -605,7 +605,7 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* MANAGE SUBSCRIPTIONS — shown for anyone who owns/manages a klub, even on Free */}
+        {/* MANAGE SUBSCRIPTIONS - shown for anyone who owns/manages a klub, even on Free */}
         {myClubs.length > 0 && (
           <div>
             <h2 className="text-xs font-bold text-white/40 tracking-widest uppercase px-1 mb-2">Subscriptions</h2>
@@ -684,9 +684,9 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* SUBSCRIPTION TIERS — director view only, so directors see what each klub plan unlocks */}
+        {/* SUBSCRIPTION TIERS - director view only, so directors see what each klub plan unlocks */}
         {isManager && viewMode === "director" && (
-          <div>
+          <div key="director" className="animate-[fadeUp_0.2s_ease-out_forwards]">
             <h2 className="text-xs font-bold text-white/40 tracking-widest uppercase px-1 mb-2">Subscription Tiers</h2>
             <div className="bg-[#1e2d12] rounded-2xl overflow-hidden divide-y divide-[#2e3d1a]">
               {PLAN_ORDER.map((id) => {
@@ -724,10 +724,10 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* PASSPORT CREDITS — member view only. Real Stripe checkout/portal now
+        {/* PASSPORT CREDITS - member view only. Real Stripe checkout/portal now
             that the credit program is functional, not just a preview. */}
         {viewMode === "member" && (
-          <div>
+          <div key="member" className="animate-[fadeUp_0.2s_ease-out_forwards]">
             <h2 className="text-xs font-bold text-white/40 tracking-widest uppercase px-1 mb-2">Passport Credits</h2>
             <div className="bg-[#1e2d12] rounded-2xl overflow-hidden">
               {passportSub ? (
@@ -744,7 +744,7 @@ export default function ProfilePage() {
                     <span className="text-sm font-black text-[#c5f135] shrink-0">{passportCreditBalance} credits</span>
                   </div>
                   <p className="text-xs text-white/40 mt-2 leading-relaxed">
-                    Spend credits checking in at partner klubs beyond your home klub — unspent credits expire 45 days after they're issued.
+                    Spend credits checking in at partner klubs beyond your home klub - unspent credits expire 45 days after they're issued.
                   </p>
                   {!nativeApp && (
                     <button
@@ -794,7 +794,7 @@ export default function ProfilePage() {
                       <div className="mt-3 flex items-start gap-2 bg-[#c5f135]/10 border border-[#c5f135]/30 rounded-xl px-3 py-2.5">
                         <Zap className="w-3.5 h-3.5 text-[#c5f135] shrink-0 mt-0.5" />
                         <p className="text-xs text-[#c5f135] leading-relaxed">
-                          <span className="font-black">Pay yearly, save 10%</span> vs. paying monthly — and credits still land every month, not all at once.
+                          <span className="font-black">Pay yearly, save 10%</span> vs. paying monthly - and credits still land every month, not all at once.
                         </p>
                       </div>
 
@@ -859,15 +859,19 @@ export default function ProfilePage() {
             <div className="flex items-center px-4 py-4 gap-3">
               <Ruler className="w-5 h-5 text-white/50 shrink-0" />
               <span className="flex-1 text-sm font-medium text-white">Distance Units</span>
-              <div className="flex rounded-full bg-[#1a2110] p-0.5 border border-[#2e3d1a] shrink-0">
+              <div className="relative flex rounded-full bg-[#1a2110] p-0.5 border border-[#2e3d1a] shrink-0 w-[104px]">
+                <div
+                  className="absolute top-0.5 bottom-0.5 left-0.5 w-[calc(50%-2px)] rounded-full bg-[#c5f135] transition-transform duration-300 ease-out"
+                  style={{ transform: (profile?.distance_unit || "miles") === "km" ? "translateX(100%)" : "translateX(0)" }}
+                />
                 {(["miles", "km"] as const).map((unit) => {
                   const active = (profile?.distance_unit || "miles") === unit
                   return (
                     <button
                       key={unit}
                       onClick={() => changeDistanceUnit(unit)}
-                      className={`px-3 py-1 rounded-full text-xs font-bold transition-all capitalize
-                        ${active ? "bg-[#c5f135] text-[#1a2110]" : "text-white/40 hover:text-white/70"}`}
+                      className={`relative z-10 flex-1 py-1 rounded-full text-xs font-bold capitalize transition-colors duration-300
+                        ${active ? "text-[#1a2110]" : "text-white/40 hover:text-white/70"}`}
                     >
                       {unit}
                     </button>
@@ -877,13 +881,6 @@ export default function ProfilePage() {
             </div>
 
           </div>
-        </div>
-
-        {/* LEGAL */}
-        <div className="flex flex-wrap gap-x-5 gap-y-1.5 px-1">
-          <Link href="/terms" className="text-xs text-white/25 hover:text-white/50 transition">Terms of Service</Link>
-          <Link href="/privacy" className="text-xs text-white/25 hover:text-white/50 transition">Privacy Policy</Link>
-          <Link href="/community" className="text-xs text-white/25 hover:text-white/50 transition">Community Guidelines</Link>
         </div>
 
         {/* SIGN OUT */}

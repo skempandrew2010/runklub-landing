@@ -88,7 +88,7 @@ export default function MemberChatInbox({ userId }: { userId: string }) {
       if (runsData.length === 0) { setLoading(false); return }
 
       const runIds = runsData.map((r: any) => r.id)
-      // Preview only group messages here — DMs are visible inside the panel itself
+      // Preview only group messages here - DMs are visible inside the panel itself
       const { data: chats } = await supabase.from("run_chats").select("*, profiles(display_name, avatar_url)").in("run_id", runIds).is("recipient_id", null).order("created_at", { ascending: false })
       const chatsByRun: Record<string, ChatMessage[]> = {}
       for (const msg of (chats || []) as ChatMessage[]) {
@@ -166,7 +166,7 @@ export default function MemberChatInbox({ userId }: { userId: string }) {
         return (
           <button key={run.id} onClick={() => setSelectedRun(run)}
             className="w-full flex items-center gap-3.5 px-4 py-4 hover:bg-[#2e3d1a]/40 transition text-left">
-            <div className="w-11 h-11 rounded-xl bg-[#2e3d1a] shrink-0 overflow-hidden flex items-center justify-center">
+            <div className="w-11 h-11 rounded-full bg-[#2e3d1a] shrink-0 overflow-hidden flex items-center justify-center">
               {run.clubs?.image_url
                 ? <img src={run.clubs.image_url} alt="" className="w-full h-full object-cover" />
                 : <span className="text-xs font-black text-[#c5f135]">{clubAbbr(clubName)}</span>

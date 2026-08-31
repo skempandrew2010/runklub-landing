@@ -8,6 +8,7 @@ import { resolveCheckinTarget, getCurrentPosition, isWithinRadius, isWithinCheck
 import { isVerifiedClub } from "@/utils/clubTier"
 import CheckInProximityMap from "@/components/CheckInProximityMap"
 import type { CheckInResult } from "@/lib/server/checkin"
+import ModalPortal from "@/components/ModalPortal"
 
 export type MissionCheckInRun = {
   id: string
@@ -62,7 +63,7 @@ export default function MissionCheckInModal({
     })
   }, [])
 
-  // Best-effort — just for the proximity map, so a denial here shouldn't
+  // Best-effort - just for the proximity map, so a denial here shouldn't
   // block anything; the real gate re-reads a fresh position in submit().
   useEffect(() => {
     if (!target) return
@@ -122,6 +123,7 @@ export default function MissionCheckInModal({
   }
 
   return (
+    <ModalPortal>
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm">
       <div className="w-full sm:max-w-sm max-h-[85vh] overflow-y-auto bg-[#1e2d12] border border-[#2e3d1a] rounded-t-3xl sm:rounded-3xl p-5 pb-8 sm:pb-5 animate-[fadeUp_0.25s_ease-out_forwards]">
         <div className="flex items-center justify-between mb-1">
@@ -193,5 +195,6 @@ export default function MissionCheckInModal({
         {error && <p className="text-xs text-red-400/80 leading-relaxed mt-2">{error}</p>}
       </div>
     </div>
+    </ModalPortal>
   )
 }

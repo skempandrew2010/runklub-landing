@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js"
 import { NextRequest, NextResponse } from "next/server"
+import { isClubAtMemberCap, memberCapMessage } from "@/lib/memberCap"
 
 function getAdminSupabase() {
   return createClient(
@@ -9,7 +10,7 @@ function getAdminSupabase() {
   )
 }
 
-// POST /api/director/add-member — add an existing RunKlub user to a club directly
+// POST /api/director/add-member - add an existing RunKlub user to a club directly
 export async function POST(req: NextRequest) {
   try {
     const authHeader = req.headers.get("Authorization")
@@ -30,7 +31,7 @@ export async function POST(req: NextRequest) {
     // Verify the caller owns the club
     const { data: club } = await adminSupabase
       .from("clubs")
-      .select("id")
+      .select("id, tier")
       .eq("id", club_id)
       .eq("user_id", user.id)
       .single()
@@ -49,7 +50,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "You can't add yourself as a member" }, { status: 400 })
     }
 
-    // Upsert — idempotent if they're already a member
+    // The cap only counts paid members (see lib/memberCap.ts) - adding
+    // someone as a free follower never needs to check it. Only block when
+    // this add would actually create or upgrade a paid member, and skip it
+    // entirely if they're already paid (re-adding to change their region).
+    const { data: existing } = await adminSupabase
+      .from("subscriptions")
+      .select("id, member_type")
+      .eq("user_id", targetUserId)
+      .eq("club_id", club_id)
+      .maybeSingle()
+
+    if (member_type === "paid" && existing?.member_type !== "paid") {
+      const cap = await isClubAtMemberCap(adminSupabase, club_id, club.tier)
+      if (cap.atCap) return NextResponse.json({ error: memberCapMessage(cap.limit!) }, { status: 400 })
+    }
+
+    // Upsert - idempotent if they're already a member
     const { error: subErr } = await adminSupabase
       .from("subscriptions")
       .upsert({ user_id: targetUserId, club_id, member_type }, { onConflict: "user_id,club_id" })

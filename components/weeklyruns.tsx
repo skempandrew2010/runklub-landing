@@ -45,7 +45,7 @@ export default function WeeklyRuns({ clubs, center, locationLabel = "near you" }
   const [weekRuns, setWeekRuns] = useState<WeekRun[]>([])
   const [loading, setLoading] = useState(false)
 
-  // Stable dependency — only re-fetch when club IDs or center coords actually change
+  // Stable dependency - only re-fetch when club IDs or center coords actually change
   const clubIds = useMemo(() => clubs.map((c) => c.id).sort().join(","), [clubs])
   const centerKey = center ? `${center.lat.toFixed(4)},${center.lng.toFixed(4)}` : null
 
@@ -142,7 +142,7 @@ export default function WeeklyRuns({ clubs, center, locationLabel = "near you" }
               <div className="bg-[#1e2d12] rounded-2xl overflow-hidden divide-y divide-[#2e3d1a]">
                 {dayRuns.map((run) => (
                   <div key={run.id} className="px-4 py-3.5 flex items-start gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-[#2e3d1a] shrink-0 overflow-hidden flex items-center justify-center">
+                    <div className="w-9 h-9 rounded-full bg-[#2e3d1a] shrink-0 overflow-hidden flex items-center justify-center">
                       {run.club_image ? (
                         <img src={run.club_image} alt="" className="w-full h-full object-cover" />
                       ) : (

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import Stripe from "stripe"
 import { createClient } from "@supabase/supabase-js"
 import { PLANS, type PlanId } from "@/lib/plans"
+import { isClubAtMemberCap, memberCapMessage } from "@/lib/memberCap"
 
 function getStripe() { return new Stripe(process.env.STRIPE_SECRET_KEY!) }
 
@@ -12,16 +13,16 @@ function getSupabaseAdmin() {
   )
 }
 
-// POST /api/clubs/[clubId]/subscribe — creates a Checkout Session for a
+// POST /api/clubs/[clubId]/subscribe - creates a Checkout Session for a
 // runner to pay for one of the klub's named membership plans (director's
-// own custom lineup — could be "Monthly", "Yearly", "Student Rate", a
+// own custom lineup - could be "Monthly", "Yearly", "Student Rate", a
 // "Summer Season" plan covering a specific calendar range, whatever they've
 // set up). Monthly/yearly are real recurring Stripe subscriptions; seasonal
 // is a one-time payment tied to the plan's fixed season_end_date, with no
 // auto-renewal and no Stripe subscription object at all. Everything here
 // runs inside the connected account's own namespace ({ stripeAccount }) so the resulting
 // Customer/Subscription-or-PaymentIntent/Charge belong to the klub, not
-// RunKlub — that's what actually routes the money there. The
+// RunKlub - that's what actually routes the money there. The
 // application_fee_percent/application_fee_amount is RunKlub's cut, scaled
 // by the klub's SaaS tier.
 export async function POST(
@@ -30,7 +31,7 @@ export async function POST(
 ) {
   try {
     const { clubId } = await params
-    const { planId } = await req.json().catch(() => ({ planId: undefined }))
+    const { planId, paceGroupId, selfReportedPace, raceDistance, raceTimeSeconds } = await req.json().catch(() => ({ planId: undefined }))
 
     const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
     if (!planId || !UUID_RE.test(planId)) {
@@ -82,13 +83,18 @@ export async function POST(
       return NextResponse.json({ error: "You're already a paying member of this klub" }, { status: 400 })
     }
 
+    if (!existingSub) {
+      const cap = await isClubAtMemberCap(admin, clubId, club.tier as PlanId | null)
+      if (cap.atCap) return NextResponse.json({ error: memberCapMessage(cap.limit!) }, { status: 400 })
+    }
+
     const stripe = getStripe()
     const stripeAccount = club.stripe_connect_account_id
 
     let customerId = existingSub?.stripe_customer_id ?? undefined
 
     if (customerId) {
-      // Don't trust our own DB alone — a failed/delayed webhook could leave
+      // Don't trust our own DB alone - a failed/delayed webhook could leave
       // it stale while Stripe already has an active subscription for them.
       // Only meaningful for recurring plans; a one-time seasonal payment has
       // no ongoing Stripe subscription object to check.
@@ -121,6 +127,13 @@ export async function POST(
       billingInterval: plan.billing_interval,
       priceCents: String(plan.price_cents),
       ...(isSeasonal ? { seasonEndDate: plan.season_end_date! } : {}),
+      // Optional -- only set when the runner went through the pace-match
+      // modal on the club page (Stripe drops undefined/null metadata values,
+      // so these are only included when actually present).
+      ...(paceGroupId ? { paceGroupId: String(paceGroupId) } : {}),
+      ...(selfReportedPace != null ? { selfReportedPace: String(selfReportedPace) } : {}),
+      ...(raceDistance ? { raceDistance: String(raceDistance) } : {}),
+      ...(raceTimeSeconds != null ? { raceTimeSeconds: String(raceTimeSeconds) } : {}),
     }
 
     const session = await stripe.checkout.sessions.create(
@@ -132,7 +145,7 @@ export async function POST(
               price_data: {
                 currency: club.membership_currency ?? "usd",
                 unit_amount: plan.price_cents,
-                product_data: { name: `${club.name} — ${plan.name}` },
+                product_data: { name: `${club.name} - ${plan.name}` },
               },
               quantity: 1,
             }],
@@ -152,7 +165,7 @@ export async function POST(
                 currency: club.membership_currency ?? "usd",
                 unit_amount: plan.price_cents,
                 recurring: { interval: plan.billing_interval === "yearly" ? "year" : "month" },
-                product_data: { name: `${club.name} — ${plan.name}` },
+                product_data: { name: `${club.name} - ${plan.name}` },
               },
               quantity: 1,
             }],

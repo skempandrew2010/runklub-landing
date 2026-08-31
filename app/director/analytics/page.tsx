@@ -7,6 +7,7 @@ import { CalendarCheck, MapPin, Crown, DollarSign, PartyPopper, TrendingDown, Ma
 import { supabase } from "@/lib/supabase"
 import CoachAnalyticsView from "@/components/CoachAnalyticsView"
 import KlubContextPicker from "@/components/KlubContextPicker"
+import { Select } from "@/components/Select"
 
 type ClubOption = { id: string; name: string }
 
@@ -113,7 +114,7 @@ export default function DirectorAnalyticsPage() {
       setClubs(ownedClubs)
 
       // Someone who's both a director and an invited coach elsewhere needs
-      // to pick which klub they mean, same as the /director tab — leave
+      // to pick which klub they mean, same as the /director tab - leave
       // `mode` unset so the picker renders. Single-role accounts (including
       // a manager profile with no klub of their own yet) skip straight to
       // their one option.
@@ -221,13 +222,13 @@ export default function DirectorAnalyticsPage() {
         <div className="flex items-center justify-between gap-3 mb-6">
           <h1 className="text-xl font-black text-white">Analytics</h1>
           {clubs.length > 1 && (
-            <select
+            <Select
               value={selectedClubId ?? ""}
               onChange={(e) => setSelectedClubId(e.target.value)}
               className="bg-[#1e2d12] border border-[#2e3d1a] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-[#c5f135]/50"
             >
               {clubs.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
+            </Select>
           )}
         </div>
 
@@ -285,7 +286,7 @@ export default function DirectorAnalyticsPage() {
                         </p>
                       </div>
                       <span className="text-xs font-black text-[#c5f135] shrink-0">
-                        {m.priceCents ? `$${(m.priceCents / 100).toFixed(2)}${m.billingInterval === "yearly" ? "/yr" : m.billingInterval === "seasonal" ? " one-time" : "/mo"}` : "—"}
+                        {m.priceCents ? `$${(m.priceCents / 100).toFixed(2)}${m.billingInterval === "yearly" ? "/yr" : m.billingInterval === "seasonal" ? " one-time" : "/mo"}` : "-"}
                       </span>
                     </div>
                   ))}
@@ -342,7 +343,7 @@ export default function DirectorAnalyticsPage() {
             </Card>
 
             <Card title="RSVP vs. Check-In Rate" icon={<PartyPopper className="w-3.5 h-3.5 text-[#c5f135]" />}>
-              <p className="text-xs text-white/35 mb-3 -mt-1">Runs in the last 30 days — how many who RSVPed actually showed up</p>
+              <p className="text-xs text-white/35 mb-3 -mt-1">Runs in the last 30 days - how many who RSVPed actually showed up</p>
               <div className="grid grid-cols-3 gap-3 mb-3">
                 <div className="bg-[#1a2110] rounded-xl px-3 py-3 text-center">
                   <p className="text-lg font-black text-white">{data.rsvpVsCheckin.totalRsvps}</p>
@@ -354,7 +355,7 @@ export default function DirectorAnalyticsPage() {
                 </div>
                 <div className="bg-[#1a2110] rounded-xl px-3 py-3 text-center">
                   <p className="text-lg font-black text-[#c5f135]">
-                    {data.rsvpVsCheckin.rate !== null ? `${Math.round(data.rsvpVsCheckin.rate * 100)}%` : "—"}
+                    {data.rsvpVsCheckin.rate !== null ? `${Math.round(data.rsvpVsCheckin.rate * 100)}%` : "-"}
                   </p>
                   <p className="text-[10px] text-white/40 uppercase tracking-widest mt-1">Show-up rate</p>
                 </div>
@@ -375,7 +376,7 @@ export default function DirectorAnalyticsPage() {
             </Card>
 
             <Card title="Member Retention" icon={<TrendingDown className="w-3.5 h-3.5 text-[#c5f135]" />}>
-              <p className="text-xs text-white/35 mb-3 -mt-1">Based on each member&apos;s most recent check-in — or, if they haven&apos;t checked in yet, how long ago they signed up</p>
+              <p className="text-xs text-white/35 mb-3 -mt-1">Based on each member&apos;s most recent check-in - or, if they haven&apos;t checked in yet, how long ago they signed up</p>
               <div className="grid grid-cols-3 gap-3">
                 <div className="bg-[#1a2110] rounded-xl px-3 py-3 text-center">
                   <p className="text-lg font-black text-[#c5f135]">{data.retention.active}</p>
@@ -404,13 +405,13 @@ export default function DirectorAnalyticsPage() {
                     </div>
                     <div className="bg-[#1a2110] rounded-xl px-3 py-3 text-center">
                       <p className="text-lg font-black text-[#c5f135]">
-                        {data.emailEngagement.openRate !== null ? `${Math.round(data.emailEngagement.openRate * 100)}%` : "—"}
+                        {data.emailEngagement.openRate !== null ? `${Math.round(data.emailEngagement.openRate * 100)}%` : "-"}
                       </p>
                       <p className="text-[10px] text-white/40 uppercase tracking-widest mt-1">Open rate</p>
                     </div>
                     <div className="bg-[#1a2110] rounded-xl px-3 py-3 text-center">
                       <p className="text-lg font-black text-[#c5f135]">
-                        {data.emailEngagement.clickRate !== null ? `${Math.round(data.emailEngagement.clickRate * 100)}%` : "—"}
+                        {data.emailEngagement.clickRate !== null ? `${Math.round(data.emailEngagement.clickRate * 100)}%` : "-"}
                       </p>
                       <p className="text-[10px] text-white/40 uppercase tracking-widest mt-1">Click rate</p>
                     </div>

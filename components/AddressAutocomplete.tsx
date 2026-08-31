@@ -1,6 +1,8 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { createPortal } from "react-dom"
+import { usePopoverPosition } from "./usePopoverPosition"
 
 export type AddressSuggestion = { placeName: string; lat: number; lng: number }
 
@@ -12,8 +14,10 @@ function newSessionToken() {
 
 /**
  * Debounced search-as-you-type against Mapbox's Search Box API, matching both named
- * places (e.g. "Tom Watson Park") and street addresses — its POI dataset is far more
+ * places (e.g. "Tom Watson Park") and street addresses - its POI dataset is far more
  * complete than the classic Geocoding API for smaller local landmarks and parks.
+ * The suggestion list is portaled to document.body and fixed-positioned so it never
+ * gets clipped by an ancestor's overflow-hidden/overflow-y-auto (e.g. a rounded card).
  */
 export default function AddressAutocomplete({
   value,
@@ -35,16 +39,21 @@ export default function AddressAutocomplete({
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const { triggerRef, rect } = usePopoverPosition(open)
   const sessionTokenRef = useRef(newSessionToken())
 
   useEffect(() => {
-    const onClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false)
+    if (!open) return
+    const onDown = (e: MouseEvent) => {
+      const target = e.target as Node
+      if (triggerRef.current?.contains(target)) return
+      if (panelRef.current?.contains(target)) return
+      setOpen(false)
     }
-    document.addEventListener("mousedown", onClickOutside)
-    return () => document.removeEventListener("mousedown", onClickOutside)
-  }, [])
+    document.addEventListener("mousedown", onDown)
+    return () => document.removeEventListener("mousedown", onDown)
+  }, [open, triggerRef])
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -91,12 +100,12 @@ export default function AddressAutocomplete({
       const coords = data.features?.[0]?.geometry?.coordinates
       if (coords) onSelect({ placeName: s.fullAddress, lat: coords[1], lng: coords[0] })
     } catch { /* the text field is still filled in even if coordinates fail to resolve */ }
-    // Mapbox bills per search "session" (suggest calls + one retrieve) — start a fresh one for the next search.
+    // Mapbox bills per search "session" (suggest calls + one retrieve) - start a fresh one for the next search.
     sessionTokenRef.current = newSessionToken()
   }
 
   return (
-    <div ref={containerRef} className="relative">
+    <div ref={triggerRef} className="relative">
       <input
         value={value}
         onChange={(e) => { onChange(e.target.value); setOpen(true) }}
@@ -105,8 +114,17 @@ export default function AddressAutocomplete({
         autoComplete="off"
         className={className}
       />
-      {open && (loading || suggestions.length > 0) && (
-        <div className="absolute z-20 mt-1 w-full bg-[#1e2d12] border border-[#2e3d1a] rounded-xl overflow-hidden shadow-xl shadow-black/40 max-h-56 overflow-y-auto">
+      {open && rect && (loading || suggestions.length > 0) && createPortal(
+        <div
+          ref={panelRef}
+          style={{
+            position: "fixed",
+            left: rect.left,
+            width: rect.width,
+            top: rect.bottom + 4,
+          }}
+          className="z-50 bg-[#1e2d12] border border-[#2e3d1a] rounded-xl overflow-hidden shadow-xl shadow-black/40 max-h-56 overflow-y-auto"
+        >
           {loading && suggestions.length === 0 && (
             <p className="px-3 py-2 text-xs text-white/40">Searching…</p>
           )}
@@ -121,7 +139,8 @@ export default function AddressAutocomplete({
               {s.fullAddress !== s.name && <span className="block text-white/40 text-[10px] mt-0.5">{s.fullAddress}</span>}
             </button>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )

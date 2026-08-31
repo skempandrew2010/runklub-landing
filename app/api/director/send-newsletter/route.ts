@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
     if (authError || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
     const body = await req.json()
-    const { club_id, subject, message } = body ?? {}
+    const { club_id, subject, message, is_public = true } = body ?? {}
 
     if (!club_id || !subject?.trim() || !message?.trim()) {
       return NextResponse.json({ error: "club_id, subject, and message are required" }, { status: 400 })
@@ -132,6 +132,24 @@ export async function POST(req: NextRequest) {
         { error: "Newsletters are a Growth feature. Upgrade your klub to send one.", code: "growth_required" },
         { status: 403 }
       )
+    }
+
+    // At most one newsletter per klub every 7 days.
+    const { data: lastNewsletter } = await adminSupabase
+      .from("club_newsletters")
+      .select("sent_at")
+      .eq("club_id", club_id)
+      .order("sent_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (lastNewsletter) {
+      const nextEligible = new Date(new Date(lastNewsletter.sent_at).getTime() + 7 * 24 * 60 * 60 * 1000)
+      if (nextEligible > new Date()) {
+        return NextResponse.json({
+          error: `You can only send one newsletter every 7 days. Next one can go out ${nextEligible.toLocaleDateString("en-US", { month: "long", day: "numeric" })}.`,
+          code: "rate_limited",
+        }, { status: 429 })
+      }
     }
 
     // Get subscriber user IDs
@@ -176,6 +194,25 @@ export async function POST(req: NextRequest) {
 
     const sent = results.filter((r) => r.status === "fulfilled").length
     const failed = results.length - sent
+
+    await adminSupabase.from("club_newsletters").insert({
+      club_id,
+      subject: subject.trim(),
+      message: message.trim(),
+      sent_count: sent,
+      is_public: !!is_public,
+    })
+
+    await adminSupabase.from("notifications").insert(
+      subIds.map((subId) => ({
+        user_id: subId,
+        type: "newsletter" as const,
+        title: `${club.name}: ${subject.trim()}`,
+        body: message.trim().slice(0, 140),
+        link: `/clubs/${club_id}/newsletters`,
+        club_id,
+      }))
+    )
 
     return NextResponse.json({ ok: true, sent, failed, total: emails.length })
   } catch (err: any) {

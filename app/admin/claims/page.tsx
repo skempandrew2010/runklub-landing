@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { Check, X, Clock, ExternalLink, Send, RotateCcw, Search, Ban, Trash2, AlertTriangle, ChevronDown, ChevronUp, Globe, Mail } from "lucide-react"
+import ModalPortal from "@/components/ModalPortal"
 
 type Claim = {
   id: string
@@ -301,7 +302,7 @@ export default function AdminClaimsPage() {
   const buildIgMessage = (club: UnclaimedClub) => {
     const city = club.city ?? "your city"
     const link = `https://www.runklub.fit/welcome?t=${club.claim_token}`
-    return `Hey ${club.name}! I'm Andrew — my friend Sean and I built RunKlub, a free app for people to find run klubs near them. Your klub is already on there and I'd love to get you properly set up so more runners in ${city} can find you.\n\nClaim your page here: ${link}\n\nFeel free to DM back if you have any questions!`
+    return `Hey ${club.name}! I'm Andrew - my friend Sean and I built RunKlub, a free app for people to find run klubs near them. Your klub is already on there and I'd love to get you properly set up so more runners in ${city} can find you.\n\nClaim your page here: ${link}\n\nFeel free to DM back if you have any questions!`
   }
 
   const handleIgClick = async (club: UnclaimedClub, igHandle: string) => {
@@ -327,7 +328,7 @@ export default function AdminClaimsPage() {
   }
   const buildIgReminderMessage = (club: ReminderClub) => {
     const link = `https://www.runklub.fit/welcome?t=${club.claim_token}`
-    return `Hey ${club.name}! Just following up — I reached out a little while ago about getting your klub set up on RunKlub. Your page is still there whenever you're ready.\n\nHere's the link again: ${link}\n\nFeel free to DM back if you have any questions!`
+    return `Hey ${club.name}! Just following up - I reached out a little while ago about getting your klub set up on RunKlub. Your page is still there whenever you're ready.\n\nHere's the link again: ${link}\n\nFeel free to DM back if you have any questions!`
   }
 
   const handleIgReminderClick = async (club: ReminderClub, igHandle: string) => {
@@ -371,7 +372,7 @@ export default function AdminClaimsPage() {
         .order("invite_sent_at", { ascending: false })
       setFunnelClubs((funnel as FunnelClub[]) ?? [])
 
-      // Clubs that have an owner but no club_claims record — surfaces edge cases
+      // Clubs that have an owner but no club_claims record - surfaces edge cases
       const claimedClubIds = new Set(
         ((data ?? []) as Claim[]).filter(c => c.club_id).map(c => c.club_id!)
       )
@@ -424,7 +425,7 @@ export default function AdminClaimsPage() {
       }
     } else {
       const json = await res.json().catch(() => ({}))
-      setInviteErrors((prev) => ({ ...prev, [clubId]: json.error ?? "Failed to send — check console." }))
+      setInviteErrors((prev) => ({ ...prev, [clubId]: json.error ?? "Failed to send - check console." }))
     }
   }
 
@@ -754,7 +755,7 @@ export default function AdminClaimsPage() {
                         <button
                           onClick={() => cancelInvite(club.id)}
                           disabled={isSending || isCancelling}
-                          title="Cancel invite — invalidates the link"
+                          title="Cancel invite - invalidates the link"
                           className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition disabled:opacity-40 shrink-0 bg-[#1a2110] border border-[#2e3d1a] text-white/30 hover:text-red-400 hover:border-red-400/30"
                         >
                           {isCancelling ? "…" : <Ban className="w-3.5 h-3.5" />}
@@ -903,7 +904,7 @@ export default function AdminClaimsPage() {
           const clicked = funnelClubs.filter(c => c.invite_link_clicked_at).length
           const submitted = funnelClubs.filter(c => c.claim_token_used_at).length
           const activated = funnelClubs.filter(c => c.user_id).length
-          const pct = (n: number, d: number) => d === 0 ? "—" : `${Math.round((n / d) * 100)}%`
+          const pct = (n: number, d: number) => d === 0 ? "-" : `${Math.round((n / d) * 100)}%`
 
           const stages = [
             { label: "Invited",         count: total,     from: null,      color: "bg-white/10" },
@@ -1279,7 +1280,7 @@ export default function AdminClaimsPage() {
                         <h2 className="text-xs font-bold text-white/30 uppercase tracking-widest">Opened but didn't submit</h2>
                         <span className="text-xs font-black text-[#c5f135]/60">{warm.length}</span>
                       </div>
-                      <p className="text-xs text-white/25 mb-3 -mt-1">These klubs visited their claim page but didn't complete signup — warm leads.</p>
+                      <p className="text-xs text-white/25 mb-3 -mt-1">These klubs visited their claim page but didn't complete signup - warm leads.</p>
                       <div className="space-y-2">
                         {warm.map((club) => <ReminderCard key={club.id} club={club} />)}
                       </div>
@@ -1389,7 +1390,7 @@ export default function AdminClaimsPage() {
                         </button>
                       </div>
 
-                      {/* Clear flag — moves back to Send Invites */}
+                      {/* Clear flag - moves back to Send Invites */}
                       <button
                         onClick={() => clearBadContact(club.id)}
                         disabled={isClearing}
@@ -1414,7 +1415,7 @@ export default function AdminClaimsPage() {
           <div className="space-y-6">
             <div className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-6">
               <p className="text-xs font-black text-[#c5f135] uppercase tracking-widest mb-1">Active Trial</p>
-              <h2 className="text-lg font-black text-white mb-1">Enterprise trial — all 26 real directors</h2>
+              <h2 className="text-lg font-black text-white mb-1">Enterprise trial - all 26 real directors</h2>
               <p className="text-sm text-white/40 mb-5">
                 Trial expires <strong className="text-white/60">48 hours from activation</strong>. After expiry, run the reset SQL in Supabase to downgrade all klubs back to free.
               </p>
@@ -1519,9 +1520,10 @@ export default function AdminClaimsPage() {
 
     {/* Delete confirmation modal */}
     {deleteTarget && (
+      <ModalPortal>
       <div className="fixed inset-0 z-50 flex items-center justify-center px-5">
         <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={closeDelete} />
-        <div className="relative bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-6 w-full max-w-sm space-y-4">
+        <div className="relative bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-6 w-full max-w-sm max-h-[85vh] overflow-y-auto space-y-4">
           <div>
             <p className="text-xs font-bold text-red-400/70 uppercase tracking-widest mb-1">Delete Klub</p>
             <p className="text-lg font-black text-white">{deleteTarget.name}</p>
@@ -1557,6 +1559,7 @@ export default function AdminClaimsPage() {
           </div>
         </div>
       </div>
+      </ModalPortal>
     )}
     </div>
   )
@@ -1587,7 +1590,7 @@ function ClaimCard({
         <div>
           <div className="flex items-center gap-2 flex-wrap">
             <p className="text-sm font-bold text-white">
-              {claim.clubs?.name ?? claim.club_name ?? claim.club_id ?? "—"}
+              {claim.clubs?.name ?? claim.club_name ?? claim.club_id ?? "-"}
             </p>
             {!claim.club_id && (
               <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-[#c5f135]/10 text-[#c5f135]/70 border border-[#c5f135]/20">
@@ -1610,7 +1613,7 @@ function ClaimCard({
             {claim.contact_name ? "Contact" : "Claimant"}
           </p>
           <p className="text-white/70">
-            {claim.contact_name ?? claim.profiles?.display_name ?? "—"}
+            {claim.contact_name ?? claim.profiles?.display_name ?? "-"}
           </p>
         </div>
 
@@ -1637,7 +1640,7 @@ function ClaimCard({
             >
               @{claim.instagram} <ExternalLink className="w-3 h-3" />
             </a>
-          ) : <p className="text-white/30">—</p>}
+          ) : <p className="text-white/30">-</p>}
         </div>
 
         {claim.clubs?.instagram_handle && (

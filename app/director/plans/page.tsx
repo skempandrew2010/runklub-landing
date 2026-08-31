@@ -4,8 +4,9 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Check } from "lucide-react"
 import { supabase } from "@/lib/supabase"
-import { PLANS, PLAN_ORDER, type PlanId, type BillingInterval } from "@/lib/plans"
+import { PLANS, PLAN_ORDER, CUSTOM_PRICING_MESSAGE, type PlanId, type BillingInterval } from "@/lib/plans"
 import FadeIn from "@/components/FadeIn"
+import { Select } from "@/components/Select"
 
 type ClubOption = { id: string; name: string; tier: PlanId | null }
 
@@ -77,17 +78,17 @@ export default function DirectorPlansPage() {
 
         {clubs.length > 1 && (
           <div className="flex justify-end mb-4">
-            <select
+            <Select
               value={selectedClubId ?? ""}
               onChange={(e) => setSelectedClubId(e.target.value)}
               className="bg-[#1e2d12] border border-[#2e3d1a] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-[#c5f135]/50"
             >
               {clubs.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
+            </Select>
           </div>
         )}
 
-        {/* Hero pitch — same scale/animation as /director/passport */}
+        {/* Hero pitch - same scale/animation as /director/passport */}
         <FadeIn className="text-center mb-12">
           <p className="text-xs font-bold text-[#c5f135]/60 uppercase tracking-widest mb-3">Klub Plans</p>
           <h1 className="text-3xl sm:text-4xl font-black leading-tight text-white mb-5">
@@ -168,6 +169,7 @@ export default function DirectorPlansPage() {
             )
           })}
         </div>
+        <p className="text-center text-xs text-white/35 mt-8">Followers are always unlimited on every plan. {CUSTOM_PRICING_MESSAGE}</p>
       </div>
     </div>
   )

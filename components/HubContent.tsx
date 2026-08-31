@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import { supabase } from "@/lib/supabase"
 import { localDateStr } from "@/utils/dates"
 import { CalendarCheck, ChevronRight, Users, Zap, Crown } from "lucide-react"
@@ -139,30 +139,26 @@ export default function HubContent() {
     }
   }, [])
 
-  useEffect(() => {
-    const load = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-      const user = session?.user
-      if (!user || !session) {
-        setLoading(false)
-        return
-      }
-      setUserId(user.id)
+  // supabase.auth.getSession() called synchronously on mount can race ahead
+  // of the client restoring a persisted session from storage, returning null
+  // for a genuinely logged-in user (most visible on a hard refresh) -- with
+  // nothing to catch a session that resolves moments later, that wrongly
+  // stuck the "Sign in to see your klubs" empty state. onAuthStateChange
+  // fires once immediately with the already-hydrated session and again on
+  // any real change, so it's the reliable source of truth here. The ref
+  // guards against reloading everything on a plain token refresh.
+  const loadedForUserRef = useRef<string | null>(null)
 
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("display_name, role")
-        .eq("id", user.id)
-        .single()
-      setDisplayName(profile?.display_name || user.email?.split("@")[0] || null)
-      const userRole = profile?.role || "member"
-      setRole(userRole)
+  useEffect(() => {
+    const load = async (user: { id: string; email?: string }, accessToken: string) => {
+      setUserId(user.id)
 
       const todayDate = localDateStr()
 
-      const [coachRes, subsRes, coachingRes] = await Promise.all([
+      // Independent of each other -- fetched together instead of one after
+      // another to cut a full network round-trip off the initial load.
+      const [{ data: profile }, coachRes, subsRes, coachingRes] = await Promise.all([
+        supabase.from("profiles").select("display_name, role").eq("id", user.id).single(),
         supabase.from("clubs").select("id, name, image_url, city, user_id, tier").eq("user_id", user.id),
         supabase
           .from("subscriptions")
@@ -174,6 +170,9 @@ export default function HubContent() {
           .eq("user_id", user.id)
           .eq("status", "active"),
       ])
+      setDisplayName(profile?.display_name || user.email?.split("@")[0] || null)
+      const userRole = profile?.role || "member"
+      setRole(userRole)
 
       const coachClubs: Club[] = coachRes.data || []
       const subRows = (subsRes.data || []) as any[]
@@ -288,9 +287,22 @@ export default function HubContent() {
       setLoading(false)
 
       // Non-blocking stats fetch
-      loadStats(session.access_token)
+      loadStats(accessToken)
     }
-    load()
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      const user = session?.user
+      if (!user) {
+        loadedForUserRef.current = null
+        setUserId(null)
+        setLoading(false)
+        return
+      }
+      if (loadedForUserRef.current === user.id) return
+      loadedForUserRef.current = user.id
+      load(user, session.access_token)
+    })
+    return () => listener.subscription.unsubscribe()
   }, [loadStats])
 
   const isManager = role === "manager"
@@ -346,7 +358,7 @@ export default function HubContent() {
               </Link>
               <div className="text-center px-5 py-3.5 rounded-2xl bg-[#2e3d1a] border border-[#3d5220] min-w-[80px]">
                 <p className="text-2xl font-black text-[#c5f135] leading-none">
-                  {stats?.totalRuns ?? "—"}
+                  {stats?.totalRuns ?? "-"}
                 </p>
                 <p className="text-[10px] font-bold text-white/35 uppercase tracking-widest mt-1">
                   Runs
@@ -427,7 +439,7 @@ export default function HubContent() {
                         className="flex items-center gap-3 px-4 py-3.5 hover:bg-[#243018] transition group"
                       >
                         <div
-                          className={`w-11 h-11 rounded-xl shrink-0 overflow-hidden flex items-center justify-center border border-[#3d5220] group-hover:border-[#c5f135]/60 bg-gradient-to-br ${getGradient(club.name)}`}
+                          className={`w-11 h-11 rounded-full shrink-0 overflow-hidden flex items-center justify-center border border-[#3d5220] group-hover:border-[#c5f135]/60 bg-gradient-to-br ${getGradient(club.name)}`}
                         >
                           {club.image_url ? (
                             <img
@@ -570,7 +582,7 @@ export default function HubContent() {
                         href={`/runs/${run.id}`}
                         className="flex items-center gap-3 px-4 py-3.5 hover:bg-[#243018] transition"
                       >
-                        <div className="w-9 h-9 rounded-xl bg-[#2e3d1a] shrink-0 overflow-hidden flex items-center justify-center">
+                        <div className="w-9 h-9 rounded-full bg-[#2e3d1a] shrink-0 overflow-hidden flex items-center justify-center">
                           {run.club_image ? (
                             <img
                               src={run.club_image}
@@ -625,7 +637,7 @@ export default function HubContent() {
                   {managedKlubs.map((club) => (
                     <div key={club.id} className="px-4 py-4 flex items-center gap-3">
                       <div
-                        className={`w-11 h-11 rounded-xl shrink-0 overflow-hidden flex items-center justify-center border border-[#3d5220] bg-gradient-to-br ${getGradient(club.name)}`}
+                        className={`w-11 h-11 rounded-full shrink-0 overflow-hidden flex items-center justify-center border border-[#3d5220] bg-gradient-to-br ${getGradient(club.name)}`}
                       >
                         {club.image_url ? (
                           <img

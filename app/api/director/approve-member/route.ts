@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js"
 import { NextRequest, NextResponse } from "next/server"
+import { isClubAtMemberCap, memberCapMessage } from "@/lib/memberCap"
 
 function getAdminSupabase() {
   return createClient(
@@ -9,7 +10,7 @@ function getAdminSupabase() {
   )
 }
 
-// POST /api/director/approve-member — approve or reject a membership request
+// POST /api/director/approve-member - approve or reject a membership request
 export async function POST(req: NextRequest) {
   try {
     const authHeader = req.headers.get("Authorization")
@@ -30,7 +31,7 @@ export async function POST(req: NextRequest) {
     // Fetch the request and verify the director owns the club
     const { data: request } = await adminSupabase
       .from("membership_requests")
-      .select("id, club_id, user_id, status")
+      .select("id, club_id, user_id, status, pace_group_id, self_reported_pace, race_distance, race_time_seconds")
       .eq("id", request_id)
       .eq("status", "pending")
       .single()
@@ -39,7 +40,7 @@ export async function POST(req: NextRequest) {
 
     const { data: club } = await adminSupabase
       .from("clubs")
-      .select("id")
+      .select("id, tier")
       .eq("id", request.club_id)
       .eq("user_id", user.id)
       .single()
@@ -47,10 +48,22 @@ export async function POST(req: NextRequest) {
     if (!club) return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
 
     if (action === "approve") {
-      // Add to subscriptions as a paying member
+      const cap = await isClubAtMemberCap(adminSupabase, request.club_id, club.tier)
+      if (cap.atCap) return NextResponse.json({ error: memberCapMessage(cap.limit!) }, { status: 400 })
+
+      // Add to subscriptions as a paying member, carrying over whatever
+      // pace-match data was captured on the request (from the join modal)
       await adminSupabase
         .from("subscriptions")
-        .upsert({ user_id: request.user_id, club_id: request.club_id, member_type: "paid" }, { onConflict: "user_id,club_id" })
+        .upsert({
+          user_id: request.user_id,
+          club_id: request.club_id,
+          member_type: "paid",
+          pace_group_id: request.pace_group_id,
+          self_reported_pace: request.self_reported_pace,
+          race_distance: request.race_distance,
+          race_time_seconds: request.race_time_seconds,
+        }, { onConflict: "user_id,club_id" })
 
       // Mark request as approved
       await adminSupabase

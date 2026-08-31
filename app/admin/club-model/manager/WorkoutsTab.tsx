@@ -5,6 +5,8 @@ import { GripVertical, X } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { Card, SectionTitle, Input, TextArea, Button } from "./ui"
 import { type WorkoutSegment, formatWorkoutSegment, parseWorkoutStructure, maskMMSS, PACE_OPTIONS, DISTANCE_UNIT_OPTIONS, TIME_UNIT, WORKOUT_DRAG_MIME } from "@/lib/workouts"
+import { Select } from "@/components/Select"
+import ModalPortal from "@/components/ModalPortal"
 
 type WorkoutEntry = { id: string; title: string; description: string | null; structure: WorkoutSegment[] }
 type WorkoutDraft = { title: string; description: string; segments: WorkoutSegment[] }
@@ -36,7 +38,7 @@ function WorkoutFields({
     <div className="space-y-3">
       <Input placeholder={titlePlaceholder} value={draft.title} onChange={(e) => onChange((d) => ({ ...d, title: e.target.value }))} />
       <TextArea
-        placeholder="Free-flowing description (optional) — context, coaching notes, anything not captured by the structure below"
+        placeholder="Free-flowing description (optional) - context, coaching notes, anything not captured by the structure below"
         value={draft.description}
         onChange={(e) => onChange((d) => ({ ...d, description: e.target.value }))}
         rows={2}
@@ -44,7 +46,7 @@ function WorkoutFields({
 
       <div>
         <p className="text-xs font-semibold text-white/50 mb-2">
-          Structured segments <span className="text-white/25 font-normal">(optional — reps × distance/time @ pace, rest)</span>
+          Structured segments <span className="text-white/25 font-normal">(optional - reps × distance/time @ pace, rest)</span>
         </p>
         {draft.segments.length > 0 && (
           <div className="space-y-2.5 mb-2">
@@ -59,16 +61,16 @@ function WorkoutFields({
                     <input placeholder={seg.unit === TIME_UNIT ? "3:00" : "800"} value={seg.distance_time}
                       onChange={(e) => updateSegment(i, "distance_time", seg.unit === TIME_UNIT ? maskMMSS(e.target.value) : e.target.value)}
                       className={`${segField} text-center`} />
-                    <select value={seg.unit} onChange={(e) => updateSegment(i, "unit", e.target.value)}
+                    <Select value={seg.unit} onChange={(e) => updateSegment(i, "unit", e.target.value)}
                       className={segField}>
                       <option value="">unit</option>
                       <optgroup label="Distance">
                         {DISTANCE_UNIT_OPTIONS.map((u) => <option key={u} value={u}>{u}</option>)}
                       </optgroup>
                       <option value={TIME_UNIT}>time (mm:ss)</option>
-                    </select>
+                    </Select>
                     <span className="text-white/40 text-xs font-black shrink-0">@</span>
-                    <select value={seg.pace} onChange={(e) => updateSegment(i, "pace", e.target.value)}
+                    <Select value={seg.pace} onChange={(e) => updateSegment(i, "pace", e.target.value)}
                       className={segField}>
                       <option value="">pace</option>
                       {PACE_OPTIONS.map((p) => <option key={p} value={p}>{p}</option>)}
@@ -77,7 +79,7 @@ function WorkoutFields({
                           {customPaces.map((p) => <option key={p} value={p}>{p}</option>)}
                         </optgroup>
                       )}
-                    </select>
+                    </Select>
                     <button type="button" onClick={() => removeSegment(i)}
                       className="text-[10px] font-bold text-white/30 hover:text-red-400 transition px-1.5 py-1.5 shrink-0">
                       Delete
@@ -88,14 +90,14 @@ function WorkoutFields({
                     <input placeholder={seg.rest_unit === TIME_UNIT ? "1:30" : "400"} value={seg.rest}
                       onChange={(e) => updateSegment(i, "rest", seg.rest_unit === TIME_UNIT ? maskMMSS(e.target.value) : e.target.value)}
                       className={`${segField} text-center`} />
-                    <select value={seg.rest_unit} onChange={(e) => updateSegment(i, "rest_unit", e.target.value)}
+                    <Select value={seg.rest_unit} onChange={(e) => updateSegment(i, "rest_unit", e.target.value)}
                       className={segField}>
                       <option value="">unit</option>
                       <optgroup label="Distance">
                         {DISTANCE_UNIT_OPTIONS.map((u) => <option key={u} value={u}>{u}</option>)}
                       </optgroup>
                       <option value={TIME_UNIT}>time (mm:ss)</option>
-                    </select>
+                    </Select>
                   </div>
                 </div>
               )
@@ -108,7 +110,7 @@ function WorkoutFields({
   )
 }
 
-export default function WorkoutsTab({ clubId }: { clubId: string }) {
+export default function WorkoutsTab({ clubId, onWorkoutsChanged }: { clubId: string; onWorkoutsChanged?: () => void }) {
   const [workouts, setWorkouts] = useState<WorkoutEntry[]>([])
   const [customPaces, setCustomPaces] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
@@ -147,13 +149,15 @@ export default function WorkoutsTab({ clubId }: { clubId: string }) {
       kind: "workout",
     })
     setDraft(EMPTY_DRAFT)
-    load()
+    await load()
+    onWorkoutsChanged?.()
   }
 
   const deleteWorkout = async (id: string) => {
     await supabase.from("runs").delete().eq("id", id)
     if (editingId === id) { setEditingId(null); setEditDraft(null) }
-    load()
+    await load()
+    onWorkoutsChanged?.()
   }
 
   const openEdit = (w: WorkoutEntry) => {
@@ -174,7 +178,8 @@ export default function WorkoutsTab({ clubId }: { clubId: string }) {
     }).eq("id", editingId)
     setSavingEdit(false)
     closeEdit()
-    load()
+    await load()
+    onWorkoutsChanged?.()
   }
 
   if (loading) return <p className="text-white/60 text-sm">Loading…</p>
@@ -224,6 +229,7 @@ export default function WorkoutsTab({ clubId }: { clubId: string }) {
       </Card>
 
       {editingId && editDraft && (
+        <ModalPortal>
         <div
           onClick={closeEdit}
           className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm"
@@ -253,6 +259,7 @@ export default function WorkoutsTab({ clubId }: { clubId: string }) {
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
     </div>
   )

@@ -10,10 +10,27 @@ import CoachHomeSummary from "@/components/CoachHomeSummary"
 import FadeIn from "@/components/FadeIn"
 import { useNavIdentity } from "@/hooks/useNavIdentity"
 import { useViewMode } from "@/hooks/useViewMode"
+import { setLastMainTab } from "@/utils/lastMainTab"
+
+// Supabase persists the session in localStorage under a project-scoped key
+// (sb-<project-ref>-auth-token) before the SDK ever makes an async call --
+// checking it synchronously on first render lets a returning logged-in user
+// start on their real Hub immediately, instead of `signedIn` defaulting to
+// false and flashing the full marketing landing page (hero, pricing,
+// founder story) until the async session check resolves and swaps it out.
+function hasPersistedSession(): boolean {
+  if (typeof window === "undefined") return false
+  try {
+    const key = Object.keys(window.localStorage).find((k) => k.startsWith("sb-") && k.endsWith("-auth-token"))
+    return !!key && !!window.localStorage.getItem(key)
+  } catch {
+    return false
+  }
+}
 
 export default function RootPage() {
   const router = useRouter()
-  const [signedIn, setSignedIn] = useState(false)
+  const [signedIn, setSignedIn] = useState(hasPersistedSession)
   const { user, role, loaded: identityLoaded, isCoach, hasClub } = useNavIdentity()
   const isManager = role === "manager"
   const { viewMode } = useViewMode(isManager || isCoach)
@@ -23,7 +40,8 @@ export default function RootPage() {
     const isAuthRedirect =
       hash.includes("access_token=") &&
       (hash.includes("type=invite") || hash.includes("type=magiclink"))
-    if (isAuthRedirect) router.replace(`/welcome${hash}`)
+    if (isAuthRedirect) { router.replace(`/welcome${hash}`); return }
+    setLastMainTab("home")
   }, [router])
 
   // Signed-in users get the Hub here instead of the marketing page. Defaults
@@ -47,7 +65,7 @@ export default function RootPage() {
         </div>
       )
     }
-    // Prefer whichever role actually has something to show — role=manager
+    // Prefer whichever role actually has something to show - role=manager
     // with no klub of their own yet, who's also an active coach elsewhere,
     // should land on their real coach summary, not an empty "no klub" page.
     if (isManager && hasClub && viewMode === "director") return <DirectorHomeContent userId={user.id} />
@@ -59,7 +77,7 @@ export default function RootPage() {
   return (
     <div className="min-h-screen bg-[#1a2110] text-white">
 
-      {/* Hero — no fade, visible on load */}
+      {/* Hero - no fade, visible on load */}
       <section className="flex flex-col items-center justify-center text-center px-6 pt-24 pb-20">
         <h1 className="text-5xl sm:text-6xl font-black leading-tight tracking-tight max-w-2xl">
           Find your people.<br />
@@ -102,7 +120,7 @@ export default function RootPage() {
         </div>
       </section>
 
-      {/* Passport — for runners */}
+      {/* Passport - for runners */}
       <section className="max-w-4xl mx-auto px-6 py-16 border-t border-[#2e3d1a]">
         <FadeIn>
           <p className="text-xs font-bold text-[#c5f135]/60 uppercase tracking-widest mb-3">For Runners</p>
@@ -209,7 +227,7 @@ export default function RootPage() {
         </FadeIn>
       </section>
 
-      {/* Passport payouts — for directors, shown before club management pricing/CTAs */}
+      {/* Passport payouts - for directors, shown before club management pricing/CTAs */}
       <section className="max-w-3xl mx-auto px-6 py-16 border-t border-[#2e3d1a]">
         <FadeIn>
           <div className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-8 flex flex-col sm:flex-row items-start sm:items-center gap-6">
