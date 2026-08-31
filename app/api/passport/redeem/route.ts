@@ -34,7 +34,7 @@ function getSupabaseAsUser(token: string) {
 // retry-passport-payouts) picks it back up.
 export async function POST(req: NextRequest) {
   try {
-    const { offer_id, run_id, checkin_method, checkin_lat, checkin_lng, external_reference } = await req.json()
+    const { offer_id, run_id, external_reference } = await req.json()
     if (!offer_id) return NextResponse.json({ error: "offer_id is required" }, { status: 400 })
 
     const token = req.headers.get("authorization")?.replace("Bearer ", "")
@@ -44,9 +44,6 @@ export async function POST(req: NextRequest) {
     const { data: redemptionId, error: rpcError } = await userClient.rpc("passport_redeem_offer", {
       p_offer_id: offer_id,
       p_run_id: run_id ?? null,
-      p_checkin_method: checkin_method ?? "no_checkin_required",
-      p_checkin_lat: checkin_lat ?? null,
-      p_checkin_lng: checkin_lng ?? null,
       p_external_reference: external_reference ?? null,
     })
 

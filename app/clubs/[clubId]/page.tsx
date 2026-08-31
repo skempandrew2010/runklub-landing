@@ -57,15 +57,15 @@ export default async function ClubPage({ params }: Props) {
   d.setDate(d.getDate() - 1)
   const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
 
-  const [{ data: club }, { data: runs }, { count: memberCount }] = await Promise.all([
+  const [{ data: club }, { data: runs }, { count: memberCount }, { data: designatedRuns }] = await Promise.all([
     getSupabase()
       .from("clubs")
-      .select("id, name, city, location, description, instagram_handle, image_url, tier, is_public, user_id, membership_type, website, waiver_url, latitude, longitude, stripe_connect_charges_enabled")
+      .select("id, name, city, location, description, instagram_handle, image_url, tier, is_public, user_id, membership_type, website, waiver_url, latitude, longitude, stripe_connect_charges_enabled, passport_program_enrolled")
       .eq("id", clubId)
       .maybeSingle(),
     getSupabase()
       .from("runs")
-      .select("id, title, date, time, timezone, distance, meeting_point, tags")
+      .select("id, title, date, time, timezone, distance, meeting_point, tags, external_url")
       .eq("club_id", clubId)
       .eq("is_public", true)
       .gte("date", today)
@@ -76,7 +76,13 @@ export default async function ClubPage({ params }: Props) {
       .from("subscriptions")
       .select("id", { count: "exact", head: true })
       .eq("club_id", clubId),
+    getSupabase()
+      .from("passport_designated_runs")
+      .select("run_id")
+      .eq("club_id", clubId),
   ])
+
+  const designatedRunIds = new Set((designatedRuns ?? []).map((r) => r.run_id))
 
   if (!club) {
     return (
@@ -113,13 +119,18 @@ export default async function ClubPage({ params }: Props) {
     }),
     ...(sameAs.length > 0 && { "sameAs": sameAs }),
     ...(runs && runs.length > 0 && {
+      // Runs designated as a Passport event stay unlocated in this public,
+      // crawlable markup (unless the run is virtual) - the exact location is
+      // meant to unlock only for members/redeemers, and this page is
+      // server-rendered and shared across every visitor, so it can't apply
+      // that check per-viewer. Other public runs are unaffected.
       "event": runs.slice(0, 5).map((run) => ({
         "@type": "SportsEvent",
         "name": run.title,
         "startDate": runStartInstant(run).toISOString(),
         "sport": "Running",
         "organizer": { "@type": "SportsClub", "name": club.name },
-        ...(run.meeting_point && {
+        ...(run.meeting_point && (!designatedRunIds.has(run.id) || run.external_url) && {
           "location": { "@type": "Place", "name": run.meeting_point },
         }),
       })),

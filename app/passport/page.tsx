@@ -3,12 +3,12 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { MapPin, Calendar, Home, ChevronDown, ChevronRight, Check, Lock, Gift } from "lucide-react"
+import { MapPin, Calendar, Home, ChevronDown, ChevronRight, Check, Gift } from "lucide-react"
 import { supabase } from "@/lib/supabase"
-import { getCurrentPosition } from "@/lib/checkinGeofence"
 import PassportWaitlist from "@/components/PassportWaitlist"
 import ModalPortal from "@/components/ModalPortal"
-import { PASSPORT_LAUNCHED } from "@/lib/passportConfig"
+import { hasPassportAccess } from "@/lib/passportConfig"
+import { US_STATES, US_STATE_GRID_ROWS } from "@/lib/usStates"
 
 type VisitedClub = {
   club_id: string
@@ -21,6 +21,8 @@ type VisitedClub = {
 
 type PartnerClub = { id: string; name: string; image_url: string | null; city: string | null }
 
+type StateBadge = { state: string; redemption_count: number; first_earned_at: string }
+
 type Offer = {
   id: string
   club_id: string
@@ -28,7 +30,6 @@ type Offer = {
   title: string
   description: string | null
   credit_cost: number
-  requires_physical_checkin: boolean
   redemption_limit_per_runner: number | null
   total_redemption_cap: number | null
   total_redemption_count: number
@@ -55,10 +56,9 @@ function ClubAvatar({ name, imageUrl, className = "w-11 h-11" }: { name: string;
 }
 
 export default function PassportPage() {
-  if (!PASSPORT_LAUNCHED) return <PassportWaitlist />
-
   const router = useRouter()
   const [loading, setLoading] = useState(true)
+  const [hasAccess, setHasAccess] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
   const [sessionToken, setSessionToken] = useState<string | null>(null)
 
@@ -67,6 +67,7 @@ export default function PassportPage() {
   const [homeClubName, setHomeClubName] = useState<string | null>(null)
 
   const [visitedClubs, setVisitedClubs] = useState<VisitedClub[]>([])
+  const [stateBadges, setStateBadges] = useState<Record<string, StateBadge>>({})
   const [partnerClubs, setPartnerClubs] = useState<PartnerClub[]>([])
   const [offersByClub, setOffersByClub] = useState<Record<string, Offer[]>>({})
   const [expandedClubId, setExpandedClubId] = useState<string | null>(null)
@@ -82,6 +83,8 @@ export default function PassportPage() {
       const { data: { session } } = await supabase.auth.getSession()
       const user = session?.user
       if (!user) { router.push("/login"); return }
+      if (!hasPassportAccess(user.email)) { setLoading(false); return }
+      setHasAccess(true)
       setUserId(user.id)
       setSessionToken(session.access_token)
 
@@ -94,17 +97,19 @@ export default function PassportPage() {
       if (!sub) { router.replace("/passport/credits"); return }
       setRenewalDate(sub.current_period_end)
 
-      const [{ data: batches }, { data: profile }, { data: history }, { data: clubs }] = await Promise.all([
+      const [{ data: batches }, { data: profile }, { data: history }, { data: clubs }, { data: badges }] = await Promise.all([
         supabase.from("passport_credit_batches").select("credits_remaining, expires_at").eq("user_id", user.id).eq("status", "active").gt("credits_remaining", 0),
         supabase.from("profiles").select("home_club_id, clubs:home_club_id(name)").eq("id", user.id).maybeSingle(),
         supabase.from("runner_club_history").select("*").eq("user_id", user.id).order("last_visit_at", { ascending: false }),
         supabase.from("clubs").select("id, name, image_url, city").eq("passport_program_enrolled", true).order("name"),
+        supabase.from("passport_runner_state_badges").select("state, redemption_count, first_earned_at").eq("user_id", user.id),
       ])
 
       const now = new Date()
       setCreditBalance((batches ?? []).filter((b) => new Date(b.expires_at) > now).reduce((sum, b) => sum + b.credits_remaining, 0))
       setHomeClubName((profile?.clubs as unknown as { name: string } | null)?.name ?? null)
       setVisitedClubs((history as VisitedClub[]) ?? [])
+      setStateBadges(Object.fromEntries(((badges as StateBadge[]) ?? []).map((b) => [b.state, b])))
 
       const clubRows = (clubs as PartnerClub[]) ?? []
       setPartnerClubs(clubRows)
@@ -112,7 +117,7 @@ export default function PassportPage() {
       if (clubRows.length > 0) {
         const { data: offers } = await supabase
           .from("club_active_offers")
-          .select("id, club_id, offer_type, title, description, credit_cost, requires_physical_checkin, redemption_limit_per_runner, total_redemption_cap, total_redemption_count")
+          .select("id, club_id, offer_type, title, description, credit_cost, redemption_limit_per_runner, total_redemption_cap, total_redemption_count")
           .in("club_id", clubRows.map((c) => c.id))
         const grouped: Record<string, Offer[]> = {}
         for (const offer of (offers as Offer[]) ?? []) {
@@ -139,31 +144,11 @@ export default function PassportPage() {
     setRedeeming(true)
     setRedeemError(null)
     try {
-      let checkinLat: number | null = null
-      let checkinLng: number | null = null
-      let checkinMethod = "no_checkin_required"
-
-      if (offer.requires_physical_checkin) {
-        try {
-          const pos = await getCurrentPosition()
-          checkinLat = pos.coords.latitude
-          checkinLng = pos.coords.longitude
-          checkinMethod = "gps_geofence"
-        } catch {
-          setRedeemError("Enable location access to redeem this offer.")
-          setRedeeming(false)
-          return
-        }
-      }
-
       const res = await fetch("/api/passport/redeem", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
         body: JSON.stringify({
           offer_id: offer.id,
-          checkin_method: checkinMethod,
-          checkin_lat: checkinLat,
-          checkin_lng: checkinLng,
           external_reference: externalReference.trim() || null,
         }),
       })
@@ -187,6 +172,8 @@ export default function PassportPage() {
       </div>
     )
   }
+
+  if (!hasAccess) return <PassportWaitlist />
 
   return (
     <div className="min-h-screen bg-[#1a2110] pb-24">
@@ -273,11 +260,15 @@ export default function PassportPage() {
                         ) : (
                           offers.map((offer) => {
                             const capped = offer.total_redemption_cap != null && offer.total_redemption_count >= offer.total_redemption_cap
+                            const isStandardSession = offer.offer_type === "standard_session"
                             return (
                               <button
                                 key={offer.id}
-                                onClick={() => !capped && openRedeem(offer, club)}
-                                disabled={capped}
+                                onClick={() => {
+                                  if (isStandardSession) router.push(`/clubs/${club.id}`)
+                                  else if (!capped) openRedeem(offer, club)
+                                }}
+                                disabled={!isStandardSession && capped}
                                 className="w-full flex items-center gap-3 bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2.5 text-left hover:border-[#c5f135]/30 transition disabled:opacity-40"
                               >
                                 <div className="w-8 h-8 rounded-full bg-[#2e3d1a] flex items-center justify-center shrink-0">
@@ -286,12 +277,14 @@ export default function PassportPage() {
                                 <div className="flex-1 min-w-0">
                                   <p className="text-sm font-bold text-white truncate">{offer.title}</p>
                                   <p className="text-xs text-white/40 mt-0.5 truncate">
-                                    {OFFER_TYPE_LABELS[offer.offer_type] ?? offer.offer_type}
-                                    {offer.description && ` · ${offer.description}`}
+                                    {isStandardSession
+                                      ? "RSVP to one of their runs to redeem"
+                                      : OFFER_TYPE_LABELS[offer.offer_type] ?? offer.offer_type}
+                                    {!isStandardSession && offer.description && ` · ${offer.description}`}
                                   </p>
                                 </div>
                                 <span className="text-xs font-black text-[#c5f135] shrink-0">
-                                  {capped ? "Full" : `${offer.credit_cost} cr`}
+                                  {isStandardSession ? `${offer.credit_cost} cr` : capped ? "Full" : `${offer.credit_cost} cr`}
                                 </span>
                               </button>
                             )
@@ -304,6 +297,42 @@ export default function PassportPage() {
               })}
             </div>
           )}
+        </div>
+
+        {/* ── STATE BADGES ── */}
+        <div>
+          <div className="flex items-center justify-between px-1 mb-2">
+            <h2 className="text-xs font-bold text-white/40 uppercase tracking-widest">State Badges</h2>
+            <span className="text-xs font-bold text-[#c5f135]">{Object.keys(stateBadges).length}/{US_STATES.length}</span>
+          </div>
+          <div className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-4">
+            <p className="text-xs text-white/40 mb-3">
+              Earn a state&apos;s badge by redeeming credits at a partner klub there.
+            </p>
+            <div className="overflow-x-auto rk-scroll -mx-1 px-1">
+              <div
+                className="grid grid-flow-col gap-2 w-max"
+                style={{ gridTemplateRows: `repeat(${US_STATE_GRID_ROWS}, minmax(0, 1fr))` }}
+              >
+                {US_STATES.map((s) => {
+                  const earned = stateBadges[s.code]
+                  return (
+                    <div
+                      key={s.code}
+                      title={earned ? `${s.name} - ${earned.redemption_count} check-in${earned.redemption_count === 1 ? "" : "s"}` : `${s.name} - not yet earned`}
+                      className={`w-10 h-10 rounded-full flex items-center justify-center text-[10px] font-black transition shrink-0 ${
+                        earned
+                          ? "bg-[#c5f135]/15 border border-[#c5f135]/40 text-[#c5f135]"
+                          : "bg-[#1a2110] border border-[#2e3d1a] text-white/20"
+                      }`}
+                    >
+                      {s.code}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -330,23 +359,15 @@ export default function PassportPage() {
                 <p className="text-sm text-white/60 leading-relaxed mb-4">{redeemTarget.offer.description}</p>
               )}
 
-              {!redeemTarget.offer.requires_physical_checkin && (
-                <div className="mb-4">
-                  <label className="text-xs font-bold text-white/50 block mb-1.5">Confirmation code (optional)</label>
-                  <input
-                    value={externalReference}
-                    onChange={(e) => setExternalReference(e.target.value)}
-                    placeholder="e.g. race registration number"
-                    className="w-full bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:border-[#c5f135]/50 transition"
-                  />
-                </div>
-              )}
-
-              {redeemTarget.offer.requires_physical_checkin && (
-                <p className="flex items-center gap-1.5 text-xs text-white/40 mb-4">
-                  <Lock className="w-3.5 h-3.5 shrink-0" /> You&apos;ll need to be at the klub to redeem this - we&apos;ll ask for your location.
-                </p>
-              )}
+              <div className="mb-4">
+                <label className="text-xs font-bold text-white/50 block mb-1.5">Confirmation code (optional)</label>
+                <input
+                  value={externalReference}
+                  onChange={(e) => setExternalReference(e.target.value)}
+                  placeholder="e.g. race registration number"
+                  className="w-full bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:border-[#c5f135]/50 transition"
+                />
+              </div>
 
               <div className="flex items-center justify-between mb-4 px-1">
                 <span className="text-xs text-white/50">Credit cost</span>

@@ -8,7 +8,7 @@ import { CalendarCheck, Trophy, Zap, Clock, AlertTriangle } from "lucide-react"
 type Tier = { tier: number; name: string; monthly_price_cents: number; yearly_price_cents: number; credits_per_month: number }
 type Subscription = { id: string; tier: number; status: string; billing_interval: string; next_credit_issue_at: string | null; current_period_end: string | null }
 type Batch = { id: string; credits_issued: number; credits_remaining: number; status: string; issued_at: string; expires_at: string }
-type ClubRow = { id: string; name: string; passport_default_credit_value: number; standard_session_offer_id: string | null }
+type ClubRow = { id: string; name: string; standard_session_offer_id: string | null; standard_session_credit_cost: number | null }
 type Checkin = { id: string; club_id: string; credits_spent: number; payout_amount_cents: number; payout_status: string; redeemed_at: string }
 
 function daysUntil(iso: string) {
@@ -60,16 +60,16 @@ export default function PassportCreditsTestPage() {
 
       const [{ data: tiersData }, { data: clubsData }] = await Promise.all([
         supabase.from("passport_tiers").select("tier, name, monthly_price_cents, yearly_price_cents, credits_per_month").order("tier"),
-        supabase.from("clubs").select("id, name, passport_default_credit_value").eq("passport_program_enrolled", true).order("name").limit(50),
+        supabase.from("clubs").select("id, name").eq("passport_program_enrolled", true).order("name").limit(50),
       ])
       setTiers(tiersData ?? [])
 
       const clubRows = clubsData ?? []
       const { data: offersData } = clubRows.length > 0
-        ? await supabase.from("passport_offers").select("id, club_id").eq("offer_type", "standard_session").eq("is_active", true).in("club_id", clubRows.map((c) => c.id))
+        ? await supabase.from("passport_offers").select("id, club_id, credit_cost").eq("offer_type", "standard_session").eq("is_active", true).in("club_id", clubRows.map((c) => c.id))
         : { data: [] }
-      const offerIdByClub: Record<string, string> = Object.fromEntries((offersData ?? []).map((o) => [o.club_id, o.id]))
-      setClubs(clubRows.map((c) => ({ ...c, standard_session_offer_id: offerIdByClub[c.id] ?? null })))
+      const offerByClub: Record<string, { id: string; credit_cost: number }> = Object.fromEntries((offersData ?? []).map((o) => [o.club_id, { id: o.id, credit_cost: o.credit_cost }]))
+      setClubs(clubRows.map((c) => ({ ...c, standard_session_offer_id: offerByClub[c.id]?.id ?? null, standard_session_credit_cost: offerByClub[c.id]?.credit_cost ?? null })))
 
       await refetchUserData(user.id)
       setLoading(false)
@@ -144,7 +144,7 @@ export default function PassportCreditsTestPage() {
       const res = await fetch("/api/passport/redeem", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
-        body: JSON.stringify({ offer_id: club.standard_session_offer_id, checkin_method: "manual_code" }),
+        body: JSON.stringify({ offer_id: club.standard_session_offer_id }),
       })
       const json = await res.json()
       if (!res.ok) { setError(json.error ?? "Check-in failed"); return }
@@ -327,14 +327,15 @@ export default function PassportCreditsTestPage() {
               <p className="px-4 py-3.5 text-sm text-white/40">No klubs found.</p>
             ) : (
               clubs.map((club) => {
-                const payoutCents = 300 + club.passport_default_credit_value * 50
                 return (
                   <div key={club.id} className="flex items-center gap-3 px-4 py-3">
                     <Trophy className="w-4 h-4 text-[#c5f135] shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold text-white truncate">{club.name}</p>
                       <p className="text-xs text-white/40">
-                        {club.passport_default_credit_value} credits · klub earns ${(payoutCents / 100).toFixed(2)}
+                        {club.standard_session_credit_cost == null
+                          ? "no standard session offer"
+                          : `${club.standard_session_credit_cost} credits · payout depends on the runner's plan`}
                       </p>
                     </div>
                     <button

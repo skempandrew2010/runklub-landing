@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
-import { Heart, MapPin, Clock, Users, ArrowLeft, ExternalLink, ChevronRight, Globe, FileText, Mail } from "lucide-react"
+import { Heart, MapPin, Clock, Users, ArrowLeft, ExternalLink, ChevronRight, Globe, FileText, Mail, Lock } from "lucide-react"
 import { getTagStyle } from "@/utils/tagStyle"
 import { localDateStr } from "@/utils/dates"
 import { formatRunTime } from "@/lib/timezone"
@@ -43,6 +43,7 @@ export type Club = {
   stripe_connect_charges_enabled?: boolean | null
   waiver_url?: string | null
   user_id?: string | null
+  passport_program_enrolled?: boolean | null
 }
 
 export type Run = {
@@ -55,6 +56,7 @@ export type Run = {
   meeting_point: string | null
   tags: string[] | null
   members_only?: boolean
+  external_url?: string | null
 }
 
 const GRADIENTS = [
@@ -102,6 +104,9 @@ export default function ClubPageClient({
   const [showClubChat, setShowClubChat] = useState(false)
   const [dmTarget, setDmTarget] = useState<{ userId: string; name: string; avatarUrl: string | null } | null>(null)
   const [isPaidMember, setIsPaidMember] = useState(false)
+  const [isRosterMember, setIsRosterMember] = useState(false)
+  const [redeemedRunIds, setRedeemedRunIds] = useState<Set<string>>(new Set())
+  const [designatedRunIds, setDesignatedRunIds] = useState<Set<string>>(new Set())
   // Starts true so the Follow/Join/Member button row waits for the real
   // membership check instead of briefly rendering as "not a member" (the
   // useState defaults above) and then flipping once the async check lands.
@@ -200,6 +205,14 @@ export default function ClubPageClient({
     return () => observers.forEach((o) => o.disconnect())
   }, [club.id, club.name])
 
+  // Runs this klub's director has actually designated as a Passport event -
+  // public, not user-scoped, so it doesn't wait on auth.
+  useEffect(() => {
+    if (!club.passport_program_enrolled) { setDesignatedRunIds(new Set()); return }
+    supabase.from("passport_designated_runs").select("run_id").eq("club_id", club.id)
+      .then(({ data }) => setDesignatedRunIds(new Set((data ?? []).map((r) => r.run_id as string))))
+  }, [club.id, club.passport_program_enrolled])
+
   useEffect(() => {
     const load = async () => {
       // getSession() reads the already-hydrated local session instead of
@@ -210,15 +223,23 @@ export default function ClubPageClient({
       const user = session?.user
       setUserId(user?.id ?? null)
       if (user) {
-        const [{ data: sub }, { data: existingClaim }, { data: joinReq }] = await Promise.all([
+        const [{ data: sub }, { data: existingClaim }, { data: joinReq }, { data: member }, { data: redemptions }] = await Promise.all([
           supabase.from("subscriptions").select("id, member_type, pace_group_id").eq("user_id", user.id).eq("club_id", club.id).maybeSingle(),
           supabase.from("club_claims").select("id, status").eq("user_id", user.id).eq("club_id", club.id).maybeSingle(),
           supabase.from("membership_requests").select("status").eq("user_id", user.id).eq("club_id", club.id).maybeSingle(),
+          club.passport_program_enrolled
+            ? supabase.from("members").select("id").eq("user_id", user.id).eq("club_id", club.id).eq("status", "active").maybeSingle()
+            : Promise.resolve({ data: null }),
+          club.passport_program_enrolled
+            ? supabase.from("passport_redemptions").select("run_id").eq("user_id", user.id).eq("club_id", club.id).eq("status", "confirmed").not("run_id", "is", null)
+            : Promise.resolve({ data: null }),
         ])
         setIsSubscribed(!!sub)
         setMyPaceGroupId((sub as any)?.pace_group_id ?? null)
         if (existingClaim) setClaimStatus("pending")
         if (joinReq) setJoinRequestStatus(joinReq.status as any)
+        setIsRosterMember(!!member)
+        setRedeemedRunIds(new Set((redemptions ?? []).map((r: any) => r.run_id as string)))
 
         const paid = (sub as any)?.member_type === "paid"
         setIsPaidMember(paid)
@@ -430,6 +451,15 @@ export default function ClubPageClient({
   const upcomingRuns = [...memberOnlyRuns, ...publicUpcoming].sort((a, b) =>
     a.date !== b.date ? a.date.localeCompare(b.date) : (a.time ?? "").localeCompare(b.time ?? "")
   )
+
+  // Klub members and directors always see full run details; everyone else on
+  // a run the director has designated as a Passport event only unlocks its
+  // real time/location once they've redeemed Passport credits for it - same
+  // rule the run detail page enforces. Other public runs at the same klub
+  // are unaffected.
+  const isKlubMember = isSubscribed || isRosterMember || club.user_id === userId
+  const isRunLocationGated = (run: Run) =>
+    designatedRunIds.has(run.id) && !run.external_url && !isKlubMember && !redeemedRunIds.has(run.id)
 
   return (
     <div className="min-h-screen bg-[#1a2110] pb-24">
@@ -718,6 +748,7 @@ export default function ClubPageClient({
               {upcomingRuns.map((run) => {
                 const d = new Date(run.date + "T00:00:00")
                 const isToday = run.date === todayStr
+                const locked = isRunLocationGated(run)
                 return (
                   <Link
                     key={run.id}
@@ -743,16 +774,25 @@ export default function ClubPageClient({
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-white/50 mt-0.5 flex items-center gap-1">
-                          <Clock className="w-3 h-3 shrink-0" />
-                          {formatTime(run)}
-                          {run.distance && <><span className="text-white/20">·</span>{run.distance}</>}
-                        </p>
-                        {run.meeting_point && (
-                          <p className="text-xs text-white/35 mt-0.5 flex items-center gap-1 truncate">
-                            <MapPin className="w-3 h-3 shrink-0" />
-                            <span className="truncate">{run.meeting_point}</span>
+                        {locked ? (
+                          <p className="text-xs text-[#c5f135]/70 mt-0.5 flex items-center gap-1">
+                            <Lock className="w-3 h-3 shrink-0" />
+                            RSVP to see time &amp; location
                           </p>
+                        ) : (
+                          <>
+                            <p className="text-xs text-white/50 mt-0.5 flex items-center gap-1">
+                              <Clock className="w-3 h-3 shrink-0" />
+                              {formatTime(run)}
+                              {run.distance && <><span className="text-white/20">·</span>{run.distance}</>}
+                            </p>
+                            {run.meeting_point && (
+                              <p className="text-xs text-white/35 mt-0.5 flex items-center gap-1 truncate">
+                                <MapPin className="w-3 h-3 shrink-0" />
+                                <span className="truncate">{run.meeting_point}</span>
+                              </p>
+                            )}
+                          </>
                         )}
                         {run.tags && run.tags.length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-2">

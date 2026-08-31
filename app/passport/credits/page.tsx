@@ -8,7 +8,7 @@ import { Zap, Crown } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import FadeIn from "@/components/FadeIn"
 import type { ClubPin } from "@/components/mapview"
-import { PASSPORT_LAUNCHED } from "@/lib/passportConfig"
+import { hasPassportAccess } from "@/lib/passportConfig"
 
 const MapView = dynamic(() => import("@/components/mapview"), { ssr: false })
 
@@ -29,17 +29,14 @@ export default function PassportCreditsPage() {
   const [interval, setInterval] = useState<"monthly" | "yearly">("yearly")
   const [subscribingTier, setSubscribingTier] = useState<number | null>(null)
   const [openingPortal, setOpeningPortal] = useState(false)
-  const [buyQuantity, setBuyQuantity] = useState("1")
+  const [buyPacks, setBuyPacks] = useState("1")
   const [buyingCredits, setBuyingCredits] = useState(false)
   const [passportClubs, setPassportClubs] = useState<ClubPin[]>([])
 
   useEffect(() => {
-    if (!PASSPORT_LAUNCHED) router.replace("/passport")
-  }, [router])
-
-  useEffect(() => {
     const load = async () => {
       const { data: { user } } = await supabase.auth.getUser()
+      if (!hasPassportAccess(user?.email)) { router.replace("/passport"); return }
       setUserId(user?.id ?? null)
 
       const [{ data: tiersData }, subResult, { data: clubsData }] = await Promise.all([
@@ -97,7 +94,7 @@ export default function PassportCreditsPage() {
   }
 
   const buyExtraCredits = async () => {
-    const qty = parseInt(buyQuantity, 10)
+    const qty = parseInt(buyPacks, 10)
     if (!Number.isInteger(qty) || qty < 1) return
     setBuyingCredits(true)
     try {
@@ -106,7 +103,7 @@ export default function PassportCreditsPage() {
       const res = await fetch("/api/passport/buy-credits", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ credits: qty }),
+        body: JSON.stringify({ packs: qty }),
       })
       const data = await res.json()
       if (data.url) {
@@ -139,7 +136,7 @@ export default function PassportCreditsPage() {
     }
   }
 
-  if (loading || !PASSPORT_LAUNCHED) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-[#1a2110] flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-[#c5f135]/30 border-t-[#c5f135] rounded-full animate-spin" />
@@ -151,7 +148,7 @@ export default function PassportCreditsPage() {
     <div className="min-h-screen bg-[#1a2110] pb-24">
       <div className="max-w-5xl mx-auto px-5 sm:px-6 py-10">
 
-        {/* Find Passport klubs near you — uses your location to center the
+        {/* Find Passport klubs near you - uses your location to center the
             map (handled inside MapView); pins are klubs enrolled in the
             payout program, tap one to see the klub. */}
         <FadeIn className="mb-12">
@@ -166,7 +163,7 @@ export default function PassportCreditsPage() {
           </div>
         </FadeIn>
 
-        {/* Hero pitch — same scale/animation as /director/passport and /director/plans */}
+        {/* Hero pitch - same scale/animation as /director/passport and /director/plans */}
         <FadeIn className="text-center mb-12">
           <p className="text-xs font-bold text-[#c5f135]/60 uppercase tracking-widest mb-3">RunKlub Passport</p>
           <h1 className="text-5xl sm:text-6xl font-black leading-tight tracking-tight text-white mb-5">
@@ -193,17 +190,17 @@ export default function PassportCreditsPage() {
 
               {creditBalance === 0 && (
                 <div className="w-full pt-4 border-t border-[#2e3d1a]">
-                  <p className="text-xs text-white/50 mb-3">Out of credits for this cycle? Buy more anytime at $6.00/credit — no cap.</p>
+                  <p className="text-xs text-white/50 mb-3">Out of credits for this cycle? Buy more anytime in $6.00 packs of 10 credits - no cap.</p>
                   <div className="flex items-center justify-center gap-2 flex-wrap">
                     <input
                       type="number"
                       min="1"
-                      value={buyQuantity}
-                      onChange={(e) => setBuyQuantity(e.target.value)}
+                      value={buyPacks}
+                      onChange={(e) => setBuyPacks(e.target.value)}
                       className="w-16 bg-[#1a2110] border border-[#2e3d1a] rounded-lg px-2 py-1.5 text-sm text-white text-center focus:outline-none focus:border-[#c5f135]/50"
                     />
                     <span className="text-xs text-white/40">
-                      credits · ${((Number.isFinite(parseInt(buyQuantity, 10)) ? parseInt(buyQuantity, 10) : 0) * 6).toFixed(2)}
+                      pack{parseInt(buyPacks, 10) === 1 ? "" : "s"} · {(Number.isFinite(parseInt(buyPacks, 10)) ? parseInt(buyPacks, 10) : 0) * 10} credits · ${((Number.isFinite(parseInt(buyPacks, 10)) ? parseInt(buyPacks, 10) : 0) * 6).toFixed(2)}
                     </span>
                     <button
                       onClick={buyExtraCredits}

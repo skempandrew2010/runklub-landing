@@ -4,10 +4,11 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Crown, CreditCard, DollarSign, Plus, Trash2 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
-import { Card, SectionTitle, Button, Input, TextArea } from "@/app/admin/club-model/manager/ui"
+import { Card, SectionTitle, Button, Input, TextArea, LimitRoller } from "@/app/admin/club-model/manager/ui"
 import FadeIn from "@/components/FadeIn"
 import { Select } from "@/components/Select"
 import PassportPricingCalculatorModal from "@/components/PassportPricingCalculatorModal"
+import { localDateStr } from "@/utils/dates"
 
 type ClubOption = {
   id: string
@@ -15,7 +16,6 @@ type ClubOption = {
   stripe_connect_account_id: string | null
   stripe_connect_payouts_enabled: boolean
   passport_program_enrolled: boolean
-  passport_default_credit_value: number
   passport_default_checkin_limit: number | null
   passport_monthly_checkin_limit_per_user: number | null
   passport_monthly_checkin_limit_total: number | null
@@ -34,10 +34,11 @@ type Offer = {
   description: string | null
   credit_cost: number
   is_active: boolean
-  requires_physical_checkin: boolean
   redemption_limit_per_runner: number | null
   total_redemption_cap: number | null
 }
+
+type RunOption = { id: string; title: string; date: string; time: string | null }
 
 const OFFER_TYPES: { value: string; label: string }[] = [
   { value: "standard_session", label: "Standard session check-in" },
@@ -52,13 +53,46 @@ const emptyOfferDraft = {
   title: "",
   description: "",
   credit_cost: "3",
-  requires_physical_checkin: true,
   redemption_limit_per_runner: "",
   total_redemption_cap: "",
+  run_ids: [] as string[],
 }
 
-const CREDIT_VALUES = [1, 2, 3, 4, 5, 6] as const
-function payoutForCreditValue(value: number) { return 300 + value * 50 }
+function formatRunOption(r: RunOption) {
+  const d = new Date(r.date + "T00:00:00")
+  return `${r.title} · ${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
+}
+
+// Shared by the offer wizard's run step and the "manage" panel on an
+// already-created offer, so the checklist UI/behavior stays identical.
+function RunChecklist({
+  runs,
+  selected,
+  onToggle,
+}: {
+  runs: RunOption[]
+  selected: Set<string>
+  onToggle: (runId: string) => void
+}) {
+  if (runs.length === 0) {
+    return <p className="text-xs text-white/40">No upcoming public runs to pick from yet.</p>
+  }
+  return (
+    <div className="max-h-40 overflow-y-auto space-y-1.5 bg-[#1e2d12] border border-[#2e3d1a] rounded-xl p-2">
+      {runs.map((r) => (
+        <label key={r.id} className="flex items-center gap-2 text-xs text-white/70 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={selected.has(r.id)}
+            onChange={() => onToggle(r.id)}
+            className="accent-[#c5f135]"
+          />
+          {formatRunOption(r)}
+        </label>
+      ))}
+    </div>
+  )
+}
 
 // Standalone top-level page (own nav tab, sibling to /director) rather than
 // a tab inside the club management dashboard (app/director/page.tsx) --
@@ -75,7 +109,6 @@ export default function DirectorPassportPage() {
   const [monthlyLimitTotal, setMonthlyLimitTotal] = useState("")
   const [defaultCheckinLimit, setDefaultCheckinLimit] = useState("")
   const [savingEnrollment, setSavingEnrollment] = useState(false)
-  const [savingCreditValue, setSavingCreditValue] = useState<number | null>(null)
   const [savingMonthlyLimit, setSavingMonthlyLimit] = useState(false)
   const [savingMonthlyLimitTotal, setSavingMonthlyLimitTotal] = useState(false)
   const [savingDefaultCheckinLimit, setSavingDefaultCheckinLimit] = useState(false)
@@ -84,13 +117,22 @@ export default function DirectorPassportPage() {
   const [statsLoading, setStatsLoading] = useState(false)
   const [offers, setOffers] = useState<Offer[]>([])
   const [offersLoading, setOffersLoading] = useState(false)
-  const [showOfferForm, setShowOfferForm] = useState(false)
-  const [showPricingCalculator, setShowPricingCalculator] = useState(false)
+  // Offer creation is a forward wizard: price it with the calculator first,
+  // then name/describe/type it. "price" is the calculator modal itself;
+  // there's no plain form for credit_cost anymore, it's always set by
+  // applying a calculator result.
+  const [offerStep, setOfferStep] = useState<"closed" | "price" | "details">("closed")
+  const [showMoreOfferOptions, setShowMoreOfferOptions] = useState(false)
   const [offerDraft, setOfferDraft] = useState(emptyOfferDraft)
   const [savingOffer, setSavingOffer] = useState(false)
   const [offerError, setOfferError] = useState<string | null>(null)
   const [togglingOfferId, setTogglingOfferId] = useState<string | null>(null)
   const [deletingOfferId, setDeletingOfferId] = useState<string | null>(null)
+  const [clubRuns, setClubRuns] = useState<RunOption[]>([])
+  const [managingRunsOfferId, setManagingRunsOfferId] = useState<string | null>(null)
+  const [managingRunIds, setManagingRunIds] = useState<Set<string>>(new Set())
+  const [loadingManagedRuns, setLoadingManagedRuns] = useState(false)
+  const [savingManagedRuns, setSavingManagedRuns] = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -98,7 +140,7 @@ export default function DirectorPassportPage() {
       if (!user) { router.push("/login"); return }
       const { data: myClubs } = await supabase
         .from("clubs")
-        .select("id, name, stripe_connect_account_id, stripe_connect_payouts_enabled, passport_program_enrolled, passport_default_credit_value, passport_default_checkin_limit, passport_monthly_checkin_limit_per_user, passport_monthly_checkin_limit_total")
+        .select("id, name, stripe_connect_account_id, stripe_connect_payouts_enabled, passport_program_enrolled, passport_default_checkin_limit, passport_monthly_checkin_limit_per_user, passport_monthly_checkin_limit_total")
         .eq("user_id", user.id)
         .order("name")
 
@@ -141,20 +183,42 @@ export default function DirectorPassportPage() {
     // not just the publicly-active ones - order newest first.
     const { data } = await supabase
       .from("passport_offers")
-      .select("id, offer_type, title, description, credit_cost, is_active, requires_physical_checkin, redemption_limit_per_runner, total_redemption_cap")
+      .select("id, offer_type, title, description, credit_cost, is_active, redemption_limit_per_runner, total_redemption_cap")
       .eq("club_id", selectedClubId)
       .order("created_at", { ascending: false })
     setOffers((data as Offer[]) ?? [])
     setOffersLoading(false)
   }
 
+  // Upcoming public runs a director can pick from when designating Passport
+  // events - members-only runs aren't eligible since the whole point is
+  // letting non-member Passport subscribers redeem into them.
+  const loadClubRuns = async () => {
+    if (!selectedClubId) return
+    const { data } = await supabase
+      .from("runs")
+      .select("id, title, date, time")
+      .eq("club_id", selectedClubId)
+      .eq("kind", "run")
+      .eq("is_public", true)
+      .eq("members_only", false)
+      .gte("date", localDateStr())
+      .order("date", { ascending: true })
+      .order("time", { ascending: true })
+      .limit(50)
+    setClubRuns((data as RunOption[]) ?? [])
+  }
+
   useEffect(() => {
     const club = clubs.find((c) => c.id === selectedClubId)
-    if (!club?.passport_program_enrolled) { setOffers([]); return }
+    if (!club?.passport_program_enrolled) { setOffers([]); setClubRuns([]); return }
     loadOffers()
-    setShowOfferForm(false)
+    loadClubRuns()
+    setOfferStep("closed")
+    setShowMoreOfferOptions(false)
     setOfferDraft(emptyOfferDraft)
     setOfferError(null)
+    setManagingRunsOfferId(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedClubId, clubs])
 
@@ -176,18 +240,17 @@ export default function DirectorPassportPage() {
     }
 
     setSavingOffer(true)
-    const { error } = await supabase.from("passport_offers").insert({
+    const { data: created, error } = await supabase.from("passport_offers").insert({
       club_id: selectedClubId,
       offer_type: offerDraft.offer_type,
       title: offerDraft.title.trim(),
       description: offerDraft.description.trim() || null,
       credit_cost: creditCost,
-      requires_physical_checkin: offerDraft.requires_physical_checkin,
       redemption_limit_per_runner: perRunner,
       total_redemption_cap: total,
-    })
-    setSavingOffer(false)
+    }).select("id").single()
     if (error) {
+      setSavingOffer(false)
       // The one-active-standard_session-per-klub unique index is the most
       // likely real-world hit here.
       setOfferError(error.message.includes("passport_offers_one_active_standard_session")
@@ -195,9 +258,23 @@ export default function DirectorPassportPage() {
         : error.message)
       return
     }
-    setShowOfferForm(false)
+    if (offerDraft.offer_type === "standard_session" && offerDraft.run_ids.length > 0) {
+      await supabase.from("passport_offer_runs").insert(
+        offerDraft.run_ids.map((run_id) => ({ offer_id: created.id, run_id }))
+      )
+    }
+    setSavingOffer(false)
+    setOfferStep("closed")
+    setShowMoreOfferOptions(false)
     setOfferDraft(emptyOfferDraft)
     loadOffers()
+  }
+
+  const cancelOfferCreation = () => {
+    setOfferStep("closed")
+    setShowMoreOfferOptions(false)
+    setOfferDraft(emptyOfferDraft)
+    setOfferError(null)
   }
 
   const toggleOfferActive = async (offer: Offer) => {
@@ -214,6 +291,34 @@ export default function DirectorPassportPage() {
     setDeletingOfferId(null)
   }
 
+  const toggleManageRuns = async (offer: Offer) => {
+    if (managingRunsOfferId === offer.id) { setManagingRunsOfferId(null); return }
+    setManagingRunsOfferId(offer.id)
+    setLoadingManagedRuns(true)
+    const { data } = await supabase.from("passport_offer_runs").select("run_id").eq("offer_id", offer.id)
+    setManagingRunIds(new Set((data ?? []).map((r) => r.run_id as string)))
+    setLoadingManagedRuns(false)
+  }
+
+  const saveManagedRuns = async () => {
+    if (!managingRunsOfferId) return
+    setSavingManagedRuns(true)
+    const { data: existing } = await supabase.from("passport_offer_runs").select("run_id").eq("offer_id", managingRunsOfferId)
+    const existingIds = new Set((existing ?? []).map((r) => r.run_id as string))
+    const toAdd = [...managingRunIds].filter((id) => !existingIds.has(id))
+    const toRemove = [...existingIds].filter((id) => !managingRunIds.has(id))
+    await Promise.all([
+      toAdd.length > 0
+        ? supabase.from("passport_offer_runs").insert(toAdd.map((run_id) => ({ offer_id: managingRunsOfferId, run_id })))
+        : Promise.resolve(),
+      toRemove.length > 0
+        ? supabase.from("passport_offer_runs").delete().eq("offer_id", managingRunsOfferId).in("run_id", toRemove)
+        : Promise.resolve(),
+    ])
+    setSavingManagedRuns(false)
+    setManagingRunsOfferId(null)
+  }
+
   const selectedClub = clubs.find((c) => c.id === selectedClubId)
 
   const setEnrolled = async (enroll: boolean) => {
@@ -224,16 +329,6 @@ export default function DirectorPassportPage() {
       setClubs((prev) => prev.map((c) => c.id === selectedClubId ? { ...c, passport_program_enrolled: enroll } : c))
     }
     setSavingEnrollment(false)
-  }
-
-  const saveDefaultCreditValue = async (value: number) => {
-    if (!selectedClubId) return
-    setSavingCreditValue(value)
-    const { error } = await supabase.from("clubs").update({ passport_default_credit_value: value }).eq("id", selectedClubId)
-    if (!error) {
-      setClubs((prev) => prev.map((c) => c.id === selectedClubId ? { ...c, passport_default_credit_value: value } : c))
-    }
-    setSavingCreditValue(null)
   }
 
   const saveMonthlyLimit = async () => {
@@ -395,58 +490,53 @@ export default function DirectorPassportPage() {
               </Card>
             </FadeIn>
 
-            <FadeIn delay={80}>
-              <Card>
-                <SectionTitle>Default Session Credit Value</SectionTitle>
-                <p className="text-xs text-white/80 mb-3">
-                  Seeds the credit cost the first time your klub enrolls - after that, the actual price a runner pays to check into a run lives on your Standard Session offer below, which you can edit any time. Higher values earn you a bigger payout, in $0.50 steps from $3.50 (1 credit) to $6.00 (6 credits).
-                </p>
-                <div className="flex items-center gap-2 mb-3 flex-wrap">
-                  {CREDIT_VALUES.map((v) => (
-                    <button
-                      key={v}
-                      onClick={() => saveDefaultCreditValue(v)}
-                      disabled={savingCreditValue !== null}
-                      className={`w-10 h-10 rounded-xl text-sm font-black transition disabled:opacity-50 ${
-                        selectedClub.passport_default_credit_value === v
-                          ? "bg-[#c5f135] text-[#1a2110]"
-                          : "bg-[#1a2110] text-white/60 border border-[#2e3d1a] hover:border-[#c5f135]/40"
-                      }`}
-                    >
-                      {savingCreditValue === v ? "…" : v}
-                    </button>
-                  ))}
-                </div>
-                <span className="inline-block text-xs font-black px-2.5 py-1 rounded-full bg-[#c5f135]/15 text-[#c5f135] border border-[#c5f135]/30">
-                  {selectedClub.passport_default_credit_value} credit{selectedClub.passport_default_credit_value === 1 ? "" : "s"} · ${(payoutForCreditValue(selectedClub.passport_default_credit_value) / 100).toFixed(2)} payout
-                </span>
-              </Card>
-            </FadeIn>
-
             <FadeIn delay={120}>
               <Card>
                 <div className="flex items-center justify-between mb-3">
                   <SectionTitle>Offers</SectionTitle>
-                  {!showOfferForm && (
-                    <Button variant="ghost" onClick={() => setShowOfferForm(true)}>
+                  {offerStep === "closed" && (
+                    <Button onClick={() => setOfferStep("price")}>
                       <span className="flex items-center gap-1.5"><Plus className="w-3.5 h-3.5" /> Add offer</span>
                     </Button>
                   )}
                 </div>
                 <p className="text-xs text-white/80 mb-3">
-                  What Passport subscribers can redeem credits for at your klub - a run check-in, a race-entry kickback, a one-off session, gear discounts, whatever you want to offer. Every redemption pays out the same way: $3.50 at 1 credit up to $6.00 at 6+, based on the offer&apos;s credit cost.
+                  What Passport subscribers can redeem credits for at your klub - a run check-in, a race-entry kickback, a one-off session, gear discounts, whatever you want to offer. Your payout per redemption depends on which Passport plan the redeeming runner is on, not just the offer&apos;s credit cost - the calculator opens first to help you price it, then you name it and pick a type.
                 </p>
 
-                {showOfferForm && (
+                {offerStep === "details" && (
                   <div className="bg-[#1a2110] border border-[#2e3d1a] rounded-xl p-3 mb-3 space-y-2.5">
+                    <div className="flex items-center justify-between gap-2 bg-[#1e2d12] border border-[#2e3d1a] rounded-lg px-3 py-2">
+                      <span className="text-xs text-white/70">
+                        {offerDraft.credit_cost} credit{offerDraft.credit_cost === "1" ? "" : "s"}
+                      </span>
+                      <button type="button" onClick={() => setOfferStep("price")} className="text-xs font-bold text-[#c5f135]/70 hover:text-[#c5f135] transition shrink-0">
+                        Change price
+                      </button>
+                    </div>
                     <Select
                       value={offerDraft.offer_type}
                       onChange={(e) => setOfferDraft((d) => ({ ...d, offer_type: e.target.value }))}
                     >
                       {OFFER_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
                     </Select>
+
+                    {offerDraft.offer_type === "standard_session" && (
+                      <div className="space-y-1.5">
+                        <p className="text-xs font-bold text-white/70">Which runs are Passport events?</p>
+                        <RunChecklist
+                          runs={clubRuns}
+                          selected={new Set(offerDraft.run_ids)}
+                          onToggle={(runId) => setOfferDraft((d) => ({
+                            ...d,
+                            run_ids: d.run_ids.includes(runId) ? d.run_ids.filter((id) => id !== runId) : [...d.run_ids, runId],
+                          }))}
+                        />
+                      </div>
+                    )}
+
                     <Input
-                      placeholder="Title (e.g. Sunday Long Run)"
+                      placeholder="Name (e.g. Sunday Long Run)"
                       value={offerDraft.title}
                       onChange={(e) => setOfferDraft((d) => ({ ...d, title: e.target.value }))}
                     />
@@ -456,56 +546,40 @@ export default function DirectorPassportPage() {
                       value={offerDraft.description}
                       onChange={(e) => setOfferDraft((d) => ({ ...d, description: e.target.value }))}
                     />
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Input
-                        type="number" min="1" step="1"
-                        value={offerDraft.credit_cost}
-                        onChange={(e) => setOfferDraft((d) => ({ ...d, credit_cost: e.target.value }))}
-                        className="max-w-[100px]"
-                      />
-                      <span className="text-xs text-white/50">credits</span>
-                      <button
-                        type="button"
-                        onClick={() => setShowPricingCalculator(true)}
-                        className="text-xs font-bold text-[#c5f135]/70 hover:text-[#c5f135] transition ml-auto"
-                      >
-                        Help me price this
-                      </button>
-                    </div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Input
-                        type="number" min="1" step="1"
-                        placeholder="Unlimited"
-                        value={offerDraft.redemption_limit_per_runner}
-                        onChange={(e) => setOfferDraft((d) => ({ ...d, redemption_limit_per_runner: e.target.value }))}
-                        className="max-w-[110px]"
-                      />
-                      <span className="text-xs text-white/50">redemptions per runner, ever</span>
-                    </div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Input
-                        type="number" min="1" step="1"
-                        placeholder="Unlimited"
-                        value={offerDraft.total_redemption_cap}
-                        onChange={(e) => setOfferDraft((d) => ({ ...d, total_redemption_cap: e.target.value }))}
-                        className="max-w-[110px]"
-                      />
-                      <span className="text-xs text-white/50">total redemptions across everyone</span>
-                    </div>
+
                     <button
                       type="button"
-                      onClick={() => setOfferDraft((d) => ({ ...d, requires_physical_checkin: !d.requires_physical_checkin }))}
-                      className="flex items-center gap-2 text-xs text-white/70"
+                      onClick={() => setShowMoreOfferOptions((v) => !v)}
+                      className="text-xs font-bold text-white/40 hover:text-white/70 transition"
                     >
-                      <span className={`w-4 h-4 rounded flex items-center justify-center border ${offerDraft.requires_physical_checkin ? "bg-[#c5f135] border-[#c5f135] text-[#1a2110]" : "border-white/30"}`}>
-                        {offerDraft.requires_physical_checkin ? "✓" : ""}
-                      </span>
-                      Requires being physically at the klub to redeem (GPS check-in)
+                      {showMoreOfferOptions ? "Hide more options" : "More options"}
                     </button>
+
+                    {showMoreOfferOptions && (
+                      <div className="space-y-2.5 pt-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <LimitRoller
+                            max={100}
+                            value={offerDraft.redemption_limit_per_runner}
+                            onChange={(v) => setOfferDraft((d) => ({ ...d, redemption_limit_per_runner: v }))}
+                          />
+                          <span className="text-xs text-white/50">redemptions per runner, ever</span>
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <LimitRoller
+                            max={500}
+                            value={offerDraft.total_redemption_cap}
+                            onChange={(v) => setOfferDraft((d) => ({ ...d, total_redemption_cap: v }))}
+                          />
+                          <span className="text-xs text-white/50">total redemptions across everyone</span>
+                        </div>
+                      </div>
+                    )}
+
                     {offerError && <p className="text-xs text-red-400">{offerError}</p>}
                     <div className="flex items-center gap-2 pt-1">
                       <Button onClick={createOffer} disabled={savingOffer}>{savingOffer ? "…" : "Create offer"}</Button>
-                      <Button variant="ghost" onClick={() => { setShowOfferForm(false); setOfferError(null) }}>Cancel</Button>
+                      <Button variant="ghost" onClick={cancelOfferCreation}>Cancel</Button>
                     </div>
                   </div>
                 )}
@@ -519,34 +593,69 @@ export default function DirectorPassportPage() {
                 ) : (
                   <div className="space-y-2">
                     {offers.map((offer) => (
-                      <div key={offer.id} className="flex items-center gap-3 bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2.5">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className="text-sm font-bold text-white truncate">{offer.title}</p>
-                            {!offer.is_active && (
-                              <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-white/10 text-white/40">INACTIVE</span>
+                      <div key={offer.id}>
+                        <div className="flex items-center gap-3 bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2.5">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="text-sm font-bold text-white truncate">{offer.title}</p>
+                              {!offer.is_active && (
+                                <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-white/10 text-white/40">INACTIVE</span>
+                              )}
+                            </div>
+                            <p className="text-xs text-white/40 mt-0.5">
+                              {OFFER_TYPES.find((t) => t.value === offer.offer_type)?.label ?? offer.offer_type} · {offer.credit_cost} credit{offer.credit_cost === 1 ? "" : "s"}
+                            </p>
+                            {offer.offer_type === "standard_session" && (
+                              <button
+                                onClick={() => toggleManageRuns(offer)}
+                                className="text-xs font-bold text-[#c5f135]/70 hover:text-[#c5f135] transition mt-1"
+                              >
+                                {managingRunsOfferId === offer.id ? "Hide Passport events" : "Manage Passport events"}
+                              </button>
                             )}
                           </div>
-                          <p className="text-xs text-white/40 mt-0.5">
-                            {OFFER_TYPES.find((t) => t.value === offer.offer_type)?.label ?? offer.offer_type} · {offer.credit_cost} credit{offer.credit_cost === 1 ? "" : "s"}
-                            {!offer.requires_physical_checkin && " · no check-in required"}
-                          </p>
+                          <button
+                            onClick={() => toggleOfferActive(offer)}
+                            disabled={togglingOfferId === offer.id}
+                            className="text-xs font-bold text-white/40 hover:text-white/70 transition shrink-0 disabled:opacity-40"
+                          >
+                            {togglingOfferId === offer.id ? "…" : offer.is_active ? "Deactivate" : "Activate"}
+                          </button>
+                          <button
+                            onClick={() => deleteOffer(offer.id)}
+                            disabled={deletingOfferId === offer.id}
+                            className="text-white/30 hover:text-red-400 transition shrink-0 disabled:opacity-40"
+                            aria-label="Delete offer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
-                        <button
-                          onClick={() => toggleOfferActive(offer)}
-                          disabled={togglingOfferId === offer.id}
-                          className="text-xs font-bold text-white/40 hover:text-white/70 transition shrink-0 disabled:opacity-40"
-                        >
-                          {togglingOfferId === offer.id ? "…" : offer.is_active ? "Deactivate" : "Activate"}
-                        </button>
-                        <button
-                          onClick={() => deleteOffer(offer.id)}
-                          disabled={deletingOfferId === offer.id}
-                          className="text-white/30 hover:text-red-400 transition shrink-0 disabled:opacity-40"
-                          aria-label="Delete offer"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+
+                        {managingRunsOfferId === offer.id && (
+                          <div className="mt-1.5 bg-[#1a2110] border border-[#2e3d1a] rounded-xl p-3 space-y-2">
+                            {loadingManagedRuns ? (
+                              <div className="flex justify-center py-3">
+                                <div className="w-4 h-4 border-2 border-[#c5f135]/30 border-t-[#c5f135] rounded-full animate-spin" />
+                              </div>
+                            ) : (
+                              <>
+                                <RunChecklist
+                                  runs={clubRuns}
+                                  selected={managingRunIds}
+                                  onToggle={(runId) => setManagingRunIds((prev) => {
+                                    const next = new Set(prev)
+                                    if (next.has(runId)) next.delete(runId)
+                                    else next.add(runId)
+                                    return next
+                                  })}
+                                />
+                                <Button onClick={saveManagedRuns} disabled={savingManagedRuns}>
+                                  {savingManagedRuns ? "…" : "Save"}
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -561,14 +670,10 @@ export default function DirectorPassportPage() {
                   Cap how many times any single Passport subscriber can check in at your klub each month. Leave it blank for unlimited.
                 </p>
                 <div className="flex items-center gap-2 mb-4 flex-wrap">
-                  <Input
-                    type="number"
-                    min="1"
-                    step="1"
+                  <LimitRoller
+                    max={100}
                     value={monthlyLimit}
-                    onChange={(e) => setMonthlyLimit(e.target.value)}
-                    placeholder="Unlimited"
-                    className="max-w-[140px]"
+                    onChange={setMonthlyLimit}
                   />
                   <span className="text-xs text-white/50">check-ins per runner per month</span>
                   <Button onClick={saveMonthlyLimit} disabled={savingMonthlyLimit}>{savingMonthlyLimit ? "…" : "Save"}</Button>
@@ -578,14 +683,10 @@ export default function DirectorPassportPage() {
                   Cap the total number of Passport check-ins your klub will accept across every runner, all month. Leave it blank for unlimited.
                 </p>
                 <div className="flex items-center gap-2 mb-4 flex-wrap">
-                  <Input
-                    type="number"
-                    min="1"
-                    step="1"
+                  <LimitRoller
+                    max={500}
                     value={monthlyLimitTotal}
-                    onChange={(e) => setMonthlyLimitTotal(e.target.value)}
-                    placeholder="Unlimited"
-                    className="max-w-[140px]"
+                    onChange={setMonthlyLimitTotal}
                   />
                   <span className="text-xs text-white/50">total check-ins per month</span>
                   <Button onClick={saveMonthlyLimitTotal} disabled={savingMonthlyLimitTotal}>{savingMonthlyLimitTotal ? "…" : "Save"}</Button>
@@ -595,14 +696,10 @@ export default function DirectorPassportPage() {
                   Default cap on how many Passport runners are allowed into any single run, unless you set a different limit on that specific run when you create or edit it. Once a cap is hit, that run just shows as full to Passport runners - no waitlist. Leave it blank for unlimited.
                 </p>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <Input
-                    type="number"
-                    min="1"
-                    step="1"
+                  <LimitRoller
+                    max={100}
                     value={defaultCheckinLimit}
-                    onChange={(e) => setDefaultCheckinLimit(e.target.value)}
-                    placeholder="Unlimited"
-                    className="max-w-[140px]"
+                    onChange={setDefaultCheckinLimit}
                   />
                   <span className="text-xs text-white/50">Passport check-ins per run, by default</span>
                   <Button onClick={saveDefaultCheckinLimit} disabled={savingDefaultCheckinLimit}>{savingDefaultCheckinLimit ? "…" : "Save"}</Button>
@@ -651,12 +748,12 @@ export default function DirectorPassportPage() {
         )}
       </div>
 
-      {showPricingCalculator && (
+      {offerStep === "price" && (
         <PassportPricingCalculatorModal
-          onClose={() => setShowPricingCalculator(false)}
+          onClose={() => (offerDraft.title.trim() ? setOfferStep("details") : cancelOfferCreation())}
           onApply={(credits) => {
             setOfferDraft((d) => ({ ...d, credit_cost: String(credits) }))
-            setShowPricingCalculator(false)
+            setOfferStep("details")
           }}
         />
       )}
