@@ -16,6 +16,7 @@ import CheckInCelebration from "@/components/CheckInCelebration"
 import CheckInProximityMap from "@/components/CheckInProximityMap"
 import { resolveCheckinTarget, getCurrentPosition } from "@/lib/checkinGeofence"
 import WaiverAckModal from "@/components/WaiverAckModal"
+import StripeCheckoutModal from "@/components/StripeCheckoutModal"
 import { needsWaiverAck, acknowledgeWaiver } from "@/lib/waiver"
 import type { CheckInResult } from "@/lib/server/checkin"
 import { type WorkoutSegment, formatWorkoutSegment, parseWorkoutStructure } from "@/lib/workouts"
@@ -111,6 +112,7 @@ export default function RunPageClient({ runId }: { runId: string }) {
   const [passportError, setPassportError] = useState<string | null>(null)
   const [passportShortfall, setPassportShortfall] = useState<number | null>(null)
   const [buyingShortfall, setBuyingShortfall] = useState(false)
+  const [checkoutClientSecret, setCheckoutClientSecret] = useState<string | null>(null)
   // The klub's active "standard session" offer - what a plain run check-in
   // actually redeems now that Passport is offer-based instead of one fixed
   // check-in type.
@@ -351,10 +353,11 @@ export default function RunPageClient({ runId }: { runId: string }) {
         body: JSON.stringify({ credits: passportShortfall, returnPath: `/runs/${runId}` }),
       })
       const json = await res.json()
-      if (json.url) window.location.href = json.url
-      else { setPassportError(json.error ?? "Could not start checkout"); setBuyingShortfall(false) }
+      if (json.clientSecret) setCheckoutClientSecret(json.clientSecret)
+      else setPassportError(json.error ?? "Could not start checkout")
     } catch {
       setPassportError("Could not start checkout. Try again.")
+    } finally {
       setBuyingShortfall(false)
     }
   }
@@ -752,6 +755,13 @@ export default function RunPageClient({ runId }: { runId: string }) {
           clubName={club.name}
           userId={userId}
           onDone={() => setCelebrationData(null)}
+        />
+      )}
+
+      {checkoutClientSecret && (
+        <StripeCheckoutModal
+          clientSecret={checkoutClientSecret}
+          onClose={() => setCheckoutClientSecret(null)}
         />
       )}
     </div>

@@ -140,6 +140,7 @@ export async function POST(
       isSeasonal
         ? {
             mode: "payment",
+            ui_mode: "embedded_page",
             customer: customerId,
             line_items: [{
               price_data: {
@@ -154,11 +155,11 @@ export async function POST(
               metadata,
             },
             metadata,
-            success_url: `${appUrl}/clubs/${clubId}?subscribed=1`,
-            cancel_url: `${appUrl}/clubs/${clubId}?subscribe_cancelled=1`,
+            return_url: `${appUrl}/clubs/${clubId}?subscribed=1`,
           }
         : {
             mode: "subscription",
+            ui_mode: "embedded_page",
             customer: customerId,
             line_items: [{
               price_data: {
@@ -174,13 +175,12 @@ export async function POST(
               metadata,
             },
             metadata,
-            success_url: `${appUrl}/clubs/${clubId}?subscribed=1`,
-            cancel_url: `${appUrl}/clubs/${clubId}?subscribe_cancelled=1`,
+            return_url: `${appUrl}/clubs/${clubId}?subscribed=1`,
           },
       { stripeAccount }
     )
 
-    return NextResponse.json({ url: session.url })
+    return NextResponse.json({ clientSecret: session.client_secret, stripeAccount })
   } catch (err) {
     console.error("Klub membership checkout error:", err)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

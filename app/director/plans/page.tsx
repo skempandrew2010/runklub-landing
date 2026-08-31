@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase"
 import { PLANS, PLAN_ORDER, CUSTOM_PRICING_MESSAGE, type PlanId, type BillingInterval } from "@/lib/plans"
 import FadeIn from "@/components/FadeIn"
 import { Select } from "@/components/Select"
+import StripeCheckoutModal from "@/components/StripeCheckoutModal"
 
 type ClubOption = { id: string; name: string; tier: PlanId | null }
 
@@ -23,6 +24,7 @@ export default function DirectorPlansPage() {
   const [selectedClubId, setSelectedClubId] = useState<string | null>(null)
   const [billingInterval, setBillingInterval] = useState<BillingInterval>("monthly")
   const [upgrading, setUpgrading] = useState(false)
+  const [checkoutClientSecret, setCheckoutClientSecret] = useState<string | null>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -56,12 +58,12 @@ export default function DirectorPlansPage() {
       body: JSON.stringify({ clubId: selectedClubId, tier, interval: billingInterval }),
     })
     const json = await res.json()
-    if (res.ok && json.url) {
-      window.location.href = json.url
+    if (res.ok && json.clientSecret) {
+      setCheckoutClientSecret(json.clientSecret)
     } else {
       alert(json.error ?? "Could not start checkout")
-      setUpgrading(false)
     }
+    setUpgrading(false)
   }
 
   if (loading || !selectedClub) {
@@ -157,7 +159,7 @@ export default function DirectorPlansPage() {
                       disabled={upgrading}
                       className="py-3 rounded-xl bg-[#c5f135] text-[#1a2110] text-sm font-black hover:bg-[#d4ff45] transition disabled:opacity-50"
                     >
-                      {upgrading ? "Redirecting…" : `Upgrade to ${plan.name}`}
+                      {upgrading ? "Loading…" : `Upgrade to ${plan.name}`}
                     </button>
                   ) : (
                     <div className="text-center py-3 rounded-xl border border-[#2e3d1a] text-white/20 text-sm font-bold">
@@ -171,6 +173,13 @@ export default function DirectorPlansPage() {
         </div>
         <p className="text-center text-xs text-white/35 mt-8">Followers are always unlimited on every plan. {CUSTOM_PRICING_MESSAGE}</p>
       </div>
+
+      {checkoutClientSecret && (
+        <StripeCheckoutModal
+          clientSecret={checkoutClientSecret}
+          onClose={() => setCheckoutClientSecret(null)}
+        />
+      )}
     </div>
   )
 }

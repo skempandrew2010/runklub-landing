@@ -24,6 +24,7 @@ import { memberLimitForTier } from "@/lib/memberCap"
 import { getLastMainTab } from "@/utils/lastMainTab"
 import { useKlubMessaging } from "@/hooks/useKlubMessaging"
 import MessagingSidebar from "@/components/MessagingSidebar"
+import StripeCheckoutModal from "@/components/StripeCheckoutModal"
 import { track } from "@vercel/analytics"
 
 export type Club = {
@@ -93,6 +94,7 @@ export default function ClubPageClient({
   const [userId, setUserId] = useState<string | null>(null)
   const [memberCount, setMemberCount] = useState(initialMemberCount)
   const [subscribing, setSubscribing] = useState(false)
+  const [checkout, setCheckout] = useState<{ clientSecret: string; stripeAccount?: string } | null>(null)
   const [showClaimForm, setShowClaimForm] = useState(false)
   const [claimInstagram, setClaimInstagram] = useState("")
   const [claimMessage, setClaimMessage] = useState("")
@@ -367,12 +369,12 @@ export default function ClubPageClient({
       }),
     })
     const json = await res.json()
-    if (res.ok && json.url) {
-      window.location.href = json.url
+    if (res.ok && json.clientSecret) {
+      setCheckout({ clientSecret: json.clientSecret, stripeAccount: json.stripeAccount })
     } else {
       alert(json.error ?? "Couldn't start checkout. Try again.")
-      setSubscribing(false)
     }
+    setSubscribing(false)
   }
 
   // Gate: only when this klub has pace groups configured does either join
@@ -1043,6 +1045,14 @@ export default function ClubPageClient({
           actionLabel="Update pace group"
           onConfirm={confirmPaceGroupEdit}
           onClose={() => setEditingPaceGroup(false)}
+        />
+      )}
+
+      {checkout && (
+        <StripeCheckoutModal
+          clientSecret={checkout.clientSecret}
+          stripeAccount={checkout.stripeAccount}
+          onClose={() => setCheckout(null)}
         />
       )}
     </div>
