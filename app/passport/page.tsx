@@ -81,6 +81,8 @@ export default function PassportPage() {
   const [redeeming, setRedeeming] = useState(false)
   const [redeemError, setRedeemError] = useState<string | null>(null)
   const [redeemSuccess, setRedeemSuccess] = useState<string | null>(null)
+  const [revealedCode, setRevealedCode] = useState<string | null>(null)
+  const [codeCopied, setCodeCopied] = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -140,6 +142,8 @@ export default function PassportPage() {
   const openRedeem = (offer: Offer, club: PartnerClub) => {
     setRedeemError(null)
     setRedeemSuccess(null)
+    setRevealedCode(null)
+    setCodeCopied(false)
     setExternalReference("")
     setRedeemTarget({ offer, club })
   }
@@ -163,12 +167,25 @@ export default function PassportPage() {
 
       setCreditBalance((prev) => prev - json.creditsSpent)
       setRedeemSuccess(`Redeemed at ${json.clubName}!`)
-      setTimeout(() => setRedeemTarget(null), 1400)
+      if (json.redemptionCode) {
+        // A code needs to actually be read (and probably copied), so this
+        // stays open instead of auto-closing like the plain success case.
+        setRevealedCode(json.redemptionCode)
+      } else {
+        setTimeout(() => setRedeemTarget(null), 1400)
+      }
     } catch {
       setRedeemError("Could not redeem this offer. Try again.")
     } finally {
       setRedeeming(false)
     }
+  }
+
+  const copyRevealedCode = async () => {
+    if (!revealedCode) return
+    await navigator.clipboard.writeText(revealedCode)
+    setCodeCopied(true)
+    setTimeout(() => setCodeCopied(false), 2000)
   }
 
   // Ranked by how many people have redeemed each offer, restricted to clubs
@@ -382,6 +399,27 @@ export default function PassportPage() {
                 <p className="flex items-center gap-1.5 text-sm font-bold text-[#c5f135] mb-3">
                   <Check className="w-4 h-4" /> {redeemSuccess}
                 </p>
+              )}
+
+              {revealedCode && (
+                <div className="mb-4">
+                  <p className="text-[10px] font-black text-white/30 uppercase tracking-widest mb-1.5">Your code</p>
+                  <button
+                    onClick={copyRevealedCode}
+                    className="w-full flex items-center justify-between gap-3 bg-[#1a2110] border border-dashed border-[#c5f135]/40 rounded-xl px-4 py-3 hover:border-[#c5f135]/70 transition"
+                  >
+                    <span className="text-base font-black text-[#c5f135] font-mono tracking-wider truncate">{revealedCode}</span>
+                    <span className="text-[10px] font-bold text-white/40 shrink-0">{codeCopied ? "Copied!" : "Tap to copy"}</span>
+                  </button>
+                </div>
+              )}
+              {revealedCode && (
+                <button
+                  onClick={() => setRedeemTarget(null)}
+                  className="w-full py-3 rounded-2xl text-sm font-black bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45] transition"
+                >
+                  Done
+                </button>
               )}
 
               {!redeemSuccess && (

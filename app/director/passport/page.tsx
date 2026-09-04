@@ -56,7 +56,13 @@ const emptyOfferDraft = {
   redemption_limit_per_runner: "",
   total_redemption_cap: "",
   run_ids: [] as string[],
+  redemption_code: "",
 }
+
+// Offer types that redeem into a private code (promo/entry/discount code)
+// revealed to the runner only after they've spent credits, instead of an
+// RSVP (standard_session) or a plain description (special_session).
+const CODE_REVEAL_OFFER_TYPES = new Set(["race_kickback", "gear_discount", "other"])
 
 function formatRunOption(r: RunOption) {
   const d = new Date(r.date + "T00:00:00")
@@ -133,6 +139,10 @@ export default function DirectorPassportPage() {
   const [managingRunIds, setManagingRunIds] = useState<Set<string>>(new Set())
   const [loadingManagedRuns, setLoadingManagedRuns] = useState(false)
   const [savingManagedRuns, setSavingManagedRuns] = useState(false)
+  const [managingCodeOfferId, setManagingCodeOfferId] = useState<string | null>(null)
+  const [codeInputValue, setCodeInputValue] = useState("")
+  const [loadingManagedCode, setLoadingManagedCode] = useState(false)
+  const [savingManagedCode, setSavingManagedCode] = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -263,6 +273,12 @@ export default function DirectorPassportPage() {
         offerDraft.run_ids.map((run_id) => ({ offer_id: created.id, run_id }))
       )
     }
+    if (CODE_REVEAL_OFFER_TYPES.has(offerDraft.offer_type) && offerDraft.redemption_code.trim()) {
+      await supabase.from("passport_offer_codes").upsert(
+        { offer_id: created.id, code: offerDraft.redemption_code.trim() },
+        { onConflict: "offer_id" }
+      )
+    }
     setSavingOffer(false)
     setOfferStep("closed")
     setShowMoreOfferOptions(false)
@@ -317,6 +333,31 @@ export default function DirectorPassportPage() {
     ])
     setSavingManagedRuns(false)
     setManagingRunsOfferId(null)
+  }
+
+  const toggleManageCode = async (offer: Offer) => {
+    if (managingCodeOfferId === offer.id) { setManagingCodeOfferId(null); return }
+    setManagingCodeOfferId(offer.id)
+    setLoadingManagedCode(true)
+    const { data } = await supabase.from("passport_offer_codes").select("code").eq("offer_id", offer.id).maybeSingle()
+    setCodeInputValue(data?.code ?? "")
+    setLoadingManagedCode(false)
+  }
+
+  const saveManagedCode = async () => {
+    if (!managingCodeOfferId) return
+    setSavingManagedCode(true)
+    const trimmed = codeInputValue.trim()
+    if (trimmed) {
+      await supabase.from("passport_offer_codes").upsert(
+        { offer_id: managingCodeOfferId, code: trimmed, updated_at: new Date().toISOString() },
+        { onConflict: "offer_id" }
+      )
+    } else {
+      await supabase.from("passport_offer_codes").delete().eq("offer_id", managingCodeOfferId)
+    }
+    setSavingManagedCode(false)
+    setManagingCodeOfferId(null)
   }
 
   const selectedClub = clubs.find((c) => c.id === selectedClubId)
@@ -535,6 +576,17 @@ export default function DirectorPassportPage() {
                       </div>
                     )}
 
+                    {CODE_REVEAL_OFFER_TYPES.has(offerDraft.offer_type) && (
+                      <div className="space-y-1">
+                        <Input
+                          placeholder="Redemption code (e.g. a promo or entry code)"
+                          value={offerDraft.redemption_code}
+                          onChange={(e) => setOfferDraft((d) => ({ ...d, redemption_code: e.target.value }))}
+                        />
+                        <p className="text-[11px] text-white/30">Kept private - only shown to a runner after they spend credits on this offer.</p>
+                      </div>
+                    )}
+
                     <Input
                       placeholder="Name (e.g. Sunday Long Run)"
                       value={offerDraft.title}
@@ -613,6 +665,14 @@ export default function DirectorPassportPage() {
                                 {managingRunsOfferId === offer.id ? "Hide Passport events" : "Manage Passport events"}
                               </button>
                             )}
+                            {CODE_REVEAL_OFFER_TYPES.has(offer.offer_type) && (
+                              <button
+                                onClick={() => toggleManageCode(offer)}
+                                className="text-xs font-bold text-[#c5f135]/70 hover:text-[#c5f135] transition mt-1"
+                              >
+                                {managingCodeOfferId === offer.id ? "Hide redemption code" : "Manage redemption code"}
+                              </button>
+                            )}
                           </div>
                           <button
                             onClick={() => toggleOfferActive(offer)}
@@ -651,6 +711,28 @@ export default function DirectorPassportPage() {
                                 />
                                 <Button onClick={saveManagedRuns} disabled={savingManagedRuns}>
                                   {savingManagedRuns ? "…" : "Save"}
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        )}
+
+                        {managingCodeOfferId === offer.id && (
+                          <div className="mt-1.5 bg-[#1a2110] border border-[#2e3d1a] rounded-xl p-3 space-y-2">
+                            {loadingManagedCode ? (
+                              <div className="flex justify-center py-3">
+                                <div className="w-4 h-4 border-2 border-[#c5f135]/30 border-t-[#c5f135] rounded-full animate-spin" />
+                              </div>
+                            ) : (
+                              <>
+                                <Input
+                                  placeholder="Redemption code (e.g. a promo or entry code)"
+                                  value={codeInputValue}
+                                  onChange={(e) => setCodeInputValue(e.target.value)}
+                                />
+                                <p className="text-[11px] text-white/30">Kept private - only shown to a runner after they spend credits on this offer.</p>
+                                <Button onClick={saveManagedCode} disabled={savingManagedCode}>
+                                  {savingManagedCode ? "…" : "Save"}
                                 </Button>
                               </>
                             )}

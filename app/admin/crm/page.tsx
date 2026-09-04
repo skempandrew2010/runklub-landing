@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { Search, Check, RotateCcw, Mail, Phone, Pencil, Plus, X } from "lucide-react"
 import { Select } from "@/components/Select"
+import ModalPortal from "@/components/ModalPortal"
 
 type Status = "cold" | "contacted" | "replied" | "booked" | "closed"
 
@@ -336,6 +337,7 @@ export default function CrmDashboardPage() {
       </div>
 
       {modal && (
+        <ModalPortal>
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50" onClick={closeModal}>
           <div
             className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-6 w-full max-w-md max-h-[85vh] overflow-y-auto space-y-4"
@@ -429,6 +431,7 @@ export default function CrmDashboardPage() {
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
     </div>
   )

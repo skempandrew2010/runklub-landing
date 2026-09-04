@@ -65,6 +65,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Redemption recorded but could not be loaded" }, { status: 500 })
     }
 
+    // Only race_kickback/gear_discount/other offers have a private code to
+    // reveal - it's deliberately fetched here (service role, post-redemption)
+    // rather than any client-readable path, so it can never leak pre-spend.
+    const { data: offerRow } = await admin.from("passport_offers").select("offer_type").eq("id", redemption.offer_id).single()
+    let redemptionCode: string | null = null
+    if (offerRow && ["race_kickback", "gear_discount", "other"].includes(offerRow.offer_type)) {
+      const { data: codeRow } = await admin.from("passport_offer_codes").select("code").eq("offer_id", redemption.offer_id).maybeSingle()
+      redemptionCode = codeRow?.code ?? null
+    }
+
     const { data: club } = await admin
       .from("clubs")
       .select("id, name, stripe_connect_account_id, stripe_connect_payouts_enabled, passport_program_enrolled")
@@ -105,6 +115,7 @@ export async function POST(req: NextRequest) {
       creditsSpent: redemption.credits_spent,
       payoutCents: redemption.payout_amount_cents,
       payoutStatus,
+      redemptionCode,
     })
   } catch (err) {
     console.error("Passport redeem error:", err)
