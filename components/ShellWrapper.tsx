@@ -44,7 +44,16 @@ export default function ShellWrapper({ children }: { children: React.ReactNode }
   const [authed, setAuthed] = useState<boolean | null>(isPublic ? true : null)
   const [nativeApp, setNativeApp] = useState(false)
 
-  useEffect(() => { setNativeApp(isNativeApp()) }, [])
+  useEffect(() => {
+    const native = isNativeApp()
+    setNativeApp(native)
+    // --navbar-h reserves space for the desktop <NavBar> this shell swaps
+    // out for <BottomBar> on native — there's no top bar to clear there.
+    document.documentElement.style.setProperty(
+      "--navbar-h",
+      native ? "0px" : "calc(68px + var(--safe-top) + var(--nav-extra))"
+    )
+  }, [])
 
   useEffect(() => {
     if (isPublic) {
