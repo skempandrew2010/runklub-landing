@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname, useSearchParams } from "next/navigation"
-import { Compass, Trophy, UserCircle, Home, Stamp, Flame, BarChart3, PlusCircle } from "lucide-react"
+import { Compass, Trophy, UserCircle, Home, Stamp, BarChart3, PlusCircle } from "lucide-react"
 import { useNavIdentity } from "@/hooks/useNavIdentity"
 import { useViewMode } from "@/hooks/useViewMode"
 import NavClubSwitcher from "@/components/NavClubSwitcher"
@@ -46,7 +46,7 @@ export default function BottomBar() {
           : isManager && hasClub
             ? { key: "insights", href: "/director/passport", label: "Passport", Icon: Stamp, badge: false }
             : { key: "insights", href: "/director/analytics", label: "Analytics", Icon: BarChart3, badge: false }]
-      : [{ key: "missions", href: "/challenges", label: "Missions", Icon: Flame, badge: false }]),
+      : []),
     ...(showDirectorTabs
       ? [needsClub
           ? { key: "director", href: "/submit-club", label: "Create a Klub", Icon: PlusCircle, badge: false }
