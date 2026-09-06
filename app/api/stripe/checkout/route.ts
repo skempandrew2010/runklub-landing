@@ -12,24 +12,15 @@ function getSupabaseAdmin() {
 }
 
 // Tiers the director can upgrade into, in ascending order.
-const TIER_RANK: Record<string, number> = { free: 0, starter: 1, growth: 2, enterprise: 3 }
+const TIER_RANK: Record<string, number> = { free: 0, pro: 1 }
 
 type Interval = "monthly" | "yearly"
 
-// Maps each paid tier + billing interval to its Stripe price ID env var.
-// STRIPE_PRO_PRICE_ID is kept as a fallback for existing growth/monthly deployments.
+// Maps the paid tier + billing interval to its Stripe price ID env var.
 const TIER_PRICE_ENV: Record<string, Record<Interval, string | undefined>> = {
-  starter: {
-    monthly: process.env.STRIPE_STARTER_MONTHLY_PRICE_ID,
-    yearly:  process.env.STRIPE_STARTER_YEARLY_PRICE_ID,
-  },
-  growth: {
-    monthly: process.env.STRIPE_GROWTH_MONTHLY_PRICE_ID ?? process.env.STRIPE_PRO_PRICE_ID,
-    yearly:  process.env.STRIPE_GROWTH_YEARLY_PRICE_ID,
-  },
-  enterprise: {
-    monthly: process.env.STRIPE_ENTERPRISE_MONTHLY_PRICE_ID,
-    yearly:  process.env.STRIPE_ENTERPRISE_YEARLY_PRICE_ID,
+  pro: {
+    monthly: process.env.STRIPE_PRO_MONTHLY_PRICE_ID,
+    yearly:  process.env.STRIPE_PRO_YEARLY_PRICE_ID,
   },
 }
 

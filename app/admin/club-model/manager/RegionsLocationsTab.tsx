@@ -27,7 +27,7 @@ export default function RegionsLocationsTab({ clubId }: { clubId: string }) {
     ])
     setRegions(data.regions.slice().sort((a, b) => a.name.localeCompare(b.name)))
     setLocations(data.locations.slice().sort((a, b) => a.name.localeCompare(b.name)))
-    setTier(club?.tier === "starter" || club?.tier === "growth" || club?.tier === "enterprise" ? club.tier : null)
+    setTier(club?.tier === "pro" ? club.tier : null)
     setClubHome(club?.latitude != null && club?.longitude != null ? { lat: club.latitude, lng: club.longitude } : null)
     setLoading(false)
   }
@@ -98,7 +98,7 @@ export default function RegionsLocationsTab({ clubId }: { clubId: string }) {
           <div className="bg-[#1a2110] border border-[#c5f135]/25 rounded-xl px-4 py-3">
             <p className="text-sm text-white/70 mb-3">
               {regionLimit === 0
-                ? "Your Starter plan doesn't include branches yet — it's built around one weekly location instead."
+                ? "Free klubs don't include branches yet — upgrade to Pro for unlimited branches."
                 : `Your plan is limited to ${regionLimit} branch${regionLimit === 1 ? "" : "es"}.`}
             </p>
             <Button onClick={simulateUpgrade} disabled={upgrading}>

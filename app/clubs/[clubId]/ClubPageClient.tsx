@@ -8,9 +8,7 @@ import { Heart, MapPin, Clock, Users, ArrowLeft, ExternalLink, ChevronRight, Glo
 import { getTagStyle } from "@/utils/tagStyle"
 import { localDateStr } from "@/utils/dates"
 import { formatRunTime } from "@/lib/timezone"
-import { isVerifiedClub } from "@/utils/clubTier"
 import { interceptExternalClick } from "@/utils/openExternal"
-import VerifiedBadge from "@/components/VerifiedBadge"
 import { getClubLeaderboard } from "@/lib/checkins"
 import RunChatPanel from "@/components/RunChatPanel"
 import Leaderboard from "@/components/Leaderboard"
@@ -503,7 +501,6 @@ export default function ClubPageClient({
             <div className="flex-1 min-w-0 pb-1">
               <div className="flex items-center gap-2 flex-wrap mb-1">
                 <h1 className="text-2xl font-black text-white leading-tight">{club.name}</h1>
-                {isVerifiedClub(club.tier) && <VerifiedBadge />}
               </div>
               <div className="flex items-center gap-3 flex-wrap">
                 {club.city && (

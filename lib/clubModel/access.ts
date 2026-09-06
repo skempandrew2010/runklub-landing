@@ -36,11 +36,11 @@ export function useClubModelAccess(scope: AccessScope, skip = false) {
       if (!allowed) { router.push("/"); return }
 
       // Gated by the club's billing tier: the club-management system is a
-      // Starter/Pro/Premium feature (Starter and Pro are capped on regions,
-      // enforced server-side in the mutate route). The test club acts as the
-      // one club this prototype supports today, so its tier is the whole gate.
+      // Pro feature, enforced server-side in the mutate route. The test club
+      // acts as the one club this prototype supports today, so its tier is
+      // the whole gate.
       const { data: club } = await supabase.from("clubs").select("tier").eq("id", CLUB_ID).single()
-      if (club?.tier !== "starter" && club?.tier !== "growth" && club?.tier !== "enterprise") { router.push("/"); return }
+      if (club?.tier !== "pro") { router.push("/"); return }
 
       setReady(true)
     }

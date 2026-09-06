@@ -38,9 +38,7 @@ if (!SECRET_KEY.startsWith("sk_live_")) {
 const stripe = new Stripe(SECRET_KEY)
 
 const SAAS_TIERS = [
-  { key: "STARTER", name: "RunKlub — Starter", monthly: 2499, yearly: 24999 },
-  { key: "GROWTH", name: "RunKlub — Growth", monthly: 4999, yearly: 49999 },
-  { key: "ENTERPRISE", name: "RunKlub — Enterprise", monthly: 9999, yearly: 99999 },
+  { key: "PRO", name: "RunKlub — Pro", monthly: 2000, yearly: 20000 },
 ]
 
 const PASSPORT_TIERS = [

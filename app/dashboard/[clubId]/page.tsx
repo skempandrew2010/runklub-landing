@@ -8,7 +8,7 @@ import type { Run } from "@/types/run"
 import { formatRunTime } from "@/lib/timezone"
 import {
   ArrowLeft, Users, CalendarPlus, Trash2, Pencil, Check, X,
-  ShieldCheck, Zap, MapPin, Clock, Ruler,
+  Zap, MapPin, Clock, Ruler,
   ChevronLeft, ChevronRight, CalendarDays, LayoutList,
   Globe, Lock, Mail, Send, Repeat2,
 } from "lucide-react"
@@ -19,7 +19,7 @@ type Club = {
   city: string
   location: string
   instagram_handle: string | null
-  tier: "free" | "verified" | "growth"
+  tier: "free" | "pro"
   stripe_subscription_id: string | null
   stripe_subscription_status: string | null
   tier_expires_at: string | null
@@ -27,17 +27,10 @@ type Club = {
 }
 
 function TierBadge({ tier }: { tier: string }) {
-  if (tier === "growth") {
+  if (tier === "pro") {
     return (
       <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-black bg-[#c5f135] text-[#1a2110]">
-        <Zap className="w-3 h-3" /> GROWTH
-      </span>
-    )
-  }
-  if (tier === "verified") {
-    return (
-      <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-black bg-[#c5f135]/15 text-[#c5f135] border border-[#c5f135]/30">
-        <ShieldCheck className="w-3 h-3" /> VERIFIED
+        <Zap className="w-3 h-3" /> PRO
       </span>
     )
   }

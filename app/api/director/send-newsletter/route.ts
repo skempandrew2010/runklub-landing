@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js"
 import { Resend } from "resend"
 import { NextRequest, NextResponse } from "next/server"
+import { getMonthlyEmailCount, MONTHLY_EMAIL_LIMIT, EMAIL_CAP_ERROR_MESSAGE } from "@/lib/emailUsage"
 
 function getAdminSupabase() {
   return createClient(
@@ -127,9 +128,9 @@ export async function POST(req: NextRequest) {
 
     if (!club) return NextResponse.json({ error: "Klub not found or unauthorized" }, { status: 403 })
 
-    if (club.tier !== "growth" && club.tier !== "enterprise") {
+    if (club.tier !== "pro") {
       return NextResponse.json(
-        { error: "Newsletters are a Growth feature. Upgrade your klub to send one.", code: "growth_required" },
+        { error: "Newsletters are a Pro feature. Upgrade your klub to send one.", code: "pro_required" },
         { status: 403 }
       )
     }
@@ -152,6 +153,11 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const monthlyEmailCount = await getMonthlyEmailCount(adminSupabase, club_id)
+    if (monthlyEmailCount >= MONTHLY_EMAIL_LIMIT) {
+      return NextResponse.json({ error: EMAIL_CAP_ERROR_MESSAGE, code: "email_cap_reached" }, { status: 429 })
+    }
+
     // Get subscriber user IDs
     const { data: subs } = await adminSupabase
       .from("subscriptions")
@@ -166,11 +172,11 @@ export async function POST(req: NextRequest) {
 
     // Fetch emails via admin auth API
     const { data: listData } = await adminSupabase.auth.admin.listUsers({ perPage: 1000 })
-    const emails = (listData?.users ?? [])
+    const recipients = (listData?.users ?? [])
       .filter((u: any) => subIds.includes(u.id) && u.email)
-      .map((u: any) => u.email as string)
+      .map((u: any) => ({ userId: u.id as string, email: u.email as string }))
 
-    if (emails.length === 0) {
+    if (recipients.length === 0) {
       return NextResponse.json({ error: "No subscriber emails found" }, { status: 400 })
     }
 
@@ -180,7 +186,7 @@ export async function POST(req: NextRequest) {
 
     // Send individually so each recipient's To field shows only their address
     const results = await Promise.allSettled(
-      emails.map((email) =>
+      recipients.map(({ email }) =>
         resend.emails.send({
           from: FROM,
           to: email,
@@ -194,6 +200,22 @@ export async function POST(req: NextRequest) {
 
     const sent = results.filter((r) => r.status === "fulfilled").length
     const failed = results.length - sent
+
+    // Log one email_sends row per successful delivery - this feeds the
+    // monthly email cap check (lib/emailUsage.ts) alongside training-schedule sends.
+    const emailSendRows = results.flatMap((r, i) => {
+      if (r.status !== "fulfilled" || !r.value.data?.id) return []
+      return [{
+        resend_id: r.value.data.id,
+        club_id,
+        recipient_user_id: recipients[i].userId,
+        recipient_email: recipients[i].email,
+        email_type: "newsletter",
+      }]
+    })
+    if (emailSendRows.length > 0) {
+      await adminSupabase.from("email_sends").insert(emailSendRows)
+    }
 
     await adminSupabase.from("club_newsletters").insert({
       club_id,
@@ -214,7 +236,7 @@ export async function POST(req: NextRequest) {
       }))
     )
 
-    return NextResponse.json({ ok: true, sent, failed, total: emails.length })
+    return NextResponse.json({ ok: true, sent, failed, total: recipients.length })
   } catch (err: any) {
     console.error("send-newsletter error:", err)
     return NextResponse.json({ error: err.message ?? "Internal server error" }, { status: 500 })

@@ -264,7 +264,7 @@ export default function RootPage() {
           <p className="text-white/50 text-base mb-10 max-w-xl">Every klub starts free. Upgrade when you&apos;re ready to grow your community.</p>
         </FadeIn>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl">
 
           <FadeIn delay={0}>
             <div className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-5 flex flex-col h-full">
@@ -272,7 +272,7 @@ export default function RootPage() {
               <p className="text-3xl font-black text-white mb-0.5">$0</p>
               <p className="text-xs text-white/30 mb-5">forever</p>
               <ul className="space-y-2.5 flex-1">
-                {["Public klub listing", "Unlimited run posts", "Run chat for members", "Push notifications"].map((f) => (
+                {["Public klub listing", "Unlimited run posts", "Run chat for members", "Charge members to join, or keep it free", "Push notifications"].map((f) => (
                   <li key={f} className="flex items-start gap-2 text-sm text-white/55">
                     <span className="text-[#c5f135]/60 shrink-0 mt-px">✓</span>{f}
                   </li>
@@ -285,56 +285,20 @@ export default function RootPage() {
           </FadeIn>
 
           <FadeIn delay={80}>
-            <div className="bg-[#1e2d12] border border-[#c5f135]/20 rounded-2xl p-5 flex flex-col h-full">
-              <p className="text-[10px] font-bold text-[#c5f135]/70 uppercase tracking-widest mb-1">Starter</p>
-              <p className="text-3xl font-black text-white mb-0.5">$24.99</p>
-              <p className="text-xs text-white/30 mb-5">per month · 1-month free trial</p>
-              <ul className="space-y-2.5 flex-1">
-                {["Everything in Free", "Member-only runs", "Weekly email reminders", "Charge members to join", "Workout library", "Verified badge"].map((f) => (
-                  <li key={f} className="flex items-start gap-2 text-sm text-white/55">
-                    <span className="text-[#c5f135]/60 shrink-0 mt-px">✓</span>{f}
-                  </li>
-                ))}
-              </ul>
-              <Link href="/submit-club" className="mt-6 block text-center px-4 py-2.5 rounded-xl bg-[#c5f135]/10 border border-[#c5f135]/30 text-[#c5f135] text-sm font-bold hover:bg-[#c5f135]/20 transition">
-                Start free trial
-              </Link>
-            </div>
-          </FadeIn>
-
-          <FadeIn delay={160}>
             <div className="bg-[#1a2d0a] border border-[#c5f135]/35 rounded-2xl p-5 flex flex-col h-full relative overflow-hidden">
-              <div className="absolute top-3 right-3 text-[9px] font-black px-2 py-0.5 rounded-full bg-[#c5f135] text-[#1a2110]">POPULAR</div>
-              <p className="text-[10px] font-bold text-[#c5f135]/70 uppercase tracking-widest mb-1">Growth</p>
-              <p className="text-3xl font-black text-white mb-0.5">$49.99</p>
+              <div className="absolute top-3 right-3 text-[9px] font-black px-2 py-0.5 rounded-full bg-[#c5f135] text-[#1a2110]">MOST POPULAR</div>
+              <p className="text-[10px] font-bold text-[#c5f135]/70 uppercase tracking-widest mb-1">Pro</p>
+              <p className="text-3xl font-black text-white mb-0.5">$20</p>
               <p className="text-xs text-white/30 mb-5">per month</p>
               <ul className="space-y-2.5 flex-1">
-                {["Everything in Starter", "Multiple locations", "Pace groups", "Up to 10 coaches", "Newsletter to members", "Priority search placement"].map((f) => (
+                {["Everything in Free", "Build a weekly training schedule your whole klub follows", "Unlimited coaches", "Unlimited branches & locations", "20,000 newsletter emails/month included", "First in city search"].map((f) => (
                   <li key={f} className="flex items-start gap-2 text-sm text-white/55">
                     <span className="text-[#c5f135] shrink-0 mt-px">✓</span>{f}
                   </li>
                 ))}
               </ul>
               <Link href="/submit-club" className="mt-6 block text-center px-4 py-2.5 rounded-xl bg-[#c5f135] text-[#1a2110] text-sm font-black hover:bg-[#d4ff45] transition">
-                Get Growth
-              </Link>
-            </div>
-          </FadeIn>
-
-          <FadeIn delay={240}>
-            <div className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-5 flex flex-col h-full">
-              <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest mb-1">Enterprise</p>
-              <p className="text-3xl font-black text-white mb-0.5">$99.99</p>
-              <p className="text-xs text-white/30 mb-5">per month</p>
-              <ul className="space-y-2.5 flex-1">
-                {["Everything in Growth", "Unlimited branches", "First in city search", "Training schedules", "Event payments at 1%", "Unlimited coaches"].map((f) => (
-                  <li key={f} className="flex items-start gap-2 text-sm text-white/55">
-                    <span className="text-[#c5f135]/60 shrink-0 mt-px">✓</span>{f}
-                  </li>
-                ))}
-              </ul>
-              <Link href="/submit-club" className="mt-6 block text-center px-4 py-2.5 rounded-xl border border-[#3d5220] text-white/60 text-sm font-bold hover:border-[#c5f135]/30 hover:text-white/80 transition">
-                Get Enterprise
+                Get Pro
               </Link>
             </div>
           </FadeIn>

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Check } from "lucide-react"
 import { supabase } from "@/lib/supabase"
-import { PLANS, PLAN_ORDER, CUSTOM_PRICING_MESSAGE, type PlanId, type BillingInterval } from "@/lib/plans"
+import { PLANS, PLAN_ORDER, type PlanId, type BillingInterval } from "@/lib/plans"
 import FadeIn from "@/components/FadeIn"
 import { Select } from "@/components/Select"
 import StripeCheckoutModal from "@/components/StripeCheckoutModal"
@@ -20,7 +20,7 @@ function billingStatusLabel(dateIso: string | null, cancelAtPeriodEnd: boolean) 
   return cancelAtPeriodEnd ? `Ends ${formatted}` : `Renews ${formatted}`
 }
 
-const TIER_RANK: Record<PlanId, number> = { free: 0, starter: 1, growth: 2, enterprise: 3 }
+const TIER_RANK: Record<PlanId, number> = { free: 0, pro: 1 }
 
 // Standalone intro page listing every plan (Free included) with its full
 // feature list, so a director sees everything a plan unlocks before they
@@ -56,7 +56,7 @@ export default function DirectorPlansPage() {
   const selectedClub = clubs.find((c) => c.id === selectedClubId)
   const currentTier: PlanId = (selectedClub?.tier as PlanId) ?? "free"
 
-  const startCheckout = async (tier: "starter" | "growth" | "enterprise") => {
+  const startCheckout = async (tier: "pro") => {
     if (!selectedClubId) return
     setUpgrading(true)
     const { data: { session } } = await supabase.auth.getSession()
@@ -169,7 +169,7 @@ export default function DirectorPlansPage() {
                     </div>
                   ) : canUpgradeTo ? (
                     <button
-                      onClick={() => startCheckout(id as "starter" | "growth" | "enterprise")}
+                      onClick={() => startCheckout(id as "pro")}
                       disabled={upgrading}
                       className="py-3 rounded-xl bg-[#c5f135] text-[#1a2110] text-sm font-black hover:bg-[#d4ff45] transition disabled:opacity-50"
                     >
@@ -185,7 +185,7 @@ export default function DirectorPlansPage() {
             )
           })}
         </div>
-        <p className="text-center text-xs text-white/35 mt-8">Followers are always unlimited on every plan. {CUSTOM_PRICING_MESSAGE}</p>
+        <p className="text-center text-xs text-white/35 mt-8">Followers and paid members are always unlimited on every plan.</p>
       </div>
 
       {checkoutClientSecret && (

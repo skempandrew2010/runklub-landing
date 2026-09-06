@@ -7,9 +7,7 @@ import { useRouter } from "next/navigation"
 import { Trash2, EyeOff } from "lucide-react"
 import { getTagStyle } from "@/utils/tagStyle"
 import { localDateStr } from "@/utils/dates"
-import { isVerifiedClub } from "@/utils/clubTier"
 import { formatRunTime, runStartInstant } from "@/lib/timezone"
-import VerifiedBadge from "@/components/VerifiedBadge"
 import Image from "next/image"
 
 type NextRun = {
@@ -159,10 +157,7 @@ export default function ClubCard({
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <h3 className="text-base font-bold text-white leading-tight truncate">{club.name}</h3>
-              {isVerifiedClub(club.tier) && <VerifiedBadge />}
-            </div>
+            <h3 className="text-base font-bold text-white leading-tight truncate">{club.name}</h3>
             <div className="flex items-center gap-2 mt-1 flex-wrap">
               {club.city && <p className="text-sm text-white/55">{club.city}</p>}
               {club.distance != null && (

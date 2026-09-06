@@ -3,6 +3,7 @@ import { Resend } from "resend"
 import { NextRequest, NextResponse } from "next/server"
 import { formatRunTimeInOwnZone } from "@/lib/timezone"
 import { formatWorkoutSegment, parseWorkoutStructure, type WorkoutSegment } from "@/lib/workouts"
+import { getMonthlyEmailCount, MONTHLY_EMAIL_LIMIT, EMAIL_CAP_ERROR_MESSAGE } from "@/lib/emailUsage"
 
 function getAdminSupabase() {
   return createClient(
@@ -205,9 +206,9 @@ export async function POST(req: NextRequest) {
       .from("clubs").select("id, name, tier").eq("id", club_id).eq("user_id", user.id).single()
     if (!club) return NextResponse.json({ error: "Klub not found or unauthorized" }, { status: 403 })
 
-    if (club.tier !== "growth" && club.tier !== "enterprise") {
+    if (club.tier !== "pro") {
       return NextResponse.json(
-        { error: "Training schedule emails are a Growth feature.", code: "growth_required" },
+        { error: "Training schedule emails are a Pro feature.", code: "pro_required" },
         { status: 403 }
       )
     }
@@ -231,6 +232,11 @@ export async function POST(req: NextRequest) {
           code: "rate_limited",
         }, { status: 429 })
       }
+    }
+
+    const monthlyEmailCount = await getMonthlyEmailCount(adminSupabase, club_id)
+    if (monthlyEmailCount >= MONTHLY_EMAIL_LIMIT) {
+      return NextResponse.json({ error: EMAIL_CAP_ERROR_MESSAGE, code: "email_cap_reached" }, { status: 429 })
     }
 
     // Prefer the client-supplied Monday (computed in the director's local timezone)

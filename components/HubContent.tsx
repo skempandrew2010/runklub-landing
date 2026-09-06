@@ -7,9 +7,7 @@ import { CalendarCheck, ChevronRight, Users, Zap, Crown } from "lucide-react"
 import Link from "next/link"
 import ChallengeHubBanner from "@/components/ChallengeHubBanner"
 import PendingCoachInviteBanner from "@/components/PendingCoachInviteBanner"
-import { isVerifiedClub } from "@/utils/clubTier"
 import { formatRunTime } from "@/lib/timezone"
-import VerifiedBadge from "@/components/VerifiedBadge"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -459,9 +457,8 @@ export default function HubContent() {
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold text-white truncate flex items-center gap-1.5">
-                            <span className="truncate">{club.name}</span>
-                            {isVerifiedClub(club.tier) && <VerifiedBadge compact />}
+                          <p className="text-sm font-bold text-white truncate">
+                            {club.name}
                           </p>
                           <p className="text-xs text-white/40 mt-0.5 truncate">
                             {club.city}
@@ -657,9 +654,8 @@ export default function HubContent() {
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-white truncate flex items-center gap-1.5">
-                          <span className="truncate">{club.name}</span>
-                          {isVerifiedClub(club.tier) && <VerifiedBadge compact />}
+                        <p className="text-sm font-bold text-white truncate">
+                          {club.name}
                         </p>
                         {club.city && (
                           <p className="text-xs text-white/40 mt-0.5">{club.city}</p>

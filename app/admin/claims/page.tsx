@@ -1415,7 +1415,7 @@ export default function AdminClaimsPage() {
           <div className="space-y-6">
             <div className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-6">
               <p className="text-xs font-black text-[#c5f135] uppercase tracking-widest mb-1">Active Trial</p>
-              <h2 className="text-lg font-black text-white mb-1">Enterprise trial - all 26 real directors</h2>
+              <h2 className="text-lg font-black text-white mb-1">Pro trial - all 26 real directors</h2>
               <p className="text-sm text-white/40 mb-5">
                 Trial expires <strong className="text-white/60">48 hours from activation</strong>. After expiry, run the reset SQL in Supabase to downgrade all klubs back to free.
               </p>

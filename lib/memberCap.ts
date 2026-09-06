@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
-import { PLANS, PlanId, CUSTOM_PRICING_MESSAGE } from "@/lib/plans"
+import { PLANS, PlanId } from "@/lib/plans"
 
 // "Member" means a paid subscriber (member_type = 'paid') - the same
 // convention already used in app/api/director/analytics/route.ts. Free
@@ -20,9 +20,7 @@ export function memberLimitForTier(tier: PlanId | null | undefined): number | nu
 }
 
 export function memberCapMessage(limit: number): string {
-  return limit >= 500
-    ? `This klub has reached its ${limit} paid-member limit. ${CUSTOM_PRICING_MESSAGE}`
-    : `This klub has reached its ${limit} paid-member limit for its current plan. The director can upgrade to raise it.`
+  return `This klub has reached its ${limit} paid-member limit for its current plan. The director can upgrade to raise it.`
 }
 
 // Checks whether adding one more paid member would exceed the klub's tier
