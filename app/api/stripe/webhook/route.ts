@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
   try {
     switch (event.type) {
 
-      // ── One-time payment completed (Verified) or subscription checkout started (Pro) ──
+      // ── Subscription checkout completed (Pro), or a one-time Passport/credit purchase ──
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session
 
@@ -245,7 +245,7 @@ export async function POST(req: NextRequest) {
         // Read the tier from subscription metadata (set at checkout time).
         // Fall back to the club's current tier so a missing metadata value
         // never accidentally downgrades or changes the tier.
-        const VALID_TIERS = ["starter", "growth", "enterprise"]
+        const VALID_TIERS = ["pro"]
         const metaTier = (sub as any).metadata?.tier as string | undefined
         const resolvedTier = metaTier && VALID_TIERS.includes(metaTier) ? metaTier : club.tier
 

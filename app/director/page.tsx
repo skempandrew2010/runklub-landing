@@ -27,7 +27,7 @@ import RunCheckInRoster from "@/components/RunCheckInRoster"
 import CoachDashboard, { type CoachTabKey } from "@/components/CoachDashboard"
 import KlubContextPicker from "@/components/KlubContextPicker"
 import AnalyticsTab from "./AnalyticsTab"
-import { PLANS } from "@/lib/plans"
+import { PLANS, type PlanId } from "@/lib/plans"
 import { memberLimitForTier } from "@/lib/memberCap"
 import { Select } from "@/components/Select"
 import { RollerSelect } from "@/components/RollerSelect"
@@ -448,12 +448,12 @@ function RunCard({
 // ── Manager View ───────────────────────────────────────────────────────────────
 
 const ALL_TABS = [
-  { key: "setup",       label: "Setup",       free: false, starter: false, growth: true },
-  { key: "members",     label: "Members",     free: false, starter: true,  growth: true },
-  { key: "runs",        label: "Runs",        free: true,  starter: true,  growth: true },
-  { key: "communicate", label: "Communicate", free: true,  starter: true,  growth: true },
-  { key: "analytics",   label: "Analytics",   free: true,  starter: true,  growth: true },
-  { key: "settings",   label: "Settings",    free: true,  starter: true,  growth: true },
+  { key: "setup",       label: "Setup",       free: false, pro: true },
+  { key: "members",     label: "Members",     free: true,  pro: true },
+  { key: "runs",        label: "Runs",        free: true,  pro: true },
+  { key: "communicate", label: "Communicate", free: true,  pro: true },
+  { key: "analytics",   label: "Analytics",   free: true,  pro: true },
+  { key: "settings",   label: "Settings",    free: true,  pro: true },
 ] as const
 
 type TabKey = (typeof ALL_TABS)[number]["key"]
@@ -501,7 +501,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
   const [checkoutClientSecret, setCheckoutClientSecret] = useState<string | null>(null)
   const [billingInterval, setBillingInterval] = useState<"monthly" | "yearly">("monthly")
   const [nativeApp, setNativeApp] = useState(false)
-  const [tierOverride, setTierOverride] = useState<"free" | "starter" | "growth" | "enterprise" | null>(null)
+  const [tierOverride, setTierOverride] = useState<"free" | "pro" | null>(null)
   const [isAdminMode, setIsAdminMode] = useState(false)
   const [members, setMembers] = useState<{ id: string; user_id: string; created_at: string; member_type: string; billing_interval: string | null; price_cents: number | null; plan_name: string | null; expires_at: string | null; pace_group_id: string | null; profiles: { display_name: string | null; avatar_url: string | null } | null; email: string | null }[]>([])
   const [updatingPaceGroupId, setUpdatingPaceGroupId] = useState<string | null>(null)
@@ -771,8 +771,8 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
       const { data: clubRow } = await supabase.from("clubs").select("tier, default_timezone").eq("id", clubId).single()
       const effectiveTier = tierOverride ?? clubRow?.tier
       const runTimezone = clubRow?.default_timezone ?? getBrowserTimezone()
-      if (effectiveTier !== "growth" && effectiveTier !== "enterprise") {
-        setGenerateStatus(`Tier is "${effectiveTier}" - upgrade to Growth or Enterprise to generate runs`)
+      if (effectiveTier !== "pro") {
+        setGenerateStatus(`Tier is "${effectiveTier}" - upgrade to Pro to generate runs`)
         return
       }
 
@@ -933,7 +933,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
     }
   }
 
-  const startCheckout = async (tier: "starter" | "growth" | "enterprise", interval: "monthly" | "yearly" = "monthly") => {
+  const startCheckout = async (tier: "pro", interval: "monthly" | "yearly" = "monthly") => {
     if (!selectedClubId) return
     setUpgrading(true)
     try {
@@ -1199,10 +1199,10 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
       alert("Archive your membership plans before turning off the paid membership tier.")
       return
     }
-    const effectiveTier = tierOverride ?? club.tier
-    const isPaidTier = effectiveTier === "starter" || effectiveTier === "growth" || effectiveTier === "enterprise"
-    if (next !== "free" && !isPaidTier && !club.passport_program_enrolled) {
-      alert("Free klubs can turn on private, members-only runs by enrolling in the Passport program - or by upgrading to a paid plan.")
+    const effectiveTier = (tierOverride ?? club.tier) as PlanId | null
+    const canChargeMembers = effectiveTier ? PLANS[effectiveTier].clubMembershipPaymentsAllowed : false
+    if (next !== "free" && !canChargeMembers && !club.passport_program_enrolled) {
+      alert("Turn on paid membership by enrolling in the Passport program, or from Settings.")
       return
     }
     const { error } = await supabase.from("clubs").update({ membership_type: next }).eq("id", selectedClubId)
@@ -1329,23 +1329,14 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
   const selectedClub = myClubs.find((c) => c.id === selectedClubId) ?? myClubs[0]
   const tier = tierOverride ?? selectedClub.tier
   const isFree = !tier || tier === "free"
-  const isStarter = tier === "starter"
-  const isGrowth = tier === "growth"
-  const isEnterprise = tier === "enterprise"
-  const isPaid = !isFree
+  const isPro = tier === "pro"
 
-  const UPSELL_INFO: Record<"starter" | "growth" | "enterprise", { name: string; price: string; headline: string; features: string[] }> = {
-    starter:    { name: "Starter",    price: "$24.99/mo", headline: "More tools for your klub",  features: ["Private member-only runs", "Weekly email reminders", "Charge members to join", "Unlimited followers, up to 100 paid members", "Verified badge"] },
-    growth:     { name: "Growth",     price: "$49.99/mo", headline: "Scale up your klub",        features: ["Everything in Starter", "Workout library", "One branch + unlimited locations", "Unlimited followers, up to 250 paid members", "Up to 10 coaches", "Priority placement"] },
-    enterprise: { name: "Enterprise", price: "$99.99/mo", headline: "Take your klub to the top", features: ["Everything in Growth", "Unlimited branches", "Unlimited followers, up to 500 paid members", "First in city search", "Event payments at 1%"] },
-  }
-
-  const makeUpgradeCard = (targetTier: "starter" | "growth" | "enterprise", highlighted: boolean) => {
-    const info = UPSELL_INFO[targetTier]
+  const makeUpgradeCard = (highlighted: boolean) => {
+    const info = PLANS.pro
     return (
-      <div key={targetTier} className={`border rounded-2xl p-5 ${highlighted ? "bg-[#1a2110] border-[#c5f135]/20" : "bg-[#141f0d] border-[#2e3d1a]"}`}>
-        <p className="text-[10px] font-bold text-[#c5f135]/60 uppercase tracking-widest mb-1">{info.name} - {info.price}</p>
-        <p className="text-sm font-black text-white mb-3">{info.headline}</p>
+      <div className={`border rounded-2xl p-5 ${highlighted ? "bg-[#1a2110] border-[#c5f135]/20" : "bg-[#141f0d] border-[#2e3d1a]"}`}>
+        <p className="text-[10px] font-bold text-[#c5f135]/60 uppercase tracking-widest mb-1">{info.name} - ${info.price!.monthly}/mo</p>
+        <p className="text-sm font-black text-white mb-3">{info.tagline}</p>
         <ul className="space-y-1.5 mb-4">
           {info.features.map((f) => (
             <li key={f} className="flex items-start gap-2 text-sm text-white/80">
@@ -1357,7 +1348,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
           <p className="text-xs text-white/80">Upgrade at <span className="text-[#c5f135] font-semibold">runklub.fit</span> on the web.</p>
         ) : (
           <>
-            <Button onClick={() => startCheckout(targetTier)} disabled={upgrading} className="w-full text-center">
+            <Button onClick={() => startCheckout("pro")} disabled={upgrading} className="w-full text-center">
               {upgrading ? "Loading…" : `Upgrade to ${info.name}`}
             </Button>
             <Link href="/director/plans" className="block text-center text-xs text-white/40 hover:text-[#c5f135] transition mt-2">
@@ -1369,11 +1360,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
     )
   }
 
-  const tabEnabled = (t: typeof ALL_TABS[number]) => {
-    if (isFree) return t.free
-    if (isStarter) return t.starter
-    return t.growth
-  }
+  const tabEnabled = (t: typeof ALL_TABS[number]) => (isFree ? t.free : t.pro)
 
   const clubRuns = allRuns.filter((r) => r.club_id === selectedClubId)
   const communityRuns = clubRuns.filter((r) => !r.members_only)
@@ -1438,24 +1425,9 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
             <p className="text-xs font-bold text-[#c5f135]/60 uppercase tracking-widest">Klub Manager</p>
             <div className="flex items-center gap-2 flex-wrap mt-0.5">
               <h1 className="text-xl font-black text-white">{selectedClub.name}</h1>
-              {isStarter && (
-                <span className="flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-[#c5f135]/15 text-[#c5f135] border border-[#c5f135]/30">
-                  <Zap className="w-2.5 h-2.5" /> STARTER
-                </span>
-              )}
-              {isGrowth && (
+              {isPro && (
                 <span className="flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-[#c5f135] text-[#1a2110]">
-                  <Zap className="w-2.5 h-2.5" /> GROWTH
-                </span>
-              )}
-              {isEnterprise && (
-                <span className="flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-purple-400/20 text-purple-300 border border-purple-400/30">
-                  <Zap className="w-2.5 h-2.5" /> ENTERPRISE
-                </span>
-              )}
-              {selectedClub.tier === "verified" && (
-                <span className="flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-[#c5f135]/15 text-[#c5f135] border border-[#c5f135]/30">
-                  <ShieldCheck className="w-2.5 h-2.5" /> VERIFIED
+                  <Zap className="w-2.5 h-2.5" /> PRO
                 </span>
               )}
             </div>
@@ -1529,20 +1501,14 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
 
           {/* Tier preview - admin mode only (append ?admin=1 to URL) */}
           {isAdminMode && (() => {
-            const TIER_PLANS: Record<"free" | "starter" | "growth" | "enterprise", { price: string; features: string[] }> = {
-              free:       { price: "Free",        features: ["Public klub listing", "Unlimited run posts", "Run chat for members", "Basic analytics"] },
-              starter:    { price: "$24.99/mo",   features: ["1-month free trial", "Private member-only runs", "Weekly email reminders", "Charge members to join", "Unlimited followers, up to 100 paid members", "Verified badge + invite by email"] },
-              growth:     { price: "$49.99/mo",   features: ["Everything in Starter", "Workout library", "One branch + unlimited locations", "Pace groups", "Unlimited followers, up to 250 paid members", "Up to 10 coaches", "Priority placement in search"] },
-              enterprise: { price: "$99.99/mo",   features: ["Everything in Growth", "Unlimited branches", "Unlimited followers, up to 500 paid members", "First in city search", "Training schedules", "Event payments at 1% fee"] },
-            }
-            const activeTier = (tier === "starter" || tier === "growth" || tier === "enterprise") ? tier : "free"
-            const plan = TIER_PLANS[activeTier]
+            const activeTier: PlanId = tier === "pro" ? "pro" : "free"
+            const plan = PLANS[activeTier]
             return (
               <div className="mt-4 pt-4 border-t border-[#2e3d1a]">
                 <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest px-3 mb-2">Preview tier</p>
                 <div className="space-y-0.5 mb-3">
-                  {(["free", "starter", "growth", "enterprise"] as const).map((t) => {
-                    const active = tier === t || (t === "free" && !["starter","growth","enterprise"].includes(tier ?? ""))
+                  {(["free", "pro"] as const).map((t) => {
+                    const active = tier === t || (t === "free" && tier !== "pro")
                     return (
                       <button
                         key={t}
@@ -1550,7 +1516,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                         className={`w-full text-left px-3 py-1.5 rounded-lg text-xs font-bold transition capitalize
                           ${active ? "bg-[#c5f135]/10 text-[#c5f135]" : "text-white/30 hover:text-white/80 hover:bg-[#2e3d1a]/40"}`}
                       >
-                        <span>{t === "free" ? "Free" : t.charAt(0).toUpperCase() + t.slice(1)}</span>
+                        <span>{PLANS[t].name}</span>
                         {active && <span className="ml-1 font-normal opacity-60">{tierOverride !== null ? "· preview" : "· live"}</span>}
                       </button>
                     )
@@ -1558,8 +1524,8 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                 </div>
                 <div className="mx-3 rounded-xl border border-[#2e3d1a] bg-[#141f0d] p-3">
                   <div className="flex items-baseline justify-between gap-1 mb-2">
-                    <p className="text-xs font-black text-white capitalize">{activeTier}</p>
-                    <p className="text-xs font-bold text-[#c5f135]">{plan.price}</p>
+                    <p className="text-xs font-black text-white capitalize">{plan.name}</p>
+                    <p className="text-xs font-bold text-[#c5f135]">{plan.price ? `$${plan.price.monthly}/mo` : "Free"}</p>
                   </div>
                   <ul className="space-y-1">
                     {plan.features.map((f) => (
@@ -1643,12 +1609,9 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                     <Lock className="w-3.5 h-3.5 text-white/80 shrink-0" />
                     <h2 className="text-xs font-bold text-white uppercase tracking-widest">Members Only Runs</h2>
                   </div>
-                  {!isPaid && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-[#c5f135] text-[#1a2110]">STARTER+</span>}
                 </div>
                 <p className="text-xs text-white/80 mb-1">Only visible to paying members</p>
-                {!isPaid ? (
-                  <p className="text-sm text-white">Upgrade to Starter to create members-only runs.</p>
-                ) : membersOnlyRuns.length === 0 ? (
+                {membersOnlyRuns.length === 0 ? (
                   <p className="text-sm text-white/50">No members-only runs yet - click Generate This Week above.</p>
                 ) : (
                   <div className="space-y-2">
@@ -1661,12 +1624,12 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
               <div className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-5">
                 <div className="flex items-center justify-between mb-1">
                   <h2 className="text-xs font-bold text-[#c5f135]/70 uppercase tracking-widest">Weekly Training Schedule</h2>
-                  {!(isGrowth || isEnterprise) && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-[#c5f135] text-[#1a2110]">GROWTH+</span>}
+                  {!isPro && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-[#c5f135] text-[#1a2110]">PRO</span>}
                 </div>
                 <p className="text-xs text-white/35 mb-4">Place a workout from your library on each day of the week - coaches and members see it as your klub's standing training plan</p>
-                {(isGrowth || isEnterprise)
+                {isPro
                   ? <WeeklyScheduleTab clubId={selectedClubId ?? ""} refreshKey={workoutLibraryVersion} />
-                  : <p className="text-sm text-white/80">Upgrade to Growth to build a weekly training schedule.</p>
+                  : <p className="text-sm text-white/80">Upgrade to Pro to build a weekly training schedule.</p>
                 }
               </div>
 
@@ -1674,12 +1637,12 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
               <div className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-5">
                 <div className="flex items-center justify-between mb-1">
                   <h2 className="text-xs font-bold text-[#c5f135]/70 uppercase tracking-widest">Workout Library</h2>
-                  {!(isGrowth || isEnterprise) && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-[#c5f135] text-[#1a2110]">GROWTH+</span>}
+                  {!isPro && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-[#c5f135] text-[#1a2110]">PRO</span>}
                 </div>
                 <p className="text-xs text-white/35 mb-4">Reusable workout types you can attach to any run</p>
-                {(isGrowth || isEnterprise)
+                {isPro
                   ? <WorkoutsTab clubId={selectedClubId ?? ""} onWorkoutsChanged={() => setWorkoutLibraryVersion((v) => v + 1)} />
-                  : <p className="text-sm text-white/80">Upgrade to Growth to build a workout library.</p>
+                  : <p className="text-sm text-white/80">Upgrade to Pro to build a workout library.</p>
                 }
               </div>
             </div>
@@ -1709,17 +1672,6 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                   ))}
                 </div>
               </Card>
-            )
-
-            if (isFree) return (
-              <div className="space-y-4">
-                {pendingApprovalCard}
-                <p className="text-sm font-bold text-white/80 uppercase tracking-widest">Members</p>
-                <p className="text-sm text-white/80">Unlock member management with Starter or above.</p>
-                {makeUpgradeCard("starter", true)}
-                {makeUpgradeCard("growth", false)}
-                {makeUpgradeCard("enterprise", false)}
-              </div>
             )
 
             const paidMembers = members.filter((m) => m.member_type === "paid")
@@ -2042,11 +1994,9 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                   </div>
                 </Card>
 
-                {!isEnterprise && (
+                {isFree && (
                   <div className="space-y-3">
-                    {isStarter && makeUpgradeCard("growth", true)}
-                    {isStarter && makeUpgradeCard("enterprise", false)}
-                    {isGrowth && makeUpgradeCard("enterprise", true)}
+                    {makeUpgradeCard(true)}
                   </div>
                 )}
               </div>
@@ -2110,7 +2060,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                   <div className="flex items-center justify-between mb-3">
                     <SectionTitle>
                       Send Newsletter
-                      {!isGrowth && !isEnterprise && <span className="ml-2 text-[9px] font-black px-1.5 py-0.5 rounded-full bg-[#c5f135] text-[#1a2110] align-middle">GROWTH+</span>}
+                      {!isPro && <span className="ml-2 text-[9px] font-black px-1.5 py-0.5 rounded-full bg-[#c5f135] text-[#1a2110] align-middle">PRO</span>}
                     </SectionTitle>
                     {!newsletterOpen && (
                       <Button onClick={() => { setNewsletterOpen(true); setNewsletterError(""); setNewsletterResult(null) }}>Compose</Button>
@@ -2119,21 +2069,21 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                   {!newsletterOpen && (
                     <p className="text-sm text-white">Email all {selectedClub?.follower_count ?? 0} follower{selectedClub?.follower_count === 1 ? "" : "s"}</p>
                   )}
-                  {newsletterOpen && !isGrowth && !isEnterprise && (
+                  {newsletterOpen && !isPro && (
                     <div className="space-y-3">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center shrink-0">
                           <Lock className="w-4 h-4 text-white/80" />
                         </div>
                         <div>
-                          <p className="text-sm font-bold text-white">Newsletters require Growth or above</p>
-                          <p className="text-xs text-white/80 mt-0.5">Upgrade to Growth to email your followers directly.</p>
+                          <p className="text-sm font-bold text-white">Newsletters require Pro</p>
+                          <p className="text-xs text-white/80 mt-0.5">Upgrade to Pro to email your followers directly.</p>
                         </div>
                       </div>
-                      {!nativeApp && <Button onClick={() => startCheckout("growth")} disabled={upgrading}>{upgrading ? "Loading…" : "Upgrade to Growth"}</Button>}
+                      {!nativeApp && <Button onClick={() => startCheckout("pro")} disabled={upgrading}>{upgrading ? "Loading…" : "Upgrade to Pro"}</Button>}
                     </div>
                   )}
-                  {newsletterOpen && (isGrowth || isEnterprise) && (
+                  {newsletterOpen && isPro && (
                     <div className="space-y-3">
                       {newsletterResult ? (
                         <div className="flex items-center gap-3 py-2">
@@ -2202,21 +2152,21 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                   <div className="flex items-center justify-between mb-3">
                     <SectionTitle>
                       Send Training Schedule
-                      {!isGrowth && !isEnterprise && <span className="ml-2 text-[9px] font-black px-1.5 py-0.5 rounded-full bg-[#c5f135] text-[#1a2110] align-middle">GROWTH+</span>}
+                      {!isPro && <span className="ml-2 text-[9px] font-black px-1.5 py-0.5 rounded-full bg-[#c5f135] text-[#1a2110] align-middle">PRO</span>}
                     </SectionTitle>
                   </div>
-                  {!isGrowth && !isEnterprise ? (
+                  {!isPro ? (
                     <div className="space-y-3">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center shrink-0">
                           <Lock className="w-4 h-4 text-white/80" />
                         </div>
                         <div>
-                          <p className="text-sm font-bold text-white">Training schedule emails require Growth or above</p>
+                          <p className="text-sm font-bold text-white">Training schedule emails require Pro</p>
                           <p className="text-xs text-white/80 mt-0.5">Upgrade to email your klub's weekly training schedule to active members.</p>
                         </div>
                       </div>
-                      {!nativeApp && <Button onClick={() => startCheckout("growth")} disabled={upgrading}>{upgrading ? "Loading…" : "Upgrade to Growth"}</Button>}
+                      {!nativeApp && <Button onClick={() => startCheckout("pro")} disabled={upgrading}>{upgrading ? "Loading…" : "Upgrade to Pro"}</Button>}
                     </div>
                   ) : scheduleResult ? (
                     <div className="flex items-center gap-3 py-1">
@@ -2307,7 +2257,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
 
           {/* ── SETUP ── */}
           {tab === "setup" && runPanel === null && (
-            isGrowth || isEnterprise ? (
+            isPro ? (
               <div className="space-y-8">
                 <div>
                   <h2 className="text-xs font-bold text-white/30 uppercase tracking-widest mb-4">Branches & Locations</h2>
@@ -2321,9 +2271,8 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
             ) : (
               <div className="space-y-4">
                 <p className="text-sm font-bold text-white/80 uppercase tracking-widest">Setup</p>
-                <p className="text-sm text-white/80">Unlock branches, locations, and pace groups with Growth or above.</p>
-                {makeUpgradeCard("growth", true)}
-                {makeUpgradeCard("enterprise", false)}
+                <p className="text-sm text-white/80">Unlock branches, locations, and pace groups with Pro.</p>
+                {makeUpgradeCard(true)}
               </div>
             )
           )}
@@ -2354,7 +2303,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
               <Card>
                 <SectionTitle>Membership</SectionTitle>
                 {(() => {
-                  const canGoPrivate = isPaid || selectedClub.passport_program_enrolled || selectedClub.membership_type !== "free"
+                  const canGoPrivate = PLANS[(tier as PlanId) ?? "free"].clubMembershipPaymentsAllowed || selectedClub.passport_program_enrolled || selectedClub.membership_type !== "free"
                   return (
                     <>
                       <button onClick={toggleClubPrivacy} disabled={!canGoPrivate}
@@ -2586,11 +2535,39 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                     ? billingStatusLabel(selectedClub.tier_expires_at, selectedClub.cancel_at_period_end)
                     : null}
                 </p>
+
+                {/* Free vs Pro comparison */}
+                <div className="mb-4 rounded-xl border border-[#2e3d1a] overflow-hidden">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="bg-[#141f0d]">
+                        <th className="text-left font-bold text-white/30 uppercase tracking-widest px-3 py-2">Feature</th>
+                        <th className={`text-right font-bold px-3 py-2 ${isFree ? "text-white" : "text-white/30"}`}>Free</th>
+                        <th className={`text-right font-bold px-3 py-2 ${isPro ? "text-[#c5f135]" : "text-white/30"}`}>Pro</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#2e3d1a]">
+                      {[
+                        ["Coach seats", PLANS.free.coachLimit ?? "Unlimited", PLANS.pro.coachLimit ?? "Unlimited"],
+                        ["Branches & locations", PLANS.free.regionLimit === 0 ? "None" : PLANS.free.regionLimit, PLANS.pro.regionLimit == null ? "Unlimited" : PLANS.pro.regionLimit],
+                        ["Newsletters & training emails", PLANS.free.emailCadence === "none" ? "—" : PLANS.free.emailCadence, "Daily"],
+                        ["Event ticket fee", `Stripe fee + ${PLANS.free.paymentFeeSurchargePct}%`, `Stripe fee + ${PLANS.pro.paymentFeeSurchargePct}%`],
+                        ["Search placement", "Standard", "First in city"],
+                      ].map(([label, freeVal, proVal]) => (
+                        <tr key={label as string}>
+                          <td className="px-3 py-2 text-white/70">{label}</td>
+                          <td className={`px-3 py-2 text-right ${isFree ? "text-white font-semibold" : "text-white/40"}`}>{freeVal}</td>
+                          <td className={`px-3 py-2 text-right ${isPro ? "text-[#c5f135] font-semibold" : "text-white/40"}`}>{proVal}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
                 {!nativeApp ? (
                   <>
-                    {!isEnterprise && (() => {
-                      const nextTier = isGrowth ? "enterprise" : isStarter ? "growth" : "starter"
-                      const nextPlan = PLANS[nextTier]
+                    {isFree && (() => {
+                      const nextPlan = PLANS.pro
                       const price = billingInterval === "monthly" ? nextPlan.price?.monthly : nextPlan.price?.yearly
                       return (
                         <div className="flex items-center gap-3 mb-3">
@@ -2616,9 +2593,9 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
                       )
                     })()}
                     <div className="flex gap-2 flex-wrap">
-                      {!isEnterprise && (
-                        <Button onClick={() => startCheckout(isGrowth ? "enterprise" : isStarter ? "growth" : "starter", billingInterval)} disabled={upgrading}>
-                          {upgrading ? "Loading…" : isGrowth ? "Upgrade to Enterprise" : isStarter ? "Upgrade to Growth" : "Upgrade to Starter"}
+                      {isFree && (
+                        <Button onClick={() => startCheckout("pro", billingInterval)} disabled={upgrading}>
+                          {upgrading ? "Loading…" : "Upgrade to Pro"}
                         </Button>
                       )}
                       <Link href="/profile">

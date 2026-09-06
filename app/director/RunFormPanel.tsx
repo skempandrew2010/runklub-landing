@@ -459,7 +459,7 @@ export default function RunFormPanel({
 
         {/* Location */}
         {manageMode === "runklub" && (() => {
-          const branchesEnabled = tier === "growth" || tier === "enterprise"
+          const branchesEnabled = tier === "pro"
           const selectedLoc = locations.find((l) => l.id === selectedLocationId)
           const selectedRegion = selectedLoc ? regions.find((r) => r.id === selectedLoc.region_id) : null
           return (
@@ -467,7 +467,7 @@ export default function RunFormPanel({
               <div>
                 <p className="text-xs font-semibold text-white/50 mb-0.5">Meeting Location</p>
                 <p className="text-[11px] text-white/25">
-                  {!branchesEnabled ? "Available on Growth and above" : "Used to pin this run on the discover map"}
+                  {!branchesEnabled ? "Available on Pro" : "Used to pin this run on the discover map"}
                 </p>
               </div>
               <AddressAutocomplete

@@ -72,7 +72,6 @@ export default function ProfilePage() {
   const [isCoach, setIsCoach] = useState(false)
   const { viewMode, setViewMode } = useViewMode(isManager || isCoach)
   const [subscribingClubId, setSubscribingClubId] = useState<string | null>(null)
-  const [upgradePickerClubId, setUpgradePickerClubId] = useState<string | null>(null)
   const [managingMembershipId, setManagingMembershipId] = useState<string | null>(null)
   const [subscribingPassportTier, setSubscribingPassportTier] = useState<number | null>(null)
   const [openingPassportPortal, setOpeningPassportPortal] = useState(false)
@@ -168,7 +167,7 @@ export default function ProfilePage() {
     setEditing(false)
   }
 
-  const startCheckout = async (clubId: string, tier: "starter" | "growth" | "enterprise") => {
+  const startCheckout = async (clubId: string, tier: "pro") => {
     setSubscribingClubId(clubId)
     try {
       const { data: { session } } = await supabase.auth.getSession()
@@ -663,11 +662,11 @@ export default function ProfilePage() {
               {myClubs.map((club) => {
                 const tier = ((club as any).tier as string) || "free"
                 const isFree = tier === "free"
-                const isPremium = tier === "growth" || tier === "enterprise"
+                const isPro = tier === "pro"
                 return (
                   <div key={club.id}>
                     <div className="flex items-center gap-3 px-4 py-3.5">
-                      {isPremium
+                      {isPro
                         ? <Zap className="w-4 h-4 text-[#c5f135] shrink-0" />
                         : <ShieldCheck className="w-4 h-4 text-white/30 shrink-0" />
                       }
@@ -683,37 +682,19 @@ export default function ProfilePage() {
                       {isFree ? (
                         !nativeApp && (
                           <button
-                            onClick={() => setUpgradePickerClubId(upgradePickerClubId === club.id ? null : club.id)}
+                            onClick={() => startCheckout(club.id, "pro")}
                             disabled={subscribingClubId === club.id}
                             className="text-xs font-black px-3 py-1.5 rounded-full shrink-0 bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45] transition disabled:opacity-50"
                           >
-                            {subscribingClubId === club.id ? "Loading…" : "Upgrade"}
+                            {subscribingClubId === club.id ? "Loading…" : `Upgrade to Pro · $${PLANS.pro.price!.monthly}/mo`}
                           </button>
                         )
                       ) : (
-                        <span className={`text-xs font-black px-2.5 py-1 rounded-full shrink-0
-                          ${isPremium
-                            ? "bg-[#c5f135] text-[#1a2110]"
-                            : "bg-[#c5f135]/15 text-[#c5f135] border border-[#c5f135]/30"
-                          }`}>
+                        <span className="text-xs font-black px-2.5 py-1 rounded-full shrink-0 bg-[#c5f135] text-[#1a2110]">
                           {tier.toUpperCase()}
                         </span>
                       )}
                     </div>
-                    {isFree && !nativeApp && upgradePickerClubId === club.id && (
-                      <div className="flex gap-2 flex-wrap px-4 pb-3.5">
-                        {(["starter", "growth", "enterprise"] as const).map((t) => (
-                          <button
-                            key={t}
-                            onClick={() => startCheckout(club.id, t)}
-                            disabled={subscribingClubId === club.id}
-                            className="text-xs font-bold px-3 py-1.5 rounded-full shrink-0 bg-[#1a2110] text-white border border-[#2e3d1a] hover:border-[#c5f135]/40 transition disabled:opacity-50"
-                          >
-                            {subscribingClubId === club.id ? "…" : `${PLANS[t].name} · $${PLANS[t].price!.monthly}/mo`}
-                          </button>
-                        ))}
-                      </div>
-                    )}
                   </div>
                 )
               })}

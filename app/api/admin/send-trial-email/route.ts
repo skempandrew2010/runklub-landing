@@ -43,7 +43,7 @@ function buildTrialEmail(directorName: string, clubName: string, trialEndsAt: st
       Hey ${safe(directorName)},
     </p>
     <p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:rgba(255,255,255,0.7);">
-      We've unlocked the full <strong style="color:#fff;">Enterprise plan</strong> for your klub until <strong style="color:#c5f135;">${expiry}</strong>. No credit card. No strings. We just want to know what works and what doesn't before we charge anyone a dime.
+      We've unlocked the full <strong style="color:#fff;">Pro plan</strong> for your klub until <strong style="color:#c5f135;">${expiry}</strong>. No credit card. No strings. We just want to know what works and what doesn't before we charge anyone a dime.
     </p>
 
     <table width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0;background:#0e150a;border:1px solid #2e3d1a;border-radius:12px;padding:20px;">

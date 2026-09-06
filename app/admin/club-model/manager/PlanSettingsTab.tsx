@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { Check } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { setTestTier } from "@/lib/clubModel/api"
-import { PLANS, PLAN_ORDER, LIFETIME_VERIFICATION_PRICE, type PlanId, type BillingInterval } from "@/lib/plans"
+import { PLANS, PLAN_ORDER, type PlanId, type BillingInterval } from "@/lib/plans"
 import { Card, SectionTitle, Button } from "./ui"
 
 function yearlySavingsPct(monthly: number, yearly: number) {
@@ -70,11 +70,11 @@ export default function PlanSettingsTab({ clubId }: { clubId: string }) {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {PLAN_ORDER.map((id) => {
             const plan = PLANS[id]
             const isCurrent = tier === id
-            const highlighted = id === "growth"
+            const highlighted = id === "pro"
             const savingsPct = plan.price ? yearlySavingsPct(plan.price.monthly, plan.price.yearly) : null
 
             return (
@@ -136,11 +136,6 @@ export default function PlanSettingsTab({ clubId }: { clubId: string }) {
           })}
         </div>
 
-        <p className="text-center text-xs text-white/35 mt-6 max-w-lg mx-auto leading-relaxed">
-          Every plan can also purchase a lifetime verification badge for a one-time ${LIFETIME_VERIFICATION_PRICE} fee,
-          which stays even if you later cancel a paid plan. Verified badges included with a paid plan last only as
-          long as the subscription stays active.
-        </p>
       </Card>
     </div>
   )

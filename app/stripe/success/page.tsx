@@ -6,35 +6,16 @@ import { ShieldCheck, Zap, ArrowRight } from "lucide-react"
 import { PLANS, type PlanId } from "@/lib/plans"
 
 const TIER_CONTENT: Record<string, { icon: "zap" | "shield"; features: string[] }> = {
-  starter: {
-    icon: "shield",
-    features: [
-      "Verified badge on your klub profile",
-      "Weekly email reminder of the week's runs",
-      "One-tap Instagram post from a ready-made template",
-      "Optionally charge members to join your klub",
-      "Access to race benefits & sponsor perks",
-    ],
-  },
-  growth: {
+  pro: {
     icon: "zap",
     features: [
-      "Everything in Starter",
-      "One branch with unlimited locations",
-      "Klub update emails 3× a week",
-      "Up to 10 coaches",
-      "Priority verified placement in search",
-      "Free sponsor banners",
-    ],
-  },
-  enterprise: {
-    icon: "zap",
-    features: [
-      "Everything in Growth",
-      "Unlimited branches",
-      "Daily email updates for members",
+      "Build a weekly training schedule your whole klub follows",
+      "Unlimited branches and locations",
       "Unlimited coaches",
+      "20,000 newsletter & training-schedule emails included per month",
+      "One-tap Instagram post from a ready-made template",
       "First klub shown in city search",
+      "Free sponsor banners",
       "Priority in the sponsor & race network",
     ],
   },

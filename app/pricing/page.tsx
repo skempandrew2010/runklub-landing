@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { Check } from "lucide-react"
-import { PLANS, PLAN_ORDER, LIFETIME_VERIFICATION_PRICE, CUSTOM_PRICING_MESSAGE, type BillingInterval } from "@/lib/plans"
+import { PLANS, PLAN_ORDER, type BillingInterval } from "@/lib/plans"
 
 function yearlySavingsPct(monthly: number, yearly: number) {
   const fullYear = monthly * 12
@@ -46,10 +46,10 @@ export default function PricingPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           {PLAN_ORDER.map((id) => {
             const plan = PLANS[id]
-            const highlighted = id === "growth"
+            const highlighted = id === "pro"
             const savingsPct = plan.price ? yearlySavingsPct(plan.price.monthly, plan.price.yearly) : null
 
             return (
@@ -112,12 +112,7 @@ export default function PricingPage() {
         </div>
 
         <p className="text-center text-xs text-white/35 mt-10 max-w-lg mx-auto leading-relaxed">
-          Every plan can also purchase a lifetime verification badge for a one-time ${LIFETIME_VERIFICATION_PRICE} fee,
-          which stays even if you later cancel a paid plan. Verified badges included with a paid plan last only as
-          long as the subscription stays active.
-        </p>
-        <p className="text-center text-xs text-white/35 mt-2 max-w-lg mx-auto leading-relaxed">
-          Followers are always unlimited on every plan. {CUSTOM_PRICING_MESSAGE}
+          Followers and paid members are always unlimited on every plan.
         </p>
       </div>
     </div>

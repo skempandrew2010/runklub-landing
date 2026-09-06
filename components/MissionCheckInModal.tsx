@@ -4,8 +4,7 @@ import { useEffect, useState } from "react"
 import { X, Sparkles } from "lucide-react"
 import { getChallengesWithProgress, type ChallengeWithProgress } from "@/lib/challenges"
 import { CHALLENGE_ICONS } from "@/components/ChallengeCard"
-import { resolveCheckinTarget, getCurrentPosition, isWithinRadius, isWithinCheckinWindow, CHECKIN_WINDOW_ERROR_MESSAGE } from "@/lib/checkinGeofence"
-import { isVerifiedClub } from "@/utils/clubTier"
+import { resolveCheckinTarget, getCurrentPosition, isWithinCheckinWindow, CHECKIN_WINDOW_ERROR_MESSAGE } from "@/lib/checkinGeofence"
 import CheckInProximityMap from "@/components/CheckInProximityMap"
 import type { CheckInResult } from "@/lib/server/checkin"
 import ModalPortal from "@/components/ModalPortal"
@@ -81,30 +80,7 @@ export default function MissionCheckInModal({
       return
     }
 
-    if (isVerifiedClub(club.tier)) {
-      if (!target) {
-        setError("This run hasn't set a location yet, so check-in isn't available.")
-        return
-      }
-      setCheckingIn(true)
-      try {
-        const pos = await getCurrentPosition()
-        setPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude })
-        setPositionError(null)
-        if (!isWithinRadius(pos, target)) {
-          setError("You need to be at the run to check in.")
-          setCheckingIn(false)
-          return
-        }
-      } catch {
-        setPositionError("Enable location to see how close you are")
-        setError("Enable location access to check in.")
-        setCheckingIn(false)
-        return
-      }
-    } else {
-      setCheckingIn(true)
-    }
+    setCheckingIn(true)
 
     const res = await fetch("/api/checkin", {
       method: "POST",

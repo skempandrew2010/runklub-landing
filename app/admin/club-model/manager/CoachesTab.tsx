@@ -25,7 +25,7 @@ export default function CoachesTab({ clubId }: { clubId: string }) {
     setCoaches(data.coaches.slice().sort((a, b) => a.name.localeCompare(b.name)))
     setLocations(data.locations.slice().sort((a, b) => a.name.localeCompare(b.name)))
     setAssignments(data.location_coaches)
-    setTier(club?.tier === "starter" || club?.tier === "growth" || club?.tier === "enterprise" ? club.tier : null)
+    setTier(club?.tier === "pro" ? club.tier : null)
     setLoading(false)
   }
 

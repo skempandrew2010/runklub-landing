@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
     const isManagerTester = user.id === TEST_MANAGER_USER_ID
     if (!isAdmin && !isManagerTester) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     if (!isAdmin && !(await getClubModelTier(admin))) {
-      return NextResponse.json({ error: "This klub needs a Starter, Pro, or Premium plan" }, { status: 403 })
+      return NextResponse.json({ error: "This klub needs a Pro plan" }, { status: 403 })
     }
 
     const { email, name } = await req.json()

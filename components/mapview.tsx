@@ -5,9 +5,7 @@ import { useRouter } from "next/navigation"
 import Map, { Marker, Popup, NavigationControl, Source, Layer } from "react-map-gl/mapbox"
 import "mapbox-gl/dist/mapbox-gl.css"
 import mapboxSdk from "@mapbox/mapbox-sdk/services/geocoding"
-import { isVerifiedClub } from "@/utils/clubTier"
 import { formatRunTime } from "@/lib/timezone"
-import VerifiedBadge from "@/components/VerifiedBadge"
 
 
 export type RunPin = {
@@ -510,9 +508,8 @@ export default function MapView({ city, runs, clubs, onCityCoords, onBoundsChang
                 )}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ margin: 0, color: "#fff", fontWeight: 800, fontSize: 13, lineHeight: 1.2, display: "flex", alignItems: "center", gap: 4, overflow: "hidden" }}>
-                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selectedClubPin.name}</span>
-                  {isVerifiedClub(selectedClubPin.tier) && <VerifiedBadge compact />}
+                <p style={{ margin: 0, color: "#fff", fontWeight: 800, fontSize: 13, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {selectedClubPin.name}
                 </p>
                 <p style={{ margin: "3px 0 0", color: "rgba(255,255,255,0.35)", fontSize: 10 }}>
                   No upcoming runs scheduled
