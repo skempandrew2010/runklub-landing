@@ -78,7 +78,11 @@ export async function POST(req: NextRequest) {
       ui_mode: "embedded_page",
       line_items: [{ price: priceId, quantity: 1 }],
       metadata: { passportProgram: "true", tier: String(tier), interval: billingInterval, userId: user.id },
-      subscription_data: { metadata: { passportProgram: "true", tier: String(tier), interval: billingInterval, userId: user.id } },
+      subscription_data: {
+        metadata: { passportProgram: "true", tier: String(tier), interval: billingInterval, userId: user.id },
+        // 14-day trial on Tier 1 ($15/mo) only - not Tier 2 or Tier 3.
+        ...(tier === 1 ? { trial_period_days: 14 } : {}),
+      },
       return_url: `${appUrl}/profile?passport_subscribed=1`,
       allow_promotion_codes: true,
     })

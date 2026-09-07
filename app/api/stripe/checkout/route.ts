@@ -121,7 +121,10 @@ export async function POST(req: NextRequest) {
       metadata: { clubId, tier, interval: billingInterval, userId: user.id },
       // metadata on the subscription so renewals (customer.subscription.updated)
       // can read the tier without re-querying the original session
-      subscription_data: { metadata: { clubId, tier, interval: billingInterval, userId: user.id } },
+      subscription_data: {
+        metadata: { clubId, tier, interval: billingInterval, userId: user.id },
+        trial_period_days: 14,
+      },
       return_url: `${appUrl}/stripe/success?club_id=${clubId}&tier=${tier}`,
       allow_promotion_codes: true,
     })
