@@ -207,7 +207,7 @@ export default function ProfilePage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ returnPath: "/profile" }),
+        body: JSON.stringify({ returnPath: "/profile", context: "pro" }),
       })
 
       const data = await res.json()
@@ -281,7 +281,7 @@ export default function ProfilePage() {
       const res = await fetch("/api/stripe/portal", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ returnPath: "/profile" }),
+        body: JSON.stringify({ returnPath: "/profile", context: "passport" }),
       })
 
       const data = await res.json()

@@ -13,15 +13,16 @@ function getSupabaseAdmin() {
 
 export async function POST(req: NextRequest) {
   try {
-    const { returnPath } = await req.json()
+    const { returnPath, context } = await req.json()
 
     const token = req.headers.get("authorization")?.replace("Bearer ", "")
     if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-    const { data: { user }, error: authError } = await getSupabaseAdmin().auth.getUser(token)
+    const admin = getSupabaseAdmin()
+    const { data: { user }, error: authError } = await admin.auth.getUser(token)
     if (authError || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-    const { data: profile } = await getSupabaseAdmin()
+    const { data: profile } = await admin
       .from("profiles")
       .select("stripe_customer_id")
       .eq("id", user.id)
@@ -35,10 +36,40 @@ export async function POST(req: NextRequest) {
 
     const allowedReturnPaths = ["/profile", "/dashboard", "/"]
     const safePath = allowedReturnPaths.includes(returnPath) ? returnPath : "/profile"
+    const returnUrl = `${appUrl}${safePath}`
+
+    // Deep-link straight into managing the relevant subscription instead of
+    // Stripe's default portal, which lists every subscription this customer
+    // has (a director's Pro plan and their own Passport plan can be on the
+    // same Stripe customer) - "pro" and "passport" are two separate products
+    // and the caller already knows which one this button is for.
+    let subscriptionId: string | null = null
+    if (context === "pro") {
+      const { data: club } = await admin
+        .from("clubs")
+        .select("stripe_subscription_id")
+        .eq("user_id", user.id)
+        .not("stripe_subscription_id", "is", null)
+        .order("created_at")
+        .limit(1)
+        .maybeSingle()
+      subscriptionId = club?.stripe_subscription_id ?? null
+    } else if (context === "passport") {
+      const { data: sub } = await admin
+        .from("passport_subscriptions")
+        .select("stripe_subscription_id")
+        .eq("user_id", user.id)
+        .eq("status", "active")
+        .maybeSingle()
+      subscriptionId = sub?.stripe_subscription_id ?? null
+    }
 
     const portalSession = await getStripe().billingPortal.sessions.create({
       customer: profile.stripe_customer_id,
-      return_url: `${appUrl}${safePath}`,
+      return_url: returnUrl,
+      ...(subscriptionId
+        ? { flow_data: { type: "subscription_update", subscription_update: { subscription: subscriptionId } } }
+        : {}),
     })
 
     return NextResponse.json({ url: portalSession.url })
