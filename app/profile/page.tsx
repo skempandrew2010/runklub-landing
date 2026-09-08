@@ -5,13 +5,14 @@ import { supabase } from "@/lib/supabase"
 import { Club } from "@/types/club"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Bell, Ruler, Activity, Pencil, Check, X, Trophy, Users, ShieldCheck, Zap, ExternalLink, ChevronRight, Home, ClipboardList } from "lucide-react"
+import { Bell, Ruler, Activity, Pencil, Check, X, Trophy, Users, ShieldCheck, Zap, ExternalLink, ChevronRight, Home, ClipboardList, AlertTriangle } from "lucide-react"
 import { isNativeApp } from "@/utils/platform"
 import { PLANS, PLAN_ORDER } from "@/lib/plans"
 import { getUserTierProgress, type TierProgress } from "@/lib/checkins"
 import { TIER_ICONS } from "@/components/TierCard"
 import { useViewMode } from "@/hooks/useViewMode"
 import StripeCheckoutModal from "@/components/StripeCheckoutModal"
+import ModalPortal from "@/components/ModalPortal"
 
 type Profile = {
   id: string
@@ -77,6 +78,10 @@ export default function ProfilePage() {
   const [openingPassportPortal, setOpeningPassportPortal] = useState(false)
   const [nativeApp, setNativeApp] = useState(false)
   const [leavingClubId, setLeavingClubId] = useState<string | null>(null)
+  const [showDeleteAccount, setShowDeleteAccount] = useState(false)
+  const [deleteConfirmText, setDeleteConfirmText] = useState("")
+  const [deletingAccount, setDeletingAccount] = useState(false)
+  const [deleteAccountError, setDeleteAccountError] = useState("")
   const [tierProgress, setTierProgress] = useState<TierProgress | null>(null)
   const [checkoutClientSecret, setCheckoutClientSecret] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -294,6 +299,32 @@ export default function ProfilePage() {
     } catch {
       alert("Could not open billing portal. Try again.")
       setOpeningPassportPortal(false)
+    }
+  }
+
+  const deleteAccount = async () => {
+    setDeletingAccount(true)
+    setDeleteAccountError("")
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { router.push("/login"); return }
+
+      const res = await fetch("/api/account/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ confirmation: deleteConfirmText }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        await supabase.auth.signOut()
+        router.push("/")
+      } else {
+        setDeleteAccountError(data.error ?? "Could not delete account. Try again.")
+        setDeletingAccount(false)
+      }
+    } catch {
+      setDeleteAccountError("Could not delete account. Try again.")
+      setDeletingAccount(false)
     }
   }
 
@@ -937,6 +968,18 @@ export default function ProfilePage() {
           </button>
         </div>
 
+        {/* DANGER ZONE */}
+        <div className="border border-red-500/20 rounded-2xl p-5 bg-red-500/5">
+          <p className="text-xs font-bold text-red-400/70 uppercase tracking-widest mb-3">Danger Zone</p>
+          <p className="text-xs text-white/80 mb-4">Deleting your account is permanent and cannot be undone. All your data will be lost.</p>
+          <button
+            onClick={() => { setShowDeleteAccount(true); setDeleteConfirmText(""); setDeleteAccountError("") }}
+            className="px-4 py-2 rounded-xl text-xs font-black transition bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20"
+          >
+            Delete Account
+          </button>
+        </div>
+
         <div className="h-8" />
       </div>
 
@@ -945,6 +988,58 @@ export default function ProfilePage() {
           clientSecret={checkoutClientSecret}
           onClose={() => setCheckoutClientSecret(null)}
         />
+      )}
+
+      {showDeleteAccount && (
+        <ModalPortal>
+          <div
+            className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50"
+            onClick={() => !deletingAccount && setShowDeleteAccount(false)}
+          >
+            <div
+              className="bg-[#1e2d12] border border-red-500/30 rounded-2xl p-6 w-full max-w-sm space-y-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-red-400 shrink-0" />
+                <h2 className="text-lg font-black text-white">Delete Account</h2>
+              </div>
+              <p className="text-sm text-white/70 leading-relaxed">
+                This permanently deletes your account and all your data - runs, follows, check-ins, badges, and any active Passport subscription will be canceled. This cannot be undone.
+              </p>
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wide text-white/40">
+                  Type DELETE to confirm
+                </label>
+                <input
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  disabled={deletingAccount}
+                  className="w-full mt-1 bg-[#1a2110] border border-[#2e3d1a] rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-red-400/50 transition disabled:opacity-50"
+                />
+              </div>
+              {deleteAccountError && (
+                <p className="text-xs text-red-400 leading-relaxed">{deleteAccountError}</p>
+              )}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={deleteAccount}
+                  disabled={deleteConfirmText !== "DELETE" || deletingAccount}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-black transition disabled:opacity-40 bg-red-500 text-white hover:bg-red-600"
+                >
+                  {deletingAccount ? "Deleting..." : "Delete My Account"}
+                </button>
+                <button
+                  onClick={() => setShowDeleteAccount(false)}
+                  disabled={deletingAccount}
+                  className="px-4 py-2.5 rounded-xl text-sm font-black transition disabled:opacity-40 bg-[#1a2110] border border-[#2e3d1a] text-white/60 hover:text-white"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </ModalPortal>
       )}
     </div>
   )
