@@ -9,6 +9,7 @@ import { getTagStyle } from "@/utils/tagStyle"
 import { localDateStr } from "@/utils/dates"
 import { formatRunTime } from "@/lib/timezone"
 import { interceptExternalClick } from "@/utils/openExternal"
+import { isNativeApp } from "@/utils/platform"
 import { getClubLeaderboard } from "@/lib/checkins"
 import RunChatPanel from "@/components/RunChatPanel"
 import Leaderboard from "@/components/Leaderboard"
@@ -93,6 +94,9 @@ export default function ClubPageClient({
   const [memberCount, setMemberCount] = useState(initialMemberCount)
   const [subscribing, setSubscribing] = useState(false)
   const [checkout, setCheckout] = useState<{ clientSecret: string; stripeAccount?: string } | null>(null)
+  const [nativeApp, setNativeApp] = useState(false)
+
+  useEffect(() => { setNativeApp(isNativeApp()) }, [])
   const [showClaimForm, setShowClaimForm] = useState(false)
   const [claimInstagram, setClaimInstagram] = useState("")
   const [claimMessage, setClaimMessage] = useState("")
@@ -564,30 +568,41 @@ export default function ClubPageClient({
                   </span>
                 ) : membershipPlans.length > 0 ? (
                   club.stripe_connect_charges_enabled ? (
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {membershipPlans.map((plan) => (
-                        <button
-                          key={plan.id}
-                          onClick={() => startSubscribe(plan.id)}
-                          disabled={subscribing}
-                          className={`px-4 py-2.5 rounded-full text-sm font-black transition disabled:opacity-60 ${
-                            plan === membershipPlans[0]
-                              ? "bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45]"
-                              : "bg-[#1e2d12] border border-[#c5f135]/50 text-[#c5f135] hover:border-[#c5f135]"
-                          }`}
-                        >
-                          {subscribing
-                            ? "…"
-                            : `Join ${plan.name} - $${(plan.price_cents / 100).toFixed(2)}${
-                                plan.billing_interval === "yearly"
-                                  ? "/yr"
-                                  : plan.billing_interval === "seasonal" && plan.season_start_date && plan.season_end_date
-                                  ? ` one-time (${new Date(plan.season_start_date + "T00:00:00").toLocaleDateString("en-US", { month: "short" })}–${new Date(plan.season_end_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", year: "numeric" })})`
-                                  : "/mo"
-                              }`}
-                        </button>
-                      ))}
-                    </div>
+                    nativeApp ? (
+                      <a
+                        href={`https://www.runklub.fit/clubs/${club.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-5 py-2.5 rounded-full text-sm font-black bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45] transition"
+                      >
+                        Join on runklub.fit
+                      </a>
+                    ) : (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {membershipPlans.map((plan) => (
+                          <button
+                            key={plan.id}
+                            onClick={() => startSubscribe(plan.id)}
+                            disabled={subscribing}
+                            className={`px-4 py-2.5 rounded-full text-sm font-black transition disabled:opacity-60 ${
+                              plan === membershipPlans[0]
+                                ? "bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45]"
+                                : "bg-[#1e2d12] border border-[#c5f135]/50 text-[#c5f135] hover:border-[#c5f135]"
+                            }`}
+                          >
+                            {subscribing
+                              ? "…"
+                              : `Join ${plan.name} - $${(plan.price_cents / 100).toFixed(2)}${
+                                  plan.billing_interval === "yearly"
+                                    ? "/yr"
+                                    : plan.billing_interval === "seasonal" && plan.season_start_date && plan.season_end_date
+                                    ? ` one-time (${new Date(plan.season_start_date + "T00:00:00").toLocaleDateString("en-US", { month: "short" })}–${new Date(plan.season_end_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", year: "numeric" })})`
+                                    : "/mo"
+                                }`}
+                          </button>
+                        ))}
+                      </div>
+                    )
                   ) : (
                     <span className="px-5 py-2.5 rounded-full text-sm font-black bg-[#1e2d12] border border-white/20 text-white/50">
                       Membership signups paused
@@ -612,12 +627,23 @@ export default function ClubPageClient({
                 // A paying member can always manage/cancel their billing,
                 // even if the specific plan they joined has since been
                 // archived and no longer shows in the join options above.
-                <button
-                  onClick={handleManageMembership}
-                  className="px-5 py-2.5 rounded-full text-sm font-black bg-[#1e2d12] border border-[#c5f135]/50 text-[#c5f135] hover:border-[#c5f135]/80 transition"
-                >
-                  Member · Manage
-                </button>
+                nativeApp ? (
+                  <a
+                    href={`https://www.runklub.fit/clubs/${club.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-5 py-2.5 rounded-full text-sm font-black bg-[#1e2d12] border border-[#c5f135]/50 text-[#c5f135] hover:border-[#c5f135]/80 transition"
+                  >
+                    Member · Manage on runklub.fit
+                  </a>
+                ) : (
+                  <button
+                    onClick={handleManageMembership}
+                    className="px-5 py-2.5 rounded-full text-sm font-black bg-[#1e2d12] border border-[#c5f135]/50 text-[#c5f135] hover:border-[#c5f135]/80 transition"
+                  >
+                    Member · Manage
+                  </button>
+                )
               )}
             </>
           ) : (

@@ -6,7 +6,7 @@
   --safe-top: env(safe-area-inset-top, 0px);
   --nav-extra: 12px;
   --navbar-h: calc(68px + var(--safe-top) + var(--nav-extra));
-  --tabbar-h: calc(64px + env(safe-area-inset-bottom, 0px));
+  --tabbar-h: calc(78px + env(safe-area-inset-bottom, 0px));
 }
 
 @theme inline {
@@ -25,6 +25,12 @@ body {
 /* iOS safe-area bottom padding for the tab bar */
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Floats the liquid-glass tab bar above the home indicator instead of
+   butting the bar's own padding against it. */
+.mb-safe {
+  margin-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 /* Run popup overrides - dark green theme */

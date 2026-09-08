@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase"
 import FadeIn from "@/components/FadeIn"
 import { hasPassportAccess } from "@/lib/passportConfig"
 import StripeCheckoutModal from "@/components/StripeCheckoutModal"
+import { isNativeApp } from "@/utils/platform"
 
 type PassportTier = { tier: number; name: string; monthly_price_cents: number; yearly_price_cents: number; credits_per_month: number }
 type PassportSub = { tier: number; billing_interval: string; current_period_end: string | null; cancel_at_period_end: boolean }
@@ -38,6 +39,9 @@ export default function PassportCreditsPage() {
   const [buyPacks, setBuyPacks] = useState("1")
   const [buyingCredits, setBuyingCredits] = useState(false)
   const [checkoutClientSecret, setCheckoutClientSecret] = useState<string | null>(null)
+  const [nativeApp, setNativeApp] = useState(false)
+
+  useEffect(() => { setNativeApp(isNativeApp()) }, [])
 
   useEffect(() => {
     const load = async () => {
@@ -182,39 +186,66 @@ export default function PassportCreditsPage() {
                 </p>
               )}
 
-              {creditBalance === 0 && (
-                <div className="w-full pt-4 border-t border-[#2e3d1a]">
-                  <p className="text-xs text-white/50 mb-3">Out of credits for this cycle? Buy more anytime in $6.00 packs of 10 credits - no cap.</p>
-                  <div className="flex items-center justify-center gap-2 flex-wrap">
-                    <input
-                      type="number"
-                      min="1"
-                      value={buyPacks}
-                      onChange={(e) => setBuyPacks(e.target.value)}
-                      className="w-16 bg-[#1a2110] border border-[#2e3d1a] rounded-lg px-2 py-1.5 text-sm text-white text-center focus:outline-none focus:border-[#c5f135]/50"
-                    />
-                    <span className="text-xs text-white/40">
-                      pack{parseInt(buyPacks, 10) === 1 ? "" : "s"} · {(Number.isFinite(parseInt(buyPacks, 10)) ? parseInt(buyPacks, 10) : 0) * 10} credits · ${((Number.isFinite(parseInt(buyPacks, 10)) ? parseInt(buyPacks, 10) : 0) * 6).toFixed(2)}
-                    </span>
-                    <button
-                      onClick={buyExtraCredits}
-                      disabled={buyingCredits}
-                      className="px-4 py-1.5 rounded-full bg-[#c5f135] text-[#1a2110] text-xs font-black hover:bg-[#d4fb4d] transition disabled:opacity-50"
-                    >
-                      {buyingCredits ? "…" : "Buy Credits"}
-                    </button>
-                  </div>
-                </div>
-              )}
+              {nativeApp ? (
+                <p className="text-xs text-white/40 text-center pt-2 border-t border-[#2e3d1a]">
+                  Buy more credits or manage billing at{" "}
+                  <a href="https://www.runklub.fit/passport/credits" target="_blank" rel="noopener noreferrer" className="text-[#c5f135] font-semibold underline">
+                    runklub.fit
+                  </a>{" "}
+                  in your browser.
+                </p>
+              ) : (
+                <>
+                  {creditBalance === 0 && (
+                    <div className="w-full pt-4 border-t border-[#2e3d1a]">
+                      <p className="text-xs text-white/50 mb-3">Out of credits for this cycle? Buy more anytime in $6.00 packs of 10 credits - no cap.</p>
+                      <div className="flex items-center justify-center gap-2 flex-wrap">
+                        <input
+                          type="number"
+                          min="1"
+                          value={buyPacks}
+                          onChange={(e) => setBuyPacks(e.target.value)}
+                          className="w-16 bg-[#1a2110] border border-[#2e3d1a] rounded-lg px-2 py-1.5 text-sm text-white text-center focus:outline-none focus:border-[#c5f135]/50"
+                        />
+                        <span className="text-xs text-white/40">
+                          pack{parseInt(buyPacks, 10) === 1 ? "" : "s"} · {(Number.isFinite(parseInt(buyPacks, 10)) ? parseInt(buyPacks, 10) : 0) * 10} credits · ${((Number.isFinite(parseInt(buyPacks, 10)) ? parseInt(buyPacks, 10) : 0) * 6).toFixed(2)}
+                        </span>
+                        <button
+                          onClick={buyExtraCredits}
+                          disabled={buyingCredits}
+                          className="px-4 py-1.5 rounded-full bg-[#c5f135] text-[#1a2110] text-xs font-black hover:bg-[#d4fb4d] transition disabled:opacity-50"
+                        >
+                          {buyingCredits ? "…" : "Buy Credits"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
-              <button
-                onClick={managePassportBilling}
-                disabled={openingPortal}
-                className="text-sm font-bold text-white/40 hover:text-white/70 transition disabled:opacity-40"
-              >
-                {openingPortal ? "…" : "Manage billing"}
-              </button>
+                  <button
+                    onClick={managePassportBilling}
+                    disabled={openingPortal}
+                    className="text-sm font-bold text-white/40 hover:text-white/70 transition disabled:opacity-40"
+                  >
+                    {openingPortal ? "…" : "Manage billing"}
+                  </button>
+                </>
+              )}
             </div>
+          </FadeIn>
+        ) : nativeApp ? (
+          <FadeIn className="text-center bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-8">
+            <p className="text-sm font-bold text-white mb-1.5">Subscribe on the web</p>
+            <p className="text-xs text-white/50 mb-4 leading-relaxed">
+              Passport plans are purchased on our website, not in the app - open runklub.fit in your browser to see pricing and subscribe.
+            </p>
+            <a
+              href="https://www.runklub.fit/passport/credits"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block px-6 py-3 rounded-full bg-[#c5f135] text-[#1a2110] text-sm font-black hover:bg-[#d4fb4d] transition"
+            >
+              Continue on runklub.fit
+            </a>
           </FadeIn>
         ) : (
           <>

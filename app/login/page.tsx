@@ -4,8 +4,14 @@ import { useState, useEffect } from "react"
 import { supabase } from "@/lib/supabase"
 import { useRouter } from "next/navigation"
 import { Eye, EyeOff, ArrowRight } from "lucide-react"
+import { isNativeApp } from "@/utils/platform"
 
 type Mode = "splash" | "landing" | "login" | "signup" | "forgot"
+
+// Custom scheme registered in ios/App/App/Info.plist (CFBundleURLTypes) and
+// in Supabase's Auth > URL Configuration allowed redirect list - OAuthDeepLinkListener
+// listens for the app being reopened on this URL to finish native sign-in.
+const NATIVE_OAUTH_REDIRECT = "fit.runklub.app://auth-callback"
 
 function GoogleIcon() {
   return (
@@ -14,6 +20,14 @@ function GoogleIcon() {
       <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.81.54-1.85.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.96v2.33A9 9 0 0 0 9 18Z" />
       <path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.17.28-1.7V4.97H.96A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.03l2.99-2.33Z" />
       <path fill="#EA4335" d="M9 3.58c1.32 0 2.51.46 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .96 4.97l2.99 2.33C4.66 5.17 6.65 3.58 9 3.58Z" />
+    </svg>
+  )
+}
+
+function AppleIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 17 20" fill="currentColor" aria-hidden="true">
+      <path d="M13.94 10.6c-.02-2.16 1.77-3.2 1.85-3.25-1.01-1.48-2.58-1.68-3.14-1.7-1.34-.14-2.6.79-3.28.79-.68 0-1.72-.77-2.83-.75-1.46.02-2.8.85-3.55 2.16-1.51 2.62-.39 6.51 1.09 8.64.72 1.04 1.58 2.21 2.71 2.17 1.09-.04 1.5-.7 2.82-.7 1.31 0 1.68.7 2.83.68 1.17-.02 1.91-1.06 2.62-2.11.83-1.21 1.17-2.38 1.19-2.44-.03-.01-2.28-.87-2.3-3.49ZM11.78 3.9c.6-.72.99-1.72.88-2.72-.85.03-1.89.57-2.5 1.28-.55.63-1.03 1.65-.9 2.62.95.07 1.92-.48 2.52-1.18Z" />
     </svg>
   )
 }
@@ -115,10 +129,29 @@ export default function LoginPage() {
     router.push("/onboarding")
   }
 
-  const handleGoogleAuth = async () => {
+  // Google and Apple both refuse to authenticate inside an embedded WKWebView,
+  // so native sign-in opens the OAuth flow in an in-app Safari sheet instead
+  // of a plain redirect (which is also why it used to boot people out to the
+  // system Safari app entirely - that was Google/Apple's own webview
+  // rejection kicking in, not something the app was doing on purpose).
+  // OAuthDeepLinkListener (mounted in ShellWrapper) picks up the redirect
+  // back into the app and finishes the sign-in.
+  const handleOAuth = async (provider: "google" | "apple") => {
     setError("")
+    if (isNativeApp()) {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: { redirectTo: NATIVE_OAUTH_REDIRECT, skipBrowserRedirect: true },
+      })
+      if (error) { setError(error.message); return }
+      if (data?.url) {
+        const { Browser } = await import("@capacitor/browser")
+        await Browser.open({ url: data.url })
+      }
+      return
+    }
     const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
+      provider,
       options: { redirectTo: `${window.location.origin}/auth/callback` },
     })
     if (error) setError(error.message)
@@ -202,9 +235,13 @@ export default function LoginPage() {
                 <span className="text-white/25 text-xs">or</span>
                 <div className="flex-1 h-px bg-white/10" />
               </div>
-              <button onClick={handleGoogleAuth} className="w-full flex items-center justify-center gap-2 border border-white/15 rounded-2xl py-3.5 text-white/80 text-sm font-semibold hover:bg-white/5 transition">
+              <button onClick={() => handleOAuth("google")} className="w-full flex items-center justify-center gap-2 border border-white/15 rounded-2xl py-3.5 text-white/80 text-sm font-semibold hover:bg-white/5 transition">
                 <GoogleIcon />
                 Continue with Google
+              </button>
+              <button onClick={() => handleOAuth("apple")} className="w-full flex items-center justify-center gap-2 border border-white/15 rounded-2xl py-3.5 text-white/80 text-sm font-semibold hover:bg-white/5 transition">
+                <AppleIcon />
+                Continue with Apple
               </button>
             </div>
           )}
@@ -266,9 +303,13 @@ export default function LoginPage() {
                 <span className="text-white/25 text-xs">or</span>
                 <div className="flex-1 h-px bg-white/10" />
               </div>
-              <button onClick={handleGoogleAuth} className="w-full flex items-center justify-center gap-2 border border-white/15 rounded-2xl py-3.5 text-white/80 text-sm font-semibold hover:bg-white/5 transition">
+              <button onClick={() => handleOAuth("google")} className="w-full flex items-center justify-center gap-2 border border-white/15 rounded-2xl py-3.5 text-white/80 text-sm font-semibold hover:bg-white/5 transition">
                 <GoogleIcon />
                 Continue with Google
+              </button>
+              <button onClick={() => handleOAuth("apple")} className="w-full flex items-center justify-center gap-2 border border-white/15 rounded-2xl py-3.5 text-white/80 text-sm font-semibold hover:bg-white/5 transition">
+                <AppleIcon />
+                Continue with Apple
               </button>
 
               <button onClick={() => { setMode("landing"); setError("") }} className="w-full text-white/40 text-sm py-2 hover:text-white/70 transition">
