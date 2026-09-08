@@ -8,6 +8,7 @@ import { PLANS, PLAN_ORDER, type PlanId, type BillingInterval } from "@/lib/plan
 import FadeIn from "@/components/FadeIn"
 import { Select } from "@/components/Select"
 import StripeCheckoutModal from "@/components/StripeCheckoutModal"
+import { isNativeApp } from "@/utils/platform"
 
 type ClubOption = { id: string; name: string; tier: PlanId | null; tier_expires_at: string | null; cancel_at_period_end: boolean }
 
@@ -34,6 +35,9 @@ export default function DirectorPlansPage() {
   const [billingInterval, setBillingInterval] = useState<BillingInterval>("monthly")
   const [upgrading, setUpgrading] = useState(false)
   const [checkoutClientSecret, setCheckoutClientSecret] = useState<string | null>(null)
+  const [nativeApp, setNativeApp] = useState(false)
+
+  useEffect(() => { setNativeApp(isNativeApp()) }, [])
 
   useEffect(() => {
     const load = async () => {
@@ -167,6 +171,15 @@ export default function DirectorPlansPage() {
                     <div className="text-center py-3 rounded-xl border border-[#2e3d1a] text-white/30 text-sm font-bold">
                       Included with every klub
                     </div>
+                  ) : canUpgradeTo && nativeApp ? (
+                    <a
+                      href="https://www.runklub.fit/director/plans"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-center py-3 rounded-xl bg-[#c5f135] text-[#1a2110] text-sm font-black hover:bg-[#d4ff45] transition"
+                    >
+                      Upgrade on runklub.fit
+                    </a>
                   ) : canUpgradeTo ? (
                     <button
                       onClick={() => startCheckout(id as "pro")}

@@ -64,26 +64,36 @@ export default function BottomBar() {
     return pathname.startsWith(href)
   }
 
+  const activeIndex = tabs.findIndex((t) => isActive(t.href))
+
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-[#1a2110] border-t border-[#2e3d1a] pb-safe">
-      <div className="flex items-stretch h-16">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 px-3 mb-safe pointer-events-none">
+      <div
+        className="relative flex items-stretch h-[60px] mb-2 rounded-[28px] bg-[#1a2110]/55 backdrop-blur-2xl backdrop-saturate-150 border border-white/15 shadow-[0_1px_0_rgba(255,255,255,0.15)_inset,0_8px_30px_rgba(0,0,0,0.4)] pointer-events-auto"
+      >
+        {activeIndex >= 0 && (
+          <div
+            className="absolute inset-y-2 rounded-[20px] bg-[#c5f135]/12 border border-[#c5f135]/25 transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
+            style={{ width: `calc(${100 / tabs.length}% - 8px)`, transform: `translateX(calc(${activeIndex * 100}% + 4px))` }}
+          />
+        )}
         {tabs.map((tab) => {
           const { key, href, label, Icon, badge } = tab
           const sublabel = "sublabel" in tab ? tab.sublabel : undefined
           const active = isActive(href)
-          const triggerClassName = "flex-1 flex flex-col items-center justify-center gap-1 px-1 transition-colors"
+          const triggerClassName = "relative flex-1 flex flex-col items-center justify-center gap-0.5 px-1 transition-colors"
           const content = (
             <>
               <div className="relative">
                 <Icon
-                  className={`w-5 h-5 transition-colors ${active ? "text-[#c5f135]" : "text-white/35"}`}
+                  className={`w-5 h-5 transition-colors ${active ? "text-[#c5f135]" : "text-white/40"}`}
                   strokeWidth={active ? 2.5 : 1.75}
                 />
                 {badge && (
                   <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-[#c5f135] ring-2 ring-[#1a2110]" />
                 )}
               </div>
-              <span className={`text-[10px] font-semibold tracking-wide leading-tight transition-colors ${active ? "text-[#c5f135]" : "text-white/35"}`}>
+              <span className={`text-[10px] font-semibold tracking-wide leading-tight transition-colors ${active ? "text-[#c5f135]" : "text-white/40"}`}>
                 {label}
               </span>
               {sublabel && (

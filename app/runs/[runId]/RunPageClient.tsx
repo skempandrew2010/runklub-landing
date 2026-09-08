@@ -17,6 +17,7 @@ import CheckInProximityMap from "@/components/CheckInProximityMap"
 import { resolveCheckinTarget, getCurrentPosition } from "@/lib/checkinGeofence"
 import WaiverAckModal from "@/components/WaiverAckModal"
 import StripeCheckoutModal from "@/components/StripeCheckoutModal"
+import { isNativeApp } from "@/utils/platform"
 import { needsWaiverAck, acknowledgeWaiver } from "@/lib/waiver"
 import type { CheckInResult } from "@/lib/server/checkin"
 import { type WorkoutSegment, formatWorkoutSegment, parseWorkoutStructure } from "@/lib/workouts"
@@ -113,6 +114,9 @@ export default function RunPageClient({ runId }: { runId: string }) {
   const [passportShortfall, setPassportShortfall] = useState<number | null>(null)
   const [buyingShortfall, setBuyingShortfall] = useState(false)
   const [checkoutClientSecret, setCheckoutClientSecret] = useState<string | null>(null)
+  const [nativeApp, setNativeApp] = useState(false)
+
+  useEffect(() => { setNativeApp(isNativeApp()) }, [])
   // The klub's active "standard session" offer - what a plain run check-in
   // actually redeems now that Passport is offer-based instead of one fixed
   // check-in type.
@@ -551,6 +555,15 @@ export default function RunPageClient({ runId }: { runId: string }) {
                 >
                   Get Passport to attend
                 </Link>
+              ) : passportShortfall != null && nativeApp ? (
+                <a
+                  href="https://www.runklub.fit/passport/credits"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block w-full text-center py-3 rounded-2xl text-sm font-black bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45] transition"
+                >
+                  Buy {passportShortfall} more credit{passportShortfall === 1 ? "" : "s"} on runklub.fit
+                </a>
               ) : passportShortfall != null ? (
                 <button
                   onClick={buyShortfallCredits}
