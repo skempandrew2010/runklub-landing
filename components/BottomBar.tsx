@@ -89,7 +89,13 @@ export default function BottomBar() {
   useEffect(() => {
     const measure = () => {
       const el = activeKey ? tabRefs.current.get(activeKey) : null
-      setPill(el ? { left: el.offsetLeft + 5, width: el.offsetWidth - 10 } : null)
+      // A small inset (not a full match to the tab's own edges) so the pill
+      // reads as a highlight rather than a hard-edged box. Kept tighter than
+      // it looks like it needs to be, since cross-platform text metrics
+      // (iOS vs. this measurement running in a desktop browser) aren't
+      // pixel-identical - too generous a margin here previously meant the
+      // pill fell short of covering a long klub name's sublabel on-device.
+      setPill(el ? { left: el.offsetLeft + 2, width: el.offsetWidth - 4 } : null)
     }
     measure()
     const ro = new ResizeObserver(measure)

@@ -22,6 +22,15 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* Without this, iOS auto-inflates small text (e.g. the bottom bar's 8px
+   sublabel) past its actual CSS size for readability, which throws off any
+   layout math that measures text width in JS - a pill sized to the JS-
+   measured width can end up narrower than what iOS actually renders. */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 /* iOS safe-area bottom padding for the tab bar */
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom, 0px);
