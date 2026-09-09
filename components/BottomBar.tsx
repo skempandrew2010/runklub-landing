@@ -73,7 +73,7 @@ export default function BottomBar() {
       >
         {activeIndex >= 0 && (
           <div
-            className="absolute inset-y-2 rounded-[20px] bg-[#c5f135]/12 border border-[#c5f135]/25 transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
+            className="absolute inset-y-2 rounded-[20px] bg-[#c5f135]/12 border border-[#c5f135]/25 transition-transform duration-400 ease-[cubic-bezier(0.22,1,0.36,1)]"
             style={{ width: `calc(${100 / tabs.length}% - 8px)`, transform: `translateX(calc(${activeIndex * 100}% + 4px))` }}
           />
         )}
