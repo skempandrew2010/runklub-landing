@@ -83,7 +83,7 @@ export default function BottomBar() {
             className="absolute inset-y-0 flex items-start justify-center pointer-events-none transition-transform duration-400 ease-[cubic-bezier(0.22,1,0.36,1)]"
             style={{ width: `${100 / tabs.length}%`, transform: `translateX(${activeIndex * 100}%)` }}
           >
-            <div className="w-[calc(100%-10px)] h-12 mt-[7px] rounded-2xl bg-[#c5f135]/12 border border-[#c5f135]/25" />
+            <div className="w-[calc(100%-10px)] h-12 mt-[7px] rounded-[22px] bg-[#c5f135]/12 border border-[#c5f135]/25" />
           </div>
         )}
         {tabs.map((tab) => {
