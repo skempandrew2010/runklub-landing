@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { supabase } from "@/lib/supabase"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Eye, EyeOff, ArrowRight } from "lucide-react"
@@ -32,7 +32,23 @@ function AppleIcon() {
   )
 }
 
+// useSearchParams() (for the oauth_error redirect below) needs a Suspense
+// boundary or Next.js can't statically prerender this page at build time.
 export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="relative min-h-screen bg-[#111a0a] flex items-center justify-center">
+        <span className="text-4xl font-black tracking-tight">
+          <span className="text-white">Run</span><span className="text-[#c5f135]">Klub</span>
+        </span>
+      </div>
+    }>
+      <LoginPageInner />
+    </Suspense>
+  )
+}
+
+function LoginPageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [mode, setMode] = useState<Mode>("splash")
