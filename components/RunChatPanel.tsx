@@ -154,11 +154,11 @@ export default function RunChatPanel({
   return (
     <ModalPortal>
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4"
       onClick={onClose}
     >
       <div
-        className="w-full sm:max-w-sm sm:max-h-[70vh] bg-[#111a0a] border border-[#2e3d1a] rounded-t-3xl sm:rounded-3xl flex flex-col overflow-hidden animate-[fadeUp_0.25s_ease-out_forwards]"
+        className="w-full max-w-sm max-h-[75vh] bg-[#111a0a] border border-[#2e3d1a] rounded-3xl flex flex-col overflow-hidden animate-[fadeUp_0.25s_ease-out_forwards]"
         onClick={(e) => e.stopPropagation()}
       >
       {/* Header */}
