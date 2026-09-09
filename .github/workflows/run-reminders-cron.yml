@@ -1,0 +1,22 @@
+name: Run Reminders Cron
+
+# Vercel's own Cron feature only allows daily schedules on the Hobby plan,
+# but /api/cron/run-reminders targets a rolling 50-70-minute window before
+# each run - a once-a-day trigger can only ever land inside that window for
+# runs at one specific time of day. GitHub Actions has no such restriction,
+# so this just calls the existing route on a tight cadence instead. The
+# route already dedupes via rsvps.reminder_sent_at, so overlapping/near
+# misses between runs of this workflow are harmless.
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+jobs:
+  trigger-run-reminders:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call run-reminders endpoint
+        run: |
+          curl -sf -X GET "https://www.runklub.fit/api/cron/run-reminders" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"

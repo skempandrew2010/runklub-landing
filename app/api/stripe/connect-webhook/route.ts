@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import Stripe from "stripe"
 import { createClient } from "@supabase/supabase-js"
 import { Resend } from "resend"
+import { notifyUser } from "@/lib/server/notify"
 
 const FROM = process.env.RESEND_FROM_EMAIL ?? "RunKlub <info@runklub.fit>"
 
@@ -33,14 +34,14 @@ async function notifyDirectorOfNewMember(clubId: string, memberUserId: string, p
   const rate = billingInterval === "yearly" ? "/yr" : billingInterval === "seasonal" ? " one-time" : "/mo"
   const priceLine = priceCents ? `They're paying $${(priceCents / 100).toFixed(2)}${rate}${planLabel}.` : ""
 
-  await admin.from("notifications").insert({
-    user_id: club.user_id,
+  await notifyUser(admin, {
+    userId: club.user_id,
     type: "member_subscribed",
     title: `${memberName} just became a paying member of ${club.name}`,
     body: priceCents ? `$${(priceCents / 100).toFixed(2)}${rate}${planLabel}` : null,
     link: "/director?tab=members",
-    club_id: club.id,
-    avatar_url: memberProfile?.avatar_url ?? null,
+    clubId: club.id,
+    avatarUrl: memberProfile?.avatar_url ?? null,
   })
 
   const directorEmail = directorUser?.user?.email

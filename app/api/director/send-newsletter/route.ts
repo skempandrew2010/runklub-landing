@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js"
 import { Resend } from "resend"
 import { NextRequest, NextResponse } from "next/server"
 import { getMonthlyEmailCount, MONTHLY_EMAIL_LIMIT, EMAIL_CAP_ERROR_MESSAGE } from "@/lib/emailUsage"
+import { notifyUsers } from "@/lib/server/notify"
 
 function getAdminSupabase() {
   return createClient(
@@ -225,16 +226,13 @@ export async function POST(req: NextRequest) {
       is_public: !!is_public,
     })
 
-    await adminSupabase.from("notifications").insert(
-      subIds.map((subId) => ({
-        user_id: subId,
-        type: "newsletter" as const,
-        title: `${club.name}: ${subject.trim()}`,
-        body: message.trim().slice(0, 140),
-        link: `/clubs/${club_id}/newsletters`,
-        club_id,
-      }))
-    )
+    await notifyUsers(adminSupabase, subIds, {
+      type: "newsletter",
+      title: `${club.name}: ${subject.trim()}`,
+      body: message.trim().slice(0, 140),
+      link: `/clubs/${club_id}/newsletters`,
+      clubId: club_id,
+    })
 
     return NextResponse.json({ ok: true, sent, failed, total: recipients.length })
   } catch (err: any) {
