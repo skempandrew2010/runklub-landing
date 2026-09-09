@@ -7,6 +7,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Bell, Ruler, Activity, Pencil, Check, X, Trophy, Users, ShieldCheck, Zap, ExternalLink, ChevronRight, Home, ClipboardList, AlertTriangle } from "lucide-react"
 import { isNativeApp } from "@/utils/platform"
+import { openAuthenticatedWebLink } from "@/utils/openExternal"
 import { PLANS, PLAN_ORDER } from "@/lib/plans"
 import { getUserTierProgress, type TierProgress } from "@/lib/checkins"
 import { TIER_ICONS } from "@/components/TierCard"
@@ -477,7 +478,7 @@ export default function ProfilePage() {
                   <p className="text-sm text-white/50 mt-0.5">
                     @{username}{location && <span> · {location}</span>}
                   </p>
-                  <div className="flex gap-2 mt-3">
+                  <div className="flex flex-wrap gap-2 mt-3">
                     {ownsKlub && (
                       <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-[#c5f135]/10 text-[#c5f135] border border-[#c5f135]/30 flex items-center gap-1">
                         <Activity className="w-3 h-3" /> DIRECTOR
@@ -675,10 +676,16 @@ export default function ProfilePage() {
                 </div>
               ))}
               {nativeApp && (
-                <p className="px-4 py-3.5 text-xs text-white/40">
-                  Manage billing & subscriptions at{" "}
-                  <span className="text-[#c5f135] font-semibold">runklub.fit</span> on the web.
-                </p>
+                <button
+                  onClick={() => openAuthenticatedWebLink("/profile")}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-[#2e3d1a]/40 transition text-left"
+                >
+                  <ExternalLink className="w-4 h-4 text-[#c5f135] shrink-0" />
+                  <span className="flex-1 text-sm font-medium text-white/70">
+                    Manage billing at <span className="text-[#c5f135] font-semibold">runklub.fit</span>
+                  </span>
+                  <span className="text-[10px] font-bold text-white/30 shrink-0">Leaving app</span>
+                </button>
               )}
             </div>
           </div>
@@ -730,10 +737,16 @@ export default function ProfilePage() {
                 )
               })}
               {nativeApp ? (
-                <p className="px-4 py-3.5 text-xs text-white/40">
-                  Manage billing & subscriptions at{" "}
-                  <span className="text-[#c5f135] font-semibold">runklub.fit</span> on the web.
-                </p>
+                <button
+                  onClick={() => openAuthenticatedWebLink("/profile")}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-[#2e3d1a]/40 transition text-left"
+                >
+                  <ExternalLink className="w-4 h-4 text-[#c5f135] shrink-0" />
+                  <span className="flex-1 text-sm font-medium text-white/70">
+                    Manage billing at <span className="text-[#c5f135] font-semibold">runklub.fit</span>
+                  </span>
+                  <span className="text-[10px] font-bold text-white/30 shrink-0">Leaving app</span>
+                </button>
               ) : (
                 <button
                   onClick={openBillingPortal}
@@ -818,7 +831,16 @@ export default function ProfilePage() {
                       {billingStatusLabel(passportSub.current_period_end, passportSub.cancel_at_period_end)}
                     </p>
                   )}
-                  {!nativeApp && (
+                  {nativeApp ? (
+                    <button
+                      onClick={() => openAuthenticatedWebLink("/passport/credits")}
+                      className="mt-3 w-full flex items-center justify-center gap-2 text-xs font-black px-3 py-2.5 rounded-full bg-[#2e3d1a] text-[#c5f135] border border-[#3d5220] hover:bg-[#3d5220] transition"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      Manage billing at runklub.fit
+                      <span className="text-[9px] font-bold text-[#c5f135]/50">Leaving app</span>
+                    </button>
+                  ) : (
                     <button
                       onClick={managePassportBilling}
                       disabled={openingPassportPortal}
@@ -857,10 +879,14 @@ export default function ProfilePage() {
                   </div>
 
                   {nativeApp ? (
-                    <p className="mt-3 text-xs text-white/40">
-                      Subscribe to Passport Credits at{" "}
-                      <span className="text-[#c5f135] font-semibold">runklub.fit</span> on the web.
-                    </p>
+                    <button
+                      onClick={() => openAuthenticatedWebLink("/passport/credits")}
+                      className="mt-3 w-full flex items-center justify-center gap-2 text-xs font-black px-3 py-2.5 rounded-full bg-[#c5f135] text-[#1a2110] hover:bg-[#d4ff45] transition"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      Subscribe at runklub.fit
+                      <span className="text-[9px] font-bold text-[#1a2110]/50">Leaving app</span>
+                    </button>
                   ) : (
                     <>
                       <div className="mt-3 flex items-start gap-2 bg-[#c5f135]/10 border border-[#c5f135]/30 rounded-xl px-3 py-2.5">

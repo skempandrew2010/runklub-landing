@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { supabase } from "@/lib/supabase"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Eye, EyeOff, ArrowRight } from "lucide-react"
 import { isNativeApp } from "@/utils/platform"
 
@@ -34,6 +34,7 @@ function AppleIcon() {
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [mode, setMode] = useState<Mode>("splash")
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
@@ -44,8 +45,24 @@ export default function LoginPage() {
   const [resetSent, setResetSent] = useState(false)
   const [splashVisible, setSplashVisible] = useState(true)
 
+  // A failed native OAuth redirect (see OAuthDeepLinkListener) lands back
+  // here with the failure reason - skip the splash/landing flow entirely
+  // and put them straight in front of the error instead of a silent dead end.
+  useEffect(() => {
+    const oauthError = searchParams.get("oauth_error")
+    if (oauthError) {
+      setSplashVisible(false)
+      setMode("login")
+      setError(oauthError)
+    }
+  }, [searchParams])
+
   // Splash → then either redirect (logged in) or show landing
   useEffect(() => {
+    // A failed-OAuth landing already set mode/error above - don't let this
+    // effect's own timers stomp back over it a moment later.
+    if (searchParams.get("oauth_error")) return
+
     const t1 = setTimeout(() => setSplashVisible(false), 1200)
     let settled = false
     const showLanding = () => { if (!settled) { settled = true; setMode("landing") } }
@@ -76,7 +93,7 @@ export default function LoginPage() {
     const t3 = setTimeout(showLanding, 4500)
 
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3) }
-  }, [router])
+  }, [router, searchParams])
 
   const handleLogin = async () => {
     if (!email || !password) return

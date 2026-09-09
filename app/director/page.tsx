@@ -474,6 +474,26 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
     router.replace(`/director?${params.toString()}`, { scroll: false })
   }
   const [runPanel, setRunPanel] = useState<null | "create" | "create-weekly" | string>(null)
+  const [tabMenuOpen, setTabMenuOpen] = useState(false)
+  const tabMenuRef = useRef<HTMLDivElement>(null)
+
+  // A fixed-width side rail (like the old sidebar) eats too much of a
+  // narrow/native screen to leave room for actual content - this dropdown
+  // replaces it everywhere, not just on mobile, so there's one nav pattern
+  // instead of two to keep in sync.
+  useEffect(() => {
+    if (!tabMenuOpen) return
+    const onDown = (e: MouseEvent) => {
+      if (!tabMenuRef.current?.contains(e.target as Node)) setTabMenuOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setTabMenuOpen(false) }
+    document.addEventListener("mousedown", onDown)
+    document.addEventListener("keydown", onKey)
+    return () => {
+      document.removeEventListener("mousedown", onDown)
+      document.removeEventListener("keydown", onKey)
+    }
+  }, [tabMenuOpen])
   const [workoutLibraryVersion, setWorkoutLibraryVersion] = useState(0)
   const [myClubs, setMyClubs] = useState<ClubWithCount[]>([])
   const [selectedClubId, setSelectedClubId] = useState<string | null>(null)
@@ -1456,94 +1476,99 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
         </div>
       </header>
 
-      {/* Sidebar + Content */}
-      <div className="max-w-5xl mx-auto px-6 py-8 flex gap-8 items-start">
+      {/* Tab menu + Content */}
+      <div className="max-w-5xl mx-auto px-6 py-8">
 
-        {/* Sidebar */}
-        <aside className="w-44 shrink-0 sticky top-4">
-          <nav className="relative space-y-0.5">
-            {/* Sliding highlight - same mechanic as the coach view's tab
-                strip (a pill that glides to the active tab instead of the
-                background just popping in/out), adapted to a vertical list. */}
-            {runPanel === null && (() => {
-              const activeIndex = ALL_TABS.findIndex((t) => t.key === tab)
-              if (activeIndex < 0) return null
-              return (
-                <div
-                  className="absolute left-0 right-0 h-9 rounded-xl bg-[#c5f135]/10 transition-transform duration-300 ease-out pointer-events-none"
-                  style={{ transform: `translateY(${activeIndex * 38}px)` }}
-                />
-              )
-            })()}
-            {ALL_TABS.map((t) => {
-              const enabled = tabEnabled(t)
-              const active = tab === t.key && runPanel === null
-              return (
-                <button
-                  key={t.key}
-                  onClick={() => { changeTab(t.key); setRunPanel(null) }}
-                  className={`relative z-10 w-full h-9 text-left flex items-center justify-between gap-2 px-3 rounded-xl text-sm font-bold transition-colors duration-300
-                    ${active ? "text-[#c5f135]" : ""}
-                    ${enabled && !active ? "text-white hover:text-white hover:bg-[#2e3d1a]/50" : ""}
-                    ${!enabled ? "text-white/35" : ""}`}
-                >
-                  <span className="truncate">{t.label}</span>
-                  <div className="flex items-center gap-1 shrink-0">
-                    {t.key === "communicate" && hasUnread && !active && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#c5f135]" />
-                    )}
-                    {!enabled && <Lock className="w-2.5 h-2.5 opacity-40" />}
-                  </div>
-                </button>
-              )
-            })}
-          </nav>
+        {/* Tab dropdown - replaces the old fixed-width sidebar, which left
+            too little room for content on a narrow/native screen. */}
+        {runPanel === null && (
+          <div ref={tabMenuRef} className="relative mb-6 inline-block">
+            <button
+              onClick={() => setTabMenuOpen((o) => !o)}
+              className="flex items-center gap-2 pl-4 pr-3 py-2.5 rounded-xl bg-[#1e2d12] border border-[#2e3d1a] hover:border-[#3d5220] transition"
+            >
+              <span className="text-sm font-black text-[#c5f135]">
+                {ALL_TABS.find((t) => t.key === tab)?.label ?? "Setup"}
+              </span>
+              {hasUnread && tab !== "communicate" && (
+                <span className="w-1.5 h-1.5 rounded-full bg-[#c5f135]" />
+              )}
+              <ChevronDown className={`w-4 h-4 text-white/40 transition-transform ${tabMenuOpen ? "rotate-180" : ""}`} />
+            </button>
 
-          {/* Tier preview - admin mode only (append ?admin=1 to URL) */}
-          {isAdminMode && (() => {
-            const activeTier: PlanId = tier === "pro" ? "pro" : "free"
-            const plan = PLANS[activeTier]
-            return (
-              <div className="mt-4 pt-4 border-t border-[#2e3d1a]">
-                <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest px-3 mb-2">Preview tier</p>
-                <div className="space-y-0.5 mb-3">
-                  {(["free", "pro"] as const).map((t) => {
-                    const active = tier === t || (t === "free" && tier !== "pro")
-                    return (
-                      <button
-                        key={t}
-                        onClick={() => setTierOverride(t === (selectedClub.tier || "free") ? null : t)}
-                        className={`w-full text-left px-3 py-1.5 rounded-lg text-xs font-bold transition capitalize
-                          ${active ? "bg-[#c5f135]/10 text-[#c5f135]" : "text-white/30 hover:text-white/80 hover:bg-[#2e3d1a]/40"}`}
-                      >
-                        <span>{PLANS[t].name}</span>
-                        {active && <span className="ml-1 font-normal opacity-60">{tierOverride !== null ? "· preview" : "· live"}</span>}
-                      </button>
-                    )
-                  })}
-                </div>
-                <div className="mx-3 rounded-xl border border-[#2e3d1a] bg-[#141f0d] p-3">
-                  <div className="flex items-baseline justify-between gap-1 mb-2">
-                    <p className="text-xs font-black text-white capitalize">{plan.name}</p>
-                    <p className="text-xs font-bold text-[#c5f135]">{plan.price ? `$${plan.price.monthly}/mo` : "Free"}</p>
-                  </div>
-                  <ul className="space-y-1">
-                    {plan.features.map((f) => (
-                      <li key={f} className="flex items-start gap-1.5 text-[11px] text-white/80 leading-snug">
-                        <span className="text-[#c5f135] shrink-0 mt-px">✓</span>{f}
-                      </li>
-                    ))}
-                  </ul>
-                  {tierOverride !== null && (
-                    <button onClick={() => setTierOverride(null)} className="mt-2.5 text-[10px] text-white/25 hover:text-white/80 transition">
-                      ↩ back to live tier
+            {tabMenuOpen && (
+              <div className="absolute z-30 top-full left-0 mt-2 w-56 rounded-2xl bg-[#1e2d12] border border-[#2e3d1a] shadow-2xl overflow-hidden animate-[fadeUp_0.15s_ease-out_forwards]">
+                {ALL_TABS.map((t) => {
+                  const enabled = tabEnabled(t)
+                  const active = tab === t.key
+                  return (
+                    <button
+                      key={t.key}
+                      onClick={() => { changeTab(t.key); setRunPanel(null); setTabMenuOpen(false) }}
+                      className={`w-full h-11 text-left flex items-center justify-between gap-2 px-4 text-sm font-bold transition-colors
+                        ${active ? "bg-[#c5f135]/10 text-[#c5f135]" : ""}
+                        ${enabled && !active ? "text-white hover:bg-[#2e3d1a]/60" : ""}
+                        ${!enabled ? "text-white/35" : ""}`}
+                    >
+                      <span className="truncate">{t.label}</span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {t.key === "communicate" && hasUnread && !active && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#c5f135]" />
+                        )}
+                        {!enabled && <Lock className="w-2.5 h-2.5 opacity-40" />}
+                      </div>
                     </button>
-                  )}
-                </div>
+                  )
+                })}
+
+                {/* Tier preview - admin mode only (append ?admin=1 to URL) */}
+                {isAdminMode && (() => {
+                  const activeTier: PlanId = tier === "pro" ? "pro" : "free"
+                  const plan = PLANS[activeTier]
+                  return (
+                    <div className="border-t border-[#2e3d1a] p-3">
+                      <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest px-1 mb-2">Preview tier</p>
+                      <div className="space-y-0.5 mb-3">
+                        {(["free", "pro"] as const).map((t) => {
+                          const active = tier === t || (t === "free" && tier !== "pro")
+                          return (
+                            <button
+                              key={t}
+                              onClick={() => setTierOverride(t === (selectedClub.tier || "free") ? null : t)}
+                              className={`w-full text-left px-3 py-1.5 rounded-lg text-xs font-bold transition capitalize
+                                ${active ? "bg-[#c5f135]/10 text-[#c5f135]" : "text-white/30 hover:text-white/80 hover:bg-[#2e3d1a]/40"}`}
+                            >
+                              <span>{PLANS[t].name}</span>
+                              {active && <span className="ml-1 font-normal opacity-60">{tierOverride !== null ? "· preview" : "· live"}</span>}
+                            </button>
+                          )
+                        })}
+                      </div>
+                      <div className="rounded-xl border border-[#2e3d1a] bg-[#141f0d] p-3">
+                        <div className="flex items-baseline justify-between gap-1 mb-2">
+                          <p className="text-xs font-black text-white capitalize">{plan.name}</p>
+                          <p className="text-xs font-bold text-[#c5f135]">{plan.price ? `$${plan.price.monthly}/mo` : "Free"}</p>
+                        </div>
+                        <ul className="space-y-1">
+                          {plan.features.map((f) => (
+                            <li key={f} className="flex items-start gap-1.5 text-[11px] text-white/80 leading-snug">
+                              <span className="text-[#c5f135] shrink-0 mt-px">✓</span>{f}
+                            </li>
+                          ))}
+                        </ul>
+                        {tierOverride !== null && (
+                          <button onClick={() => setTierOverride(null)} className="mt-2.5 text-[10px] text-white/25 hover:text-white/80 transition">
+                            ↩ back to live tier
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })()}
               </div>
-            )
-          })()}
-        </aside>
+            )}
+          </div>
+        )}
 
         {/* Content - keyed on club+tab so switching either (top club switcher
             or the side tab nav) replays a smooth fade/slide-in instead of an
@@ -2617,7 +2642,7 @@ function ManagerView({ userId, initialTab }: { userId: string; initialTab: TabKe
           )}
 
         </div>{/* end content */}
-      </div>{/* end sidebar+content */}
+      </div>{/* end tab menu + content */}
 
       {/* Run chat pops up over the Communicate tab instead of replacing the
           whole dashboard - the tab underneath stays mounted so its scroll

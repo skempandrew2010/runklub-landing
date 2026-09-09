@@ -72,10 +72,18 @@ export default function BottomBar() {
         className="relative flex items-stretch h-[60px] mb-2 rounded-[28px] bg-[#1a2110]/55 backdrop-blur-2xl backdrop-saturate-150 border border-white/15 shadow-[0_1px_0_rgba(255,255,255,0.15)_inset,0_8px_30px_rgba(0,0,0,0.4)] pointer-events-auto"
       >
         {activeIndex >= 0 && (
+          // Outer element only handles the horizontal slide (full tab width,
+          // flex-centered) so the visible circle's own size/position can be
+          // tuned independently without fighting the slide math - it needs
+          // to sit over just the icon, not the icon+label block, since
+          // justify-center on each tab vertically centers that whole block
+          // and the icon alone sits above its middle.
           <div
-            className="absolute inset-y-2 rounded-[20px] bg-[#c5f135]/12 border border-[#c5f135]/25 transition-transform duration-400 ease-[cubic-bezier(0.22,1,0.36,1)]"
-            style={{ width: `calc(${100 / tabs.length}% - 8px)`, transform: `translateX(calc(${activeIndex * 100}% + 4px))` }}
-          />
+            className="absolute inset-y-0 flex items-start justify-center pointer-events-none transition-transform duration-400 ease-[cubic-bezier(0.22,1,0.36,1)]"
+            style={{ width: `${100 / tabs.length}%`, transform: `translateX(${activeIndex * 100}%)` }}
+          >
+            <div className="w-10 h-10 mt-0.5 rounded-full bg-[#c5f135]/12 border border-[#c5f135]/25" />
+          </div>
         )}
         {tabs.map((tab) => {
           const { key, href, label, Icon, badge } = tab

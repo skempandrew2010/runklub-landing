@@ -30,16 +30,46 @@ export default function OAuthDeepLinkListener() {
       const sub = await App.addListener("appUrlOpen", async ({ url }) => {
         if (!url.startsWith("fit.runklub.app://auth-callback")) return
 
-        const hash = url.includes("#") ? url.split("#")[1] : ""
-        const params = new URLSearchParams(hash)
-        const access_token = params.get("access_token")
-        const refresh_token = params.get("refresh_token")
+        // Supabase reports failures (redirect-URI mismatch, denied consent,
+        // etc.) through this same redirect, as #error=...&error_description=...
+        // instead of tokens - surfacing that beats silently doing nothing,
+        // which otherwise looks identical to a successful sign-in that just
+        // never returns.
+        const hashPart = url.includes("#") ? url.split("#")[1] : ""
+        const queryPart = url.includes("?") ? url.split("?")[1].split("#")[0] : ""
+        const hashParams = new URLSearchParams(hashPart)
+        const queryParams = new URLSearchParams(queryPart)
+
+        const oauthError = hashParams.get("error_description") || hashParams.get("error") || queryParams.get("error_description") || queryParams.get("error")
+        const access_token = hashParams.get("access_token")
+        const refresh_token = hashParams.get("refresh_token")
+        const code = queryParams.get("code") || hashParams.get("code")
 
         await Browser.close().catch(() => {})
 
-        if (access_token && refresh_token) {
-          await supabase.auth.setSession({ access_token, refresh_token })
+        if (oauthError) {
+          console.error("OAuth sign-in failed:", oauthError)
+          router.replace(`/login?oauth_error=${encodeURIComponent(oauthError)}`)
+          return
+        }
+
+        try {
+          if (access_token && refresh_token) {
+            await supabase.auth.setSession({ access_token, refresh_token })
+          } else if (code) {
+            // Falls back to PKCE-style exchange in case the flow type ever
+            // changes - the app currently runs implicit flow (hash tokens
+            // above), but this keeps the listener correct either way.
+            await supabase.auth.exchangeCodeForSession(code)
+          } else {
+            console.error("OAuth redirect had neither tokens nor an error:", url)
+            router.replace("/login?oauth_error=Sign-in%20didn't%20complete.%20Please%20try%20again.")
+            return
+          }
           router.replace("/auth/callback")
+        } catch (err) {
+          console.error("OAuth session exchange failed:", err)
+          router.replace("/login?oauth_error=Sign-in%20didn't%20complete.%20Please%20try%20again.")
         }
       })
       removeListener = () => { sub.remove() }

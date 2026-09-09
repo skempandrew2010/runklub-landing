@@ -73,11 +73,20 @@ export async function GET(req: NextRequest) {
         link: `/runs/${run.id}`,
       })
       if (notified) {
+        // The badge should reflect total unread, not just this send, so a
+        // string of reminders (or unread DMs sitting alongside them) don't
+        // under-count the app icon badge.
+        const { count: unreadCount } = await admin
+          .from("notifications")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", rsvp.user_id)
+          .is("read_at", null)
         await sendPushToUser(
           rsvp.user_id,
           "Run starting soon",
           `${run.title} starts in about an hour`,
-          `https://www.runklub.fit/runs/${run.id}`
+          `https://www.runklub.fit/runs/${run.id}`,
+          unreadCount ?? undefined
         )
       }
       await admin.from("rsvps").update({ reminder_sent_at: new Date().toISOString() }).eq("id", rsvp.id)
