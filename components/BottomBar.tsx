@@ -113,13 +113,16 @@ export default function BottomBar() {
           const { key, href, label, Icon, badge } = tab
           const sublabel = "sublabel" in tab ? tab.sublabel : undefined
           const active = isActive(href)
-          // The sublabel-carrying tab (flex-initial = "0 1 auto") grows to
-          // fit its content instead of clipping a long klub name, capped by
-          // the sublabel's own max-w-[45vw] so a pathological name can't
-          // blow out the bar; every other tab (flex-1) splits whatever
-          // space remains evenly, same as before. min-w-0 lets those shrink
-          // below their natural content width instead of overflowing.
-          const triggerClassName = `relative flex flex-col items-center justify-center gap-0.5 px-2 min-w-0 transition-colors ${sublabel ? "flex-initial" : "flex-1"}`
+          // The sublabel-carrying tab (flex-none = "0 0 auto") sizes to its
+          // content and never shrinks below it, so a long klub name always
+          // gets the room it needs - capped by the sublabel's own
+          // max-w-[45vw] so a pathological name can't blow out the bar.
+          // flex-initial (shrink allowed) looked right until the bar got
+          // tight, at which point this tab shrank along with the others and
+          // clipped the name the pill was supposed to fully cover. Every
+          // other tab stays flex-1 (grow+shrink) and min-w-0 so they're the
+          // ones that absorb the squeeze instead.
+          const triggerClassName = `relative flex flex-col items-center justify-center gap-0.5 px-2 min-w-0 transition-colors ${sublabel ? "flex-none" : "flex-1"}`
           const content = (
             <>
               <div className="relative">
