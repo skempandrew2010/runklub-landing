@@ -2,7 +2,8 @@
 
 import Link from "next/link"
 import { usePathname, useSearchParams } from "next/navigation"
-import { Compass, Trophy, UserCircle, Home, Stamp, BarChart3, PlusCircle } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
+import { Compass, Trophy, UserCircle, Home, Stamp, PlusCircle } from "lucide-react"
 import { useNavIdentity } from "@/hooks/useNavIdentity"
 import { useViewMode } from "@/hooks/useViewMode"
 import NavClubSwitcher from "@/components/NavClubSwitcher"
@@ -15,7 +16,7 @@ export default function BottomBar() {
   const { viewMode } = useViewMode(isManager || isCoach)
   const showDirectorTabs = (isManager || isCoach) && viewMode === "director"
   // Only prompt "Create a Klub" when there's truly nowhere else to go -
-  // someone who already coaches elsewhere gets Analytics/Coaches instead,
+  // someone who already coaches elsewhere gets Passport/Coaches instead,
   // even if they also hold the manager role with no klub of their own yet.
   const needsClub = showDirectorTabs && isManager && !hasClub && !isCoach
   // With just one klub relationship, "Director"/"Coaches" alone is
@@ -40,12 +41,13 @@ export default function BottomBar() {
           ? { key: "insights", href: "/submit-club", label: "Create a Klub", Icon: PlusCircle, badge: false }
           // Klub owners manage Passport payout enrollment here - a
           // separate, standalone page (own billing decision, not part of
-          // club management). Coaches without a klub of their own keep
-          // seeing Analytics instead, since they have no equivalent to
-          // /director's Analytics tab in their own CoachDashboard.
+          // club management). Coaches without a klub of their own see a
+          // read-only Passport-runs viewer instead (which of their runs are
+          // Passport events, and who's redeemed for each), also its own
+          // page rather than a CoachDashboard tab.
           : isManager && hasClub
             ? { key: "insights", href: "/director/passport", label: "Passport", Icon: Stamp, badge: false }
-            : { key: "insights", href: "/director/analytics", label: "Analytics", Icon: BarChart3, badge: false }]
+            : { key: "insights", href: "/director/coach-passport", label: "Passport", Icon: Stamp, badge: false }]
       : []),
     ...(showDirectorTabs
       ? [needsClub
@@ -60,37 +62,64 @@ export default function BottomBar() {
     // "/director" shares a prefix with its sibling standalone pages -
     // don't let the shorter Director tab light up while actually viewing
     // one of those.
-    if (href === "/director") return pathname === "/director" || (pathname.startsWith("/director/") && !pathname.startsWith("/director/analytics") && !pathname.startsWith("/director/passport"))
+    if (href === "/director") {
+      return pathname === "/director" || (
+        pathname.startsWith("/director/") &&
+        !pathname.startsWith("/director/analytics") &&
+        !pathname.startsWith("/director/passport") &&
+        !pathname.startsWith("/director/coach-passport")
+      )
+    }
     return pathname.startsWith(href)
   }
 
   const activeIndex = tabs.findIndex((t) => isActive(t.href))
+  const activeKey = activeIndex >= 0 ? tabs[activeIndex].key : null
+
+  // Tabs are equal-width by default, except the one carrying a club-name
+  // sublabel (the Director/Coaches tab, when coaching/owning more than one
+  // klub) - that one sizes to its actual text instead of clipping a long
+  // klub name, with the rest sharing whatever width remains. The active
+  // highlight can't rely on fixed percentage math once widths vary, so it's
+  // measured from the real DOM instead (same mechanic as the desktop navBar).
+  const containerRef = useRef<HTMLDivElement>(null)
+  const tabRefs = useRef<Map<string, HTMLElement>>(new Map())
+  const [pill, setPill] = useState<{ left: number; width: number } | null>(null)
+
+  useEffect(() => {
+    const measure = () => {
+      const el = activeKey ? tabRefs.current.get(activeKey) : null
+      setPill(el ? { left: el.offsetLeft + 5, width: el.offsetWidth - 10 } : null)
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    if (containerRef.current) ro.observe(containerRef.current)
+    return () => ro.disconnect()
+  }, [activeKey, directorSublabel])
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 px-3 mb-safe pointer-events-none">
       <div
+        ref={containerRef}
         className="relative flex items-stretch h-[60px] mb-2 rounded-[28px] bg-[#1a2110]/55 backdrop-blur-2xl backdrop-saturate-150 border border-white/15 shadow-[0_1px_0_rgba(255,255,255,0.15)_inset,0_8px_30px_rgba(0,0,0,0.4)] pointer-events-auto"
       >
-        {activeIndex >= 0 && (
-          // Outer element only handles the horizontal slide (full tab width,
-          // flex-centered) so the visible pill's own size/position can be
-          // tuned independently without fighting the slide math. Sized to
-          // wrap the icon+label block together, not just the icon - that
-          // block sits centered as a unit within the tab (justify-center),
-          // so the pill is positioned to match its actual footprint rather
-          // than the tab's raw height.
+        {pill && (
           <div
-            className="absolute inset-y-0 flex items-start justify-center pointer-events-none transition-transform duration-400 ease-[cubic-bezier(0.22,1,0.36,1)]"
-            style={{ width: `${100 / tabs.length}%`, transform: `translateX(${activeIndex * 100}%)` }}
-          >
-            <div className="w-[calc(100%-10px)] h-12 mt-[7px] rounded-[22px] bg-[#c5f135]/12 border border-[#c5f135]/25" />
-          </div>
+            className="absolute h-12 top-[7px] rounded-[22px] bg-[#c5f135]/12 border border-[#c5f135]/25 pointer-events-none transition-[left,width] duration-300 ease-out"
+            style={{ left: pill.left, width: pill.width }}
+          />
         )}
         {tabs.map((tab) => {
           const { key, href, label, Icon, badge } = tab
           const sublabel = "sublabel" in tab ? tab.sublabel : undefined
           const active = isActive(href)
-          const triggerClassName = "relative flex-1 flex flex-col items-center justify-center gap-0.5 px-1 transition-colors"
+          // The sublabel-carrying tab (flex-initial = "0 1 auto") grows to
+          // fit its content instead of clipping a long klub name, capped by
+          // the sublabel's own max-w-[45vw] so a pathological name can't
+          // blow out the bar; every other tab (flex-1) splits whatever
+          // space remains evenly, same as before. min-w-0 lets those shrink
+          // below their natural content width instead of overflowing.
+          const triggerClassName = `relative flex flex-col items-center justify-center gap-0.5 px-2 min-w-0 transition-colors ${sublabel ? "flex-initial" : "flex-1"}`
           const content = (
             <>
               <div className="relative">
@@ -102,11 +131,11 @@ export default function BottomBar() {
                   <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-[#c5f135] ring-2 ring-[#1a2110]" />
                 )}
               </div>
-              <span className={`text-[10px] font-semibold tracking-wide leading-tight transition-colors ${active ? "text-[#c5f135]" : "text-white/40"}`}>
+              <span className={`text-[10px] font-semibold tracking-wide leading-tight whitespace-nowrap transition-colors ${active ? "text-[#c5f135]" : "text-white/40"}`}>
                 {label}
               </span>
               {sublabel && (
-                <span className={`text-[8px] leading-tight truncate max-w-full transition-colors ${active ? "text-[#c5f135]/60" : "text-white/25"}`}>
+                <span className={`text-[8px] leading-tight whitespace-nowrap overflow-hidden text-ellipsis max-w-[45vw] transition-colors ${active ? "text-[#c5f135]/60" : "text-white/25"}`}>
                   {sublabel}
                 </span>
               )}
@@ -121,6 +150,7 @@ export default function BottomBar() {
                 activeClubId={activeClubId}
                 openUp
                 triggerClassName={triggerClassName}
+                registerRef={(el) => { if (el) tabRefs.current.set(key, el); else tabRefs.current.delete(key) }}
               >
                 {content}
               </NavClubSwitcher>
@@ -128,7 +158,12 @@ export default function BottomBar() {
           }
 
           return (
-            <Link key={key} href={href} className={triggerClassName}>
+            <Link
+              key={key}
+              href={href}
+              ref={(el) => { if (el) tabRefs.current.set(key, el); else tabRefs.current.delete(key) }}
+              className={triggerClassName}
+            >
               {content}
             </Link>
           )

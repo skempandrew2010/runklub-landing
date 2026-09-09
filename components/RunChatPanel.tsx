@@ -289,7 +289,9 @@ export default function RunChatPanel({
           placeholder={dm ? `Message ${dm.name}…` : target.type === "run" ? "Ask about this run…" : "Message the klub…"}
           maxLength={500}
           rows={1}
-          className="flex-1 bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl px-4 py-3 text-white text-sm placeholder-white/25 focus:outline-none focus:border-[#c5f135]/50 resize-none transition"
+          // text-base (16px), not text-sm - iOS auto-zooms the whole page on
+          // focus for any input under 16px, which is what was happening here.
+          className="flex-1 bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl px-4 py-3 text-white text-base placeholder-white/25 focus:outline-none focus:border-[#c5f135]/50 resize-none transition"
           style={{ maxHeight: "120px" }}
         />
         <button

@@ -50,12 +50,13 @@ type DashboardData = {
   }
 }
 
-export type CoachTabKey = "members" | "communicate" | "schedule"
+export type CoachTabKey = "members" | "communicate" | "schedule" | "analytics"
 type TabKey = CoachTabKey
 const TABS: { key: TabKey; label: string }[] = [
   { key: "members", label: "Members" },
   { key: "communicate", label: "Communicate" },
   { key: "schedule", label: "Schedule" },
+  { key: "analytics", label: "Analytics" },
 ]
 
 function SectionHeader({ title, sub }: { title: string; sub?: string }) {
@@ -87,11 +88,14 @@ function initialsOf(name: string) {
 /**
  * The limited "Coach" view of /director - rendered instead of the full
  * ManagerView when the signed-in user doesn't own the klub but is an active
- * coach for one. Deliberately narrower than the director's tab set: just
- * Members (roster + check-in, scoped to their pace group/branch),
- * Communicate (klub chat + DM the director), and a read-only multi-week
- * Schedule. No analytics here - that's its own Analytics tab - and no
- * editing the training plan.
+ * coach for one. Deliberately narrower than the director's tab set: Members
+ * (roster + check-in, scoped to their pace group/branch), Communicate (klub
+ * chat + DM the director), a read-only multi-week Schedule, and Analytics
+ * (their own roster/retention/show-up numbers, same scope as Members - no
+ * revenue/payment data, that stays director-only). No editing the training
+ * plan. Passport (which runs in their scope are Passport events, and who's
+ * redeeming) lives at its own /director/coach-passport tab instead, same
+ * split as the director's own Passport enrollment page.
  */
 export default function CoachDashboard({ userId, clubId, initialTab }: { userId: string; clubId?: string; initialTab?: TabKey }) {
   const [tab, setTab] = useState<TabKey>(initialTab ?? "members")
@@ -349,6 +353,62 @@ export default function CoachDashboard({ userId, clubId, initialTab }: { userId:
             <SectionHeader title="Training Schedule" sub="Same view as your director - you just can't edit it" />
             <WeeklyScheduleTab clubId={data.clubId} paceGroupIds={data.paceGroups.map((pg) => pg.id)} readOnly />
           </section>
+        )}
+
+        {/* ── ANALYTICS ── */}
+        {tab === "analytics" && (
+          <div key="analytics" className="space-y-6 animate-[fadeUp_0.2s_ease-out_forwards]">
+            <section>
+              <SectionHeader title="Your Roster" />
+              <div className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-5 grid grid-cols-2 gap-3">
+                <div className="text-center">
+                  <p className="text-xl font-black text-white">{data.analytics.rosterSize}</p>
+                  <p className="text-[10px] text-white/40 uppercase tracking-widest mt-1">Total in scope</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xl font-black text-[#c5f135]">{data.analytics.retention.active}</p>
+                  <p className="text-[10px] text-white/40 uppercase tracking-widest mt-1">Active (≤30d)</p>
+                </div>
+              </div>
+            </section>
+
+            <section>
+              <SectionHeader title="Show-Up Rate" sub="Runs in the last 30 days, your pace group(s) only" />
+              <div className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-5 grid grid-cols-3 gap-3">
+                <div className="text-center">
+                  <p className="text-lg font-black text-white">{data.analytics.showUp.totalRsvps}</p>
+                  <p className="text-[9px] text-white/40 uppercase tracking-widest mt-0.5">RSVPs</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-lg font-black text-white">{data.analytics.showUp.totalCheckins}</p>
+                  <p className="text-[9px] text-white/40 uppercase tracking-widest mt-0.5">Check-ins</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-lg font-black text-[#c5f135]">
+                    {data.analytics.showUp.rate !== null ? `${Math.round(data.analytics.showUp.rate * 100)}%` : "—"}
+                  </p>
+                  <p className="text-[9px] text-white/40 uppercase tracking-widest mt-0.5">Rate</p>
+                </div>
+              </div>
+            </section>
+
+            {data.paceGroups.length > 0 && (
+              <section>
+                <SectionHeader title="Pace Groups" />
+                <div className="bg-[#1e2d12] border border-[#2e3d1a] rounded-2xl p-5 flex flex-wrap gap-2">
+                  {data.paceGroups.map((pg) => (
+                    <span key={pg.id} className="text-xs font-semibold px-3 py-1.5 rounded-full bg-[#1a2110] border border-[#2e3d1a] text-white/70">
+                      {pg.name}
+                    </span>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            <p className="text-xs text-white/25 text-center px-2">
+              Membership payments and klub revenue aren&apos;t shown here — that&apos;s director-only.
+            </p>
+          </div>
         )}
 
       </div>

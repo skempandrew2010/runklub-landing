@@ -5,7 +5,6 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { CalendarCheck, MapPin, Crown, DollarSign, PartyPopper, TrendingDown, Mail, Users } from "lucide-react"
 import { supabase } from "@/lib/supabase"
-import CoachAnalyticsView from "@/components/CoachAnalyticsView"
 import KlubContextPicker from "@/components/KlubContextPicker"
 import { Select } from "@/components/Select"
 
@@ -86,7 +85,6 @@ export default function DirectorAnalyticsPage() {
   const [dataLoading, setDataLoading] = useState(false)
   const [error, setError] = useState("")
   const [mode, setMode] = useState<"director" | "coach" | null>(null)
-  const [userId, setUserId] = useState<string | null>(null)
   const [hasDirectorClub, setHasDirectorClub] = useState(false)
   const [isCoachReal, setIsCoachReal] = useState(false)
   const [directorClubName, setDirectorClubName] = useState<string | null>(null)
@@ -96,7 +94,6 @@ export default function DirectorAnalyticsPage() {
     const load = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push("/login"); return }
-      setUserId(user.id)
       const [{ data: prof }, { data: myClubs }, { data: coachRows }] = await Promise.all([
         supabase.from("profiles").select("role").eq("id", user.id).single(),
         supabase.from("clubs").select("id, name").eq("user_id", user.id).order("name"),
@@ -159,6 +156,14 @@ export default function DirectorAnalyticsPage() {
     load()
   }, [selectedClubId])
 
+  // Coach analytics moved into the Coach Dashboard's own Analytics tab
+  // (mirrors how a director's analytics lives inside their own dashboard,
+  // not a separate top-level page) - bounce anyone who lands here as a coach
+  // (fresh load, deep link, or the dual-role picker) straight there.
+  useEffect(() => {
+    if (mode === "coach") router.replace("/director?tab=analytics")
+  }, [mode, router])
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#1a2110] flex items-center justify-center">
@@ -197,10 +202,9 @@ export default function DirectorAnalyticsPage() {
 
   if (mode === "coach") {
     return (
-      <>
-        {switchLink}
-        <CoachAnalyticsView userId={userId!} />
-      </>
+      <div className="min-h-screen bg-[#1a2110] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-[#c5f135]/30 border-t-[#c5f135] rounded-full animate-spin" />
+      </div>
     )
   }
 

@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname, useSearchParams } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
-import { Compass, Trophy, UserCircle, Home, Stamp, Flame, BarChart3, PlusCircle } from "lucide-react"
+import { Compass, Trophy, UserCircle, Home, Stamp, Flame, PlusCircle } from "lucide-react"
 import { useNavIdentity } from "@/hooks/useNavIdentity"
 import { useViewMode } from "@/hooks/useViewMode"
 import NavClubSwitcher from "@/components/NavClubSwitcher"
@@ -43,12 +43,12 @@ export default function Navbar() {
           ? { key: "insights", href: "/submit-club", label: "Create a Klub", Icon: PlusCircle, badge: false }
           // Klub owners manage Passport payout enrollment here - a
           // separate, standalone page (own billing decision, not part of
-          // club management). Coaches without a klub of their own keep
-          // seeing Analytics instead, since they have no equivalent to
-          // /director's Analytics tab in their own CoachDashboard.
+          // club management). Coaches without a klub of their own see a
+          // read-only Passport-runs viewer instead (which of their runs are
+          // Passport events, and who's redeemed for each).
           : isManager && hasClub
             ? { key: "insights", href: "/director/passport", label: "Passport", Icon: Stamp, badge: false }
-            : { key: "insights", href: "/director/analytics", label: "Analytics", Icon: BarChart3, badge: false }]
+            : { key: "insights", href: "/director/coach-passport", label: "Passport", Icon: Stamp, badge: false }]
       : [{ key: "missions", href: "/challenges", label: "Missions", Icon: Flame, badge: false }]),
     ...(showDirectorTabs
       ? [needsClub
@@ -62,7 +62,14 @@ export default function Navbar() {
     // "/director" shares a prefix with its sibling standalone pages -
     // don't let the shorter Director tab light up while actually viewing
     // one of those.
-    if (href === "/director") return pathname === "/director" || (pathname.startsWith("/director/") && !pathname.startsWith("/director/analytics") && !pathname.startsWith("/director/passport"))
+    if (href === "/director") {
+      return pathname === "/director" || (
+        pathname.startsWith("/director/") &&
+        !pathname.startsWith("/director/analytics") &&
+        !pathname.startsWith("/director/passport") &&
+        !pathname.startsWith("/director/coach-passport")
+      )
+    }
     return pathname.startsWith(href)
   }
 

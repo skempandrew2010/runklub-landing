@@ -2765,7 +2765,7 @@ function DirectorPageInner() {
   if (context === "coach") {
     const requestedClubId = searchParams.get("club_id") ?? undefined
     const requestedCoachTab = searchParams.get("tab")
-    const coachTabs: CoachTabKey[] = ["members", "communicate", "schedule"]
+    const coachTabs: CoachTabKey[] = ["members", "communicate", "schedule", "analytics"]
     const initialCoachTab = coachTabs.includes(requestedCoachTab as CoachTabKey) ? (requestedCoachTab as CoachTabKey) : undefined
     return (
       <>
