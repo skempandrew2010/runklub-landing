@@ -8,9 +8,12 @@ import HubContent from "@/components/HubContent"
 import DirectorHomeContent from "@/components/DirectorHomeContent"
 import CoachHomeSummary from "@/components/CoachHomeSummary"
 import FadeIn from "@/components/FadeIn"
+import NotificationBell from "@/components/NotificationBell"
+import ModalPortal from "@/components/ModalPortal"
 import { useNavIdentity } from "@/hooks/useNavIdentity"
 import { useViewMode } from "@/hooks/useViewMode"
 import { setLastMainTab } from "@/utils/lastMainTab"
+import { isNativeApp } from "@/utils/platform"
 
 // Supabase persists the session in localStorage under a project-scoped key
 // (sb-<project-ref>-auth-token) before the SDK ever makes an async call --
@@ -34,6 +37,9 @@ export default function RootPage() {
   const { user, role, loaded: identityLoaded, isCoach, hasClub } = useNavIdentity()
   const isManager = role === "manager"
   const { viewMode } = useViewMode(isManager || isCoach)
+  const [nativeApp, setNativeApp] = useState(false)
+
+  useEffect(() => { setNativeApp(isNativeApp()) }, [])
 
   useEffect(() => {
     const hash = window.location.hash
@@ -68,10 +74,31 @@ export default function RootPage() {
     // Prefer whichever role actually has something to show - role=manager
     // with no klub of their own yet, who's also an active coach elsewhere,
     // should land on their real coach summary, not an empty "no klub" page.
-    if (isManager && hasClub && viewMode === "director") return <DirectorHomeContent userId={user.id} />
-    if (isCoach && viewMode === "director") return <CoachHomeSummary userId={user.id} />
-    if (isManager && viewMode === "director") return <DirectorHomeContent userId={user.id} />
-    return <HubContent />
+    const content =
+      isManager && hasClub && viewMode === "director" ? <DirectorHomeContent userId={user.id} />
+      : isCoach && viewMode === "director" ? <CoachHomeSummary userId={user.id} />
+      : isManager && viewMode === "director" ? <DirectorHomeContent userId={user.id} />
+      : <HubContent />
+
+    return (
+      <>
+        {/* Native has no top NavBar (that's where this lives on web), so it
+            floats here instead - portaled to escape the page shell's
+            enter-animation transform, same reason every other fixed-position
+            overlay in the app goes through ModalPortal. */}
+        {nativeApp && (
+          <ModalPortal>
+            <div
+              className="fixed right-4 z-40 flex items-center justify-center w-10 h-10 rounded-full bg-[#1a2110]/70 backdrop-blur-xl border border-white/15"
+              style={{ top: "calc(env(safe-area-inset-top, 0px) + 10px)" }}
+            >
+              <NotificationBell userId={user.id} className="w-full h-full rounded-full" />
+            </div>
+          </ModalPortal>
+        )}
+        {content}
+      </>
+    )
   }
 
   return (
