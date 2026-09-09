@@ -341,15 +341,20 @@ export default function ClubPageClient({
     if (!error) {
       setJoinRequestStatus("pending")
       if (club.user_id) {
-        const { data: requester } = await supabase.from("profiles").select("display_name, avatar_url").eq("id", userId).single()
-        await supabase.from("notifications").insert({
-          user_id: club.user_id,
-          type: "join_request",
-          title: `${requester?.display_name || "Someone"} wants to join ${club.name}`,
-          link: `/director?tab=members`,
-          club_id: club.id,
-          avatar_url: requester?.avatar_url ?? null,
-        })
+        const [{ data: requester }, { data: director }] = await Promise.all([
+          supabase.from("profiles").select("display_name, avatar_url").eq("id", userId).single(),
+          supabase.from("profiles").select("notifications_enabled").eq("id", club.user_id).maybeSingle(),
+        ])
+        if (director?.notifications_enabled !== false) {
+          await supabase.from("notifications").insert({
+            user_id: club.user_id,
+            type: "join_request",
+            title: `${requester?.display_name || "Someone"} wants to join ${club.name}`,
+            link: `/director?tab=members`,
+            club_id: club.id,
+            avatar_url: requester?.avatar_url ?? null,
+          })
+        }
       }
     }
   }

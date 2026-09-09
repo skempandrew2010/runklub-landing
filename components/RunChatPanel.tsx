@@ -123,16 +123,21 @@ export default function RunChatPanel({
       message: text,
     })
     if (dm) {
-      const { data: sender } = await supabase.from("profiles").select("display_name, avatar_url").eq("id", userId).single()
-      await supabase.from("notifications").insert({
-        user_id: dm.userId,
-        type: "dm",
-        title: `New message from ${sender?.display_name || "a runner"}`,
-        body: text.slice(0, 140),
-        link: target.type === "run" ? `/runs/${target.id}?dm=${userId}` : `/clubs/${target.id}?dm=${userId}`,
-        club_id: target.type === "club" ? target.id : null,
-        avatar_url: sender?.avatar_url ?? null,
-      })
+      const [{ data: sender }, { data: recipient }] = await Promise.all([
+        supabase.from("profiles").select("display_name, avatar_url").eq("id", userId).single(),
+        supabase.from("profiles").select("notifications_enabled").eq("id", dm.userId).maybeSingle(),
+      ])
+      if (recipient?.notifications_enabled !== false) {
+        await supabase.from("notifications").insert({
+          user_id: dm.userId,
+          type: "dm",
+          title: `New message from ${sender?.display_name || "a runner"}`,
+          body: text.slice(0, 140),
+          link: target.type === "run" ? `/runs/${target.id}?dm=${userId}` : `/clubs/${target.id}?dm=${userId}`,
+          club_id: target.type === "club" ? target.id : null,
+          avatar_url: sender?.avatar_url ?? null,
+        })
+      }
     }
     setSending(false)
     inputRef.current?.focus()

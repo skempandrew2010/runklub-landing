@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js"
 import { NextRequest, NextResponse } from "next/server"
+import { notifyUser } from "@/lib/server/notify"
 
 function getAdminSupabase() {
   return createClient(
@@ -81,13 +82,13 @@ export async function POST(req: NextRequest) {
 
     const { data: club } = await adminSupabase.from("clubs").select("name, user_id").eq("id", invite.club_id).single()
     if (club) {
-      await adminSupabase.from("notifications").insert({
-        user_id: club.user_id,
+      await notifyUser(adminSupabase, {
+        userId: club.user_id,
         type: "coach_invite_accepted",
         title: `${coachName} accepted your coach invite for ${club.name}`,
         link: "/director?tab=members",
-        club_id: invite.club_id,
-        avatar_url: profile?.avatar_url ?? null,
+        clubId: invite.club_id,
+        avatarUrl: profile?.avatar_url ?? null,
       })
     }
 

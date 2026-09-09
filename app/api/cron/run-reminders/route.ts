@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js"
 import { NextRequest, NextResponse } from "next/server"
 import { runStartInstant } from "@/lib/timezone"
 import { sendPushToUser } from "@/lib/server/onesignal"
+import { notifyUser } from "@/lib/server/notify"
 
 const REMINDER_WINDOW_MIN_MS = 50 * 60_000
 const REMINDER_WINDOW_MAX_MS = 70 * 60_000
@@ -64,19 +65,21 @@ export async function GET(req: NextRequest) {
     if (!run) continue
 
     try {
-      await sendPushToUser(
-        rsvp.user_id,
-        "Run starting soon",
-        `${run.title} starts in about an hour`,
-        `https://www.runklub.fit/runs/${run.id}`
-      )
-      await admin.from("notifications").insert({
-        user_id: rsvp.user_id,
+      const notified = await notifyUser(admin, {
+        userId: rsvp.user_id,
         type: "run_reminder",
         title: "Run starting soon",
         body: `${run.title} starts in about an hour`,
         link: `/runs/${run.id}`,
       })
+      if (notified) {
+        await sendPushToUser(
+          rsvp.user_id,
+          "Run starting soon",
+          `${run.title} starts in about an hour`,
+          `https://www.runklub.fit/runs/${run.id}`
+        )
+      }
       await admin.from("rsvps").update({ reminder_sent_at: new Date().toISOString() }).eq("id", rsvp.id)
       sent++
     } catch (err) {
