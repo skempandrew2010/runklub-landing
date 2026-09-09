@@ -2,6 +2,23 @@ import type { MouseEvent } from "react"
 import { isNativeApp } from "@/utils/platform"
 import { supabase } from "@/lib/supabase"
 
+// window.open() inside a Capacitor WKWebView doesn't reliably hand off to
+// the system browser - without a WKUIDelegate wired up for it, iOS can
+// throw "Safari cannot open the page because the address is invalid"
+// instead of actually leaving the app. A real <a> element click routes
+// through WKWebView's navigation delegate instead, which does hand off
+// correctly, so every "leave the app" path here uses this instead of a
+// bare window.open() call.
+function navigateTo(url: string) {
+  const a = document.createElement("a")
+  a.href = url
+  a.target = "_blank"
+  a.rel = "noopener noreferrer"
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+}
+
 export async function openExternal(url: string) {
   if (isNativeApp()) {
     try {
@@ -10,7 +27,7 @@ export async function openExternal(url: string) {
       return
     } catch { /* fall through to web behavior */ }
   }
-  window.open(url, "_blank", "noopener,noreferrer")
+  navigateTo(url)
 }
 
 // For real <a> elements: only intercept the click natively (routing through
@@ -33,7 +50,7 @@ export function interceptExternalClick(e: MouseEvent, url: string) {
 // link rules. Falls back to a plain (signed-out) link if anything fails,
 // rather than leaving the button dead.
 export async function openAuthenticatedWebLink(redirectPath: string) {
-  const fallback = () => window.open(`https://www.runklub.fit${redirectPath}`, "_blank", "noopener,noreferrer")
+  const fallback = () => navigateTo(`https://www.runklub.fit${redirectPath}`)
   try {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) { fallback(); return }
@@ -43,7 +60,7 @@ export async function openAuthenticatedWebLink(redirectPath: string) {
       body: JSON.stringify({ redirect: redirectPath }),
     })
     const data = await res.json()
-    if (res.ok && data.url) window.open(data.url, "_blank", "noopener,noreferrer")
+    if (res.ok && data.url) navigateTo(data.url)
     else fallback()
   } catch {
     fallback()
