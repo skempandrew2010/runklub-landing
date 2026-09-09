@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Eye, EyeOff, ArrowRight } from "lucide-react"
 import { isNativeApp } from "@/utils/platform"
+import { logHandoff } from "@/utils/openExternal"
 
 type Mode = "splash" | "landing" | "login" | "signup" | "forgot"
 
@@ -176,10 +177,26 @@ function LoginPageInner() {
         provider,
         options: { redirectTo: NATIVE_OAUTH_REDIRECT, skipBrowserRedirect: true },
       })
-      if (error) { setError(error.message); return }
+      if (error) {
+        logHandoff("oauth-signin-error", { provider, error: error.message })
+        setError(error.message)
+        return
+      }
       if (data?.url) {
-        const { Browser } = await import("@capacitor/browser")
-        await Browser.open({ url: data.url })
+        // "Safari cannot open the page because the address is invalid" has
+        // been reported here even on a fresh native build - couldn't repro
+        // or inspect it directly (no device/Web Inspector available), so
+        // logging the exact URL and outcome to surface in Vercel's logs on
+        // the next real occurrence instead of guessing further.
+        logHandoff("oauth-browser-open-attempt", { provider, targetUrl: data.url })
+        try {
+          const { Browser } = await import("@capacitor/browser")
+          await Browser.open({ url: data.url })
+        } catch (err) {
+          logHandoff("oauth-browser-open-threw", { provider, targetUrl: data.url, error: String(err) })
+        }
+      } else {
+        logHandoff("oauth-no-url", { provider })
       }
       return
     }
